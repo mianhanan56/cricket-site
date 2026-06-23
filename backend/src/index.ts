@@ -66,8 +66,10 @@ const httpServer = createServer(app);
 initSocket(httpServer, CLIENT_ORIGIN, PORT);
 startSyncJob();
 
-httpServer.listen(PORT, () => {
-  console.log(`[server] API listening on http://localhost:${PORT}`);
+// Bind to 0.0.0.0 so Railway (and other container hosts) can route to the
+// service; PORT is injected by the platform at runtime.
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`[server] API listening on port ${PORT}`);
 });
 
 export { app };
