@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { MatchFormat } from '@crex/shared';
+import type { MatchFormat } from '../shared/types';
 import { prisma } from '../lib/prisma';
 import { cache } from '../middleware/cache';
 

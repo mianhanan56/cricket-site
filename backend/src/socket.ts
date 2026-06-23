@@ -6,7 +6,7 @@ import type {
   ScoreUpdatePayload,
   BallDeliveredPayload,
   WicketFallPayload,
-} from '@crex/shared';
+} from './shared/types';
 import { prisma } from './lib/prisma';
 
 // ---------------------------------------------------------------------------
