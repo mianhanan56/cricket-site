@@ -1,0 +1,94 @@
+// CREX Clone — Prisma schema
+// Run `npm run prisma:generate` after editing.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Team {
+  id          String  @id @default(cuid())
+  name        String
+  shortName   String
+  country     String
+  logo        String?
+  matches     Match[] @relation("HomeTeam")
+  awayMatches Match[] @relation("AwayTeam")
+}
+
+model Match {
+  id         String   @id @default(cuid())
+  externalId String?  @unique // CricAPI match id (null for locally-seeded matches)
+  homeTeam   Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  homeTeamId String
+  awayTeam   Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  awayTeamId String
+  series     Series   @relation(fields: [seriesId], references: [id])
+  seriesId   String
+  format     String // TEST, ODI, T20
+  status     String // LIVE, UPCOMING, COMPLETED
+  venue      String
+  startTime  DateTime
+  result     String?
+  scorecard  Json?
+  createdAt  DateTime @default(now())
+
+  @@index([status])
+  @@index([startTime])
+  @@index([seriesId])
+}
+
+model Series {
+  id        String   @id @default(cuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  format    String
+  matches   Match[]
+}
+
+model Player {
+  id           String  @id @default(cuid())
+  name         String
+  country      String
+  role         String // BATSMAN, BOWLER, ALL_ROUNDER, WK
+  battingStyle String?
+  bowlingStyle String?
+  photo        String?
+  stats        Json?
+
+  @@index([country])
+  @@index([role])
+}
+
+model Ranking {
+  id         String   @id @default(cuid())
+  playerName String
+  country    String
+  role       String // BATTING, BOWLING, ALLROUNDER
+  gender     String // MEN, WOMEN
+  points     Int
+  rating     Int
+  position   Int
+  updatedAt  DateTime @updatedAt
+
+  @@index([role, gender, position])
+}
+
+model NewsArticle {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String
+  excerpt     String
+  thumbnail   String?
+  author      String
+  publishedAt DateTime @default(now())
+  tags        String[]
+
+  @@index([publishedAt])
+}

@@ -1,0 +1,72 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.page {
+  @include container;
+  padding-block: $space-5 $space-8;
+}
+
+.heading {
+  font-size: 30px;
+  margin-bottom: $space-4;
+}
+
+.input {
+  width: 100%;
+  padding: $space-3 $space-4;
+  border-radius: $radius-md;
+  background: $secondary;
+  border: 1px solid $card-border;
+  color: $text-primary;
+  font-size: 16px;
+  outline: none;
+  margin-bottom: $space-5;
+
+  &:focus {
+    border-color: $accent;
+  }
+}
+
+.hint {
+  color: $text-muted;
+  font-size: 14px;
+}
+
+.section {
+  margin-bottom: $space-5;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  margin-bottom: $space-3;
+  padding-left: $space-2;
+  border-left: 3px solid $accent;
+}
+
+.list {
+  @include card;
+  display: flex;
+  flex-direction: column;
+  padding: $space-1;
+}
+
+.item {
+  @include flex-between;
+  gap: $space-3;
+  padding: $space-3;
+  border-radius: $radius-sm;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $card-border;
+  }
+
+  &:hover {
+    background: $card-hover;
+  }
+}
+
+.sub {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: $text-muted;
+}

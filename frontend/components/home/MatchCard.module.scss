@@ -1,0 +1,77 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.card {
+  @include card;
+  @include card-hover;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  padding: $space-3;
+}
+
+.header {
+  @include flex-between;
+}
+
+.format {
+  font-size: 12px;
+  font-weight: 600;
+  color: $accent;
+  letter-spacing: 0.05em;
+}
+
+.status {
+  font-size: 11px;
+  font-weight: 600;
+  color: $text-muted;
+  letter-spacing: 0.05em;
+}
+
+.live {
+  @include live-pulse;
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: $live-color;
+  background: $live-bg;
+  padding: 2px $space-2;
+  border-radius: $radius-sm;
+}
+
+.series {
+  @include truncate(1);
+  font-size: 13px;
+  color: $text-secondary;
+}
+
+.teams {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.team {
+  @include flex-between;
+}
+
+.teamName {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.score {
+  @include score-number;
+  font-size: 16px;
+  color: $accent-green;
+}
+
+.footer {
+  @include truncate(1);
+  font-size: 12px;
+  color: $text-muted;
+  padding-top: $space-2;
+  border-top: 1px solid $card-border;
+}

@@ -1,0 +1,58 @@
+// ============================================================================
+// Global styles — loaded once in app/layout.tsx
+// ============================================================================
+
+@use 'variables' as *;
+@use 'mixins' as *;
+@use 'reset';
+
+body {
+  font-family: $font-primary;
+  background: $primary;
+  color: $text-primary;
+  min-height: 100vh;
+}
+
+// Background gradient wash for the dark theme.
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(0, 180, 216, 0.08), transparent 40%),
+    radial-gradient(circle at 85% 100%, rgba(6, 214, 160, 0.06), transparent 40%);
+  pointer-events: none;
+}
+
+::selection {
+  background: rgba(0, 180, 216, 0.3);
+}
+
+// Scrollbar (WebKit).
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: $primary;
+}
+::-webkit-scrollbar-thumb {
+  background: $card-hover;
+  border-radius: 5px;
+  &:hover {
+    background: lighten($card-hover, 10%);
+  }
+}
+
+// App shell — keeps footer pinned below content.
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding-top: $navbar-height;
+}

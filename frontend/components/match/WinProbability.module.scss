@@ -1,0 +1,58 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.widget {
+  @include card;
+  padding: $space-3;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.head {
+  @include flex-between;
+}
+
+.title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $text-muted;
+}
+
+.bar {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: $card-hover;
+}
+
+.home {
+  background: $accent-green;
+  transition: width 0.5s ease;
+}
+
+.away {
+  background: $accent;
+  transition: width 0.5s ease;
+}
+
+.labels {
+  @include flex-between;
+  font-size: 13px;
+  color: $text-secondary;
+
+  strong {
+    @include score-number;
+    color: $text-primary;
+  }
+}
+
+.homeLabel strong {
+  color: $accent-green;
+}
+
+.awayLabel strong {
+  color: $accent;
+}

@@ -1,0 +1,351 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.page {
+  @include container;
+  padding-block: $space-4 $space-8;
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.back {
+  font-size: 14px;
+  color: $text-secondary;
+  &:hover {
+    color: $accent;
+  }
+}
+
+.header {
+  @include card;
+  padding: $space-4;
+}
+
+.statusRow {
+  @include flex-between;
+  margin-bottom: $space-4;
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: $live-color;
+  background: $live-bg;
+  padding: 3px $space-2;
+  border-radius: $radius-sm;
+}
+
+// Live connection indicator — grey while connecting, pulsing green once the
+// socket is connected.
+.liveIndicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: $text-muted;
+  transition: background 0.2s ease;
+
+  &.connected {
+    background: $accent-green;
+    animation: live-dot-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@keyframes live-dot-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(6, 214, 160, 0.6);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(6, 214, 160, 0);
+    opacity: 0.6;
+  }
+}
+
+.connLabel {
+  font-size: 11px;
+  color: $text-muted;
+  font-family: $font-mono;
+}
+
+.status {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: $text-muted;
+}
+
+.updated {
+  font-size: 12px;
+  color: $text-muted;
+  font-family: $font-mono;
+}
+
+.teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: $space-3;
+}
+
+.team {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+
+  &.right {
+    text-align: right;
+    align-items: flex-end;
+  }
+}
+
+.teamName {
+  font-size: 16px;
+  font-weight: 600;
+
+  @include tablet {
+    font-size: 20px;
+  }
+}
+
+.score {
+  @include score-number;
+  font-size: 32px;
+  color: $accent-green;
+
+  @include tablet {
+    font-size: 48px;
+  }
+}
+
+.overs {
+  font-size: 13px;
+  color: $text-muted;
+  font-family: $font-mono;
+}
+
+.vs {
+  font-size: 12px;
+  color: $text-muted;
+  text-transform: uppercase;
+}
+
+.result {
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+  color: $accent-amber;
+  font-size: 14px;
+  text-align: center;
+}
+
+.info {
+  @include card;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $space-3;
+  padding: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+.infoLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $text-muted;
+}
+
+.infoValue {
+  font-size: 14px;
+  color: $text-primary;
+}
+
+.block {
+  @include card;
+  padding: $space-3;
+}
+
+.blockTitle {
+  font-size: 16px;
+  margin-bottom: $space-3;
+  padding-left: $space-2;
+  border-left: 3px solid $accent;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th,
+  td {
+    padding: $space-2 $space-2;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $text-muted;
+    border-bottom: 1px solid $card-border;
+  }
+
+  tbody tr:not(:last-child) td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .left {
+    text-align: left;
+  }
+}
+
+.num {
+  @include score-number;
+  font-size: 14px;
+}
+
+.notout {
+  color: $accent-green;
+  font-weight: 700;
+}
+
+.empty {
+  color: $text-muted;
+  font-size: 14px;
+  padding: $space-2;
+}
+
+.commentary {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.ball {
+  display: flex;
+  gap: $space-3;
+  align-items: flex-start;
+  padding: $space-2 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+}
+
+.ballMarker {
+  @include score-number;
+  flex-shrink: 0;
+  min-width: 44px;
+  padding: 2px $space-2;
+  border-radius: $radius-sm;
+  background: $card-hover;
+  font-size: 12px;
+  text-align: center;
+  color: $text-secondary;
+
+  &.boundary {
+    background: rgba(6, 214, 160, 0.15);
+    color: $accent-green;
+  }
+
+  &.wicket {
+    background: $live-bg;
+    color: $live-color;
+  }
+}
+
+.ballText {
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+// --- Wicket alert banner ----------------------------------------------------
+.wicketAlert {
+  position: sticky;
+  top: calc(#{$navbar-height} + #{$space-2});
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  border-radius: $radius-md;
+  background: $live-color;
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 24px rgba(239, 35, 60, 0.4);
+  animation: wicket-slide-down 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.wicketScore {
+  @include score-number;
+  margin-left: auto;
+  font-size: 16px;
+}
+
+@keyframes wicket-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// --- Recent ball dots -------------------------------------------------------
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  margin-top: $space-4;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+}
+
+.ballDot {
+  @include flex-center;
+  @include score-number;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 11px;
+  flex-shrink: 0;
+  background: $card-hover;
+  color: $text-secondary;
+
+  &.four {
+    background: rgba(0, 180, 216, 0.18);
+    color: $accent;
+  }
+  &.six {
+    background: rgba(249, 199, 79, 0.2);
+    color: $accent-amber;
+  }
+  &.wicket {
+    background: $live-color;
+    color: #fff;
+  }
+}

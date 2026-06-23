@@ -1,0 +1,137 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.navbar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: $navbar-height;
+  z-index: $z-navbar;
+  background: rgba(22, 33, 62, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid $card-border;
+}
+
+.inner {
+  @include container;
+  @include flex-between;
+  height: 100%;
+  gap: $space-4;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.logoMark {
+  @include flex-center;
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-sm;
+  background: linear-gradient(135deg, $accent, $accent-green);
+  color: $primary;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.logoText {
+  font-size: 20px;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, $accent, $accent-green);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.links {
+  // Mobile: slide-down panel.
+  position: absolute;
+  top: $navbar-height;
+  left: 0;
+  right: 0;
+  flex-direction: column;
+  gap: 0;
+  background: $secondary;
+  border-bottom: 1px solid $card-border;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.25s ease;
+  display: flex;
+
+  &.open {
+    max-height: 320px;
+  }
+
+  @include tablet {
+    position: static;
+    flex-direction: row;
+    gap: $space-2;
+    background: none;
+    border: none;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+.link {
+  padding: $space-3;
+  color: $text-secondary;
+  font-weight: 500;
+  font-size: 15px;
+  border-radius: $radius-sm;
+  transition: color 0.15s ease, background 0.15s ease;
+
+  &:hover {
+    color: $text-primary;
+  }
+
+  &.active {
+    color: $accent;
+  }
+
+  @include tablet {
+    padding: $space-2 $space-3;
+  }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  flex-shrink: 0;
+}
+
+.searchBtn {
+  @include flex-center;
+  width: 40px;
+  height: 40px;
+  border-radius: $radius-sm;
+  font-size: 16px;
+
+  &:hover {
+    background: $card-hover;
+  }
+}
+
+.burger {
+  @include flex-center;
+  flex-direction: column;
+  gap: 4px;
+  width: 40px;
+  height: 40px;
+
+  span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: $text-primary;
+    border-radius: 2px;
+  }
+
+  @include tablet {
+    display: none;
+  }
+}

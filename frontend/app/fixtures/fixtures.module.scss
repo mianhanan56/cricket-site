@@ -1,0 +1,19 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.page {
+  @include container;
+  padding-block: $space-5 $space-8;
+}
+
+.heading {
+  font-size: 30px;
+  margin-bottom: $space-4;
+}
+
+.empty {
+  @include card;
+  padding: $space-5;
+  text-align: center;
+  color: $text-muted;
+}

@@ -1,0 +1,95 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.toggle {
+  @include flex-center;
+  width: 40px;
+  height: 40px;
+  border-radius: $radius-sm;
+  font-size: 16px;
+
+  &:hover {
+    background: $card-hover;
+  }
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + #{$space-2});
+  right: 0;
+  width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: width 0.2s ease, opacity 0.2s ease;
+  pointer-events: none;
+
+  &.open {
+    width: min(90vw, 360px);
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.input {
+  width: 100%;
+  padding: $space-3;
+  border-radius: $radius-md;
+  background: $secondary;
+  border: 1px solid $card-border;
+  color: $text-primary;
+  font-size: 14px;
+  outline: none;
+
+  &:focus {
+    border-color: $accent;
+  }
+}
+
+.results {
+  @include card;
+  margin-top: $space-2;
+  padding: $space-1;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.hint {
+  padding: $space-3;
+  font-size: 13px;
+  color: $text-muted;
+  text-align: center;
+}
+
+.item {
+  @include flex-between;
+  width: 100%;
+  gap: $space-3;
+  padding: $space-2 $space-3;
+  border-radius: $radius-sm;
+  text-align: left;
+
+  &:hover,
+  &.itemActive {
+    background: $card-hover;
+  }
+}
+
+.itemLabel {
+  @include truncate(1);
+  font-size: 14px;
+  color: $text-primary;
+}
+
+.itemGroup {
+  flex-shrink: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: $accent;
+}

@@ -1,0 +1,84 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.page {
+  @include container;
+  padding-block: $space-5 $space-8;
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+}
+
+.heading {
+  font-size: 30px;
+}
+
+.sub {
+  font-size: 14px;
+  color: $text-muted;
+  font-weight: 500;
+  vertical-align: middle;
+  margin-left: $space-2;
+}
+
+.block {
+  @include card;
+  padding: $space-4;
+}
+
+.blockTitle {
+  font-size: 18px;
+  margin-bottom: $space-3;
+  padding-left: $space-2;
+  border-left: 3px solid $accent;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+
+  th,
+  td {
+    padding: $space-2 $space-3;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $text-muted;
+    border-bottom: 1px solid $card-border;
+  }
+
+  tbody tr:not(:last-child) td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .left {
+    text-align: left;
+  }
+}
+
+.pos {
+  @include score-number;
+  color: $accent;
+}
+
+.num {
+  @include score-number;
+}
+
+.empty {
+  @include card;
+  padding: $space-5;
+  text-align: center;
+  color: $text-muted;
+  font-size: 14px;
+}

@@ -1,0 +1,74 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.tabs {
+  display: flex;
+  gap: $space-2;
+  margin-bottom: $space-4;
+}
+
+.tab {
+  padding: $space-2 $space-4;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: $text-secondary;
+  background: $card-bg;
+  border: 1px solid $card-border;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: $text-primary;
+  }
+  &.active {
+    color: $primary;
+    background: $accent;
+    border-color: $accent;
+  }
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  @include desktop {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.statCard {
+  @include card;
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  padding: $space-3;
+  text-align: center;
+}
+
+.statValue {
+  @include score-number;
+  font-size: 24px;
+  color: $text-primary;
+
+  &.accent {
+    color: $accent-green;
+  }
+}
+
+.statLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: $text-muted;
+}
+
+.empty {
+  @include card;
+  padding: $space-5;
+  text-align: center;
+  color: $text-muted;
+}

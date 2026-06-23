@@ -1,0 +1,75 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.footer {
+  margin-top: $space-8;
+  background: $secondary;
+  border-top: 1px solid $card-border;
+}
+
+.inner {
+  @include container;
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+  padding-block: $space-6;
+
+  @include tablet {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+.brand {
+  max-width: 280px;
+}
+
+.logo {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  background: linear-gradient(135deg, $accent, $accent-green);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tagline {
+  margin-top: $space-2;
+  color: $text-muted;
+  font-size: 14px;
+}
+
+.columns {
+  display: flex;
+  gap: $space-6;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+
+  h4 {
+    color: $text-primary;
+    font-size: 14px;
+    margin-bottom: $space-1;
+  }
+
+  a {
+    color: $text-secondary;
+    font-size: 14px;
+    &:hover {
+      color: $accent;
+    }
+  }
+}
+
+.bottom {
+  @include container;
+  padding-block: $space-3;
+  border-top: 1px solid $card-border;
+  color: $text-muted;
+  font-size: 13px;
+  text-align: center;
+}
