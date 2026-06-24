@@ -22,7 +22,7 @@ import usageRouter from './routes/usage';
 import { initSocket } from './socket';
 import { startSyncJob } from './jobs/syncData';
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = parseInt(process.env.PORT || '5000', 10);
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
 
 const app = express();
@@ -34,9 +34,12 @@ app.use(compression());
 app.use(express.json());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// --- Health check -----------------------------------------------------------
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
-app.get('/health', (_req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
+// --- Root + health check ----------------------------------------------------
+app.get('/', (_req, res) => {
+  res.json({ status: 'ok', message: 'Cricket API running' });
+});
+app.get('/api/health', (_req, res) => res.status(200).json({ status: 'healthy' }));
+app.get('/health', (_req, res) => res.status(200).json({ status: 'healthy', uptime: process.uptime() }));
 
 // --- API routes -------------------------------------------------------------
 app.use('/api/matches', matchesRouter);
@@ -60,16 +63,26 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 // --- Boot HTTP + Socket.io --------------------------------------------------
-const httpServer = createServer(app);
 // Socket.io binds to the HTTP server (not the Express app directly) so REST
 // and WebSocket share the same port.
-initSocket(httpServer, CLIENT_ORIGIN, PORT);
-startSyncJob();
+const httpServer = createServer(app);
 
-// Bind to 0.0.0.0 so Railway (and other container hosts) can route to the
-// service; PORT is injected by the platform at runtime.
-httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`[server] API listening on port ${PORT}`);
-});
+async function main() {
+  try {
+    initSocket(httpServer, CLIENT_ORIGIN, PORT);
+    startSyncJob();
+
+    // Bind to 0.0.0.0 so Railway (and other container hosts) can route to the
+    // service; PORT is injected by the platform at runtime.
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Startup error:', error);
+    process.exit(1);
+  }
+}
+
+main();
 
 export { app };
