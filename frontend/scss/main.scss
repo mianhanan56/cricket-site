@@ -1,0 +1,40 @@
+// ============================================================================
+// main.scss — application entry stylesheet (imported once in app/layout.tsx)
+//
+// Pulls in the global reset/typography layer and holds the page-level layout
+// shell. Page-specific visuals live in their own scoped *.module.scss files
+// (Next.js CSS Modules); the index below maps each route to its stylesheet for
+// maintainability.
+// ============================================================================
+
+@use 'component' as *;
+@use 'global';
+
+// ----------------------------------------------------------------------------
+// App layout shell — keeps the footer pinned below content on every page.
+// ----------------------------------------------------------------------------
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding-top: $navbar-height;
+}
+
+// ----------------------------------------------------------------------------
+// Page stylesheet index (scoped CSS Modules — edit these for page-specific UI)
+// ----------------------------------------------------------------------------
+//   Home          → app/page.module.scss
+//   Matches       → app/matches/matches.module.scss
+//   Match detail  → components/match/MatchLiveView.module.scss
+//   Fixtures      → app/fixtures/fixtures.module.scss
+//   Rankings      → app/rankings/rankings.module.scss
+//   News list     → app/news/news.module.scss
+//   News article  → app/news/[slug]/article.module.scss
+//   Player        → app/player/[id]/player.module.scss
+//   Search        → app/search/search.module.scss
+// ----------------------------------------------------------------------------
