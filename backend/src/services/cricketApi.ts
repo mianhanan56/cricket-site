@@ -74,8 +74,33 @@ export const fetchSeriesList = () => call<CricApiSeries[]>('series', { offset: '
 // --- Mapping helpers (CricAPI shape -> our schema) --------------------------
 
 export function mapStatus(m: CricApiMatch): 'LIVE' | 'UPCOMING' | 'COMPLETED' {
-  if (m.matchEnded) return 'COMPLETED';
-  if (m.matchStarted) return 'LIVE';
+  const text = (m.status ?? '').toLowerCase();
+  const isResultText =
+    text.includes('result') ||
+    text.includes('won') ||
+    text.includes('beat') ||
+    text.includes('draw') ||
+    text.includes('tie') ||
+    text.includes('abandon') ||
+    text.includes('no result');
+
+  // 1) Finished — authoritative API flag or a result-bearing status string.
+  if (m.matchEnded || isResultText) return 'COMPLETED';
+
+  // 2) Live — explicit "live" text or the API's in-progress flag (keeps
+  //    multi-day Tests live even when the status text has no "live" word).
+  if (text.includes('live') || m.matchStarted) return 'LIVE';
+
+  // 3) Explicitly upcoming.
+  if (text.includes('upcoming') || text.includes('not started')) return 'UPCOMING';
+
+  // 4) Fallback — scheduled time is in the past and nothing marks it live, so
+  //    treat it as completed (covers stale rows the API never flagged ended).
+  if (m.dateTimeGMT) {
+    const start = new Date(m.dateTimeGMT).getTime();
+    if (!Number.isNaN(start) && start < Date.now()) return 'COMPLETED';
+  }
+
   return 'UPCOMING';
 }
 

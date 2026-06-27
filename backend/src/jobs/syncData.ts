@@ -46,7 +46,13 @@ async function syncMatch(m: CricApiMatch) {
   const seriesName = m.name?.split(',').slice(-1)[0]?.trim() || m.name?.split(',')[0]?.trim() || 'International';
   const series = await findOrCreateSeries(seriesName, format);
 
-  const status = mapStatus(m);
+  let status = mapStatus(m);
+  // Safety net: a match scheduled more than 2 hours ago that's still flagged
+  // UPCOMING is almost certainly over — force it to COMPLETED.
+  const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+  if (status === 'UPCOMING' && Date.now() - mapStartTime(m).getTime() > TWO_HOURS_MS) {
+    status = 'COMPLETED';
+  }
   const scorecard = mapScorecard(m);
 
   return prisma.match.upsert({

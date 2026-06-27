@@ -6,13 +6,13 @@ import { useState } from 'react';
 import SearchBar from './SearchBar';
 import styles from './Navbar.module.scss';
 
-const NAV_LINKS = [
-  // { href: '/', label: 'Home' },
-  // { href: '/matches', label: 'Matches' },
-  // { href: '/fixtures', label: 'Fixtures' },
-  // { href: '/rankings', label: 'Rankings' },
-  // { href: '/news', label: 'News' },
-];
+// const NAV_LINKS = [
+//   { href: '/', label: 'Home' },
+//   { href: '/matches', label: 'Matches' },
+//   { href: '/fixtures', label: 'Fixtures' },
+//   { href: '/rankings', label: 'Rankings' },
+//   { href: '/news', label: 'News' },
+// ];
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -30,7 +30,7 @@ export default function Navbar() {
         </Link>
 
         <nav className={`${styles.links} ${open ? styles.open : ''}`}>
-          {NAV_LINKS.map((link) => (
+          {/* {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -39,7 +39,7 @@ export default function Navbar() {
             >
               {link.label}
             </Link>
-          ))}
+          ))} */}
         </nav>
 
         <div className={styles.actions}>
