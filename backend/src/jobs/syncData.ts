@@ -72,15 +72,17 @@ async function syncMatch(m: CricApiMatch) {
   });
 }
 
-export async function runSync() {
+export async function runSync(): Promise<number> {
+  console.log(`[sync] run started at ${new Date().toISOString()}`);
+
   if (!process.env.CRICAPI_KEY) {
     console.warn('[sync] CRICAPI_KEY not set — skipping (serving seeded DB data)');
-    return;
+    return 0;
   }
 
   if (await quotaNearlyExhausted()) {
     console.warn('⚠️ CricAPI daily quota nearly exhausted (90+), skipping sync');
-    return;
+    return 0;
   }
 
   try {
@@ -100,9 +102,11 @@ export async function runSync() {
       }
     }
 
-    console.log(`✅ Synced ${count} matches at ${new Date().toLocaleTimeString()}`);
+    console.log(`✅ Synced ${count} matches at ${new Date().toISOString()}`);
+    return count;
   } catch (err) {
     console.error(`[sync] failed: ${(err as Error).message} — DB data still served`);
+    return 0;
   }
 }
 
@@ -110,6 +114,9 @@ export function startSyncJob() {
   // Every 30 min = 48 calls/day, comfortably under the 100/day free plan.
   cron.schedule('*/30 * * * *', runSync);
   console.log('[sync] cron scheduled (every 30 min)');
-  // Run once immediately on boot.
-  void runSync();
 }
+
+// Fire an immediate sync as soon as this module is loaded, so fresh data is
+// pulled the moment the server process starts. (startSyncJob then keeps it
+// running every 15 min.) This single call replaces the previous boot-time run.
+void runSync();

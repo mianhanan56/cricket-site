@@ -7,11 +7,11 @@ import SearchBar from './SearchBar';
 import styles from './Navbar.module.scss';
 
 const NAV_LINKS = [
-  { href: '/', label: 'Home' },
-  { href: '/matches', label: 'Matches' },
-  { href: '/fixtures', label: 'Fixtures' },
-  { href: '/rankings', label: 'Rankings' },
-  { href: '/news', label: 'News' },
+  // { href: '/', label: 'Home' },
+  // { href: '/matches', label: 'Matches' },
+  // { href: '/fixtures', label: 'Fixtures' },
+  // { href: '/rankings', label: 'Rankings' },
+  // { href: '/news', label: 'News' },
 ];
 
 export default function Navbar() {

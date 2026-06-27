@@ -29,12 +29,12 @@
 }
 
 .home {
-  background: $accent-green;
+  background: linear-gradient(90deg, $accent-light, $accent);
   transition: width 0.5s ease;
 }
 
 .away {
-  background: $accent;
+  background: rgba(26, 26, 46, 0.12);
   transition: width 0.5s ease;
 }
 
@@ -54,5 +54,5 @@
 }
 
 .awayLabel strong {
-  color: $accent;
+  color: $text-secondary;
 }

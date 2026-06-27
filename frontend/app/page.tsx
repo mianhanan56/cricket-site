@@ -1,40 +1,37 @@
-import type { Match, NewsArticle } from '@crex/shared';
-import { getMatches, getNews } from '../lib/api';
-import MatchCard from '../components/home/MatchCard';
-import LiveMatchBanner from '../components/home/LiveMatchBanner';
-import NewsCard from '../components/home/NewsCard';
+import type { Match } from '@crex/shared';
+import { getMatches } from '../lib/api';
+import MatchSlider from '../components/home/MatchSlider';
 import styles from './page.module.scss';
+
+// Only surface completed matches from the last 48 hours on the homepage.
+const COMPLETED_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 // Server Component — fetches on the server and streams HTML.
 export default async function HomePage() {
   let matches: Match[] = [];
-  let news: NewsArticle[] = [];
   let failed = false;
 
   try {
-    [matches, news] = await Promise.all([
-      getMatches(),
-      getNews({ limit: 3 }).then((r) => r.data),
-    ]);
+    matches = await getMatches();
   } catch {
     failed = true;
   }
 
+  const now = Date.now();
   const live = matches.filter((m) => m.status === 'LIVE');
-  const upcoming = matches.filter((m) => m.status === 'UPCOMING');
-  const featured = live[0];
+  const upcoming = matches
+    .filter((m) => m.status === 'UPCOMING')
+    .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime));
+  const recentCompleted = matches
+    .filter(
+      (m) => m.status === 'COMPLETED' && now - +new Date(m.startTime) <= COMPLETED_WINDOW_MS,
+    )
+    .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime));
+
+  const recentAndUpcoming = [...upcoming, ...recentCompleted];
 
   return (
     <div className={styles.page}>
-      <section className={styles.hero}>
-        <h1 className={styles.title}>
-          Cricket, <span>live</span>.
-        </h1>
-        <p className={styles.subtitle}>
-          Ball-by-ball scores, fixtures and the latest news — all in one place.
-        </p>
-      </section>
-
       {failed && (
         <div className={styles.notice}>
           Could not reach the API at <code>{process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000'}</code>.
@@ -42,60 +39,28 @@ export default async function HomePage() {
         </div>
       )}
 
-      {featured && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Live Now</h2>
-          <LiveMatchBanner match={featured} />
-        </section>
-      )}
-
-      <Section title="Matches" empty="No live or upcoming matches.">
-        {[...live, ...upcoming].map((m) => (
-          <MatchCard key={m.id} match={m} />
-        ))}
-      </Section>
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Live Now</h2>
+        {live.length ? (
+          <MatchSlider matches={live} autoScroll />
+        ) : (
+          <p className={styles.emptyState}>No live matches right now.</p>
+        )}
+      </section>
 
       <section className={styles.section}>
         <div className={styles.sectionHead}>
-          <h2 className={styles.sectionTitle}>Latest News</h2>
-          <a href="/news" className={styles.seeAll}>
+          <h2 className={styles.sectionTitle}>Recent &amp; Upcoming</h2>
+          <a href="/matches" className={styles.seeAll}>
             See all →
           </a>
         </div>
-        {news.length ? (
-          <div className={styles.newsGrid}>
-            {news.map((a) => (
-              <NewsCard key={a.id} article={a} />
-            ))}
-          </div>
+        {recentAndUpcoming.length ? (
+          <MatchSlider matches={recentAndUpcoming} />
         ) : (
-          <p className={styles.emptyState}>No news yet.</p>
+          <p className={styles.emptyState}>No recent or upcoming matches.</p>
         )}
       </section>
     </div>
-  );
-}
-
-function Section({
-  title,
-  empty,
-  children,
-}: {
-  title: string;
-  empty: string;
-  children: React.ReactNode;
-}) {
-  const items = Array.isArray(children) ? children : [children];
-  const hasContent = items.some(Boolean);
-
-  return (
-    <section className={styles.section}>
-      <h2 className={styles.sectionTitle}>{title}</h2>
-      {hasContent ? (
-        <div className={styles.grid}>{children}</div>
-      ) : (
-        <p className={styles.emptyState}>{empty}</p>
-      )}
-    </section>
   );
 }

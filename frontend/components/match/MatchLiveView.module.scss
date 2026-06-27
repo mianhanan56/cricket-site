@@ -210,8 +210,12 @@
     border-bottom: 1px solid $card-border;
   }
 
+  tbody tr:nth-child(even) td {
+    background: $bg;
+  }
+
   tbody tr:not(:last-child) td {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid $card-border;
   }
 
   .left {
@@ -248,7 +252,7 @@
   padding: $space-2 0;
 
   &:not(:last-child) {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-bottom: 1px solid $card-border;
   }
 }
 
@@ -337,7 +341,7 @@
   color: $text-secondary;
 
   &.four {
-    background: rgba(0, 180, 216, 0.18);
+    background: rgba(169, 240, 209, 0.45);
     color: $accent;
   }
   &.six {

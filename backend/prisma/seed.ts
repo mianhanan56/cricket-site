@@ -6,6 +6,13 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Never seed sample data (e.g. the fixture IND vs AUS 2024 matches) into a
+// production database — real data comes from the CricAPI sync job.
+if (process.env.NODE_ENV === 'production') {
+  console.log('[seed] NODE_ENV=production — skipping seed.');
+  process.exit(0);
+}
+
 async function main() {
   // Idempotent: clear existing rows (respecting FK order) before re-seeding.
   await prisma.match.deleteMany();

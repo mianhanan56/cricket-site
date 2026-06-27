@@ -8,6 +8,34 @@
   flex-direction: column;
   gap: $space-3;
   padding: $space-3;
+  height: 100%;
+  border-left: 3px solid transparent;
+}
+
+// Status accents — colored left border per match state.
+.isLive {
+  border-left-color: $accent; // mint green
+}
+
+.isUpcoming {
+  border-left-color: $primary; // navy
+}
+
+.isCompleted {
+  border-left-color: $text-muted; // gray
+
+  .teamName,
+  .score {
+    color: $text-secondary;
+  }
+}
+
+.clock {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  color: $text-secondary;
+  font-weight: 500;
 }
 
 .header {
@@ -15,9 +43,12 @@
 }
 
 .format {
-  font-size: 12px;
-  font-weight: 600;
-  color: $accent;
+  font-size: 11px;
+  font-weight: 700;
+  color: $primary;
+  background: $accent-light;
+  padding: 2px $space-2;
+  border-radius: $radius-sm;
   letter-spacing: 0.05em;
 }
 

@@ -18,6 +18,7 @@ import rankingsRouter from './routes/rankings';
 import newsRouter from './routes/news';
 import searchRouter from './routes/search';
 import usageRouter from './routes/usage';
+import adminRouter from './routes/admin';
 
 import { initSocket } from './socket';
 import { startSyncJob } from './jobs/syncData';
@@ -50,6 +51,7 @@ app.use('/api/rankings', rankingsRouter);
 app.use('/api/news', newsRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/usage', usageRouter);
+app.use('/api/admin', adminRouter);
 
 // --- 404 + error handlers ---------------------------------------------------
 app.use((_req, res) => {

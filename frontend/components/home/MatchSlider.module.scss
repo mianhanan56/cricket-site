@@ -1,0 +1,75 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+.slider {
+  position: relative;
+}
+
+.track {
+  display: flex;
+  gap: $space-3;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding-bottom: $space-2;
+  -webkit-overflow-scrolling: touch;
+
+  // Hide the native scrollbar — navigation is via arrows / swipe.
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.slide {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+  width: 280px;
+
+  @include tablet {
+    width: 320px;
+  }
+
+  // Make the card fill the slide height for a uniform row.
+  > * {
+    height: 100%;
+  }
+}
+
+.arrow {
+  @include flex-center;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: $card-bg;
+  border: 1px solid $card-border;
+  box-shadow: $shadow-card;
+  color: $text-primary;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+
+  // Touch-first: hidden on mobile (swipe), shown from tablet up.
+  display: none;
+
+  &:hover {
+    background: $card-hover;
+  }
+
+  @include tablet {
+    display: flex;
+  }
+}
+
+.left {
+  left: -16px;
+}
+
+.right {
+  right: -16px;
+}
