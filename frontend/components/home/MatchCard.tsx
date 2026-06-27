@@ -2,18 +2,19 @@ import Link from 'next/link';
 import type { Match, Team, InningsScore } from '@crex/shared';
 import styles from './MatchCard.module.scss';
 
-// CricAPI scores are mapped to innings keyed by team *name* (e.g. "India"),
-// not by our internal teamId — so match by name with a positional fallback.
-function inningsFor(match: Match, team: Team, index: number): InningsScore | undefined {
+// CricAPI innings carry a label like "New Zealand Women Inning 1". Match an
+// innings to a team ONLY when that label contains the team's name (or short
+// name) — no positional fallback, so a single innings is never handed to the
+// wrong team. No match → the team hasn't batted yet.
+function inningsFor(match: Match, team: Team): InningsScore | undefined {
   const innings = match.scorecard?.innings ?? [];
   if (!innings.length) return undefined;
   const name = team.name.toLowerCase();
   const short = team.shortName.toLowerCase();
-  const byName = innings.find((i) => {
-    const t = (i.teamShortName ?? '').toLowerCase();
-    return t === name || t === short || (!!t && (t.includes(name) || name.includes(t)));
+  return innings.find((i) => {
+    const label = ((i as { inning?: string }).inning ?? i.teamShortName ?? '').toLowerCase();
+    return !!label && (label.includes(name) || label.includes(short));
   });
-  return byName ?? innings[index];
 }
 
 function scoreLine(innings: InningsScore | undefined) {
@@ -40,8 +41,8 @@ const STATUS_CLASS: Record<Match['status'], string> = {
 export default function MatchCard({ match }: { match: Match }) {
   const isLive = match.status === 'LIVE';
   const isUpcoming = match.status === 'UPCOMING';
-  const homeInn = inningsFor(match, match.homeTeam, 0);
-  const awayInn = inningsFor(match, match.awayTeam, 1);
+  const homeInn = inningsFor(match, match.homeTeam);
+  const awayInn = inningsFor(match, match.awayTeam);
 
   return (
     <Link

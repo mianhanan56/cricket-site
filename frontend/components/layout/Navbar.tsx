@@ -6,6 +6,8 @@ import { useState } from 'react';
 import SearchBar from './SearchBar';
 import styles from './Navbar.module.scss';
 
+// Nav routes temporarily hidden until their pages are ready. Uncomment to
+// restore the Home / Matches / Fixtures / Rankings / News links.
 // const NAV_LINKS = [
 //   { href: '/', label: 'Home' },
 //   { href: '/matches', label: 'Matches' },

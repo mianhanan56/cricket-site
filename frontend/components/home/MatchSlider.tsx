@@ -5,6 +5,10 @@ import type { Match } from '@crex/shared';
 import MatchCard from './MatchCard';
 import styles from './MatchSlider.module.scss';
 
+// Fraction of the viewport to advance per arrow click / auto-scroll tick.
+const SCROLL_STEP = 0.8;
+const AUTOSCROLL_INTERVAL_MS = 5000;
+
 // Horizontal, scroll-snapping match slider. Arrows drive desktop navigation;
 // native touch scrolling handles swipe on mobile. When `autoScroll` is set
 // (live matches) it advances one viewport every 5s and loops at the end.
@@ -20,7 +24,7 @@ export default function MatchSlider({
   const scroll = useCallback((dir: number) => {
     const el = trackRef.current;
     if (!el) return;
-    el.scrollBy({ left: el.clientWidth * 0.8 * dir, behavior: 'smooth' });
+    el.scrollBy({ left: el.clientWidth * SCROLL_STEP * dir, behavior: 'smooth' });
   }, []);
 
   useEffect(() => {
@@ -33,9 +37,9 @@ export default function MatchSlider({
       if (el.scrollLeft >= maxScroll - 8) {
         el.scrollTo({ left: 0, behavior: 'smooth' });
       } else {
-        el.scrollBy({ left: el.clientWidth * 0.8, behavior: 'smooth' });
+        el.scrollBy({ left: el.clientWidth * SCROLL_STEP, behavior: 'smooth' });
       }
-    }, 5000);
+    }, AUTOSCROLL_INTERVAL_MS);
 
     return () => clearInterval(id);
   }, [autoScroll, matches.length]);

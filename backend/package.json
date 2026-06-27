@@ -14,7 +14,6 @@
     "prisma:migrate": "dotenv -e ../.env -- prisma migrate dev",
     "prisma:studio": "dotenv -e ../.env -- prisma studio",
     "seed": "ts-node-dev --transpile-only prisma/seed.ts",
-    "clean:seed": "ts-node-dev --transpile-only src/scripts/cleanSeedData.ts",
     "clean-seed": "ts-node-dev --transpile-only src/scripts/cleanSeed.ts"
   },
   "dependencies": {

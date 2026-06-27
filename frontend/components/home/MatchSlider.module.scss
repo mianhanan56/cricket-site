@@ -23,12 +23,8 @@
 
 .slide {
   scroll-snap-align: start;
-  flex: 0 0 auto;
+  flex: 0 0 280px; // consistent fixed card width across breakpoints
   width: 280px;
-
-  @include tablet {
-    width: 320px;
-  }
 
   // Make the card fill the slide height for a uniform row.
   > * {

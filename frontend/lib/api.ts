@@ -4,7 +4,6 @@ import type {
   Series,
   Player,
   NewsArticle,
-  CommentaryBall,
   RankingEntry,
   Team,
 } from '@crex/shared';
@@ -57,14 +56,6 @@ export const getMatches = (params?: { status?: string; format?: string }) =>
 
 export const getMatch = (id: string) =>
   apiGet<Match>(`/api/matches/${id}`, { revalidate: 10 });
-
-export const getCommentary = (id: string) =>
-  apiGet<CommentaryBall[]>(`/api/matches/${id}/commentary`, { revalidate: 10 });
-
-export const getSeries = () => apiGet<Series[]>('/api/series', { revalidate: 60 });
-
-export const getSeriesDetail = (id: string) =>
-  apiGet<Series & { matches: Match[] }>(`/api/series/${id}`, { revalidate: 60 });
 
 export const getPlayer = (id: string) =>
   apiGet<Player>(`/api/players/${id}`, { revalidate: 60 });
