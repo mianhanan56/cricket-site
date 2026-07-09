@@ -1,6 +1,7 @@
 // CricketData.org (formerly CricAPI) integration.
 // All upstream calls live here so the rest of the app depends only on our types.
 import { incrementApiCall } from '../lib/usage';
+import type { BatsmanLine, BowlerLine } from '../shared/types';
 
 const BASE_URL = process.env.CRICKET_API_URL ?? 'https://api.cricapi.com/v1';
 const apiKey = () => process.env.CRICAPI_KEY ?? '';
@@ -19,6 +20,35 @@ export interface CricApiMatch {
   series_id?: string;
   matchStarted?: boolean;
   matchEnded?: boolean;
+}
+
+// Shape of one innings in CricAPI's `match_scorecard` response. Field names use
+// CricAPI's exact keys (`4s`, `sr`, `dismissal-text`, `eco`).
+export interface CricApiInningsCard {
+  inning: string;
+  batting?: Array<{
+    batsman?: { id?: string; name?: string };
+    'dismissal-text'?: string;
+    r?: number;
+    b?: number;
+    '4s'?: number;
+    '6s'?: number;
+    sr?: number;
+  }>;
+  bowling?: Array<{
+    bowler?: { id?: string; name?: string };
+    o?: number;
+    m?: number;
+    r?: number;
+    w?: number;
+    eco?: number;
+  }>;
+  extras?: Record<string, number>;
+  totals?: Record<string, number>;
+}
+
+export interface CricApiScorecardResponse extends CricApiMatch {
+  scorecard?: CricApiInningsCard[];
 }
 
 export interface CricApiSeries {
@@ -64,6 +94,10 @@ export const fetchLiveMatches = () => call<CricApiMatch[]>('currentMatches', { o
 
 /** Full match detail (incl. scorecard) by upstream match id. */
 export const fetchMatchInfo = (id: string) => call<CricApiMatch>('match_info', { id });
+
+/** Per-innings batting/bowling scorecard by upstream match id. */
+export const fetchMatchScorecard = (id: string) =>
+  call<CricApiScorecardResponse>('match_scorecard', { id });
 
 /** Upcoming / scheduled matches. */
 export const fetchFixtures = () => call<CricApiMatch[]>('matches', { offset: '0' });
@@ -127,4 +161,83 @@ export function mapScorecard(m: CricApiMatch) {
     overs: s.o,
   }));
   return { innings, statusText: m.status, raw: m.score ?? [] };
+}
+
+// A batsman is "not out" when there's no dismissal text, or it explicitly says
+// so (CricAPI uses "not out" / "batting" for undismissed, "" for did-not-bat).
+function isOut(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return t !== '' && !t.includes('not out') && t !== 'batting';
+}
+
+function mapBatting(list: CricApiInningsCard['batting'] = []): BatsmanLine[] {
+  return list.map((b, i) => {
+    const text = (b['dismissal-text'] ?? '').trim();
+    return {
+      playerId: b.batsman?.id ?? b.batsman?.name ?? `bat-${i}`,
+      name: b.batsman?.name ?? 'Unknown',
+      runs: b.r ?? 0,
+      balls: b.b ?? 0,
+      fours: b['4s'] ?? 0,
+      sixes: b['6s'] ?? 0,
+      strikeRate: b.sr ?? 0,
+      out: isOut(text),
+      dismissal: text || 'not out',
+    };
+  });
+}
+
+function mapBowling(list: CricApiInningsCard['bowling'] = []): BowlerLine[] {
+  return list.map((b, i) => ({
+    playerId: b.bowler?.id ?? b.bowler?.name ?? `bowl-${i}`,
+    name: b.bowler?.name ?? 'Unknown',
+    overs: b.o ?? 0,
+    maidens: b.m ?? 0,
+    runs: b.r ?? 0,
+    wickets: b.w ?? 0,
+    economy: b.eco ?? 0,
+  }));
+}
+
+// CricAPI extras is an object like {b, lb, w, nb, p, total}. Prefer its own
+// total; else sum the numeric parts. Returns undefined when there are none.
+function extrasTotal(extras?: Record<string, number>): number | undefined {
+  if (!extras) return undefined;
+  if (typeof extras.total === 'number') return extras.total;
+  const sum = Object.values(extras).reduce((a, v) => a + (typeof v === 'number' ? v : 0), 0);
+  return sum > 0 ? sum : undefined;
+}
+
+/**
+ * Merge CricAPI's per-innings scorecard into an existing scorecard's innings,
+ * matching by the `inning` label. Keeps the stored innings totals (runs/wickets
+ * /overs) and attaches batting/bowling/extras. Returns a new scorecard object.
+ */
+export function mergeScorecardDetail(
+  existing: { innings?: Array<Record<string, unknown>>; [k: string]: unknown },
+  cards: CricApiInningsCard[]
+) {
+  const norm = (s: string) => s.trim().toLowerCase();
+  const byLabel = new Map(cards.map((c) => [norm(c.inning ?? ''), c]));
+
+  const baseInnings = existing.innings ?? [];
+  // Start from stored innings so totals/short names are preserved; fall back to
+  // the card list if we have no stored innings yet.
+  const source = baseInnings.length
+    ? baseInnings
+    : cards.map((c) => ({ inning: c.inning, teamShortName: (c.inning ?? '').replace(/ Inning.*/i, '').trim() }));
+
+  const innings = source.map((inn) => {
+    const label = norm(String((inn as { inning?: string }).inning ?? ''));
+    const card = byLabel.get(label);
+    if (!card) return inn;
+    return {
+      ...inn,
+      batting: mapBatting(card.batting),
+      bowling: mapBowling(card.bowling),
+      extras: extrasTotal(card.extras),
+    };
+  });
+
+  return { ...existing, innings };
 }

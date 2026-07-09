@@ -1,5 +1,5 @@
 // ============================================================================
-// CREX Clone — Shared TypeScript types
+// PulseCrease — Shared TypeScript types
 // Imported by both `frontend` and `backend`. Keep framework-agnostic.
 // ============================================================================
 
@@ -79,6 +79,22 @@ export interface IMatch {
   startTime: string; // ISO string
   result?: string | null;
   scorecard?: IScorecard | null;
+  // Enrichments attached by GET /api/matches/:id (computed from the DB).
+  teamForm?: { home: TeamFormEntry[]; away: TeamFormEntry[] } | null;
+  squads?: { home: SquadPlayer[]; away: SquadPlayer[] } | null;
+}
+
+// One entry of a team's recent-results strip (most recent first).
+export interface TeamFormEntry {
+  matchId: string;
+  result: 'W' | 'L' | 'D';
+  opponent: string; // opponent short name
+}
+
+export interface SquadPlayer {
+  id: string;
+  name: string;
+  role: PlayerRole;
 }
 
 // Non-prefixed aliases — convenient short names used across the app. The
@@ -95,12 +111,18 @@ export type NewsArticle = INewsArticle;
 // ---------------------------------------------------------------------------
 
 export interface InningsScore {
-  teamId: string;
+  teamId?: string; // absent on CricAPI-synced data — match via `inning` label
   teamShortName: string;
+  inning?: string; // CricAPI innings label, e.g. "India Inning 1"
   runs: number;
   wickets: number;
   overs: number;
   runRate?: number;
+  // Optional per-innings lines; falls back to the top-level (current innings)
+  // batting/bowling arrays when absent.
+  batting?: BatsmanLine[];
+  bowling?: BowlerLine[];
+  extras?: number;
 }
 
 export interface BatsmanLine {
@@ -130,8 +152,10 @@ export interface IScorecard {
   currentInnings?: number;
   batting?: BatsmanLine[];
   bowling?: BowlerLine[];
+  extras?: number;
   target?: number;
   requiredRunRate?: number;
+  commentary?: CommentaryBall[];
 }
 
 export interface CommentaryBall {
@@ -140,9 +164,9 @@ export interface CommentaryBall {
   ball: number;
   runs: number;
   isWicket: boolean;
-  isBoundary: boolean;
+  isBoundary?: boolean;
   text: string;
-  timestamp: string;
+  timestamp?: string;
 }
 
 export interface PointsTableRow {

@@ -1,0 +1,573 @@
+@use 'component' as *;
+
+.page {
+  @include container;
+  padding-block: $space-4 $space-8;
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.back {
+  font-size: $text-sm;
+  color: $text-secondary;
+  &:hover {
+    color: $accent;
+  }
+}
+
+// ---------------------------------------------------------------- Header
+
+.header {
+  @include card;
+  padding: $space-4;
+}
+
+.statusRow {
+  @include flex-between;
+  margin-bottom: $space-4;
+}
+
+.liveBadge {
+  @include live-pulse;
+  display: inline-flex;
+  align-items: center;
+  font-size: $text-xs;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: $live-color;
+  background: $live-bg;
+  padding: 3px $space-2;
+  border-radius: $radius-sm;
+}
+
+.statusBadge {
+  font-size: $text-xs;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px $space-2;
+  border-radius: $radius-sm;
+
+  &.upcoming {
+    color: $accent;
+    background: rgba(169, 240, 209, 0.35);
+  }
+  &.completed {
+    color: $text-secondary;
+    background: $card-hover;
+  }
+}
+
+.connLabel {
+  font-size: 11px;
+  color: $text-muted;
+  font-family: $font-mono;
+}
+
+.teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  gap: $space-3;
+}
+
+.team {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+
+  &.right {
+    text-align: right;
+    align-items: flex-end;
+  }
+}
+
+.teamName {
+  font-size: $text-base;
+  font-weight: 600;
+
+  @include tablet {
+    font-size: 20px;
+  }
+}
+
+.teamShort {
+  font-size: $text-xs;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: $text-muted;
+}
+
+.score {
+  @include score-number;
+  font-size: 20px;
+  color: $accent-green;
+  white-space: nowrap;
+
+  @include tablet {
+    font-size: $text-2xl;
+  }
+}
+
+.scoreOvers {
+  font-family: $font-mono;
+  font-size: 13px;
+  color: $text-muted;
+}
+
+.vs {
+  align-self: center;
+  font-size: $text-xs;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: $text-muted;
+}
+
+.result {
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+  color: $accent-amber;
+  font-weight: 600;
+  font-size: $text-sm;
+  text-align: center;
+}
+
+.headerMeta {
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+  font-size: 13px;
+  color: $text-secondary;
+  text-align: center;
+}
+
+// ---------------------------------------------------------------- Sticky tabs
+
+.tabs {
+  position: sticky;
+  top: $navbar-height;
+  z-index: 50;
+  display: flex;
+  background: $card-bg;
+  border-radius: $radius-md;
+  box-shadow: $shadow-card;
+  overflow-x: auto;
+}
+
+.tab {
+  flex: 1;
+  padding: $space-3 $space-3;
+  font-size: $text-sm;
+  font-weight: 600;
+  color: $text-secondary;
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    color: $text-primary;
+  }
+
+  &.active {
+    color: $text-primary;
+    border-bottom-color: $accent-light;
+  }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+// ---------------------------------------------------------------- Blocks
+
+.block {
+  @include card;
+  padding: $space-3;
+}
+
+.blockTitle {
+  @include flex-between;
+  font-size: $text-base;
+  margin-bottom: $space-3;
+  padding-left: $space-2;
+  border-left: 3px solid $accent;
+}
+
+.blockHint {
+  font-size: 11px;
+  font-weight: 400;
+  color: $text-muted;
+  font-family: $font-mono;
+}
+
+.empty {
+  color: $text-muted;
+  font-size: $text-sm;
+  padding: $space-2;
+}
+
+.emptyInline {
+  color: $text-muted;
+  font-size: 13px;
+}
+
+// ---------------------------------------------------------------- Team form
+
+.formRow {
+  @include flex-between;
+  gap: $space-3;
+  padding: $space-2 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $card-border;
+  }
+}
+
+.formTeam {
+  font-size: $text-sm;
+  font-weight: 600;
+}
+
+.formChips {
+  display: flex;
+  gap: $space-1;
+}
+
+.formChip {
+  @include flex-center;
+  @include score-number;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: $text-xs;
+
+  &.formW {
+    background: $accent-light;
+    color: $primary;
+  }
+  &.formL {
+    background: $live-bg;
+    color: $live-color;
+  }
+  &.formD {
+    background: $card-hover;
+    color: $text-secondary;
+  }
+}
+
+// ---------------------------------------------------------------- Details
+
+.details {
+  display: flex;
+  flex-direction: column;
+}
+
+.detailRow {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: $space-3;
+  padding: $space-2 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $card-border;
+  }
+
+  dt {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: $text-muted;
+    align-self: center;
+  }
+
+  dd {
+    font-size: $text-sm;
+    color: $text-primary;
+  }
+}
+
+// ---------------------------------------------------------------- Squads
+
+.squads {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $space-4;
+
+  @include tablet {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.squadTeam {
+  font-size: $text-sm;
+  font-weight: 700;
+  padding-bottom: $space-2;
+  border-bottom: 2px solid $accent-light;
+  margin-bottom: $space-2;
+}
+
+.squadPlayer {
+  @include flex-between;
+  gap: $space-2;
+  font-size: $text-sm;
+  padding: $space-2 $space-1;
+
+  &:nth-child(even) {
+    background: $bg;
+  }
+}
+
+.squadRole {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $text-muted;
+  white-space: nowrap;
+}
+
+// ---------------------------------------------------------------- Scorecard
+
+.inningsPicker {
+  display: flex;
+  gap: $space-2;
+  overflow-x: auto;
+}
+
+.inningsBtn {
+  padding: $space-2 $space-3;
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-secondary;
+  background: $card-bg;
+  border: 1px solid $card-border;
+  border-radius: $radius-sm;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+
+  &:hover {
+    color: $text-primary;
+    background: $card-hover;
+  }
+
+  &.active {
+    color: $primary;
+    background: $accent-light;
+    border-color: $accent;
+  }
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $text-sm;
+
+  th,
+  td {
+    padding: $space-2;
+    text-align: right;
+    white-space: nowrap;
+    background: $card-bg;
+  }
+
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: $text-muted;
+    border-bottom: 1px solid $card-border;
+  }
+
+  // Alternating rows: warm white ($bg) / white.
+  tbody tr:nth-child(even) td {
+    background: $bg;
+  }
+
+  .left {
+    text-align: left;
+  }
+}
+
+.dismissal {
+  color: $text-muted;
+  font-size: 13px;
+  white-space: normal;
+  min-width: 120px;
+}
+
+.num {
+  @include score-number;
+  font-size: $text-sm;
+}
+
+.notout {
+  color: $accent-green;
+  font-weight: 700;
+}
+
+.extrasRow td {
+  color: $text-secondary;
+  border-top: 1px solid $card-border;
+}
+
+.totalRow td {
+  font-weight: 700;
+  border-top: 2px solid $card-border;
+
+  &.num {
+    color: $accent-green;
+  }
+}
+
+// ---------------------------------------------------------------- Commentary
+
+.commentary {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.overHeader {
+  font-size: $text-sm;
+  font-weight: 700;
+  padding: $space-1 $space-2;
+  margin-bottom: $space-2;
+  background: $secondary;
+  border-radius: $radius-sm;
+}
+
+.ballRow {
+  display: flex;
+  gap: $space-3;
+  align-items: flex-start;
+  padding: $space-2 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $card-border;
+  }
+}
+
+.ballMarker {
+  @include score-number;
+  flex-shrink: 0;
+  min-width: 44px;
+  padding: 2px $space-2;
+  border-radius: $radius-sm;
+  background: $card-hover;
+  font-size: $text-xs;
+  text-align: center;
+  color: $text-secondary;
+
+  &.boundary {
+    background: rgba(169, 240, 209, 0.45);
+    color: $accent;
+  }
+
+  &.wicket {
+    background: $live-bg;
+    color: $live-color;
+  }
+}
+
+.ballText {
+  flex: 1;
+  font-size: $text-sm;
+  color: $text-secondary;
+}
+
+.ballRuns {
+  @include score-number;
+  flex-shrink: 0;
+  font-size: $text-xs;
+  color: $text-muted;
+
+  &.four {
+    color: $accent;
+  }
+  &.six {
+    color: $accent-amber;
+  }
+  &.wicket {
+    color: $live-color;
+  }
+}
+
+// ---------------------------------------------------------------- Wicket alert
+
+.wicketAlert {
+  position: sticky;
+  top: calc(#{$navbar-height} + #{$space-2});
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  border-radius: $radius-md;
+  background: $live-color;
+  color: #fff;
+  font-weight: 700;
+  font-size: $text-base;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 24px rgba(232, 21, 58, 0.4);
+  animation: wicket-slide-down 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.wicketScore {
+  @include score-number;
+  margin-left: auto;
+  font-size: $text-base;
+}
+
+@keyframes wicket-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ---------------------------------------------------------------- Ball dots
+
+.dots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: $space-2;
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+}
+
+.ballDot {
+  @include flex-center;
+  @include score-number;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 11px;
+  flex-shrink: 0;
+  background: $card-hover;
+  color: $text-secondary;
+
+  &.four {
+    background: rgba(169, 240, 209, 0.45);
+    color: $accent;
+  }
+  &.six {
+    background: rgba(249, 199, 79, 0.2);
+    color: $accent-amber;
+  }
+  &.wicket {
+    background: $live-color;
+    color: #fff;
+  }
+}

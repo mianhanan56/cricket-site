@@ -28,7 +28,7 @@ export default function Navbar() {
       <div className={styles.inner}>
         <Link href="/" className={styles.logo} onClick={() => setOpen(false)}>
           <span className={styles.logoMark}>C</span>
-          <span className={styles.logoText}>CREX</span>
+          <span className={styles.logoText}>PulseCrease</span>
         </Link>
 
         <nav className={`${styles.links} ${open ? styles.open : ''}`}>

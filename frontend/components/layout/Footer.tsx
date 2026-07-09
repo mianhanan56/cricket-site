@@ -24,7 +24,7 @@ export default function Footer() {
     <footer className={styles.footer}>
       <div className={styles.inner}>
         <div className={styles.brand}>
-          <span className={styles.logo}>CREX</span>
+          <span className={styles.logo}>PulseCrease</span>
           <p className={styles.tagline}>Live cricket scores, stats &amp; news.</p>
         </div>
 
@@ -43,7 +43,7 @@ export default function Footer() {
       </div>
 
       <div className={styles.bottom}>
-        <span>© {new Date().getFullYear()} CREX Clone. For educational use.</span>
+        <span>© {new Date().getFullYear()} PulseCrease. For educational use.</span>
       </div>
     </footer>
   );

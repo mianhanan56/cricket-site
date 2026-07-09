@@ -191,7 +191,7 @@ async function main() {
       excerpt: 'A masterclass hundred from Virat Kohli puts India in command at the Wankhede.',
       content:
         'Virat Kohli brought up his 51st ODI hundred with a commanding knock as India posted a strong total against Australia in the series opener. The chase-master once again proved why he is among the greatest of all time, anchoring the innings through the middle overs before accelerating at the death.',
-      author: 'CREX Desk',
+      author: 'PulseCrease Desk',
       tags: ['India', 'Australia', 'ODI', 'Virat Kohli'],
     },
   });
@@ -202,7 +202,7 @@ async function main() {
       excerpt: 'Australia’s mainstay looks ominous heading into a packed cricket calendar.',
       content:
         'Steve Smith rolled back the years with a fluent half-century in the warm-up fixture, easing concerns over his recent lean patch ahead of a crucial Test series.',
-      author: 'CREX Desk',
+      author: 'PulseCrease Desk',
       tags: ['Australia', 'Steve Smith', 'Test'],
     },
   });
@@ -213,7 +213,7 @@ async function main() {
       excerpt: 'Curators promise a true surface with plenty on offer for the stroke-makers.',
       content:
         'The Wankhede track has historically favoured batters under lights, and this fixture is expected to be no different with a fast outfield and short square boundaries.',
-      author: 'CREX Desk',
+      author: 'PulseCrease Desk',
       tags: ['India', 'Pitch Report', 'ODI'],
     },
   });

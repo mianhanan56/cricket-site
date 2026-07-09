@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Match } from '@crex/shared';
 import { getMatch } from '../../../lib/api';
-import MatchLiveView from '../../../components/match/MatchLiveView';
+import MatchDetail from '../../../components/match/MatchDetail';
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   try {
@@ -26,7 +26,8 @@ export default async function MatchDetailPage({ params }: { params: { id: string
     throw err;
   }
 
-  // Live polling happens client-side; we hand off the server-fetched match
-  // as the initial state so the page is instantly populated (no spinner flash).
-  return <MatchLiveView matchId={params.id} initial={match} />;
+  // Live updates stream client-side over the socket; we hand off the
+  // server-fetched match as the initial state so the page is instantly
+  // populated (no spinner flash).
+  return <MatchDetail matchId={params.id} initial={match} />;
 }

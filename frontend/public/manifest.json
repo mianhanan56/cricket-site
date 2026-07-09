@@ -1,6 +1,6 @@
 {
-  "name": "CREX Clone",
-  "short_name": "CREX",
+  "name": "PulseCrease",
+  "short_name": "PC",
   "description": "Live cricket scores, fixtures, rankings and news.",
   "start_url": "/",
   "scope": "/",

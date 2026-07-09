@@ -1,4 +1,4 @@
-# CREX Clone
+# PulseCrease
 
 Full-stack cricket live-scores & news platform — a CREX.com-style clone.
 

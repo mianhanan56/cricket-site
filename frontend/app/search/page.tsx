@@ -4,7 +4,7 @@ import Spinner from '../../components/ui/Spinner';
 
 export const metadata = {
   title: 'Search',
-  description: 'Search across players, teams, series and news on CREX Clone.',
+  description: 'Search across players, teams, series and news on PulseCrease.',
 };
 
 export default function SearchPage() {

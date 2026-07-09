@@ -2,7 +2,7 @@
   "name": "crex-clone",
   "version": "0.1.0",
   "private": true,
-  "description": "CREX Clone — full-stack cricket live scores & news platform",
+  "description": "PulseCrease — full-stack cricket live scores & news platform",
   "workspaces": [
     "frontend",
     "backend",

@@ -18,7 +18,7 @@ export default function NewsCard({ article }: { article: NewsArticle }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={article.thumbnail} alt={article.title} />
         ) : (
-          <span className={styles.placeholder}>CREX</span>
+          <span className={styles.placeholder}>PulseCrease</span>
         )}
       </div>
       <div className={styles.body}>

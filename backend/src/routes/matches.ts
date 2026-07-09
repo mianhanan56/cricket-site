@@ -1,13 +1,16 @@
 import { Router } from 'express';
-import type { MatchStatus, MatchFormat } from '../shared/types';
+import { Prisma } from '@prisma/client';
+import type { MatchStatus, MatchFormat, TeamFormEntry, SquadPlayer, PlayerRole } from '../shared/types';
 import { prisma } from '../lib/prisma';
 import { cache } from '../middleware/cache';
 import {
   fetchLiveMatches,
+  fetchMatchScorecard,
   mapStatus,
   mapFormat,
   mapStartTime,
   mapScorecard,
+  mergeScorecardDetail,
   type CricApiMatch,
 } from '../services/cricketApi';
 import { quotaNearlyExhausted } from '../lib/usage';
@@ -96,14 +99,113 @@ router.get('/', cache(60), async (req, res) => {
   }
 });
 
-// GET /api/matches/:id — single match with full scorecard (live cache = 10s)
+// Last 5 completed results for a team, most recent first. W/L is derived from
+// the result string ("India won by 6 wickets"); anything else counts as D/NR.
+async function recentForm(teamId: string, names: string[], excludeId: string): Promise<TeamFormEntry[]> {
+  const recent = await prisma.match.findMany({
+    where: {
+      status: 'COMPLETED',
+      id: { not: excludeId },
+      OR: [{ homeTeamId: teamId }, { awayTeamId: teamId }],
+    },
+    include: { homeTeam: true, awayTeam: true },
+    orderBy: { startTime: 'desc' },
+    take: 5,
+  });
+  // Whole-word match so short codes can't false-positive ("IND" in "Indies").
+  const needles = names.map(
+    (n) => new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+  );
+  return recent.map((m) => {
+    const opponent = m.homeTeamId === teamId ? m.awayTeam.shortName : m.homeTeam.shortName;
+    const r = m.result ?? '';
+    let result: TeamFormEntry['result'] = 'D';
+    if (/won/i.test(r)) result = needles.some((n) => n.test(r)) ? 'W' : 'L';
+    return { matchId: m.id, result, opponent };
+  });
+}
+
+// Probable XI: players from the team's country, batters first.
+const ROLE_ORDER: Record<string, number> = { BATSMAN: 0, WK: 1, ALL_ROUNDER: 2, BOWLER: 3 };
+
+async function squadFor(country: string): Promise<SquadPlayer[]> {
+  const players = await prisma.player.findMany({ where: { country }, take: 30 });
+  return players
+    .sort(
+      (a, b) =>
+        (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9) || a.name.localeCompare(b.name)
+    )
+    .slice(0, 11)
+    .map((p) => ({ id: p.id, name: p.name, role: p.role as PlayerRole }));
+}
+
+type ScorecardJson = { innings?: Array<Record<string, unknown>>; [k: string]: unknown } | null;
+
+// Ball-by-ball batting/bowling isn't captured by the 30-min sync (it only
+// stores innings totals), so lazily fetch CricAPI's `match_scorecard` the first
+// time a match detail is viewed and persist it. Completed matches never change,
+// so this costs one upstream call per match, ever. Live matches re-fetch to
+// stay fresh. Returns the (possibly enriched) scorecard JSON.
+async function ensureScorecardLines(match: {
+  id: string;
+  externalId: string | null;
+  status: string;
+  scorecard: unknown;
+}): Promise<ScorecardJson> {
+  const sc = (match.scorecard as ScorecardJson) ?? { innings: [] };
+  if (!match.externalId || !process.env.CRICAPI_KEY) return sc;
+
+  const innings = sc?.innings ?? [];
+  const hasLines = innings.some(
+    (i) => Array.isArray((i as { batting?: unknown[] }).batting) && (i as { batting: unknown[] }).batting.length > 0
+  );
+  const isLive = match.status === 'LIVE';
+  // Already enriched and not live → nothing to do; don't spend quota.
+  if (hasLines && !isLive) return sc;
+  if (await quotaNearlyExhausted()) return sc;
+
+  try {
+    const detail = await fetchMatchScorecard(match.externalId);
+    const cards = detail.scorecard ?? [];
+    if (!cards.length) return sc;
+
+    const merged = mergeScorecardDetail(sc ?? { innings: [] }, cards);
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { scorecard: merged as Prisma.InputJsonValue },
+    });
+    return merged;
+  } catch (err) {
+    console.warn(`[matches] scorecard enrich failed for ${match.id}: ${(err as Error).message}`);
+    return sc;
+  }
+}
+
+// GET /api/matches/:id — single match with full scorecard, plus team form and
+// squads computed from the DB. Fetches ball-by-ball lines from CricAPI once and
+// caches them in the DB. Live cache = 10s.
 router.get('/:id', cache(10), async (req, res) => {
   try {
     const match = await prisma.match.findUnique({ where: { id: req.params.id }, include: INCLUDE });
     if (!match) {
       return res.status(404).json({ success: false, data: null, error: 'Match not found' });
     }
-    res.status(200).json({ success: true, data: match });
+    const scorecard = await ensureScorecardLines(match);
+    const [homeForm, awayForm, homeSquad, awaySquad] = await Promise.all([
+      recentForm(match.homeTeamId, [match.homeTeam.name, match.homeTeam.shortName], match.id),
+      recentForm(match.awayTeamId, [match.awayTeam.name, match.awayTeam.shortName], match.id),
+      squadFor(match.homeTeam.country),
+      squadFor(match.awayTeam.country),
+    ]);
+    res.status(200).json({
+      success: true,
+      data: {
+        ...match,
+        scorecard,
+        teamForm: { home: homeForm, away: awayForm },
+        squads: { home: homeSquad, away: awaySquad },
+      },
+    });
   } catch (err) {
     res.status(500).json({ success: false, data: null, error: 'Failed to load match' });
   }

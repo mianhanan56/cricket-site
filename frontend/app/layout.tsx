@@ -8,25 +8,24 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'CREX Clone — Live Cricket Scores, News & Updates',
-    template: '%s | CREX Clone',
+    default: 'PulseCrease — Live Cricket Scores',
+    template: '%s | PulseCrease',
   },
-  description:
-    'Live cricket scores, ball-by-ball commentary, fixtures, series, player profiles, ICC rankings and the latest cricket news.',
-  applicationName: 'CREX Clone',
+  description: 'Every ball. Live.',
+  applicationName: 'PulseCrease',
   manifest: '/manifest.json',
   icons: { icon: '/icon.svg', apple: '/icon.svg' },
   openGraph: {
     type: 'website',
-    siteName: 'CREX Clone',
-    title: 'CREX Clone — Live Cricket Scores, News & Updates',
-    description: 'Live cricket scores, fixtures, rankings and news.',
+    siteName: 'PulseCrease',
+    title: 'PulseCrease — Live Cricket Scores',
+    description: 'Every ball. Live.',
     images: ['/icon.svg'],
   },
   twitter: {
     card: 'summary',
-    title: 'CREX Clone — Live Cricket Scores',
-    description: 'Live cricket scores, fixtures, rankings and news.',
+    title: 'PulseCrease — Live Cricket Scores',
+    description: 'Every ball. Live.',
     images: ['/icon.svg'],
   },
 };
@@ -45,6 +44,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@600;700&display=swap"
           rel="stylesheet"
         />
+        {process.env.NODE_ENV === 'development' && (
+          // Dev-only service-worker kill switch. A SW registered on this origin
+          // by a production run (or another app on localhost:3000) serves stale
+          // CacheFirst chunks and breaks dev with webpack "reading 'call'"
+          // errors. Inline in the HTML so it runs even when cached chunks fail.
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(function (rs) {
+                    rs.forEach(function (r) { r.unregister(); });
+                  });
+                  if (window.caches && caches.keys) {
+                    caches.keys().then(function (ks) {
+                      ks.forEach(function (k) { caches.delete(k); });
+                    });
+                  }
+                }
+              `,
+            }}
+          />
+        )}
       </head>
       <body>
         <div className="app-shell">
