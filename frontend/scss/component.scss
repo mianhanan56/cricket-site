@@ -5,42 +5,59 @@
 // the scoped *.module.scss component styles and by global/main stylesheets.
 // Pull into any stylesheet with:  @use 'component' as *;
 //
+// Visual identity: "Aurora" — a dark, premium interface with soft green/violet
+// radial glows, glassmorphic surfaces and a bright mint-green brand accent.
+// Type pairing: Sora (display) + Manrope (body). Signature element: the aurora
+// glow background + glass cards that lift with a green glow on hover.
+//
 // NOTE: this file emits no standalone CSS except the shared @keyframes — it is
 // a definitions library, so @use-ing it adds no duplicated rules.
 // ============================================================================
 
 // ----------------------------------------------------------------------------
 // 1. Design tokens
+//
+// Every COLOR token below resolves to a CSS custom property declared in
+// global.scss (`:root` = light, `:root[data-theme='dark']` = dark). This keeps
+// the whole SCSS-module layer theme-agnostic: the same $token flips value at
+// runtime when the <html data-theme> attribute changes. Non-color tokens
+// (spacing, radius, type, breakpoints) stay static SCSS values.
 // ----------------------------------------------------------------------------
 
-// --- Brand colors (light theme) ---
-$bg: #fff7f8; // Warm white (body background)
-$primary: #1a1a2e; // Dark navy (navbar, primary text, dark surfaces)
-$secondary: #f2eaf2; // Light lavender tint (secondary surfaces, gradients)
-$accent: #2ecc8f; // Darker mint — accent text / borders / links on light bg
-$accent-light: #a9f0d1; // Mint green — fills, badges, win bar, navbar active
-$accent-green: #2ecc8f; // Scores, runs (mint green)
-$accent-red: #e8153a; // Red (live, wickets, danger)
-$accent-amber: #f9c74f; // Amber (records, milestones)
+// --- Backgrounds & surfaces ---
+$bg: var(--bg-base); // Page background (aurora base)
+$surface: var(--surface); // Slightly raised flat surface
+$surface-elevated: var(--surface-elevated); // Highest flat surface (chips, tiles)
+
+// --- Brand colors ---
+$primary: var(--fg); // Strong foreground / emphasis
+$secondary: var(--secondary); // Secondary surface (footer, gradients)
+$accent: var(--accent-green); // Mint green — the dominant brand accent
+$accent-light: var(--accent-green-soft); // Lighter mint — fills, badges, active
+$accent-green: var(--accent-green); // Scores, runs
+$accent-green-ink: var(--accent-green-ink); // Ink on an accent-green fill
+$accent-purple: var(--accent-purple); // Violet — secondary accent
+$accent-red: var(--live); // Red (live, wickets, danger)
+$accent-amber: var(--amber); // Amber (records, milestones)
 
 // --- Text ---
-$text-primary: #1a1a2e;
-$text-secondary: #4a4a6a;
-$text-muted: #9090a0;
+$text-primary: var(--fg);
+$text-secondary: var(--text-secondary);
+$text-muted: var(--muted-foreground);
 
 // --- Cards & surfaces ---
-$card-bg: #ffffff;
-$card-border: #e8e0e8;
-$card-hover: #f5eef8;
+$card-bg: var(--card);
+$card-border: var(--border);
+$card-hover: var(--card-hover);
 
-// --- Navbar (dark surface on the light page) ---
-$navbar-bg: #1a1a2e;
-$navbar-text: #ffffff;
-$navbar-active: #a9f0d1;
+// --- Navbar (glass on the aurora page) ---
+$navbar-bg: var(--navbar-bg);
+$navbar-text: var(--fg);
+$navbar-active: var(--accent-green);
 
 // --- Live indicator ---
-$live-color: #e8153a;
-$live-bg: rgba(232, 21, 58, 0.1);
+$live-color: var(--live);
+$live-bg: var(--live-bg);
 
 // --- Breakpoints ---
 $mobile: 480px;
@@ -49,38 +66,51 @@ $desktop: 1024px;
 $wide: 1280px;
 
 // --- Typography ---
-$font-primary: 'Inter', system-ui, -apple-system, sans-serif;
+$font-primary: 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
+$font-display: 'Sora', ui-sans-serif, system-ui, sans-serif;
 $font-mono: 'JetBrains Mono', 'SF Mono', monospace;
 
-// Global type scale (used by global.scss element defaults + components).
-$text-xs: 12px;
-$text-sm: 14px;
-$text-base: 16px;
-$text-lg: 18px;
-$text-xl: 22px;
-$text-2xl: 28px;
-$text-3xl: 40px;
+// Type scale — matches the original design's Tailwind text-* sizes exactly.
+$text-2xs: 10px; // text-[10px] (format chips, kbd, count badges)
+$text-xs: 12px; // text-xs
+$text-sm: 14px; // text-sm
+$text-base: 16px; // text-base
+$text-lg: 18px; // text-lg
+$text-xl: 20px; // text-xl
+$text-2xl: 24px; // text-2xl
+$text-3xl: 30px; // text-3xl
+$text-4xl: 36px; // text-4xl
 
 $leading-tight: 1.2;
 $leading-normal: 1.5;
 $leading-relaxed: 1.6;
 
-// --- Spacing (8px grid) ---
-$space-1: 4px;
-$space-2: 8px;
-$space-3: 16px;
-$space-4: 24px;
-$space-5: 32px;
-$space-6: 48px;
-$space-8: 64px;
+// Spacing — matches the original's Tailwind spacing scale (4px base) exactly.
+$space-1: 4px; // 1
+$space-1-5: 6px; // 1.5
+$space-2: 8px; // 2
+$space-2-5: 10px; // 2.5
+$space-3: 12px; // 3
+$space-4: 16px; // 4
+$space-5: 20px; // 5
+$space-6: 24px; // 6
+$space-8: 32px; // 8
+$space-10: 40px; // 10
+$space-12: 48px; // 12
+$space-16: 64px; // 16
+$space-24: 96px; // 24
 
-// --- Radius & elevation ---
-$radius-sm: 6px;
-$radius-md: 10px;
-$radius-lg: 16px;
+// Radius — matches the original (--radius: 0.875rem = 14px).
+$radius-sm: 10px; // rounded-sm  (radius - 4)
+$radius-md: 12px; // rounded-md  (radius - 2)
+$radius-lg: 14px; // rounded-lg  (radius)
+$radius-xl: 18px; // rounded-xl  (radius + 4)
+$radius-2xl: 22px; // rounded-2xl (radius + 8)
+$radius-3xl: 24px; // rounded-3xl
 
-$shadow-card: 0 2px 12px rgba(26, 26, 46, 0.06);
-$shadow-glow: 0 0 0 1px rgba(46, 204, 143, 0.35), 0 10px 28px rgba(46, 204, 143, 0.16);
+$shadow-card: var(--shadow-card);
+$shadow-glow: var(--shadow-glow);
+$shadow-glow-accent: var(--shadow-glow-accent);
 
 // --- Layout ---
 $navbar-height: 64px;
@@ -135,18 +165,33 @@ $z-modal: 1000;
   justify-content: space-between;
 }
 
-// --- Card surface with hover glow ---
+// --- Glassmorphic surface (the signature look) ---
+@mixin glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+}
+
+// --- Aurora glow background (soft green + violet radial washes) ---
+@mixin aurora-bg {
+  background: var(--aurora-bg);
+}
+
+// --- Card surface (glass) with hover glow — matches the original's rounded-2xl ---
 @mixin card {
-  background: $card-bg;
-  border: 1px solid $card-border;
-  border-radius: $radius-md;
+  @include glass;
+  border-radius: $radius-2xl;
   box-shadow: $shadow-card;
-  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 @mixin card-hover {
   &:hover {
-    background: $card-hover;
+    border-color: var(--card-hover-border);
     box-shadow: $shadow-glow;
     transform: translateY(-2px);
   }
@@ -154,9 +199,10 @@ $z-modal: 1000;
 
 // --- Typography helpers ---
 @mixin score-number {
-  font-family: $font-mono;
+  font-family: $font-display;
   font-weight: 700;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 @mixin truncate($lines: 1) {
@@ -196,11 +242,21 @@ $z-modal: 1000;
 @keyframes live-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(232, 21, 58, 0.6);
+    box-shadow: 0 0 0 0 rgba(255, 84, 83, 0.6);
     opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(232, 21, 58, 0);
+    box-shadow: 0 0 0 6px rgba(255, 84, 83, 0);
     opacity: 0.7;
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
   }
 }

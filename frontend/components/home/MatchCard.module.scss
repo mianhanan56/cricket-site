@@ -1,118 +1,255 @@
 @use 'component' as *;
 
+// Values mirror the original design's MatchCard Tailwind classes exactly.
+
+// glass rounded-2xl p-5 hover:border-primary/40 hover:-translate-y-0.5
 .card {
-  @include card;
-  @include card-hover;
+  @include card; // glass + rounded-2xl (22px)
   display: flex;
   flex-direction: column;
-  gap: $space-3;
-  padding: $space-3;
+  padding: $space-5; // p-5 (20px)
   height: 100%;
-  min-width: 260px;
-  max-width: 300px;
-  border-left: 3px solid transparent;
-}
+  width: 100%;
 
-// Status accents — colored left border per match state.
-.isLive {
-  border-left-color: $accent; // mint green
-}
-
-.isUpcoming {
-  border-left-color: $primary; // navy
+  &:hover {
+    border-color: color-mix(in oklab, var(--accent-green) 40%, transparent);
+    transform: translateY(-2px);
+  }
 }
 
 .isCompleted {
-  border-left-color: $text-muted; // gray
-
-  .teamName,
+  .teamCode,
   .score {
     color: $text-secondary;
   }
 }
 
-.clock {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-1;
-  color: $text-secondary;
-  font-weight: 500;
-}
-
+// header: flex justify-between mb-4
 .header {
   @include flex-between;
+  gap: $space-2;
+  margin-bottom: $space-4; // mb-4 (16px)
 }
 
-.format {
-  font-size: 11px;
-  font-weight: 700;
-  color: $primary;
-  background: $accent-light;
-  padding: 2px $space-2;
-  border-radius: $radius-sm;
-  letter-spacing: 0.05em;
-}
-
-.status {
-  font-size: 11px;
-  font-weight: 600;
-  color: $text-muted;
-  letter-spacing: 0.05em;
-}
-
-.live {
-  @include live-pulse;
-  display: inline-flex;
+// left: flex items-center gap-2 min-w-0
+.headLeft {
+  display: flex;
   align-items: center;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: $live-color;
-  background: $live-bg;
-  padding: 2px $space-2;
-  border-radius: $radius-sm;
+  gap: $space-2; // gap-2 (8px)
+  min-width: 0;
 }
 
-.series {
-  @include truncate(1);
-  font-size: 13px;
+// text-[10px] font-semibold px-2 py-1 rounded-md bg-surface-elevated border tracking-wider
+.format {
+  flex-shrink: 0;
+  font-size: $text-2xs; // text-[10px]
+  font-weight: 600;
+  letter-spacing: 0.08em; // tracking-wider
+  padding: $space-1 $space-2; // py-1 px-2
+  border-radius: $radius-md; // rounded-md (12px)
+  background: $surface-elevated;
+  border: 1px solid $card-border;
   color: $text-secondary;
 }
 
+// text-xs text-muted-foreground truncate
+.series {
+  @include truncate(1);
+  font-size: $text-xs; // 12px
+  color: $text-muted;
+}
+
+// status labels — text-xs
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2; // gap-2 (8px)
+  flex-shrink: 0;
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $live-color; // text-live
+}
+
+// pulsing live dot (w-2 h-2 with expanding ring)
+.dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: $live-color;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: $live-color;
+    animation: live-ring 1.8s ease-out infinite;
+  }
+}
+
+.upcoming {
+  flex-shrink: 0;
+  font-size: $text-xs;
+  font-weight: 500;
+  color: $accent-purple; // text-accent (violet)
+}
+
+.result {
+  flex-shrink: 0;
+  font-size: $text-xs;
+  font-weight: 500;
+  color: $text-muted;
+}
+
+// teams: space-y-3
 .teams {
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: $space-3; // space-y-3 (12px)
 }
 
+// InningsLine: flex items-center justify-between
 .team {
   @include flex-between;
+  gap: $space-2;
+
+  &.dim {
+    opacity: 0.7; // opacity-70
+  }
 }
 
-.teamName {
-  flex: 1;
-  min-width: 0; // allow the name to shrink + ellipsize instead of pushing score
-  max-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+// left: flex items-center gap-3
+.teamLeft {
+  display: flex;
+  align-items: center;
+  gap: $space-3; // gap-3 (12px)
+  min-width: 0;
+}
+
+// TeamBadge: w-11 h-11 rounded-xl font-display font-bold text-sm text-white
+.badge {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 44px; // w-11
+  height: 44px; // h-11
+  border-radius: $radius-xl; // rounded-xl (18px)
+  font-family: $font-display;
+  font-weight: 700;
+  font-size: $text-sm; // text-sm (14px)
+  color: #fff;
+}
+
+.teamMeta {
+  min-width: 0;
+}
+
+// font-display font-semibold
+.teamCode {
+  font-family: $font-display;
   font-weight: 600;
-  font-size: 15px;
+  font-size: $text-base; // 16px
+  color: $text-primary;
 }
 
+// text-xs text-muted-foreground
+.overs {
+  font-size: $text-xs; // 12px
+  color: $text-muted;
+}
+
+// right score: font-display font-bold text-xl tabular-nums
 .score {
   @include score-number;
-  flex-shrink: 0; // score keeps its full width, never compressed
-  white-space: nowrap; // score never wraps or truncates
-  margin-left: 8px;
-  font-size: 16px;
-  color: $accent-green;
+  flex-shrink: 0;
+  font-size: $text-xl; // text-xl (20px)
+  color: $text-primary;
 }
 
-.footer {
-  @include truncate(1);
-  font-size: 12px;
+// wickets: text-muted-foreground font-medium text-base
+.wickets {
+  font-family: $font-display;
+  font-weight: 500;
+  font-size: $text-base; // text-base (16px)
   color: $text-muted;
-  padding-top: $space-2;
+}
+
+// "Yet to bat": text-xs text-muted-foreground
+.yetToBat {
+  flex-shrink: 0;
+  font-size: $text-xs;
+  color: $text-muted;
+}
+
+// footer: mt-4 pt-4 border-t border-border
+.footer {
+  margin-top: $space-4; // mt-4 (16px)
+  padding-top: $space-4; // pt-4 (16px)
   border-top: 1px solid $card-border;
+}
+
+// status text: text-sm font-medium
+.footNote {
+  font-size: $text-sm; // 14px
+  font-weight: 500;
+  color: $text-muted;
+}
+
+.footLive {
+  color: $accent; // text-primary (green)
+}
+
+.footResult {
+  color: $text-primary; // text-foreground/90
+}
+
+.strong {
+  color: $text-primary;
+  font-weight: 500;
+}
+
+// venue row: mt-2 flex justify-between text-xs text-muted-foreground
+.meta {
+  @include flex-between;
+  gap: $space-2;
+  margin-top: $space-2; // mt-2 (8px)
+  font-size: $text-xs; // 12px
+  color: $text-muted;
+}
+
+.venue {
+  @include truncate(1);
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1; // gap-1 (4px)
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+// View → : text-primary, revealed on card hover
+.view {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  flex-shrink: 0;
+  color: $accent; // text-primary (green)
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  .card:hover & {
+    opacity: 1;
+  }
+}
+
+@keyframes live-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
 }

@@ -1,0 +1,283 @@
+@use 'component' as *;
+
+// ===========================================================================
+// Home matches — values match the original design's Tailwind classes exactly.
+// ===========================================================================
+
+// --- Stats strip: 1 col (mobile) -> 2 cols (tablet) -> 4 cols (desktop) -----
+.stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $space-3; // gap-3 (12px)
+
+  @include tablet {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @include desktop {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+// glass rounded-2xl p-4 flex items-center gap-3; hover -translate-y-0.5
+.stat {
+  @include card; // glass + rounded-2xl (22px)
+  display: flex;
+  align-items: center;
+  gap: $space-3; // gap-3 (12px)
+  padding: $space-4; // p-4 (16px)
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-2px); // -translate-y-0.5
+  }
+
+  &.statActive {
+    // border-primary/50 shadow-glow
+    border-color: color-mix(in oklab, var(--accent-green) 50%, transparent);
+    box-shadow: $shadow-glow;
+  }
+}
+
+// w-10 h-10 rounded-xl grid place-items-center bg-surface-elevated
+.statIcon {
+  @include flex-center;
+  width: 40px;
+  height: 40px;
+  border-radius: $radius-xl; // rounded-xl (18px)
+  background: $surface-elevated;
+  flex-shrink: 0;
+
+  svg {
+    width: 20px; // w-5
+    height: 20px; // h-5
+  }
+}
+
+.toneLive {
+  color: $live-color;
+}
+.tonePurple {
+  color: $accent-purple; // text-accent (violet)
+}
+.toneGreen {
+  color: $accent; // text-primary (green)
+}
+.toneAmber {
+  color: $accent-amber; // amber — finished results
+}
+
+.statBody {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+// font-display font-bold text-xl tabular-nums
+.statValue {
+  @include score-number;
+  font-size: $text-xl; // text-xl (20px)
+}
+
+// text-xs text-muted-foreground
+.statLabel {
+  font-size: $text-xs; // 12px
+  color: $text-muted;
+}
+
+// --- Section head + tab pills ----------------------------------------------
+// section pt-8; head: flex justify-between flex-wrap gap-3 mb-6
+.head {
+  @include flex-between;
+  flex-wrap: wrap;
+  gap: $space-3; // gap-3 (12px)
+  margin-top: $space-8; // pt-8 (32px)
+  margin-bottom: $space-6; // mb-6 (24px)
+}
+
+// font-display font-bold text-2xl
+.title {
+  font-family: $font-display;
+  font-size: $text-2xl; // text-2xl (24px)
+  font-weight: 700;
+}
+
+// inline-flex glass rounded-xl p-1 text-sm
+.pills {
+  @include glass;
+  display: inline-flex;
+  gap: $space-1; // subtle separation
+  padding: $space-1; // p-1 (4px)
+  border-radius: $radius-xl; // rounded-xl (18px)
+  font-size: $text-sm; // text-sm (14px)
+}
+
+// inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2; // gap-2 (8px)
+  padding: $space-2 $space-4; // py-2 px-4
+  border-radius: $radius-lg; // rounded-lg (14px)
+  font-weight: 500;
+  color: $text-muted; // text-muted-foreground
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+
+  svg {
+    width: 16px; // w-4
+    height: 16px; // h-4
+  }
+
+  &:hover {
+    color: $text-primary; // hover:text-foreground
+  }
+
+  // bg-primary text-primary-foreground shadow-glow
+  &.pillActive {
+    background: $accent;
+    color: $accent-green-ink;
+    box-shadow: $shadow-glow;
+  }
+}
+
+// text-[10px] px-1.5 py-0.5 rounded; inactive bg-live/20 text-live
+.count {
+  font-size: $text-2xs; // text-[10px]
+  font-weight: 600;
+  padding: 2px 6px; // py-0.5 px-1.5
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--live) 20%, transparent);
+  color: $live-color;
+
+  // active: bg-background/20 (inherits pill's ink color)
+  .pillActive & {
+    background: color-mix(in oklab, var(--bg-base) 20%, transparent);
+    color: inherit;
+  }
+}
+
+// --- Carousel: horizontal slider, cards never wrap -------------------------
+// Layout is a flex row [arrow] [track] [arrow]. The arrows sit in their own
+// side gutters so they never overlap the cards or reduce their width. The
+// track flexes to fill the space between them and shows a fixed number of
+// cards per viewport: 1 (mobile) -> 2 (tablet) -> 3 (desktop).
+// The slider spans the full container width so ALL of it goes to the cards.
+// The arrows are absolutely positioned in the gutters outside this box.
+.slider {
+  position: relative;
+}
+
+.track {
+  display: flex;
+  gap: $space-4; // gap-4 (16px) — matches the previous grid gap exactly
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+
+  // A scroll container clips overflow on BOTH axes, which would cut off the
+  // card borders + shadows. Pad the track to give them room, then pull it back
+  // with a matching negative inline margin so the cards stay flush to the
+  // container edges (no visual shift, full width preserved). Vertical padding
+  // leaves room for the hover lift + glow.
+  padding: $space-3 $space-3 $space-5;
+  margin-inline: -$space-3;
+
+  // Navigation is via arrows / swipe — hide the native scrollbar.
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  @include tablet {
+    padding-inline: $space-4;
+    margin-inline: -$space-4;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    scroll-behavior: auto;
+  }
+}
+
+// One card per view on mobile; grows to 2 then 3 as space allows. Widths
+// account for the inter-card gap so exactly N cards fill the track.
+.slide {
+  flex: 0 0 100%;
+  scroll-snap-align: start;
+
+  // Let the card fill the slide height for a uniform row.
+  > * {
+    height: 100%;
+  }
+
+  @include tablet {
+    flex-basis: calc((100% - #{$space-4}) / 2); // 2 cards + 1 gap
+  }
+
+  @include desktop {
+    flex-basis: calc((100% - #{$space-4 * 2}) / 3); // 3 cards + 2 gaps
+  }
+}
+
+// Round nav buttons parked in the gutters, fully outside the card area.
+.arrow {
+  @include flex-center;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  @include glass;
+  box-shadow: $shadow-card;
+  color: $text-primary;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.15s ease;
+
+  // Touch-first: hidden on mobile (swipe to scroll), shown from tablet up.
+  display: none;
+
+  &:hover:not(:disabled) {
+    border-color: color-mix(in oklab, var(--accent-green) 40%, transparent);
+    color: $accent;
+    transform: translateY(-50%) scale(1.05);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  @include tablet {
+    display: flex;
+  }
+}
+
+// Sit just outside the card row: left arrow to the left, right arrow to the
+// right, each with a small gap so they never overlap the cards.
+.left {
+  right: 100%;
+  margin-right: $space-2;
+}
+
+.right {
+  left: 100%;
+  margin-left: $space-2;
+}
+
+// glass rounded-2xl p-12 text-center text-muted-foreground
+.empty {
+  @include card;
+  padding: $space-12; // p-12 (48px)
+  text-align: center;
+  color: $text-muted;
+  font-size: $text-sm;
+}

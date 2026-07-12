@@ -108,7 +108,12 @@ export default function SearchBar() {
           setTimeout(() => inputRef.current?.focus(), 0);
         }}
       >
-        🔍
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <span className={styles.toggleLabel}>Search</span>
+        <kbd className={styles.kbd}>⌘K</kbd>
       </button>
 
       <div className={`${styles.panel} ${open ? styles.open : ''}`}>

@@ -10,6 +10,107 @@
 @use 'component' as *;
 
 // ----------------------------------------------------------------------------
+// Theme tokens (CSS custom properties)
+//
+// `:root` is the LIGHT theme (default — the "soft aurora" look). The dark theme
+// is applied by setting `data-theme="dark"` on <html> (persisted in
+// localStorage by the ThemeToggle, and set pre-hydration by an inline script in
+// layout.tsx so there is no flash). Every $color token in component.scss maps
+// to one of these vars, so switching the attribute reskins the entire app.
+// ----------------------------------------------------------------------------
+
+// Raw palette values are the EXACT oklch() values from the original design
+// (inning-insight-pro styles.css) so colors are identical, not approximated.
+// The effect vars (glass/aurora/glow) reference the palette vars, so they are
+// declared once and adapt automatically per theme.
+:root {
+  color-scheme: light;
+
+  // --- Surfaces (light — "soft aurora") ---
+  --bg-base: oklch(0.985 0.006 260);
+  --surface: oklch(0.965 0.01 260);
+  --surface-elevated: oklch(0.995 0.004 260);
+  --card: oklch(1 0 0);
+  --card-hover: oklch(0.965 0.01 260);
+  --muted: oklch(0.94 0.012 260);
+  --secondary: oklch(0.94 0.012 260);
+
+  // --- Text ---
+  --fg: oklch(0.22 0.04 275);
+  --text-secondary: oklch(0.36 0.035 270);
+  --muted-foreground: oklch(0.48 0.03 265);
+
+  // --- Brand (original: primary = green, accent = violet) ---
+  --accent-green: oklch(0.62 0.17 160);
+  --accent-green-ink: oklch(0.99 0.005 260); // primary-foreground
+  --accent-green-soft: color-mix(in oklab, var(--accent-green) 18%, transparent);
+  --accent-purple: oklch(0.58 0.19 295);
+  --live: oklch(0.62 0.22 25);
+  --live-bg: color-mix(in oklab, var(--live) 15%, transparent);
+  --amber: oklch(0.62 0.15 75);
+
+  // --- Lines & chrome ---
+  --border: oklch(0.22 0.04 275 / 10%);
+  --card-hover-border: color-mix(in oklab, var(--accent-green) 45%, transparent);
+  --navbar-bg: color-mix(in oklab, var(--bg-base) 70%, transparent);
+
+  // --- Effects (declared once — reference palette vars, adapt per theme) ---
+  --glass-bg: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--surface-elevated) 85%, transparent),
+    color-mix(in oklab, var(--surface) 70%, transparent)
+  );
+  --glass-border: color-mix(in oklab, white 8%, transparent);
+  --shadow-card: 0 10px 30px -14px rgba(12, 14, 26, 0.28);
+  --shadow-glow: 0 0 40px -8px color-mix(in oklab, var(--accent-green) 55%, transparent);
+  --shadow-glow-accent: 0 0 40px -8px color-mix(in oklab, var(--accent-purple) 55%, transparent);
+  --aurora-bg:
+    radial-gradient(ellipse 80% 50% at 20% 0%, color-mix(in oklab, var(--accent-green) 18%, transparent), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 10%, color-mix(in oklab, var(--accent-purple) 22%, transparent), transparent 60%),
+    radial-gradient(ellipse 90% 40% at 50% 100%, color-mix(in oklab, var(--accent-purple) 12%, transparent), transparent 60%),
+    var(--bg-base);
+
+  // --- Selection & scrollbar ---
+  --selection: color-mix(in oklab, var(--accent-green) 28%, transparent);
+  --scrollbar-thumb: color-mix(in oklab, var(--fg) 14%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, var(--fg) 24%, transparent);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  // --- Surfaces (dark — refined near-black with a whisper of blue) ---
+  --bg-base: oklch(0.145 0.012 260);
+  --surface: oklch(0.19 0.014 260);
+  --surface-elevated: oklch(0.225 0.016 260);
+  --card: oklch(0.2 0.015 260);
+  --card-hover: oklch(0.225 0.016 260);
+  --muted: oklch(0.24 0.014 260);
+  --secondary: oklch(0.24 0.014 260);
+
+  // --- Text ---
+  --fg: oklch(0.97 0.005 260);
+  --text-secondary: oklch(0.82 0.012 260);
+  --muted-foreground: oklch(0.7 0.015 260);
+
+  // --- Brand ---
+  --accent-green: oklch(0.84 0.17 158);
+  --accent-green-ink: oklch(0.145 0.012 260);
+  --accent-purple: oklch(0.76 0.15 295);
+  --live: oklch(0.7 0.22 25);
+  --amber: oklch(0.82 0.15 80);
+
+  // --- Lines & chrome ---
+  --border: oklch(1 0 0 / 7%);
+  --navbar-bg: color-mix(in oklab, var(--bg-base) 72%, transparent);
+
+  // --- Scrollbar (glow/glass/aurora inherit from :root, adapt via palette) ---
+  --shadow-card: 0 10px 30px -12px rgba(0, 0, 0, 0.5);
+  --scrollbar-thumb: color-mix(in oklab, white 10%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, white 18%, transparent);
+}
+
+// ----------------------------------------------------------------------------
 // Reset
 // ----------------------------------------------------------------------------
 
@@ -59,24 +160,26 @@ body {
   font-size: $text-base;
   line-height: $leading-normal;
   color: $text-primary;
-  background: $bg;
+  @include aurora-bg;
+  background-attachment: fixed;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-// Headings match the prior reset exactly (weight + line-height only) so the
-// existing, mostly class-styled headings render identically. Components set
-// their own sizes/colors; the $text-* scale in component.scss is available for
-// any heading that wants an explicit global size.
+// Headings use the Sora display face with a tight negative tracking — this is
+// the type-pairing signature. Components set their own sizes/colors; the
+// $text-* scale in component.scss is available for explicit sizing.
 h1,
 h2,
 h3,
 h4,
 h5,
 h6 {
+  font-family: $font-display;
   font-weight: 600;
   line-height: $leading-tight;
+  letter-spacing: -0.02em;
 }
 
 // font-size only — line-height/color are left to inherit so components that
@@ -124,7 +227,7 @@ button {
 // ----------------------------------------------------------------------------
 
 ::selection {
-  background: rgba(169, 240, 209, 0.55);
+  background: var(--selection);
   color: $text-primary;
 }
 
@@ -133,13 +236,13 @@ button {
   height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: $bg;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: $card-hover;
+  background: var(--scrollbar-thumb);
   border-radius: 5px;
 
   &:hover {
-    background: lighten($card-hover, 10%);
+    background: var(--scrollbar-thumb-hover);
   }
 }

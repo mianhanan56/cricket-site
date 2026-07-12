@@ -1,0 +1,24 @@
+@use 'component' as *;
+
+// Matches the original's theme button: p-2 rounded-lg bg-surface-elevated
+// border border-border, 16px icon.
+.toggle {
+  @include flex-center;
+  padding: $space-2; // p-2 (8px) → 32px square with a 16px icon
+  border-radius: $radius-lg; // rounded-lg (14px)
+  background: $surface-elevated;
+  border: 1px solid $card-border;
+  color: $text-muted; // text-muted-foreground
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  svg {
+    width: 16px; // w-4
+    height: 16px; // h-4
+  }
+
+  &:hover {
+    color: $text-primary; // hover:text-foreground
+  }
+}

@@ -4,17 +4,16 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import SearchBar from './SearchBar';
+import ThemeToggle from './ThemeToggle';
 import styles from './Navbar.module.scss';
 
-// Nav routes temporarily hidden until their pages are ready. Uncomment to
-// restore the Home / Matches / Fixtures / Rankings / News links.
-// const NAV_LINKS = [
-//   { href: '/', label: 'Home' },
-//   { href: '/matches', label: 'Matches' },
-//   { href: '/fixtures', label: 'Fixtures' },
-//   { href: '/rankings', label: 'Rankings' },
-//   { href: '/news', label: 'News' },
-// ];
+const NAV_LINKS = [
+  { href: '/', label: 'Live' },
+  { href: '/matches', label: 'Matches' },
+  { href: '/fixtures', label: 'Fixtures' },
+  { href: '/rankings', label: 'Rankings' },
+  { href: '/news', label: 'News' },
+];
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -27,12 +26,18 @@ export default function Navbar() {
     <header className={styles.navbar}>
       <div className={styles.inner}>
         <Link href="/" className={styles.logo} onClick={() => setOpen(false)}>
-          <span className={styles.logoMark}>C</span>
-          <span className={styles.logoText}>PulseCrease</span>
+          <span className={styles.logoMark} aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+            </svg>
+          </span>
+          <span className={styles.logoText}>
+            Pulse<span className={styles.logoAccent}>Crease</span>
+          </span>
         </Link>
 
         <nav className={`${styles.links} ${open ? styles.open : ''}`}>
-          {/* {NAV_LINKS.map((link) => (
+          {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -41,11 +46,12 @@ export default function Navbar() {
             >
               {link.label}
             </Link>
-          ))} */}
+          ))}
         </nav>
 
         <div className={styles.actions}>
           <SearchBar />
+          <ThemeToggle />
           <button
             className={styles.burger}
             aria-label="Toggle menu"

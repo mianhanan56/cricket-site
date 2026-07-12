@@ -1,59 +1,76 @@
 @use 'component' as *;
 
+// Matches the original design's navbar exactly: sticky glass header (h-16),
+// gradient logo mark, text-sm nav links with surface-elevated hover.
 .navbar {
   position: fixed;
   inset: 0 0 auto 0;
   height: $navbar-height;
   z-index: $z-navbar;
   background: $navbar-bg;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid $card-border;
 }
 
 .inner {
   @include container;
   @include flex-between;
   height: 100%;
-  gap: $space-4;
+  gap: $space-4; // gap-4 (16px)
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: $space-2;
-  font-weight: 700;
+  gap: $space-2-5; // gap-2.5 (10px)
   flex-shrink: 0;
+
+  &:hover .logoMark {
+    box-shadow: 0 8px 26px -6px color-mix(in oklab, var(--accent-green) 75%, transparent);
+  }
 }
 
 .logoMark {
   @include flex-center;
-  width: 32px;
-  height: 32px;
-  border-radius: $radius-sm;
-  background: linear-gradient(135deg, $accent-light, $accent);
-  color: $primary;
-  font-weight: 800;
-  font-size: 18px;
+  width: 36px; // w-9
+  height: 36px; // h-9
+  border-radius: $radius-xl; // rounded-xl (18px)
+  background: linear-gradient(135deg, $accent, $accent-purple);
+  color: $bg; // text-background
+  box-shadow: 0 6px 20px -8px color-mix(in oklab, var(--accent-green) 55%, transparent);
+  transition: box-shadow 0.2s ease;
+
+  svg {
+    width: 20px; // w-5
+    height: 20px; // h-5
+  }
 }
 
 .logoText {
-  font-size: 20px;
-  letter-spacing: 0.04em;
-  background: linear-gradient(135deg, $accent-light, $accent);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-family: $font-display;
+  font-size: $text-lg; // text-lg (18px)
+  font-weight: 700;
+  letter-spacing: -0.02em; // tracking-tight
+  color: $text-primary;
+}
+
+.logoAccent {
+  color: $accent; // text-primary (green) in the original
 }
 
 .links {
-  // Mobile: slide-down panel.
+  // Mobile: slide-down glass panel.
   position: absolute;
   top: $navbar-height;
   left: 0;
   right: 0;
   flex-direction: column;
   gap: 0;
-  background: $navbar-bg;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: $surface;
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid $card-border;
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.25s ease;
@@ -66,8 +83,9 @@
   @include tablet {
     position: static;
     flex-direction: row;
-    gap: $space-2;
+    gap: $space-1; // gap-1 (4px)
     background: none;
+    backdrop-filter: none;
     border: none;
     max-height: none;
     overflow: visible;
@@ -75,15 +93,18 @@
 }
 
 .link {
-  padding: $space-3;
-  color: rgba(255, 255, 255, 0.78);
+  padding: $space-3 $space-4; // mobile: roomy tap target
+  color: $text-muted; // text-muted-foreground
   font-weight: 500;
-  font-size: 15px;
-  border-radius: $radius-sm;
-  transition: color 0.15s ease, background 0.15s ease;
+  font-size: $text-sm; // text-sm (14px)
+  border-radius: $radius-lg; // rounded-lg (14px)
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
 
   &:hover {
-    color: $navbar-text;
+    color: $navbar-text; // hover:text-foreground
+    background: $surface-elevated; // hover:bg-surface-elevated
   }
 
   &.active {
@@ -91,14 +112,14 @@
   }
 
   @include tablet {
-    padding: $space-2 $space-3;
+    padding: $space-2 14px; // px-3.5 py-2
   }
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: $space-2;
+  gap: $space-2; // gap-2 (8px)
   flex-shrink: 0;
 }
 
@@ -108,12 +129,18 @@
   gap: 4px;
   width: 40px;
   height: 40px;
+  border-radius: $radius-lg;
+  color: $text-primary;
+
+  &:hover {
+    background: $surface-elevated;
+  }
 
   span {
     display: block;
-    width: 20px;
+    width: 18px;
     height: 2px;
-    background: $navbar-text;
+    background: currentColor;
     border-radius: 2px;
   }
 

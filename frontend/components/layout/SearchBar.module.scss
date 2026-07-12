@@ -6,15 +6,49 @@
   align-items: center;
 }
 
+// Matches the original's search control: icon-only on mobile, a
+// "Search  ⌘K" pill (bg-surface-elevated, border, text-sm) from tablet up.
 .toggle {
-  @include flex-center;
-  width: 40px;
-  height: 40px;
-  border-radius: $radius-sm;
-  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2; // gap-2 (8px)
+  padding: $space-2; // p-2 (8px)
+  border-radius: $radius-lg; // rounded-lg (14px)
+  background: $surface-elevated;
+  border: 1px solid $card-border;
+  color: $text-muted; // text-muted-foreground
+  font-size: $text-sm; // text-sm (14px)
+  transition: color 0.15s ease;
 
   &:hover {
-    background: $card-hover;
+    color: $text-primary; // hover:text-foreground
+  }
+
+  @include tablet {
+    padding: $space-2 14px; // px-3.5 py-2
+  }
+}
+
+.toggleLabel {
+  display: none;
+
+  @include tablet {
+    display: inline;
+  }
+}
+
+.kbd {
+  display: none;
+
+  @include tablet {
+    display: inline-block;
+    margin-left: $space-4; // ml-4
+    padding: 2px 6px; // px-1.5 py-0.5
+    border-radius: 6px;
+    background: color-mix(in oklab, var(--bg-base) 60%, transparent);
+    border: 1px solid $card-border;
+    font-size: $text-2xs; // text-[10px]
+    line-height: 1;
   }
 }
 
