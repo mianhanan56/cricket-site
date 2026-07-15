@@ -11,6 +11,7 @@ import {
   mapStartTime,
   mapScorecard,
   mergeScorecardDetail,
+  apiConfigured,
   type CricApiMatch,
 } from '../services/cricketApi';
 import { quotaNearlyExhausted } from '../lib/usage';
@@ -58,7 +59,7 @@ router.get('/', cache(60), async (req, res) => {
 
     const wantsLive = !status || status === 'LIVE';
 
-    if (wantsLive && process.env.CRICAPI_KEY && !(await quotaNearlyExhausted())) {
+    if (wantsLive && apiConfigured() && !(await quotaNearlyExhausted())) {
       try {
         const raw = (await fetchLiveMatches()).filter((m) => mapStatus(m) === 'LIVE');
         const ext = raw.map((m) => m.id);
@@ -153,7 +154,7 @@ async function ensureScorecardLines(match: {
   scorecard: unknown;
 }): Promise<ScorecardJson> {
   const sc = (match.scorecard as ScorecardJson) ?? { innings: [] };
-  if (!match.externalId || !process.env.CRICAPI_KEY) return sc;
+  if (!match.externalId || !apiConfigured()) return sc;
 
   const innings = sc?.innings ?? [];
   const hasLines = innings.some(

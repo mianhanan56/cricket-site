@@ -6,6 +6,7 @@ import {
   mapFormat,
   mapStartTime,
   mapScorecard,
+  apiConfigured,
   type CricApiMatch,
 } from '../services/cricketApi';
 import { broadcastScoreUpdate } from '../socket';
@@ -81,8 +82,8 @@ async function syncMatch(m: CricApiMatch) {
 export async function runSync(): Promise<number> {
   console.log(`[sync] run started at ${new Date().toISOString()}`);
 
-  if (!process.env.CRICAPI_KEY) {
-    console.warn('[sync] CRICAPI_KEY not set — skipping (serving seeded DB data)');
+  if (!apiConfigured()) {
+    console.warn('[sync] cricket provider not configured — skipping (serving seeded DB data)');
     return 0;
   }
 
