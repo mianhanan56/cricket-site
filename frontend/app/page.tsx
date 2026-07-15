@@ -1,11 +1,9 @@
-import type { Match } from '@crex/shared';
-import { getMatches } from '../lib/api';
+import type { Match, SeriesSummary } from '@crex/shared';
+import { getMatches, getSeries } from '../lib/api';
 import HomeMatches from '../components/home/HomeMatches';
 import styles from './page.module.scss';
 
-// Only surface completed matches from the last 48 hours on the homepage.
-const COMPLETED_WINDOW_MS = 48 * 60 * 60 * 1000;
-// "Finished" widens the net to every match completed in the last 7 days.
+// "Finished" surfaces every match completed in the last 7 days.
 const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Server Component — fetches on the server and streams HTML.
@@ -19,16 +17,19 @@ export default async function HomePage() {
     failed = true;
   }
 
+  // Series come from the DB directly; a failure here shouldn't blank the page.
+  let series: SeriesSummary[] = [];
+  try {
+    series = await getSeries();
+  } catch {
+    /* leave empty — the Series tab shows its empty state */
+  }
+
   const now = Date.now();
   const live = matches.filter((m) => m.status === 'LIVE');
   const upcoming = matches
     .filter((m) => m.status === 'UPCOMING')
     .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime));
-  const recentCompleted = matches
-    .filter(
-      (m) => m.status === 'COMPLETED' && now - +new Date(m.startTime) <= COMPLETED_WINDOW_MS,
-    )
-    .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime));
   const finished = matches
     .filter(
       (m) => m.status === 'COMPLETED' && now - +new Date(m.startTime) <= FINISHED_WINDOW_MS,
@@ -44,7 +45,7 @@ export default async function HomePage() {
         </div>
       )}
 
-      <HomeMatches live={live} upcoming={upcoming} recent={recentCompleted} finished={finished} />
+      <HomeMatches live={live} upcoming={upcoming} finished={finished} series={series} />
     </div>
   );
 }

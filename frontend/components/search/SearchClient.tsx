@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { searchQuery, type SearchResults } from '../../lib/api';
 import styles from '../../app/search/search.module.scss';
 
-const EMPTY: SearchResults = { players: [], teams: [], series: [], news: [] };
+const EMPTY: SearchResults = { players: [], teams: [], series: [] };
 
 export default function SearchClient() {
   const params = useSearchParams();
@@ -37,7 +37,7 @@ export default function SearchClient() {
   }, [q]);
 
   const total =
-    results.players.length + results.teams.length + results.series.length + results.news.length;
+    results.players.length + results.teams.length + results.series.length;
 
   return (
     <div className={styles.page}>
@@ -46,7 +46,7 @@ export default function SearchClient() {
         className={styles.input}
         type="search"
         autoFocus
-        placeholder="Search players, teams, series, news…"
+        placeholder="Search players, teams, series…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
@@ -70,7 +70,7 @@ export default function SearchClient() {
       {results.teams.length > 0 && (
         <Section title="Teams">
           {results.teams.map((t) => (
-            <Link key={t.id} href="/matches" className={styles.item}>
+            <Link key={t.id} href="/" className={styles.item}>
               <span>{t.name}</span>
               <span className={styles.sub}>{t.country}</span>
             </Link>
@@ -89,16 +89,6 @@ export default function SearchClient() {
         </Section>
       )}
 
-      {results.news.length > 0 && (
-        <Section title="News">
-          {results.news.map((n) => (
-            <Link key={n.id} href={`/news/${n.slug}`} className={styles.item}>
-              <span>{n.title}</span>
-              <span className={styles.sub}>Article</span>
-            </Link>
-          ))}
-        </Section>
-      )}
     </div>
   );
 }

@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Match } from '@crex/shared';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import type { Match, SeriesSummary } from '@crex/shared';
 import MatchCard from './MatchCard';
+import SeriesCard from './SeriesCard';
 import styles from './HomeMatches.module.scss';
 
-type Tab = 'live' | 'upcoming' | 'recent' | 'finished';
+type Tab = 'live' | 'upcoming' | 'finished' | 'series';
 
 function FlameIcon() {
   return (
@@ -22,18 +23,19 @@ function CalendarIcon() {
     </svg>
   );
 }
-function TrophyIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2z" />
-    </svg>
-  );
-}
 function CheckCircleIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
       <path d="M22 4 12 14.01l-3-3" />
+    </svg>
+  );
+}
+function LayersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m12 2 9 5-9 5-9-5 9-5z" />
+      <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
     </svg>
   );
 }
@@ -45,10 +47,11 @@ function ChevronIcon({ dir }: { dir: 'left' | 'right' }) {
   );
 }
 
-// Horizontal, scroll-snapping carousel for the match cards. Cards never wrap;
-// the track shows 3 cards on desktop, 2 on tablet, 1 on mobile, and the arrows
-// live in dedicated side gutters so they never overlap or shrink the cards.
-function MatchCarousel({ matches }: { matches: Match[] }) {
+// Horizontal, scroll-snapping carousel. Cards never wrap; the track shows 3
+// cards on desktop, 2 on tablet, 1 on mobile, and the arrows live in dedicated
+// side gutters so they never overlap or shrink the cards. `resetKey` scrolls
+// back to the start whenever it changes (e.g. switching tabs).
+function Carousel({ children, resetKey }: { children: ReactNode; resetKey: string }) {
   const trackRef = useRef<HTMLDivElement>(null);
   const [atStart, setAtStart] = useState(true);
   const [atEnd, setAtEnd] = useState(false);
@@ -61,12 +64,12 @@ function MatchCarousel({ matches }: { matches: Match[] }) {
     setAtEnd(el.scrollLeft >= maxScroll - 1);
   }, []);
 
-  // Re-evaluate arrow state when the matches (tab) change, and reset to start.
+  // Re-evaluate arrow state when the content (tab) changes, and reset to start.
   useEffect(() => {
     const el = trackRef.current;
     if (el) el.scrollLeft = 0;
     sync();
-  }, [matches, sync]);
+  }, [resetKey, sync]);
 
   const scroll = useCallback((dir: number) => {
     const el = trackRef.current;
@@ -82,17 +85,13 @@ function MatchCarousel({ matches }: { matches: Match[] }) {
         className={`${styles.arrow} ${styles.left}`}
         onClick={() => scroll(-1)}
         disabled={atStart}
-        aria-label="Previous matches"
+        aria-label="Previous"
       >
         <ChevronIcon dir="left" />
       </button>
 
       <div className={styles.track} ref={trackRef} onScroll={sync}>
-        {matches.map((m) => (
-          <div className={styles.slide} key={m.id}>
-            <MatchCard match={m} />
-          </div>
-        ))}
+        {children}
       </div>
 
       <button
@@ -100,7 +99,7 @@ function MatchCarousel({ matches }: { matches: Match[] }) {
         className={`${styles.arrow} ${styles.right}`}
         onClick={() => scroll(1)}
         disabled={atEnd}
-        aria-label="Next matches"
+        aria-label="Next"
       >
         <ChevronIcon dir="right" />
       </button>
@@ -111,26 +110,26 @@ function MatchCarousel({ matches }: { matches: Match[] }) {
 export default function HomeMatches({
   live,
   upcoming,
-  recent,
   finished,
+  series,
 }: {
   live: Match[];
   upcoming: Match[];
-  recent: Match[];
   finished: Match[];
+  series: SeriesSummary[];
 }) {
-  const initial: Tab = live.length ? 'live' : upcoming.length ? 'upcoming' : 'recent';
+  const initial: Tab = live.length ? 'live' : upcoming.length ? 'upcoming' : 'finished';
   const [tab, setTab] = useState<Tab>(initial);
 
   const tabs = [
     { key: 'live' as Tab, label: 'Live', statLabel: 'Live now', value: live.length, Icon: FlameIcon, tone: styles.toneLive },
     { key: 'upcoming' as Tab, label: 'Upcoming', statLabel: 'Upcoming', value: upcoming.length, Icon: CalendarIcon, tone: styles.tonePurple },
-    { key: 'recent' as Tab, label: 'Recent', statLabel: 'Recent results', value: recent.length, Icon: TrophyIcon, tone: styles.toneGreen },
-    { key: 'finished' as Tab, label: 'Finished', statLabel: 'Finished (7d)', value: finished.length, Icon: CheckCircleIcon, tone: styles.toneAmber },
+    { key: 'finished' as Tab, label: 'Finished', statLabel: 'Finished', value: finished.length, Icon: CheckCircleIcon, tone: styles.toneAmber },
+    { key: 'series' as Tab, label: 'Series', statLabel: 'Recent series', value: series.length, Icon: LayersIcon, tone: styles.toneBlue },
   ];
 
-  const list =
-    tab === 'live' ? live : tab === 'upcoming' ? upcoming : tab === 'recent' ? recent : finished;
+  const list = tab === 'live' ? live : tab === 'upcoming' ? upcoming : finished;
+  const isSeries = tab === 'series';
 
   return (
     <>
@@ -156,7 +155,19 @@ export default function HomeMatches({
 
       {/* Section head + tab pills */}
       <div className={styles.head}>
-        <h2 className={styles.title}>Matches</h2>
+        <div className={styles.headLeft}>
+          <h2 className={styles.title}>Matches</h2>
+          {/* Contextual note for the Finished tab — only while it's active. */}
+          {tab === 'finished' && (
+            <span className={styles.noteBadge}>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+              Last 7 days
+            </span>
+          )}
+        </div>
         <div className={styles.pills} role="tablist">
           {tabs.map(({ key, label, value, Icon }) => (
             <button
@@ -174,8 +185,26 @@ export default function HomeMatches({
         </div>
       </div>
 
-      {list.length ? (
-        <MatchCarousel matches={list} />
+      {isSeries ? (
+        series.length ? (
+          <Carousel resetKey={tab}>
+            {series.map((s) => (
+              <div className={styles.slide} key={s.id || s.name}>
+                <SeriesCard series={s} />
+              </div>
+            ))}
+          </Carousel>
+        ) : (
+          <div className={styles.empty}>No recent series to show right now.</div>
+        )
+      ) : list.length ? (
+        <Carousel resetKey={tab}>
+          {list.map((m) => (
+            <div className={styles.slide} key={m.id}>
+              <MatchCard match={m} />
+            </div>
+          ))}
+        </Carousel>
       ) : (
         <div className={styles.empty}>No matches in this category right now.</div>
       )}

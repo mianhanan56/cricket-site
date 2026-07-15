@@ -182,11 +182,13 @@ export interface PointsTableRow {
 
 export type RankingRole = 'BATTING' | 'BOWLING' | 'ALLROUNDER';
 export type RankingGender = 'MEN' | 'WOMEN';
+export type RankingFormat = 'TEST' | 'ODI' | 'T20I';
 
 export interface RankingEntry {
   id: string;
   playerName: string;
   country: string;
+  format: RankingFormat;
   role: RankingRole;
   gender: RankingGender;
   points: number;

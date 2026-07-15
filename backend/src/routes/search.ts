@@ -4,7 +4,7 @@ import { cache } from '../middleware/cache';
 
 const router = Router();
 
-// GET /api/search?q= → global search across players, teams, series, news
+// GET /api/search?q= → global search across players, teams, series
 router.get('/', cache(60), async (req, res) => {
   try {
     const q = String(req.query.q ?? '').trim();
@@ -16,14 +16,13 @@ router.get('/', cache(60), async (req, res) => {
 
     const contains = { contains: q, mode: 'insensitive' as const };
 
-    const [players, teams, series, news] = await Promise.all([
+    const [players, teams, series] = await Promise.all([
       prisma.player.findMany({ where: { name: contains }, take: 5 }),
       prisma.team.findMany({ where: { name: contains }, take: 5 }),
       prisma.series.findMany({ where: { name: contains }, take: 5 }),
-      prisma.newsArticle.findMany({ where: { title: contains }, take: 5 }),
     ]);
 
-    res.json({ success: true, data: { players, teams, series, news } });
+    res.json({ success: true, data: { players, teams, series } });
   } catch (err) {
     res.status(500).json({ success: false, data: null, error: 'Search failed' });
   }

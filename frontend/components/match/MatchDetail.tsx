@@ -203,7 +203,7 @@ export default function MatchDetail({ matchId, initial }: { matchId: string; ini
         </div>
       )}
 
-      <Link href="/matches" className={styles.back}>
+      <Link href="/" className={styles.back}>
         ← All matches
       </Link>
 

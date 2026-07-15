@@ -69,6 +69,7 @@ model Ranking {
   id         String   @id @default(cuid())
   playerName String
   country    String
+  format     String   @default("ODI") // TEST, ODI, T20I
   role       String // BATTING, BOWLING, ALLROUNDER
   gender     String // MEN, WOMEN
   points     Int
@@ -76,7 +77,7 @@ model Ranking {
   position   Int
   updatedAt  DateTime @updatedAt
 
-  @@index([role, gender, position])
+  @@index([format, role, gender, position])
 }
 
 model NewsArticle {

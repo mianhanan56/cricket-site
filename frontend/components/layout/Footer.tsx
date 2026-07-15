@@ -13,7 +13,6 @@ const COLUMNS = [
   {
     title: 'More',
     links: [
-      { href: '/news', label: 'News' },
       { href: '/search', label: 'Search' },
     ],
   },
@@ -25,7 +24,7 @@ export default function Footer() {
       <div className={styles.inner}>
         <div className={styles.brand}>
           <span className={styles.logo}>PulseCrease</span>
-          <p className={styles.tagline}>Live cricket scores, stats &amp; news.</p>
+          <p className={styles.tagline}>Live cricket scores &amp; stats.</p>
         </div>
 
         <div className={styles.columns}>

@@ -1,0 +1,153 @@
+@use 'component' as *;
+
+// Mirrors MatchCard's glass surface so series cards sit naturally in the same
+// carousel row, but the content is series-level (name, dates, status, count).
+
+.card {
+  @include card; // glass + rounded-2xl (22px)
+  display: flex;
+  flex-direction: column;
+  padding: $space-5; // p-5 (20px)
+  height: 100%;
+  width: 100%;
+
+  &:hover {
+    border-color: color-mix(in oklab, var(--accent-green) 40%, transparent);
+    transform: translateY(-2px);
+  }
+}
+
+// header: flex justify-between mb-4
+.header {
+  @include flex-between;
+  gap: $space-2;
+  margin-bottom: $space-4;
+}
+
+.format {
+  flex-shrink: 0;
+  font-size: $text-2xs; // 10px
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: $space-1 $space-2;
+  border-radius: $radius-md;
+  background: $surface-elevated;
+  border: 1px solid $card-border;
+  color: $text-secondary;
+}
+
+// status pill — colored per state
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  flex-shrink: 0;
+  font-size: $text-2xs; // 10px
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: $space-1 $space-2;
+  border-radius: $radius-md;
+}
+
+.isLive {
+  color: $live-color;
+  background: color-mix(in oklab, var(--live) 15%, transparent);
+}
+.isUpcoming {
+  color: $accent-purple;
+  background: color-mix(in oklab, var(--accent-purple) 15%, transparent);
+}
+.isCompleted {
+  color: $text-secondary;
+  background: $surface-elevated;
+}
+
+// pulsing live dot (matches MatchCard)
+.dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: $live-color;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: $live-color;
+    animation: series-live-ring 1.8s ease-out infinite;
+  }
+}
+
+// series name — the headline of the card
+.name {
+  font-family: $font-display;
+  font-weight: 700;
+  font-size: $text-lg; // 18px
+  line-height: $leading-tight;
+  color: $text-primary;
+  // Keep long names to two lines so every card holds its shape.
+  @include truncate(2);
+}
+
+// date range
+.dates {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-top: $space-3;
+  font-size: $text-sm; // 14px
+  color: $text-muted;
+
+  svg {
+    flex-shrink: 0;
+    color: $accent-blue;
+  }
+}
+
+.arrow {
+  color: $text-secondary;
+}
+
+// footer: mt-auto pushes it to the bottom so cards align; border-t divider
+.footer {
+  @include flex-between;
+  gap: $space-2;
+  margin-top: auto;
+  padding-top: $space-4;
+  border-top: 1px solid $card-border;
+}
+
+.matches {
+  font-size: $text-sm; // 14px
+  font-weight: 600;
+  color: $text-primary;
+}
+
+// View → : revealed on card hover, matching MatchCard.
+.view {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  flex-shrink: 0;
+  font-size: $text-sm;
+  color: $accent; // text-primary (green)
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  .card:hover & {
+    opacity: 1;
+  }
+}
+
+@keyframes series-live-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}

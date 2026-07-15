@@ -23,14 +23,8 @@ function flatten(r: SearchResults): FlatItem[] {
     ...r.teams.map((t) => ({
       label: t.name,
       sublabel: t.country,
-      href: `/matches`,
+      href: `/`,
       group: 'Teams',
-    })),
-    ...r.news.map((n) => ({
-      label: n.title,
-      sublabel: 'News',
-      href: `/news/${n.slug}`,
-      group: 'News',
     })),
   ];
 }
@@ -121,7 +115,7 @@ export default function SearchBar() {
           ref={inputRef}
           className={styles.input}
           type="search"
-          placeholder="Search players, teams, news…"
+          placeholder="Search players, teams…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKeyDown}

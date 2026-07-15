@@ -2,8 +2,8 @@ import type {
   ApiResponse,
   Match,
   Series,
+  SeriesSummary,
   Player,
-  NewsArticle,
   RankingEntry,
   Team,
 } from '@crex/shared';
@@ -57,50 +57,22 @@ export const getMatches = (params?: { status?: string; format?: string }) =>
 export const getMatch = (id: string) =>
   apiGet<Match>(`/api/matches/${id}`, { revalidate: 10 });
 
+export const getSeries = () =>
+  apiGet<SeriesSummary[]>('/api/series', { revalidate: 120 });
+
 export const getPlayer = (id: string) =>
   apiGet<Player>(`/api/players/${id}`, { revalidate: 60 });
 
 export const getFixtures = (params?: { format?: string; date?: string; team?: string }) =>
   apiGet<Match[]>(`/api/fixtures${qs(params)}`, { revalidate: 60 });
 
-export const getRankings = (type: string, gender?: string) =>
-  apiGet<RankingEntry[]>(`/api/rankings/${type}${qs({ gender })}`, { revalidate: 300 });
-
-export const getArticle = (slug: string) =>
-  apiGet<NewsArticle>(`/api/news/${slug}`, { revalidate: 60 });
-
-// News list returns the full paginated envelope (data + page metadata).
-export interface NewsPage {
-  data: NewsArticle[];
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-export async function getNews(params?: { page?: number; limit?: number }): Promise<NewsPage> {
-  const url = `${API_URL}/api/news${qs(params)}`;
-  const res = await fetch(url, {
-    headers: { Accept: 'application/json' },
-    next: { revalidate: 60 },
-  });
-  if (!res.ok) throw new Error(`API /api/news failed: ${res.status}`);
-  const body = (await res.json()) as ApiResponse<NewsArticle[]> & Omit<NewsPage, 'data'>;
-  if (!body.success) throw new Error(body.error ?? 'Failed to load news');
-  return {
-    data: body.data ?? [],
-    page: body.page ?? 1,
-    limit: body.limit ?? 10,
-    total: body.total ?? 0,
-    totalPages: body.totalPages ?? 1,
-  };
-}
+export const getRankings = (type: string, gender?: string, format?: string) =>
+  apiGet<RankingEntry[]>(`/api/rankings/${type}${qs({ gender, format })}`, { revalidate: 300 });
 
 export interface SearchResults {
   players: Player[];
   teams: Team[];
   series: Series[];
-  news: NewsArticle[];
 }
 
 export const searchQuery = (q: string) =>

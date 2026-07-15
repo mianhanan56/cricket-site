@@ -3,6 +3,7 @@ import path from 'path';
 loadEnv({ path: path.resolve(__dirname, '../../.env') });
 
 import { PrismaClient } from '@prisma/client';
+import { rankingRows } from './rankingsData';
 
 const prisma = new PrismaClient();
 
@@ -19,7 +20,6 @@ async function main() {
   await prisma.series.deleteMany();
   await prisma.player.deleteMany();
   await prisma.team.deleteMany();
-  await prisma.newsArticle.deleteMany();
   await prisma.ranking.deleteMany();
 
   // --- Teams ---------------------------------------------------------------
@@ -183,63 +183,10 @@ async function main() {
     },
   });
 
-  // --- News ----------------------------------------------------------------
-  const article = await prisma.newsArticle.create({
-    data: {
-      title: 'Kohli century powers India against Australia',
-      slug: 'kohli-century-powers-india-vs-australia',
-      excerpt: 'A masterclass hundred from Virat Kohli puts India in command at the Wankhede.',
-      content:
-        'Virat Kohli brought up his 51st ODI hundred with a commanding knock as India posted a strong total against Australia in the series opener. The chase-master once again proved why he is among the greatest of all time, anchoring the innings through the middle overs before accelerating at the death.',
-      author: 'PulseCrease Desk',
-      tags: ['India', 'Australia', 'ODI', 'Virat Kohli'],
-    },
-  });
-  await prisma.newsArticle.create({
-    data: {
-      title: 'Steve Smith returns to form ahead of the Test series',
-      slug: 'steve-smith-returns-to-form',
-      excerpt: 'Australia’s mainstay looks ominous heading into a packed cricket calendar.',
-      content:
-        'Steve Smith rolled back the years with a fluent half-century in the warm-up fixture, easing concerns over his recent lean patch ahead of a crucial Test series.',
-      author: 'PulseCrease Desk',
-      tags: ['Australia', 'Steve Smith', 'Test'],
-    },
-  });
-  await prisma.newsArticle.create({
-    data: {
-      title: 'Wankhede pitch report: batting paradise expected',
-      slug: 'wankhede-pitch-report-batting-paradise',
-      excerpt: 'Curators promise a true surface with plenty on offer for the stroke-makers.',
-      content:
-        'The Wankhede track has historically favoured batters under lights, and this fixture is expected to be no different with a fast outfield and short square boundaries.',
-      author: 'PulseCrease Desk',
-      tags: ['India', 'Pitch Report', 'ODI'],
-    },
-  });
-
-  // --- ICC Rankings (MEN) --------------------------------------------------
-  const battingRanks = [
-    { playerName: 'Shubman Gill', country: 'India', rating: 784, points: 784 },
-    { playerName: 'Babar Azam', country: 'Pakistan', rating: 768, points: 768 },
-    { playerName: 'Rohit Sharma', country: 'India', rating: 756, points: 756 },
-    { playerName: 'Steve Smith', country: 'Australia', rating: 740, points: 740 },
-    { playerName: 'Kane Williamson', country: 'New Zealand', rating: 725, points: 725 },
-  ];
-  const bowlingRanks = [
-    { playerName: 'Jasprit Bumrah', country: 'India', rating: 810, points: 810 },
-    { playerName: 'Kagiso Rabada', country: 'South Africa', rating: 762, points: 762 },
-    { playerName: 'Josh Hazlewood', country: 'Australia', rating: 748, points: 748 },
-    { playerName: 'Pat Cummins', country: 'Australia', rating: 731, points: 731 },
-    { playerName: 'Ravindra Jadeja', country: 'India', rating: 712, points: 712 },
-  ];
-
-  await prisma.ranking.createMany({
-    data: [
-      ...battingRanks.map((r, i) => ({ ...r, role: 'BATTING', gender: 'MEN', position: i + 1 })),
-      ...bowlingRanks.map((r, i) => ({ ...r, role: 'BOWLING', gender: 'MEN', position: i + 1 })),
-    ],
-  });
+  // --- ICC Rankings --------------------------------------------------------
+  // Current ICC ODI rankings, sourced from ./rankingsData (shared with the
+  // standalone `seed:rankings` refresh).
+  await prisma.ranking.createMany({ data: rankingRows });
 
   console.log('[seed] done. Created IDs:');
   console.log(
@@ -249,7 +196,6 @@ async function main() {
         series: series.id,
         match: match.id,
         players: { kohli: kohli.id, smith: smith.id },
-        newsSlug: article.slug,
       },
       null,
       2

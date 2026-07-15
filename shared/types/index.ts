@@ -28,6 +28,13 @@ export interface ISeries {
   format: MatchFormat;
 }
 
+// Series list-row enrichment from GET /api/series: a match count and a status
+// derived from the series' matches (LIVE > UPCOMING > COMPLETED).
+export interface ISeriesSummary extends ISeries {
+  status: MatchStatus;
+  matchCount: number;
+}
+
 export interface IPlayer {
   id: string;
   name: string;
@@ -101,6 +108,7 @@ export interface SquadPlayer {
 // `I`-prefixed interfaces above are the canonical source of truth.
 export type Team = ITeam;
 export type Series = ISeries;
+export type SeriesSummary = ISeriesSummary;
 export type Player = IPlayer;
 export type Match = IMatch;
 export type Scorecard = IScorecard;
@@ -182,11 +190,13 @@ export interface PointsTableRow {
 
 export type RankingRole = 'BATTING' | 'BOWLING' | 'ALLROUNDER';
 export type RankingGender = 'MEN' | 'WOMEN';
+export type RankingFormat = 'TEST' | 'ODI' | 'T20I';
 
 export interface RankingEntry {
   id: string;
   playerName: string;
   country: string;
+  format: RankingFormat;
   role: RankingRole;
   gender: RankingGender;
   points: number;

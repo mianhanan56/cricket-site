@@ -8,11 +8,9 @@ import ThemeToggle from './ThemeToggle';
 import styles from './Navbar.module.scss';
 
 const NAV_LINKS = [
-  { href: '/', label: 'Live' },
-  { href: '/matches', label: 'Matches' },
+  { href: '/', label: 'Matches' },
   { href: '/fixtures', label: 'Fixtures' },
   { href: '/rankings', label: 'Rankings' },
-  { href: '/news', label: 'News' },
 ];
 
 export default function Navbar() {
