@@ -1,4 +1,3 @@
-import cron from 'node-cron';
 import { prisma } from '../lib/prisma';
 import {
   fetchLiveMatches,
@@ -9,7 +8,6 @@ import {
   apiConfigured,
   type CricApiMatch,
 } from '../services/cricketApi';
-import { broadcastScoreUpdate } from '../socket';
 import { quotaNearlyExhausted } from '../lib/usage';
 
 // Teams/Series have no natural unique key in our schema, so find-or-create.
@@ -129,10 +127,6 @@ export async function runSync(): Promise<number> {
       });
       if (!saved) continue;
       count++;
-      // Push real score to subscribed clients (replaces the fake simulator).
-      if (saved.status === 'LIVE') {
-        await broadcastScoreUpdate(saved.id).catch(() => undefined);
-      }
     }
 
     console.log(`✅ Synced ${count} matches at ${new Date().toISOString()}`);
@@ -142,15 +136,3 @@ export async function runSync(): Promise<number> {
     return 0;
   }
 }
-
-export function startSyncJob() {
-  // Every 30 min. The Worker's edge cache absorbs repeat reads, so this is well
-  // inside CricLive's limits — tighten the interval if you want fresher rows.
-  cron.schedule('*/30 * * * *', runSync);
-  console.log('[sync] cron scheduled (every 30 min)');
-}
-
-// Fire an immediate sync as soon as this module is loaded, so fresh data is
-// pulled the moment the server process starts. (startSyncJob then keeps it
-// running every 15 min.) This single call replaces the previous boot-time run.
-void runSync();
