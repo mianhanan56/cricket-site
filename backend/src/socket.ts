@@ -8,6 +8,7 @@ import type {
   WicketFallPayload,
 } from './shared/types';
 import { prisma } from './lib/prisma';
+import jwt from 'jsonwebtoken';
 
 // ---------------------------------------------------------------------------
 // Socket.io server (attached to the existing Express HTTP server)
@@ -17,12 +18,36 @@ let io: SocketServer<ClientToServerEvents, ServerToClientEvents> | null = null;
 
 const roomFor = (matchId: string) => `match:${matchId}`;
 
+function verifySocketToken(token: string | undefined): { id: string; email: string } | null {
+  if (!token) return null;
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return null;
+  try {
+    return jwt.verify(token, secret) as { id: string; email: string };
+  } catch {
+    return null;
+  }
+}
+
 export function initSocket(httpServer: HttpServer, corsOrigin: string, port: number) {
   io = new SocketServer<ClientToServerEvents, ServerToClientEvents>(httpServer, {
     cors: { origin: corsOrigin, methods: ['GET', 'POST'] },
   });
 
+  io.use((socket, next) => {
+    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
+    const user = verifySocketToken(token);
+    if (!user) {
+      return next(new Error('Authentication required'));
+    }
+    (socket as any).user = user;
+    next();
+  });
+
   io.on('connection', (socket) => {
+    const user = (socket as any).user as { id: string; email: string };
+    console.log(`[socket] ${socket.id} connected (user: ${user.email})`);
+
     // Clients subscribe to a specific match room.
     socket.on('match:subscribe', (matchId) => {
       socket.join(roomFor(matchId));
@@ -60,7 +85,7 @@ export function emitWicketFall(payload: WicketFallPayload) {
 
 /**
  * Read a match's current scorecard from the DB and broadcast a score:update.
- * Wired here so a future CricAPI webhook / poller can push real updates by id.
+ * Wired here so a future CricLive webhook / poller can push real updates by id.
  */
 export async function broadcastScoreUpdate(matchId: string) {
   const match = await prisma.match.findUnique({
@@ -207,7 +232,7 @@ async function simulateMatch(match: {
 async function simTick() {
   try {
     // Only simulate locally-seeded LIVE matches (externalId === null). Real
-    // CricAPI matches get genuine score pushes from the sync job instead.
+    // CricLive matches get genuine score pushes from the sync job instead.
     const live = await prisma.match.findMany({
       where: { status: 'LIVE', externalId: null },
       include: { homeTeam: true },

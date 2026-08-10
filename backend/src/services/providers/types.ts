@@ -18,8 +18,20 @@ export interface CricApiMatch {
   teamInfo?: Array<{ name: string; shortname?: string; img?: string }>;
   score?: Array<{ r: number; w: number; o: number; inning: string }>;
   series_id?: string;
+  /**
+   * Series title, when the upstream reports it as its own field. Providers that
+   * only bury it inside the match name leave this unset, and callers fall back
+   * to parsing `name`.
+   */
+  series_name?: string;
   matchStarted?: boolean;
   matchEnded?: boolean;
+  /**
+   * Provider-side URL slug, when the upstream has one. CricLive requires it
+   * alongside the match id on its public match-facts and live-scorecard routes,
+   * so it's persisted on the Match row to keep those reachable later.
+   */
+  slug?: string;
 }
 
 // Shape of one innings in a normalized scorecard. Field names use CricAPI's

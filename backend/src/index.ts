@@ -21,6 +21,8 @@ import adminRouter from './routes/admin';
 
 import { initSocket } from './socket';
 import { startSyncJob } from './jobs/syncData';
+import { rateLimiter, strictRateLimiter, searchRateLimiter } from './middleware/rateLimit';
+import { requireAuth } from './middleware/auth';
 
 const PORT = parseInt(process.env.PORT || '5000', 10);
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
@@ -28,11 +30,40 @@ const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:3000';
 const app = express();
 
 // --- Global middleware ------------------------------------------------------
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", CLIENT_ORIGIN],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: { policy: 'same-origin' },
+  crossOriginResourcePolicy: { policy: 'same-origin' },
+  dnsPrefetchControl: { allow: false },
+  frameguard: { action: 'deny' },
+  hidePoweredBy: true,
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+  ieNoOpen: true,
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xssFilter: true,
+}));
 app.use(cors({ origin: CLIENT_ORIGIN, credentials: true }));
 app.use(compression());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+// Apply general rate limiting to all API routes
+app.use('/api/', rateLimiter);
 
 // --- Root + health check ----------------------------------------------------
 app.get('/', (_req, res) => {
@@ -47,9 +78,9 @@ app.use('/api/series', seriesRouter);
 app.use('/api/players', playersRouter);
 app.use('/api/fixtures', fixturesRouter);
 app.use('/api/rankings', rankingsRouter);
-app.use('/api/search', searchRouter);
-app.use('/api/usage', usageRouter);
-app.use('/api/admin', adminRouter);
+app.use('/api/search', searchRateLimiter, searchRouter);
+app.use('/api/usage', strictRateLimiter, usageRouter);
+app.use('/api/admin', strictRateLimiter, requireAuth, adminRouter);
 
 // --- 404 + error handlers ---------------------------------------------------
 app.use((_req, res) => {

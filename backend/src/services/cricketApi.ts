@@ -1,17 +1,18 @@
 // Cricket data facade.
 //
-// Selects the upstream provider from CRICKET_PROVIDER (defaults to CricAPI) and
-// re-exports its fetchers plus the shared, provider-agnostic types and mapping
-// helpers. The rest of the app imports from here and never needs to know which
-// provider is active — set CRICKET_PROVIDER=cricbuzz (prod) or cricapi (local).
-import * as cricapi from './providers/cricapi';
-import * as cricbuzz from './providers/cricbuzz';
+// CricLive (cricketliveapi.com) is the only provider. It's reached through our
+// Cloudflare Worker, so the API token lives in the Worker's secret and the
+// backend needs no cricket credentials — set CRICKET_WORKER_URL and that's it.
+//
+// The provider indirection is kept deliberately: the rest of the app imports
+// from here and speaks only the normalized CricApi* shapes, so swapping or
+// adding an upstream later touches this file and nothing else.
+import * as criclive from './providers/criclive';
 import type { CricketProvider } from './providers/types';
 
-const provider: CricketProvider =
-  process.env.CRICKET_PROVIDER?.toLowerCase() === 'cricbuzz' ? cricbuzz : cricapi;
+const provider: CricketProvider = criclive;
 
-/** True when the active provider has the credentials it needs. */
+/** True when the Worker URL is configured. */
 export const apiConfigured = provider.isConfigured;
 
 export const fetchLiveMatches = provider.fetchLiveMatches;

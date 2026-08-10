@@ -22,7 +22,10 @@ model Team {
 
 model Match {
   id         String   @id @default(cuid())
-  externalId String?  @unique // CricAPI match id (null for locally-seeded matches)
+  externalId String?  @unique // CricLive match_id (null for locally-seeded matches)
+  // CricLive slug, e.g. "afg-vs-ire-2nd-odi-11825". Required by their public
+  // match-facts and live-scorecard endpoints, which take {matchId}/{slug}.
+  externalSlug String?
   homeTeam   Team     @relation("HomeTeam", fields: [homeTeamId], references: [id])
   homeTeamId String
   awayTeam   Team     @relation("AwayTeam", fields: [awayTeamId], references: [id])

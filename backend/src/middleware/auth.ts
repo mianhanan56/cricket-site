@@ -27,6 +27,14 @@ export function requireAuth(
       .json({ success: false, data: null, error: 'Server auth misconfigured' });
   }
 
+  // In production, ensure JWT_SECRET is not the default placeholder
+  if (process.env.NODE_ENV === 'production' && secret === 'change-me-to-a-long-random-string') {
+    console.error('[auth] JWT_SECRET is using default value in production!');
+    return res
+      .status(500)
+      .json({ success: false, data: null, error: 'Server auth misconfigured' });
+  }
+
   try {
     const payload = jwt.verify(token, secret) as { id: string; email: string };
     req.user = { id: payload.id, email: payload.email };

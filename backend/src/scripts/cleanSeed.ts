@@ -7,7 +7,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Locally-seeded matches have a null externalId; real CricAPI-synced matches
+// Locally-seeded matches have a null externalId; real CricLive-synced matches
 // always carry one. Deleting null-externalId rows removes only the seed data.
 async function main() {
   const deleted = await prisma.match.deleteMany({

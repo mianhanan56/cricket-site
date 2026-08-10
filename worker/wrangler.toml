@@ -1,0 +1,22 @@
+name = "pulsecrease-cricket"
+main = "src/index.ts"
+compatibility_date = "2025-01-15"
+
+# Upstream base URL, per the CricLive API Reference. Non-secret, so it lives
+# here rather than in a secret.
+[vars]
+UPSTREAM_BASE = "https://cricketliveapi.com/api/v1"
+
+# Comma-separated list of browser origins allowed to call this Worker.
+# Add your production domain once deployed.
+ALLOWED_ORIGINS = "http://localhost:3000,https://pulsecrease.vercel.app"
+
+# CRICKET_API_TOKEN is NOT set here on purpose — it is a secret.
+#   npx wrangler secret put CRICKET_API_TOKEN
+# For `wrangler dev`, put it in .dev.vars (gitignored) instead.
+#
+# Only the `auth: 'token'` routes in src/routes.ts need it. Every other endpoint
+# CricLive exposes is public, so the Worker serves most of the app without it.
+
+[observability]
+enabled = true

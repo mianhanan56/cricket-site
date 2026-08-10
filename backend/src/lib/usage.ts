@@ -1,8 +1,13 @@
 import { redis } from './redis';
 
-// Free CricketData.org plan = 100 calls/day. We stop syncing well before that.
-export const QUOTA_LIMIT = 100;
-export const QUOTA_SKIP_AT = 90;
+// Daily upstream call budget.
+//
+// This was CricAPI's free-plan cap of 100/day. CricLive isn't metered that way,
+// and calls now go through the Cloudflare Worker whose edge cache collapses
+// repeat requests — so the old ceiling would throttle the sync for no reason.
+// Kept as a runaway-loop backstop rather than a plan limit, and configurable.
+export const QUOTA_LIMIT = Number(process.env.CRICKET_DAILY_CALL_LIMIT ?? 10_000);
+export const QUOTA_SKIP_AT = Math.floor(QUOTA_LIMIT * 0.9);
 
 // Redis is the source of truth when available; otherwise an in-memory counter
 // keeps the guard working in local dev without Redis.
@@ -11,7 +16,7 @@ const mem = new Map<string, number>();
 /** Redis key for today's call count (UTC day). */
 function todayKey(): string {
   const day = new Date().toISOString().slice(0, 10); // YYYY-MM-DD (UTC)
-  return `cricapi:calls:${day}`;
+  return `cricket:calls:${day}`;
 }
 
 /** Increment today's counter and return the new total. Expires after 24h. */

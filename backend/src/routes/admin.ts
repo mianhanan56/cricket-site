@@ -3,7 +3,7 @@ import { runSync } from '../jobs/syncData';
 
 const router = Router();
 
-// GET /api/admin/sync — manually trigger an immediate CricAPI sync and report
+// GET /api/admin/sync — manually trigger an immediate CricLive sync and report
 // how many matches were upserted. Useful for forcing fresh data on demand.
 router.get('/sync', async (_req, res) => {
   try {

@@ -111,9 +111,9 @@ export type NewsArticle = INewsArticle;
 // ---------------------------------------------------------------------------
 
 export interface InningsScore {
-  teamId?: string; // absent on CricAPI-synced data — match via `inning` label
+  teamId?: string; // absent on provider-synced data — match via `inning` label
   teamShortName: string;
-  inning?: string; // CricAPI innings label, e.g. "India Inning 1"
+  inning?: string; // innings label, e.g. "India Inning 1"
   runs: number;
   wickets: number;
   overs: number;

@@ -8,7 +8,7 @@ const router = Router();
 // and a status derived from their matches (LIVE > UPCOMING > COMPLETED).
 //
 // The stored series startDate/endDate are set to the sync moment (unreliable)
-// and some CricAPI names collapse to a bare year, so we normalize both from the
+// and some provider names collapse to a bare year, so we normalize both from the
 // series' actual matches at read time. Series with no matches are omitted.
 router.get('/', cache(60), async (_req, res) => {
   try {

@@ -23,7 +23,7 @@ const FORMATS: MatchFormat[] = ['TEST', 'ODI', 'T20'];
 
 const INCLUDE = { homeTeam: true, awayTeam: true, series: true } as const;
 
-// Shape a CricAPI match into our API response when it isn't yet in the DB.
+// Shape a CricLive match into our API response when it isn't yet in the DB.
 function toShape(m: CricApiMatch) {
   const [h = 'TBD', a = 'TBD'] = m.teams ?? [];
   const info = (n: string) => m.teamInfo?.find((t) => t.name === n);
@@ -43,7 +43,7 @@ function toShape(m: CricApiMatch) {
   };
 }
 
-// GET /api/matches — LIVE comes from CricAPI (freshest) with DB fallback;
+// GET /api/matches — LIVE comes from CricLive (freshest) with DB fallback;
 // UPCOMING/COMPLETED served from the DB (synced every 5 min).
 router.get('/', cache(60), async (req, res) => {
   try {
@@ -74,7 +74,7 @@ router.get('/', cache(60), async (req, res) => {
         if (format) live = live.filter((x) => x.format === format);
 
         if (status === 'LIVE') {
-          return res.status(200).json({ success: true, source: 'cricapi', data: live });
+          return res.status(200).json({ success: true, source: 'criclive', data: live });
         }
 
         const others = await prisma.match.findMany({
@@ -82,9 +82,9 @@ router.get('/', cache(60), async (req, res) => {
           include: INCLUDE,
           orderBy: { startTime: 'desc' },
         });
-        return res.status(200).json({ success: true, source: 'cricapi+db', data: [...live, ...others] });
+        return res.status(200).json({ success: true, source: 'criclive+db', data: [...live, ...others] });
       } catch (err) {
-        console.warn(`[matches] CricAPI live fetch failed (${(err as Error).message}) — using DB`);
+        console.warn(`[matches] CricLive live fetch failed (${(err as Error).message}) — using DB`);
       }
     }
 
@@ -143,7 +143,7 @@ async function squadFor(country: string): Promise<SquadPlayer[]> {
 type ScorecardJson = { innings?: Array<Record<string, unknown>>; [k: string]: unknown } | null;
 
 // Ball-by-ball batting/bowling isn't captured by the 30-min sync (it only
-// stores innings totals), so lazily fetch CricAPI's `match_scorecard` the first
+// stores innings totals), so lazily fetch CricLive's match scorecard the first
 // time a match detail is viewed and persist it. Completed matches never change,
 // so this costs one upstream call per match, ever. Live matches re-fetch to
 // stay fresh. Returns the (possibly enriched) scorecard JSON.
@@ -183,7 +183,7 @@ async function ensureScorecardLines(match: {
 }
 
 // GET /api/matches/:id — single match with full scorecard, plus team form and
-// squads computed from the DB. Fetches ball-by-ball lines from CricAPI once and
+// squads computed from the DB. Fetches ball-by-ball lines from CricLive once and
 // caches them in the DB. Live cache = 10s.
 router.get('/:id', cache(10), async (req, res) => {
   try {

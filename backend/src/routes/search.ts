@@ -4,10 +4,17 @@ import { cache } from '../middleware/cache';
 
 const router = Router();
 
+function sanitizeQuery(q: string): string {
+  return q
+    .replace(/[%_\\]/g, '\\$&')
+    .slice(0, 100);
+}
+
 // GET /api/search?q= → global search across players, teams, series
 router.get('/', cache(60), async (req, res) => {
   try {
-    const q = String(req.query.q ?? '').trim();
+    const rawQ = String(req.query.q ?? '').trim();
+    const q = sanitizeQuery(rawQ);
     if (q.length < 2) {
       return res
         .status(400)

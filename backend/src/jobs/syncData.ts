@@ -13,16 +13,33 @@ import { broadcastScoreUpdate } from '../socket';
 import { quotaNearlyExhausted } from '../lib/usage';
 
 // Teams/Series have no natural unique key in our schema, so find-or-create.
+//
+// An existing team's shortName is refreshed from the provider when it differs.
+// That matters more than it looks: innings are labelled "<SHORT> Inning <n>", and
+// the UI pairs an innings with a team by testing whether the label contains the
+// team's name or shortName. A row left on a previous provider's code (CricAPI
+// wrote Durham as "DURH", CricLive uses "DUR") matches neither, so the team's
+// score silently renders blank.
 async function findOrCreateTeam(name: string, info?: { shortname?: string; img?: string }) {
+  const shortName = (info?.shortname ?? name.slice(0, 3)).toUpperCase();
   const existing = await prisma.team.findFirst({ where: { name } });
-  if (existing) return existing;
+
+  if (existing) {
+    const staleShort = Boolean(info?.shortname) && existing.shortName !== shortName;
+    const missingLogo = !existing.logo && Boolean(info?.img);
+    if (!staleShort && !missingLogo) return existing;
+
+    return prisma.team.update({
+      where: { id: existing.id },
+      data: {
+        ...(staleShort ? { shortName } : {}),
+        ...(missingLogo ? { logo: info?.img } : {}),
+      },
+    });
+  }
+
   return prisma.team.create({
-    data: {
-      name,
-      shortName: (info?.shortname ?? name.slice(0, 3)).toUpperCase(),
-      country: name,
-      logo: info?.img ?? null,
-    },
+    data: { name, shortName, country: name, logo: info?.img ?? null },
   });
 }
 
@@ -34,7 +51,7 @@ async function findOrCreateSeries(name: string, format: string) {
   });
 }
 
-/** Upsert one CricAPI match (+ its teams/series) into the DB. */
+/** Upsert one CricLive match (+ its teams/series) into the DB. */
 async function syncMatch(m: CricApiMatch) {
   if (!m.teams || m.teams.length < 2) return null;
 
@@ -43,8 +60,15 @@ async function syncMatch(m: CricApiMatch) {
   const away = await findOrCreateTeam(m.teams[1], infoFor(m.teams[1]));
 
   const format = mapFormat(m);
-  // Series name: CricAPI match names look like "Team A vs Team B, 1st ODI, <Series>".
-  const seriesName = m.name?.split(',').slice(-1)[0]?.trim() || m.name?.split(',')[0]?.trim() || 'International';
+  // CricLive reports the series as its own field ("Afghanistan tour of Ireland,
+  // 2026"), so use it directly. Only fall back to splitting the match name for
+  // providers that bury the series inside it — and note that CricLive titles
+  // ("<Series>, <year> - 2nd ODI") must NOT be comma-split, since that would
+  // yield "2026 - 2nd ODI" as the series name.
+  const seriesName =
+    m.series_name?.trim() ||
+    m.name?.split(' - ')[0]?.trim() ||
+    'International';
   const series = await findOrCreateSeries(seriesName, format);
 
   let status = mapStatus(m);
@@ -60,6 +84,7 @@ async function syncMatch(m: CricApiMatch) {
     where: { externalId: m.id },
     create: {
       externalId: m.id,
+      externalSlug: m.slug ?? null,
       homeTeamId: home.id,
       awayTeamId: away.id,
       seriesId: series.id,
@@ -71,6 +96,7 @@ async function syncMatch(m: CricApiMatch) {
       scorecard,
     },
     update: {
+      externalSlug: m.slug ?? null,
       status,
       venue: m.venue ?? 'TBD',
       result: m.matchEnded ? m.status : null,
@@ -88,7 +114,7 @@ export async function runSync(): Promise<number> {
   }
 
   if (await quotaNearlyExhausted()) {
-    console.warn('⚠️ CricAPI daily quota nearly exhausted (90+), skipping sync');
+    console.warn('⚠️ daily upstream call budget nearly exhausted, skipping sync');
     return 0;
   }
 
@@ -118,7 +144,8 @@ export async function runSync(): Promise<number> {
 }
 
 export function startSyncJob() {
-  // Every 30 min = 48 calls/day, comfortably under the 100/day free plan.
+  // Every 30 min. The Worker's edge cache absorbs repeat reads, so this is well
+  // inside CricLive's limits — tighten the interval if you want fresher rows.
   cron.schedule('*/30 * * * *', runSync);
   console.log('[sync] cron scheduled (every 30 min)');
 }

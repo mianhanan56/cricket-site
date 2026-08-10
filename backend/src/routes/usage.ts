@@ -3,7 +3,7 @@ import { getApiCalls, resetAtUTC, QUOTA_LIMIT } from '../lib/usage';
 
 const router = Router();
 
-// GET /api/usage — today's CricAPI quota usage.
+// GET /api/usage — today's upstream call usage.
 router.get('/', async (_req, res) => {
   try {
     const callsToday = await getApiCalls();
