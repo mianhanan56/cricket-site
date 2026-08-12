@@ -26,7 +26,12 @@ import type {
   Team,
 } from '@/types';
 
-export const CREX_WORKER_URL = process.env.NEXT_PUBLIC_CREX_WORKER_URL ?? '';
+// The home page has no other source now, so this falls back to the deployed
+// Worker rather than to '' — an unset env var used to mean "no crex", which now
+// means "no matches at all". Override it to point at a local `wrangler dev`.
+const DEFAULT_WORKER_URL = 'https://pulsecrease-crex.pulse-cricket.workers.dev';
+
+export const CREX_WORKER_URL = process.env.NEXT_PUBLIC_CREX_WORKER_URL ?? DEFAULT_WORKER_URL;
 
 export const isCrexConfigured = () => Boolean(CREX_WORKER_URL);
 

@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Match, SeriesSummary } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
 import { seriesFromMatches } from '@/lib/crex';
 import MatchCard from './MatchCard';
@@ -11,9 +10,8 @@ import styles from './HomeMatches.module.scss';
 
 type Tab = 'live' | 'upcoming' | 'finished' | 'series';
 
-// "Finished" surfaces every match completed in the last 7 days — same window
-// the server uses in app/page.tsx, applied again here because polled data
-// arrives unfiltered.
+// "Finished" surfaces every match completed in the last 7 days. The crex feed
+// arrives unfiltered, so the window is applied here.
 const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 function FlameIcon() {
@@ -115,65 +113,38 @@ function Carousel({ children, resetKey }: { children: ReactNode; resetKey: strin
   );
 }
 
-export default function HomeMatches({
-  live,
-  upcoming,
-  finished,
-  series,
-}: {
-  live: Match[];
-  upcoming: Match[];
-  finished: Match[];
-  series: SeriesSummary[];
-}) {
-  // Server-rendered lists paint first; the crex Worker then polls over the top.
-  // When the Worker isn't configured the hook stays inert and the props stand,
-  // so this is additive — nothing breaks if crex goes away.
-  const serverMatches = useMemo(
-    () => [...live, ...upcoming, ...finished],
-    [live, upcoming, finished]
-  );
-  // `lastUpdated` is still read below — it's how we know a poll has actually
-  // landed and the polled list can safely replace the server-rendered one.
-  // `isLoading` is true only on a first poll with nothing server-rendered behind
-  // it (backend down, crex the sole source) — the one case where the page has no
-  // matches to show yet and placeholders beat an empty state.
-  const {
-    matches: polled,
-    lastUpdated,
-    isLoading: crexLoading,
-  } = useCrexMatches({ initial: serverMatches });
-
-  // Only let polled data take over once it has actually landed — an empty first
-  // render from the hook must not blank out server-rendered matches.
-  const source = lastUpdated ? polled : serverMatches;
+export default function HomeMatches() {
+  // The crex Worker is the only source here — nothing is server-rendered, so
+  // `isLoading` covers the first poll and placeholders stand in for it.
+  const { matches, isLoading: crexLoading } = useCrexMatches();
 
   const { liveList, upcomingList, finishedList } = useMemo(() => {
-    if (!lastUpdated) return { liveList: live, upcomingList: upcoming, finishedList: finished };
-
     const now = Date.now();
     return {
-      liveList: source.filter((m) => m.status === 'LIVE'),
-      upcomingList: source
+      liveList: matches.filter((m) => m.status === 'LIVE'),
+      upcomingList: matches
         .filter((m) => m.status === 'UPCOMING')
         .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
-      finishedList: source
+      finishedList: matches
         .filter((m) => m.status === 'COMPLETED' && now - +new Date(m.startTime) <= FINISHED_WINDOW_MS)
         .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime)),
     };
-  }, [source, lastUpdated, live, upcoming, finished]);
+  }, [matches]);
 
-  // Series are rolled up from the same match feed rather than taken from the
-  // backend, whose count only reflects matches synced into our DB (a whole
-  // season showed as "1 match"). Completed series are dropped — a finished
-  // competition is not something anyone is coming to the home page for.
-  const seriesList = useMemo(() => {
-    const rolled = lastUpdated ? seriesFromMatches(source) : series;
-    return rolled.filter((s) => s.status !== 'COMPLETED');
-  }, [source, lastUpdated, series]);
+  // Series are rolled up from the same match feed. Completed series are dropped
+  // — a finished competition is not something anyone is coming here for.
+  const seriesList = useMemo(
+    () => seriesFromMatches(matches).filter((s) => s.status !== 'COMPLETED'),
+    [matches]
+  );
 
-  const initial: Tab = liveList.length ? 'live' : upcomingList.length ? 'upcoming' : 'finished';
-  const [tab, setTab] = useState<Tab>(initial);
+  // The opening tab follows the data until the reader picks one themselves.
+  // It can't be seeded from first render any more: that happens before the
+  // first poll lands, when every list is still empty.
+  const [picked, setPicked] = useState<Tab | null>(null);
+  const auto: Tab = liveList.length ? 'live' : upcomingList.length ? 'upcoming' : 'finished';
+  const tab = picked ?? auto;
+  const setTab = setPicked;
 
   const tabs = [
     { key: 'live' as Tab, label: 'Live', statLabel: 'Live now', value: liveList.length, Icon: FlameIcon, tone: styles.toneLive },

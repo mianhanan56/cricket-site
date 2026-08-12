@@ -5,21 +5,6 @@
   padding-block: $space-10 0; // pt-10 (40px); footer carries its own mt-24
 }
 
-.notice {
-  @include card;
-  padding: $space-4;
-  margin-bottom: $space-4;
-  color: $accent-amber;
-  font-size: $text-sm;
-
-  code {
-    font-family: $font-mono;
-    background: $surface-elevated;
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
-}
-
 .section {
   margin-top: $space-6;
 }
