@@ -1,5 +1,5 @@
-import Spinner from '../../../components/ui/Spinner';
+import PlayerSkeleton from '../../../components/player/PlayerSkeleton';
 
 export default function Loading() {
-  return <Spinner label="Loading player…" />;
+  return <PlayerSkeleton />;
 }

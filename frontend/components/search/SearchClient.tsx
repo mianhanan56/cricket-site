@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { searchQuery, type SearchResults } from '../../lib/api';
+import { SearchResultsSkeleton } from './SearchSkeleton';
 import styles from '../../app/search/search.module.scss';
 
 const EMPTY: SearchResults = { players: [], teams: [], series: [] };
@@ -51,12 +52,20 @@ export default function SearchClient() {
         onChange={(e) => setQ(e.target.value)}
       />
 
-      {loading && <p className={styles.hint}>Searching…</p>}
+      {/* Placeholder rows rather than a "Searching…" line: results land in the
+          boxes already on screen instead of pushing the page down. */}
+      {loading && (
+        <div role="status" aria-busy="true" aria-label={`Searching for ${q.trim()}`}>
+          <SearchResultsSkeleton rows={4} />
+        </div>
+      )}
       {!loading && searched && total === 0 && (
         <p className={styles.hint}>No results for “{q}”.</p>
       )}
 
-      {results.players.length > 0 && (
+      {/* Every group is gated on !loading so the placeholder replaces the
+          previous query's results instead of stacking on top of them. */}
+      {!loading && results.players.length > 0 && (
         <Section title="Players">
           {results.players.map((p) => (
             <Link key={p.id} href={`/player/${p.id}`} className={styles.item}>
@@ -67,7 +76,7 @@ export default function SearchClient() {
         </Section>
       )}
 
-      {results.teams.length > 0 && (
+      {!loading && results.teams.length > 0 && (
         <Section title="Teams">
           {results.teams.map((t) => (
             <Link key={t.id} href="/" className={styles.item}>
@@ -78,7 +87,7 @@ export default function SearchClient() {
         </Section>
       )}
 
-      {results.series.length > 0 && (
+      {!loading && results.series.length > 0 && (
         <Section title="Series">
           {results.series.map((s) => (
             <span key={s.id} className={styles.item}>

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import type { SeriesSummary } from '@crex/shared';
+import type { SeriesSummary } from '@/types';
 import styles from './SeriesCard.module.scss';
 
 const STATUS_CLASS: Record<SeriesSummary['status'], string> = {

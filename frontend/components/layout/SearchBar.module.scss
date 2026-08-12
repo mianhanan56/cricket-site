@@ -113,6 +113,21 @@
   }
 }
 
+// --- Pending rows ---------------------------------------------------------
+// Placeholder rows shown while the debounced query is in flight. They reuse
+// .item's box, so the real suggestions replace them without the panel resizing.
+.itemPending {
+  pointer-events: none;
+}
+
+.pendingLabel {
+  width: 148px;
+}
+
+.pendingGroup {
+  width: 52px;
+}
+
 .itemLabel {
   @include truncate(1);
   font-size: 14px;

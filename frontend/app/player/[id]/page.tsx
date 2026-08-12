@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { Player, Match } from '@crex/shared';
+import type { Player, Match } from '@/types';
 import { getPlayer, getMatches } from '../../../lib/api';
 import PlayerStatsTabs from '../../../components/player/PlayerStatsTabs';
 import styles from './player.module.scss';

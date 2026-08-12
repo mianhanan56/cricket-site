@@ -1,5 +1,5 @@
-import Spinner from '../../../components/ui/Spinner';
+import MatchDetailSkeleton from '../../../components/match/MatchDetailSkeleton';
 
 export default function Loading() {
-  return <Spinner label="Loading match…" />;
+  return <MatchDetailSkeleton />;
 }

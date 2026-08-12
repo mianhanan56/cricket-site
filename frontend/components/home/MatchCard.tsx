@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import type { Match, Team, InningsScore } from '@crex/shared';
+import type { Match, Team, InningsScore } from '@/types';
+import TeamBadge from './TeamBadge';
 import styles from './MatchCard.module.scss';
 
 // CricAPI innings carry a label like "New Zealand Women Inning 1". Match an
@@ -15,15 +16,6 @@ function inningsFor(match: Match, team: Team): InningsScore | undefined {
     const label = ((i as { inning?: string }).inning ?? i.teamShortName ?? '').toLowerCase();
     return !!label && (label.includes(name) || label.includes(short));
   });
-}
-
-// Deterministic brand color per team from its short name — the DB carries no
-// team color, so we derive a stable hue (badge gradient) that never changes
-// between renders for the same team.
-function teamHue(code: string): number {
-  let h = 0;
-  for (let i = 0; i < code.length; i += 1) h = (h * 31 + code.charCodeAt(i)) % 360;
-  return h;
 }
 
 function formatStart(iso: string) {
@@ -43,21 +35,17 @@ const STATUS_CLASS: Record<Match['status'], string> = {
 };
 
 function TeamRow({ team, innings, dim }: { team: Team; innings?: InningsScore; dim?: boolean }) {
-  const hue = teamHue(team.shortName);
   return (
     <div className={`${styles.team} ${dim ? styles.dim : ''}`}>
       <div className={styles.teamLeft}>
-        <span
-          className={styles.badge}
-          style={{
-            background: `linear-gradient(135deg, hsl(${hue} 68% 52%), hsl(${(hue + 40) % 360} 62% 40%))`,
-            boxShadow: `0 6px 20px -8px hsl(${hue} 68% 52%)`,
-          }}
-        >
-          {team.shortName.slice(0, 3)}
-        </span>
+        <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} />
         <div className={styles.teamMeta}>
           <div className={styles.teamCode}>{team.shortName}</div>
+          {/* Full name under the code — the short code alone is meaningless for
+              domestic sides. Hidden when it would just repeat the code. */}
+          {team.name && team.name !== team.shortName && (
+            <div className={styles.teamName}>{team.name}</div>
+          )}
           {innings && <div className={styles.overs}>{innings.overs} overs</div>}
         </div>
       </div>

@@ -1,4 +1,4 @@
-import type { Match, SeriesSummary } from '@crex/shared';
+import type { Match, SeriesSummary } from '@/types';
 import { getMatches, getSeries } from '../lib/api';
 import HomeMatches from '../components/home/HomeMatches';
 import styles from './page.module.scss';

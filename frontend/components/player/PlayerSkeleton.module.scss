@@ -1,0 +1,68 @@
+@use 'component' as *;
+
+// ===========================================================================
+// Player skeleton — bar geometry only; hero, blocks, stat grid and match list
+// boxes come from player.module.scss / PlayerStatsTabs.module.scss.
+// ===========================================================================
+
+.inert {
+  pointer-events: none;
+}
+
+// --- Hero ------------------------------------------------------------------
+
+.flag {
+  width: 108px; // flag glyph + country name
+}
+
+// The real name runs 32px on mobile, 40px from tablet up.
+.name {
+  width: 208px;
+  height: 30px;
+  border-radius: $radius-md;
+
+  @include tablet {
+    width: 264px;
+    height: 36px;
+  }
+}
+
+.roleBadge {
+  width: 92px;
+  height: 24px;
+}
+
+.styleBadge {
+  width: 118px;
+  height: 24px;
+}
+
+// --- Stats -----------------------------------------------------------------
+
+// Mirrors a .tab: py-2 px-4 around 14px/600 in a full pill.
+.tabBar {
+  height: 34px;
+  width: 84px;
+  border-radius: 999px;
+}
+
+// .statCard centres its text; bars need the same treatment explicitly.
+.statValue {
+  width: 58px;
+  margin-inline: auto;
+}
+
+.statLabel {
+  width: 72px;
+  margin-inline: auto;
+}
+
+// --- Recent matches --------------------------------------------------------
+
+.matchTeams {
+  width: 132px; // "IND vs AUS"
+}
+
+.matchMeta {
+  width: 96px; // "ODI · LIVE"
+}

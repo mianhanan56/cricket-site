@@ -1,0 +1,106 @@
+@use 'component' as *;
+
+// ===========================================================================
+// Rankings skeleton — bars, plus a row grid standing in for the standings
+// table. Page, head, segmented controls, pill rail and the leader spotlight all
+// come from RankingsView.module.scss.
+// ===========================================================================
+
+.inert {
+  pointer-events: none;
+}
+
+.caption {
+  width: 232px; // "Official ODI player rankings"
+}
+
+// Mirrors .segmentBtn: py-2 px-5 around 14px/600.
+.segmentBar {
+  height: 34px;
+  border-radius: $radius-lg;
+}
+
+.segmentSm {
+  width: 66px; // Men / Women / Test
+}
+
+.segmentMd {
+  width: 74px; // ODI / T20I
+}
+
+// Mirrors .pill: py-2 px-4 in a full pill.
+.pillBar {
+  height: 34px;
+  border-radius: 999px;
+}
+
+.pill1 {
+  width: 92px; // Batting
+}
+.pill2 {
+  width: 96px; // Bowling
+}
+.pill3 {
+  width: 116px; // All-rounder
+}
+
+// --- Leader spotlight ------------------------------------------------------
+
+.leaderRing {
+  width: 56px;
+  height: 56px;
+
+  @include tablet {
+    width: 68px;
+    height: 68px;
+  }
+}
+
+.leaderEyebrow {
+  width: 54px;
+}
+
+.leaderName {
+  width: min(72%, 240px);
+  margin-block: 2px;
+}
+
+.leaderCountry {
+  width: 88px;
+}
+
+.leaderRating {
+  width: 78px;
+  height: 32px;
+  border-radius: $radius-md;
+}
+
+.leaderRatingLabel {
+  width: 46px;
+  margin-top: $space-1;
+}
+
+// --- Standings table ------------------------------------------------------
+// A grid rather than a <table>: same columns and rhythm as .table's cells
+// (padding $space-3, rank left, rating right) without faking table semantics
+// for content that isn't there yet.
+
+.row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1.7fr) minmax(0, 1fr) 68px;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $card-border;
+  }
+}
+
+.headRow {
+  padding-block: $space-2;
+}
+
+.right {
+  margin-left: auto;
+}

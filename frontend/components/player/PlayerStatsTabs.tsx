@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { PlayerStats } from '@crex/shared';
+import type { PlayerStats } from '@/types';
 import styles from './PlayerStatsTabs.module.scss';
 
 type Tab = 'batting' | 'bowling';

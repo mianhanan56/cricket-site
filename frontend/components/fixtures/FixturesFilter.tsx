@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import type { Match, MatchFormat } from '@crex/shared';
+import type { Match, MatchFormat } from '@/types';
 import styles from './FixturesFilter.module.scss';
 
 const TABS: Array<{ key: 'ALL' | MatchFormat; label: string }> = [

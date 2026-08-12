@@ -1,4 +1,4 @@
-import type { Match } from '@crex/shared';
+import type { Match } from '@/types';
 import { getFixtures } from '../../lib/api';
 import FixturesFilter from '../../components/fixtures/FixturesFilter';
 import styles from './fixtures.module.scss';

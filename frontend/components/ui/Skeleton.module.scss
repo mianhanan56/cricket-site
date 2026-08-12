@@ -1,0 +1,215 @@
+@use 'component' as *;
+
+// ============================================================================
+// Skeleton — the "aurora sweep" placeholder engine
+//
+// One box, one sweep. The resting fill is the foreground tinted into the card
+// surface (never neutral grey), and the highlight passing over it carries a
+// faint mint→violet tint so a loading page still reads as THIS app rather than
+// as a generic shimmer.
+//
+// Two deliberate choices:
+//   - The sweep animates `transform` on a pseudo-element, so it stays on the
+//     compositor. A page can hold 100+ placeholders without repainting.
+//   - The keyframe holds at the far edge for the last 40% of the cycle. That
+//     dwell gives the wave a beat (sweep → rest → sweep) instead of the
+//     relentless scroll that makes cheap skeletons feel like a loading bar.
+//
+// Widths/heights come from the presets below; anything with bespoke geometry
+// borrows the real component's own class via the `className` prop, which is how
+// every page skeleton stays pixel-aligned with the content it replaces.
+// ============================================================================
+
+.sk {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: $sk-base;
+  border-radius: 999px;
+  // Floor, so a placeholder that is handed neither a variant nor a height in
+  // `className` still shows up rather than collapsing to nothing.
+  min-height: 8px;
+  // Keep the sheen clipped to the rounded box even when a parent is a stacking
+  // context of its own (the glass cards are).
+  isolation: isolate;
+  // Fade the fill in rather than hard-cutting it. Uniform and short on purpose:
+  // the stagger belongs to the sweep, and delaying the boxes themselves would
+  // hold back the one thing the reader is waiting for — the shape of the page.
+  animation: sk-in 200ms ease-out both;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: $sk-sheen;
+    transform: translateX(-100%);
+    animation: sk-sweep 1.8s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+    animation-delay: var(--sk-delay, 0ms);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Variants — heights track the type scale each one stands in for, so a bar
+// occupies the same optical weight as the text that replaces it.
+// ---------------------------------------------------------------------------
+
+.text {
+  height: 10px; // $text-xs / $text-2xs captions
+}
+
+.body {
+  height: 13px; // $text-sm / $text-base
+}
+
+.title {
+  height: 19px; // $text-lg → $text-2xl headings
+  border-radius: $radius-sm;
+}
+
+.display {
+  height: 27px; // $text-3xl / $text-4xl
+  border-radius: $radius-md;
+}
+
+.chip {
+  height: 22px; // pills, format chips, status badges
+}
+
+.circle {
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.square {
+  aspect-ratio: 1;
+  border-radius: $radius-xl; // matches the 44px team badge / 40px stat tile
+}
+
+.block {
+  border-radius: $radius-lg;
+}
+
+// ---------------------------------------------------------------------------
+// Width presets — percentages of the placeholder's container. Ragged widths
+// across stacked lines are what stop a skeleton looking like a wireframe.
+// ---------------------------------------------------------------------------
+
+.w10 {
+  width: 10%;
+}
+.w15 {
+  width: 15%;
+}
+.w20 {
+  width: 20%;
+}
+.w25 {
+  width: 25%;
+}
+.w30 {
+  width: 30%;
+}
+.w40 {
+  width: 40%;
+}
+.w50 {
+  width: 50%;
+}
+.w60 {
+  width: 60%;
+}
+.w70 {
+  width: 70%;
+}
+.w80 {
+  width: 80%;
+}
+.w90 {
+  width: 90%;
+}
+.w100 {
+  width: 100%;
+}
+
+// --- Fixed square/circle sizes (avatars, badges, rings, ball dots) ---------
+
+.s20 {
+  width: 20px;
+  height: 20px;
+}
+.s26 {
+  width: 26px;
+  height: 26px;
+}
+.s40 {
+  width: 40px;
+  height: 40px;
+}
+.s44 {
+  width: 44px;
+  height: 44px;
+}
+.s56 {
+  width: 56px;
+  height: 56px;
+}
+.s68 {
+  width: 68px;
+  height: 68px;
+}
+.s96 {
+  width: 96px;
+  height: 96px;
+}
+
+// ---------------------------------------------------------------------------
+// Orchestration — put one of these on a container and its children join the
+// same wave, each offset by its position.
+// ---------------------------------------------------------------------------
+
+// Cards, tiles, list items.
+.stagger {
+  @include sk-stagger(90ms, 12);
+}
+
+// Table/commentary rows — tighter step so a long table ripples rather than
+// crawling from top to bottom.
+.staggerRows {
+  @include sk-stagger(45ms, 16);
+}
+
+@keyframes sk-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sk-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  60% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+// Reduced motion: no sweep at all. The stronger resting fill keeps the
+// placeholders legible as placeholders without any movement.
+@media (prefers-reduced-motion: reduce) {
+  .sk {
+    background: $sk-base-strong;
+    animation: none;
+
+    &::after {
+      animation: none;
+      opacity: 0;
+    }
+  }
+}

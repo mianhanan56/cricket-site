@@ -2,7 +2,8 @@
 // Run `npm run prisma:generate` after editing.
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {

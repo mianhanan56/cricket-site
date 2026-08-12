@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import SearchClient from '../../components/search/SearchClient';
-import Spinner from '../../components/ui/Spinner';
+import SearchSkeleton from '../../components/search/SearchSkeleton';
 
 export const metadata = {
   title: 'Search',
@@ -9,7 +9,7 @@ export const metadata = {
 
 export default function SearchPage() {
   return (
-    <Suspense fallback={<Spinner label="Loading search…" />}>
+    <Suspense fallback={<SearchSkeleton />}>
       <SearchClient />
     </Suspense>
   );

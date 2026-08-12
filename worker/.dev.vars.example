@@ -1,9 +1,0 @@
-# Copy to .dev.vars (gitignored) for `npm run dev`.
-#
-# Only needed for the `auth: 'token'` routes in src/routes.ts — full scorecard,
-# commentary, squads, highlights, featured live. Every other endpoint is public,
-# so the Worker runs fine without this set.
-#
-# Production equivalent: npx wrangler secret put CRICKET_API_TOKEN
-# Copy the token from https://cricketliveapi.com → API Token.
-CRICKET_API_TOKEN=your-criclive-bearer-token-here

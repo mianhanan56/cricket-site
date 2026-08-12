@@ -71,6 +71,23 @@
     radial-gradient(ellipse 90% 40% at 50% 100%, color-mix(in oklab, var(--accent-purple) 12%, transparent), transparent 60%),
     var(--bg-base);
 
+  // --- Skeleton placeholders ---
+  // The base is the foreground tinted into the card, never a neutral grey — it
+  // keeps loading states inside the same violet-leaning family as the rest of
+  // the palette. `--sk-sheen` references `--sk-hi`, so it is declared once here
+  // and adapts per theme automatically (same pattern as the effects above).
+  --sk-base: color-mix(in oklab, var(--fg) 8%, var(--card));
+  --sk-base-strong: color-mix(in oklab, var(--fg) 13%, var(--card));
+  --sk-hi: oklch(1 0 0 / 85%);
+  --sk-sheen: linear-gradient(
+    100deg,
+    transparent 10%,
+    color-mix(in oklab, var(--accent-green) 14%, var(--sk-hi)) 38%,
+    var(--sk-hi) 50%,
+    color-mix(in oklab, var(--accent-purple) 16%, var(--sk-hi)) 62%,
+    transparent 90%
+  );
+
   // --- Selection & scrollbar ---
   --selection: color-mix(in oklab, var(--accent-green) 28%, transparent);
   --scrollbar-thumb: color-mix(in oklab, var(--fg) 14%, transparent);
@@ -105,6 +122,13 @@
   // --- Lines & chrome ---
   --border: oklch(1 0 0 / 7%);
   --navbar-bg: color-mix(in oklab, var(--bg-base) 72%, transparent);
+
+  // --- Skeleton placeholders (sheen gradient inherits from :root) ---
+  // Lifted off the card with white rather than the near-white foreground: on a
+  // dark surface a foreground tint is invisible.
+  --sk-base: color-mix(in oklab, white 8%, var(--card));
+  --sk-base-strong: color-mix(in oklab, white 13%, var(--card));
+  --sk-hi: oklch(1 0 0 / 10%);
 
   // --- Scrollbar (glow/glass/aurora inherit from :root, adapt via palette) ---
   --shadow-card: 0 10px 30px -12px rgba(0, 0, 0, 0.5);

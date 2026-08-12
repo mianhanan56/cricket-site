@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { RankingEntry } from '@crex/shared';
+import type { RankingEntry } from '@/types';
 import styles from './RankingsView.module.scss';
 
 export type Format = 'test' | 'odi' | 't20i';

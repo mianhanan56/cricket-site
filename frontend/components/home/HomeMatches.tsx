@@ -1,12 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import type { Match, SeriesSummary } from '@crex/shared';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { Match, SeriesSummary } from '@/types';
+import { useCrexMatches } from '@/hooks/useCrexMatches';
+import { seriesFromMatches } from '@/lib/crex';
 import MatchCard from './MatchCard';
 import SeriesCard from './SeriesCard';
+import { MatchCarouselSkeleton } from './HomeSkeleton';
 import styles from './HomeMatches.module.scss';
 
 type Tab = 'live' | 'upcoming' | 'finished' | 'series';
+
+// "Finished" surfaces every match completed in the last 7 days — same window
+// the server uses in app/page.tsx, applied again here because polled data
+// arrives unfiltered.
+const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 function FlameIcon() {
   return (
@@ -118,17 +126,63 @@ export default function HomeMatches({
   finished: Match[];
   series: SeriesSummary[];
 }) {
-  const initial: Tab = live.length ? 'live' : upcoming.length ? 'upcoming' : 'finished';
+  // Server-rendered lists paint first; the crex Worker then polls over the top.
+  // When the Worker isn't configured the hook stays inert and the props stand,
+  // so this is additive — nothing breaks if crex goes away.
+  const serverMatches = useMemo(
+    () => [...live, ...upcoming, ...finished],
+    [live, upcoming, finished]
+  );
+  // `lastUpdated` is still read below — it's how we know a poll has actually
+  // landed and the polled list can safely replace the server-rendered one.
+  // `isLoading` is true only on a first poll with nothing server-rendered behind
+  // it (backend down, crex the sole source) — the one case where the page has no
+  // matches to show yet and placeholders beat an empty state.
+  const {
+    matches: polled,
+    lastUpdated,
+    isLoading: crexLoading,
+  } = useCrexMatches({ initial: serverMatches });
+
+  // Only let polled data take over once it has actually landed — an empty first
+  // render from the hook must not blank out server-rendered matches.
+  const source = lastUpdated ? polled : serverMatches;
+
+  const { liveList, upcomingList, finishedList } = useMemo(() => {
+    if (!lastUpdated) return { liveList: live, upcomingList: upcoming, finishedList: finished };
+
+    const now = Date.now();
+    return {
+      liveList: source.filter((m) => m.status === 'LIVE'),
+      upcomingList: source
+        .filter((m) => m.status === 'UPCOMING')
+        .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
+      finishedList: source
+        .filter((m) => m.status === 'COMPLETED' && now - +new Date(m.startTime) <= FINISHED_WINDOW_MS)
+        .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime)),
+    };
+  }, [source, lastUpdated, live, upcoming, finished]);
+
+  // Series are rolled up from the same match feed rather than taken from the
+  // backend, whose count only reflects matches synced into our DB (a whole
+  // season showed as "1 match"). Completed series are dropped — a finished
+  // competition is not something anyone is coming to the home page for.
+  const seriesList = useMemo(() => {
+    const rolled = lastUpdated ? seriesFromMatches(source) : series;
+    return rolled.filter((s) => s.status !== 'COMPLETED');
+  }, [source, lastUpdated, series]);
+
+  const initial: Tab = liveList.length ? 'live' : upcomingList.length ? 'upcoming' : 'finished';
   const [tab, setTab] = useState<Tab>(initial);
 
   const tabs = [
-    { key: 'live' as Tab, label: 'Live', statLabel: 'Live now', value: live.length, Icon: FlameIcon, tone: styles.toneLive },
-    { key: 'upcoming' as Tab, label: 'Upcoming', statLabel: 'Upcoming', value: upcoming.length, Icon: CalendarIcon, tone: styles.tonePurple },
-    { key: 'finished' as Tab, label: 'Finished', statLabel: 'Finished', value: finished.length, Icon: CheckCircleIcon, tone: styles.toneAmber },
-    { key: 'series' as Tab, label: 'Series', statLabel: 'Recent series', value: series.length, Icon: LayersIcon, tone: styles.toneBlue },
+    { key: 'live' as Tab, label: 'Live', statLabel: 'Live now', value: liveList.length, Icon: FlameIcon, tone: styles.toneLive },
+    { key: 'upcoming' as Tab, label: 'Upcoming', statLabel: 'Upcoming', value: upcomingList.length, Icon: CalendarIcon, tone: styles.tonePurple },
+    { key: 'finished' as Tab, label: 'Finished', statLabel: 'Finished', value: finishedList.length, Icon: CheckCircleIcon, tone: styles.toneAmber },
+    { key: 'series' as Tab, label: 'Series', statLabel: 'Ongoing series', value: seriesList.length, Icon: LayersIcon, tone: styles.toneBlue },
   ];
 
-  const list = tab === 'live' ? live : tab === 'upcoming' ? upcoming : finished;
+  const list = tab === 'live' ? liveList : tab === 'upcoming' ? upcomingList : finishedList;
   const isSeries = tab === 'series';
 
   return (
@@ -157,16 +211,6 @@ export default function HomeMatches({
       <div className={styles.head}>
         <div className={styles.headLeft}>
           <h2 className={styles.title}>Matches</h2>
-          {/* Contextual note for the Finished tab — only while it's active. */}
-          {tab === 'finished' && (
-            <span className={styles.noteBadge}>
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 7v5l3 2" />
-              </svg>
-              Last 7 days
-            </span>
-          )}
         </div>
         <div className={styles.pills} role="tablist">
           {tabs.map(({ key, label, value, Icon }) => (
@@ -186,14 +230,16 @@ export default function HomeMatches({
       </div>
 
       {isSeries ? (
-        series.length ? (
+        seriesList.length ? (
           <Carousel resetKey={tab}>
-            {series.map((s) => (
+            {seriesList.map((s) => (
               <div className={styles.slide} key={s.id || s.name}>
                 <SeriesCard series={s} />
               </div>
             ))}
           </Carousel>
+        ) : crexLoading ? (
+          <MatchCarouselSkeleton kind="series" />
         ) : (
           <div className={styles.empty}>No recent series to show right now.</div>
         )
@@ -205,6 +251,8 @@ export default function HomeMatches({
             </div>
           ))}
         </Carousel>
+      ) : crexLoading ? (
+        <MatchCarouselSkeleton />
       ) : (
         <div className={styles.empty}>No matches in this category right now.</div>
       )}

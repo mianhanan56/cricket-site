@@ -1,7 +1,7 @@
 'use client';
 
 import { io, Socket } from 'socket.io-client';
-import type { ServerToClientEvents, ClientToServerEvents } from '@crex/shared';
+import type { ServerToClientEvents, ClientToServerEvents } from '@/types';
 
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 

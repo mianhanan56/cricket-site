@@ -1,6 +1,6 @@
 'use client';
 
-import type { Match } from '@crex/shared';
+import type { Match } from '@/types';
 import styles from './WinProbability.module.scss';
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));

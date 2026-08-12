@@ -9,5 +9,17 @@
 
   "compatibility_flags": [
     "nodejs_compat"
-  ]
+  ],
+
+  // The frontend's NEXT_PUBLIC_API_URL points at :5000, not wrangler's 8787.
+  "dev": {
+    "port": 5000
+  },
+
+  // Wrangler's bundler resolves `@prisma/client` to the browser stub, which
+  // throws "PrismaClient is not configured to run in Cloudflare Workers".
+  // Point it at the generated WASM engine build instead (driver adapters).
+  "alias": {
+    "@prisma/client": "./node_modules/.prisma/client/wasm.js"
+  }
 }

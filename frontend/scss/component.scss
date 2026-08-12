@@ -60,6 +60,11 @@ $navbar-active: var(--accent-green);
 $live-color: var(--live);
 $live-bg: var(--live-bg);
 
+// --- Skeleton placeholders ---
+$sk-base: var(--sk-base); // Resting fill of a placeholder box
+$sk-base-strong: var(--sk-base-strong); // Static fill when motion is reduced
+$sk-sheen: var(--sk-sheen); // Mint→violet sweep (the aurora tell)
+
 // --- Breakpoints ---
 $mobile: 480px;
 $tablet: 768px;
@@ -216,6 +221,20 @@ $z-modal: 1000;
     -webkit-line-clamp: $lines;
     -webkit-box-orient: vertical;
     overflow: hidden;
+  }
+}
+
+// --- Skeleton wave stagger ---
+// Phases the loading sweep across a container's children so a grid or list
+// reads as ONE wave travelling down the page instead of N boxes pulsing on
+// their own. Sets `--sk-delay`, which every nested placeholder inherits — a
+// custom property crosses CSS-Module boundaries, so a container styled in one
+// module can phase placeholders styled in another (components/ui/Skeleton).
+@mixin sk-stagger($step: 90ms, $count: 12) {
+  @for $i from 1 through $count {
+    > *:nth-child(#{$i}) {
+      --sk-delay: #{($i - 1) * $step};
+    }
   }
 }
 

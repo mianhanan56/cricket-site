@@ -1,4 +1,4 @@
-import type { RankingEntry } from '@crex/shared';
+import type { RankingEntry } from '@/types';
 import { getRankings } from '../../lib/api';
 import RankingsView, {
   type RankingsData,

@@ -1,0 +1,129 @@
+@use 'component' as *;
+
+// ===========================================================================
+// Home skeleton — bar geometry only.
+//
+// Every container (stats grid, section head, carousel track, card, team row)
+// is borrowed from HomeMatches.module.scss / MatchCard.module.scss so the
+// placeholder occupies the real layout. What lives here is the handful of fixed
+// widths the bars need: inside content-sized flex rows a percentage collapses,
+// and these are the widths the real strings actually run to.
+// ===========================================================================
+
+// Nothing in a skeleton is interactive — kill the hover lift the real card and
+// stat tile carry, so a cursor crossing the page doesn't animate dead boxes.
+.inert {
+  pointer-events: none;
+}
+
+// --- Stats strip -----------------------------------------------------------
+
+// The real tile stacks a 20px number on a 12px label at line-height 1.1, which
+// leaves no gap for bars to breathe in — add it back.
+.statBody {
+  gap: $space-1-5;
+}
+
+.statValue {
+  width: 30px; // a 1–2 digit count at $text-xl
+}
+
+.statLabel {
+  width: 74px; // "Live now" / "Recent series"
+}
+
+// --- Section head ---------------------------------------------------------
+
+.headTitle {
+  width: 116px; // "Matches" at $text-2xl
+}
+
+// Sits inside the real .pills glass rail; each bar matches a .pill's box
+// (py-2 px-4 around $text-sm + a 16px icon).
+.pillBar {
+  height: 32px;
+  border-radius: $radius-lg;
+}
+
+.pill1 {
+  width: 74px;
+}
+.pill2 {
+  width: 96px;
+}
+.pill3 {
+  width: 92px;
+}
+.pill4 {
+  width: 80px;
+}
+
+// --- Match card ----------------------------------------------------------
+
+.formatChip {
+  width: 42px; // "ODI" / "T20"
+  height: 20px;
+  border-radius: $radius-md;
+}
+
+.seriesBar {
+  width: 118px;
+}
+
+.statusBar {
+  width: 46px; // LIVE / UPCOMING / RESULT
+}
+
+.teamMeta {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+  min-width: 0;
+}
+
+.teamCode {
+  width: 46px;
+}
+
+.teamName {
+  width: 92px;
+}
+
+.score {
+  width: 62px;
+}
+
+.footNote {
+  width: 62%;
+}
+
+.venue {
+  width: 46%;
+}
+
+// --- Series card ---------------------------------------------------------
+// Same glass shell as a match card, different content: a two-line name, a date
+// range and a match count.
+
+.statusPill {
+  width: 62px;
+  height: 20px;
+  border-radius: $radius-md;
+}
+
+.seriesName {
+  width: 88%;
+}
+
+.seriesName2 {
+  width: 54%;
+  margin-top: $space-1-5;
+}
+
+.seriesDates {
+  width: 172px;
+}
+
+.seriesCount {
+  width: 76px;
+}

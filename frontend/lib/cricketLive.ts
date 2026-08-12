@@ -469,7 +469,7 @@ export async function getHighlights(matchId: number | string): Promise<CricLiveH
 }
 
 // ---------------------------------------------------------------------------
-// Adapters onto our own vocabulary (@crex/shared)
+// Adapters onto our own vocabulary (@/types)
 // ---------------------------------------------------------------------------
 
 /**

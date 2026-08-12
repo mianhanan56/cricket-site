@@ -13,9 +13,15 @@ import type {
   ScoreUpdatePayload,
   BallDeliveredPayload,
   WicketFallPayload,
-} from '@crex/shared';
+} from '@/types';
 import { connectSocket, disconnectSocket, joinMatch, leaveMatch, getSocket } from '../../lib/socket';
+import { useCrexMatch, useCrexMatchExtras } from '@/hooks/useCrexMatches';
 import WinProbability from './WinProbability';
+import {
+  BowlingSkeleton,
+  CommentarySkeleton,
+  ScorecardSkeleton,
+} from './MatchDetailSkeleton';
 import styles from './MatchDetail.module.scss';
 
 type TabKey = 'info' | 'scorecard' | 'commentary';
@@ -97,7 +103,16 @@ function kindClass(b: BallEntry): string {
   return styles[dotKind(b)] ?? '';
 }
 
-export default function MatchDetail({ matchId, initial }: { matchId: string; initial: Match }) {
+export default function MatchDetail({
+  matchId,
+  initial,
+  source = 'db',
+}: {
+  matchId: string;
+  initial: Match;
+  /** Where the match came from — decides how it stays up to date. */
+  source?: 'db' | 'crex';
+}) {
   const [match, setMatch] = useState<Match>(initial);
   const [tab, setTab] = useState<TabKey>('info');
   const [connected, setConnected] = useState(false);
@@ -119,10 +134,66 @@ export default function MatchDetail({ matchId, initial }: { matchId: string; ini
   const ballSeq = useRef(0);
   const wicketTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // crex matches have no socket behind them, so they poll the Worker instead.
+  // Only enabled while the match is live and this is a crex match; for backend
+  // matches the hook stays inert and the socket below does the work.
+  const isCrex = source === 'crex';
+  const { match: polled, lastUpdated: crexUpdated } = useCrexMatch(matchId, {
+    initial,
+    enabled: isCrex && match.status === 'LIVE',
+  });
+
+  // Scorecard + ball-by-ball. Only fetched for crex matches, and only while the
+  // match is live or recently finished — an upcoming fixture has neither.
+  const extrasEnabled = isCrex && match.status !== 'UPCOMING';
+  const crexExtras = useCrexMatchExtras(matchId, { enabled: extrasEnabled });
+
+  // A crex match arrives with a header score but no card or feed — those are two
+  // more round trips. Until the first one lands, the Scorecard and Commentary
+  // tabs are loading, not empty, and have to say so with placeholders instead of
+  // "No batting data yet".
+  const extrasPending = extrasEnabled && !crexExtras.loaded;
+
+  // Fold each poll into local state so the socket path and the polling path
+  // both converge on the same `match`. The crex scorecard replaces the innings
+  // wholesale — it is a complete card each time, not a delta.
+  useEffect(() => {
+    if (!isCrex || !polled) return;
+
+    setMatch(
+      crexExtras.innings.length
+        ? { ...polled, scorecard: { ...polled.scorecard, innings: crexExtras.innings } }
+        : polled
+    );
+  }, [isCrex, polled, crexExtras.innings]);
+
+  // crex commentary arrives newest-first already, which is the order this
+  // component renders in — no reversing.
+  useEffect(() => {
+    if (!isCrex || !crexExtras.commentary.length) return;
+
+    const entries: BallEntry[] = crexExtras.commentary.map((c) => ({
+      id: c.id,
+      over: c.over,
+      ball: c.ball,
+      runs: c.runs,
+      isWicket: c.isWicket,
+      text: c.text,
+    }));
+    setCommentary(entries.slice(0, MAX_COMMENTARY));
+    // Dots read oldest-to-newest, so the tail of the feed reversed.
+    setDots([...entries].reverse().slice(-MAX_DOTS));
+  }, [isCrex, crexExtras.commentary]);
+
+  // The header's live indicator reads socket state. A crex match has no socket,
+  // so a landed poll is its equivalent of "connected" — without this the page
+  // would sit on "connecting…" forever while updating perfectly well.
+  const isConnected = isCrex ? Boolean(crexUpdated) : connected;
+
   // Live matches stream over the socket (score:update every ball, ~10s cadence
   // from the simulator) — no extra HTTP polling needed.
   useEffect(() => {
-    if (!isLive) return;
+    if (!isLive || isCrex) return;
 
     const socket = connectSocket();
     joinMatch(matchId);
@@ -177,7 +248,7 @@ export default function MatchDetail({ matchId, initial }: { matchId: string; ini
       leaveMatch(matchId);
       disconnectSocket();
     };
-  }, [matchId, isLive]);
+  }, [matchId, isLive, isCrex]);
 
   const innings = match.scorecard?.innings ?? [];
   const homeScore = scoreParts(inningsListFor(match, match.homeTeam));
@@ -213,7 +284,7 @@ export default function MatchDetail({ matchId, initial }: { matchId: string; ini
           {isLive ? (
             <span
               className={styles.liveBadge}
-              title={connected ? 'Live connection active' : 'Connecting…'}
+              title={isConnected ? 'Live connection active' : 'Connecting…'}
             >
               LIVE
             </span>
@@ -227,7 +298,7 @@ export default function MatchDetail({ matchId, initial }: { matchId: string; ini
             </span>
           )}
           {isLive && (
-            <span className={styles.connLabel}>{connected ? 'real-time' : 'connecting…'}</span>
+            <span className={styles.connLabel}>{isConnected ? 'real-time' : 'connecting…'}</span>
           )}
         </div>
 
@@ -283,9 +354,16 @@ export default function MatchDetail({ matchId, initial }: { matchId: string; ini
       </nav>
 
       {tab === 'info' && <InfoTab match={match} />}
-      {tab === 'scorecard' && <ScorecardTab match={match} innings={innings} />}
+      {tab === 'scorecard' && (
+        <ScorecardTab match={match} innings={innings} pending={extrasPending} />
+      )}
       {tab === 'commentary' && (
-        <CommentaryTab overs={overs} isLive={isLive} connected={connected} />
+        <CommentaryTab
+          overs={overs}
+          isLive={isLive}
+          connected={isConnected}
+          pending={extrasPending}
+        />
       )}
     </div>
   );
@@ -378,7 +456,16 @@ function InfoTab({ match }: { match: Match }) {
 
 // ----------------------------------------------------------------- Scorecard
 
-function ScorecardTab({ match, innings }: { match: Match; innings: InningsScore[] }) {
+function ScorecardTab({
+  match,
+  innings,
+  pending,
+}: {
+  match: Match;
+  innings: InningsScore[];
+  /** The card is still being fetched — show placeholders, not an empty state. */
+  pending?: boolean;
+}) {
   const [selected, setSelected] = useState(Math.max(0, innings.length - 1));
   const current = innings[Math.min(selected, Math.max(0, innings.length - 1))];
 
@@ -463,6 +550,8 @@ function ScorecardTab({ match, innings }: { match: Match; innings: InningsScore[
               </tfoot>
             </table>
           </div>
+        ) : pending ? (
+          <ScorecardSkeleton />
         ) : (
           <p className={styles.empty}>
             {current
@@ -501,6 +590,8 @@ function ScorecardTab({ match, innings }: { match: Match; innings: InningsScore[
               </tbody>
             </table>
           </div>
+        ) : pending ? (
+          <BowlingSkeleton />
         ) : (
           <p className={styles.empty}>No bowling data yet.</p>
         )}
@@ -515,10 +606,13 @@ function CommentaryTab({
   overs,
   isLive,
   connected,
+  pending,
 }: {
   overs: Array<[number, BallEntry[]]>;
   isLive: boolean;
   connected: boolean;
+  /** The feed is still being fetched — show placeholders, not an empty state. */
+  pending?: boolean;
 }) {
   return (
     <div className={styles.panel}>
@@ -558,6 +652,8 @@ function CommentaryTab({
               </div>
             ))}
           </div>
+        ) : pending ? (
+          <CommentarySkeleton />
         ) : (
           <p className={styles.empty}>No commentary yet.</p>
         )}

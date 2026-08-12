@@ -1,5 +1,5 @@
-import Spinner from '../../components/ui/Spinner';
+import FixturesSkeleton from '../../components/fixtures/FixturesSkeleton';
 
 export default function Loading() {
-  return <Spinner label="Loading fixtures…" />;
+  return <FixturesSkeleton />;
 }

@@ -1,20 +1,32 @@
-// Edge proxy in front of CricLive API (cricketliveapi.com).
+// Edge proxy in front of crex.com's internal APIs.
 //
-// Three jobs:
-//   1. Keep the API key server-side — the browser never sees it.
-//   2. Collapse traffic with an edge cache, so 10k viewers of a live match cost
-//      ~6 upstream calls a minute instead of 10k.
-//   3. Serve CORS headers your allowed origins need, and stale data rather than
-//      an error when upstream hiccups.
+// Same three jobs as the CricLive Worker in ../worker: collapse traffic with an
+// edge cache, emit CORS your origins need, and serve stale data rather than an
+// error when upstream hiccups. Two differences specific to crex:
 //
-// Routes are allowlisted in routes.ts.
+//   - Upstream is five hosts, not one (see upstreams.ts), and most endpoints
+//     are POST. Callers here always use GET; the translation happens below.
+//   - crex's hosts reject requests that do not look like they came from their
+//     own site, so every upstream call carries an Origin/Referer of crex.com.
+//     That is the header their servers already expect from a browser on their
+//     site — it is not a bypass of any challenge or bot check. If crex adds
+//     real bot protection, this Worker will start failing, and the fix is to
+//     ask them for API access, not to defeat it.
+//
+// Routes are allowlisted in routes.ts. Anything else is a 404.
 
-import { matchRoute, ROUTES, type RouteDef } from './routes';
+import { UPSTREAMS } from './upstreams';
+import {
+  canonicalQuery,
+  matchRoute,
+  ParamError,
+  readParams,
+  ROUTES,
+  type ParamValue,
+  type RouteDef,
+} from './routes';
 
 export interface Env {
-  /** Bearer token from the CricLive dashboard. Only protected routes need it. */
-  CRICKET_API_TOKEN: string;
-  UPSTREAM_BASE: string;
   ALLOWED_ORIGINS: string;
 }
 
@@ -34,19 +46,18 @@ export default {
       return json({ error: 'Method not allowed' }, 405, cors);
     }
 
-    // Health + route listing, useful for smoke-testing a deploy. `tokenPresent`
-    // tells you at a glance whether the protected routes can work.
     if (url.pathname === '/' || url.pathname === '/health') {
       return json(
         {
           status: 'ok',
-          worker: 'pulsecrease-cricket',
-          upstream: env.UPSTREAM_BASE,
-          tokenPresent: Boolean(env.CRICKET_API_TOKEN),
+          worker: 'pulsecrease-crex',
+          upstreams: UPSTREAMS,
           routes: ROUTES.map((r) => ({
             path: r.match,
-            auth: r.auth ?? 'public',
+            upstream: `${r.method} ${UPSTREAMS[r.base]}${r.path}`,
             ttl: r.ttl,
+            params: r.params ? Object.keys(r.params) : [],
+            note: r.note,
           })),
         },
         200,
@@ -54,73 +65,57 @@ export default {
       );
     }
 
-    const matched = matchRoute(url.pathname);
-    if (!matched) {
+    const route = matchRoute(url.pathname);
+    if (!route) {
       return json({ error: `No route for ${url.pathname}`, routes: ROUTES.map((r) => r.match) }, 404, cors);
     }
 
-    const { route, upstreamPath } = matched;
-
-    // Only the subscription-gated routes need a token; the rest are public, so a
-    // missing token must not take the whole Worker down.
-    if (route.auth === 'token' && !env.CRICKET_API_TOKEN) {
-      return json(
-        {
-          error: 'This endpoint needs a CricLive token',
-          detail: 'Set it with: npx wrangler secret put CRICKET_API_TOKEN',
-          path: url.pathname,
-        },
-        503,
-        cors
-      );
+    let params: Record<string, ParamValue>;
+    try {
+      params = readParams(route, url.searchParams);
+    } catch (err) {
+      if (err instanceof ParamError) return json({ error: err.message, path: url.pathname }, 400, cors);
+      throw err;
     }
 
-    const upstream = new URL(env.UPSTREAM_BASE.replace(/\/$/, '') + upstreamPath);
-
-    // Cache key is the upstream URL — one entry per distinct upstream request,
-    // shared across all callers and origins. Never the client's URL, which
-    // could carry origin-specific noise.
-    const cacheKey = new Request(upstream.toString(), { method: 'GET' });
+    // Cache key is derived from the upstream call, not the caller's URL, so
+    // every origin shares one entry and client-side noise cannot fragment it.
+    // The Cache API only stores GET, so a POST upstream is keyed by a synthetic
+    // GET URL carrying the canonical params.
+    const query = canonicalQuery(params);
+    const cacheKey = new Request(
+      `${UPSTREAMS[route.base]}${route.path}${query ? `?${query}` : ''}`,
+      { method: 'GET' }
+    );
     const cache = caches.default;
 
     const cached = await cache.match(cacheKey);
     if (cached) {
-      const age = Number(cached.headers.get('x-worker-age-basis') ?? 0);
-      const ageSeconds = (Date.now() - age) / 1000;
+      const basis = Number(cached.headers.get('x-worker-age-basis') ?? 0);
+      const ageSeconds = (Date.now() - basis) / 1000;
 
       if (ageSeconds < route.ttl) {
         return withHeaders(cached, cors, 'HIT', route.ttl);
       }
 
-      // Past TTL: serve it immediately and refresh behind the request, so a
-      // cache expiry never makes a user wait on the upstream round-trip.
-      ctx.waitUntil(refresh(cacheKey, upstream, env, route, cache));
+      // Past TTL: serve it now, refresh behind the request, so a cache expiry
+      // never makes a user wait on the upstream round-trip.
+      ctx.waitUntil(refresh(cacheKey, route, params, cache));
       return withHeaders(cached, cors, 'STALE', route.ttl);
     }
 
-    // Cold cache — fetch inline.
     try {
-      const fresh = await fetchUpstream(upstream, env, route);
+      const fresh = await fetchUpstream(route, params);
 
       if (!fresh.ok) {
         const body = await fresh.text();
-
-        // 401 on a protected route means the token is missing/expired or the
-        // subscription lapsed — say so, rather than a bare "upstream error".
-        if (fresh.status === 401) {
-          return json(
-            {
-              error: 'CricLive rejected the token',
-              detail: 'Token expired/regenerated, or the subscription is inactive.',
-              path: url.pathname,
-            },
-            502,
-            cors
-          );
-        }
-
         return json(
-          { error: 'Upstream error', status: fresh.status, detail: body.slice(0, 500) },
+          {
+            error: 'Upstream error',
+            status: fresh.status,
+            upstream: `${route.method} ${UPSTREAMS[route.base]}${route.path}`,
+            detail: body.slice(0, 500),
+          },
           fresh.status === 429 ? 429 : 502,
           cors
         );
@@ -134,23 +129,33 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-function fetchUpstream(upstream: URL, env: Env, route: RouteDef): Promise<Response> {
+function fetchUpstream(route: RouteDef, params: Record<string, ParamValue>): Promise<Response> {
+  const base = UPSTREAMS[route.base];
+
+  // crex's hosts 400 with "Invalid Host header" unless the request presents as
+  // one of their own pages. These are the headers their site already sends.
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    'User-Agent': 'PulseCrease-Worker/1.0',
+    Origin: 'https://crex.com',
+    Referer: 'https://crex.com/',
+    'User-Agent': 'Mozilla/5.0 (compatible; PulseCrease-Worker/1.0)',
+    ...route.headers,
   };
 
-  // CricLive uses a Bearer token (Laravel Sanctum), and only on the
-  // subscription-gated routes. Sending it to public routes would be harmless but
-  // pointless, so keep it scoped.
-  if (route.auth === 'token' && env.CRICKET_API_TOKEN) {
-    headers.Authorization = `Bearer ${env.CRICKET_API_TOKEN}`;
+  // Don't let Cloudflare's own fetch cache shadow ours — we manage TTLs here.
+  const cf = { cacheTtl: 0, cacheEverything: false };
+
+  if (route.method === 'GET') {
+    const query = canonicalQuery(params);
+    return fetch(`${base}${route.path}${query ? `?${query}` : ''}`, { headers, cf });
   }
 
-  return fetch(upstream.toString(), {
+  headers['Content-Type'] = 'application/json';
+  return fetch(`${base}${route.path}`, {
+    method: 'POST',
     headers,
-    // Don't let Cloudflare's own fetch cache shadow ours — we manage TTLs here.
-    cf: { cacheTtl: 0, cacheEverything: false },
+    body: JSON.stringify({ ...route.bodyDefaults, ...params }),
+    cf,
   });
 }
 
@@ -184,9 +189,14 @@ async function store(
 }
 
 /** Background revalidation. Failures are swallowed — the stale entry stands. */
-async function refresh(cacheKey: Request, upstream: URL, env: Env, route: RouteDef, cache: Cache) {
+async function refresh(
+  cacheKey: Request,
+  route: RouteDef,
+  params: Record<string, ParamValue>,
+  cache: Cache
+): Promise<void> {
   try {
-    const fresh = await fetchUpstream(upstream, env, route);
+    const fresh = await fetchUpstream(route, params);
     if (fresh.ok) await store(cacheKey, fresh, route.ttl, cache);
   } catch {
     // Ignore: the caller already got a usable stale response.
@@ -198,7 +208,6 @@ function withHeaders(response: Response, cors: Headers, status: string, ttl: num
   for (const [k, v] of cors) headers.set(k, v);
   headers.set('X-Worker-Cache', status);
   headers.delete('x-worker-age-basis');
-  // Let the browser and any CDN in front of the Worker cache it too.
   headers.set('Cache-Control', `public, max-age=${Math.min(ttl, 30)}`);
   return new Response(response.body, { status: 200, headers });
 }
@@ -218,7 +227,7 @@ function corsHeaders(request: Request, env: Env): Headers {
   });
 
   // Echo the origin only when it's on the list. Server-side callers (Next.js
-  // SSR, the Express backend) send no Origin and are unaffected by CORS.
+  // SSR, the backend) send no Origin and are unaffected by CORS.
   if (origin && allowed.includes(origin)) {
     headers.set('Access-Control-Allow-Origin', origin);
   }

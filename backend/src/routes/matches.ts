@@ -96,6 +96,7 @@ router.get('/', cache(60), async (req, res) => {
     });
     res.status(200).json({ success: true, source: 'db', data: matches });
   } catch (err) {
+    console.error('[matches] GET / failed:', err);
     res.status(500).json({ success: false, data: null, error: 'Failed to load matches' });
   }
 });

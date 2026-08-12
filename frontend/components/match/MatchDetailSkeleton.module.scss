@@ -1,0 +1,142 @@
+@use 'component' as *;
+
+// ===========================================================================
+// Match centre skeletons — bars, plus row grids for the scorecard and
+// commentary. Page, header, sticky tabs, blocks and detail rows all come from
+// MatchDetail.module.scss.
+// ===========================================================================
+
+.inert {
+  pointer-events: none;
+}
+
+// --- Header ----------------------------------------------------------------
+
+.statusBadge {
+  width: 58px;
+  height: 20px;
+  border-radius: $radius-sm;
+}
+
+.connLabel {
+  width: 72px;
+}
+
+.teamName {
+  width: 116px;
+
+  @include tablet {
+    width: 148px;
+  }
+}
+
+.vs {
+  width: 22px;
+}
+
+.teamShort {
+  width: 42px;
+}
+
+.score {
+  width: 84px;
+  margin-top: 2px;
+}
+
+.scoreOvers {
+  width: 58px;
+}
+
+// The real .headerMeta is a centred single line under a hairline rule.
+.headerMeta {
+  width: min(72%, 340px);
+  margin-inline: auto;
+}
+
+// Mirrors a .tab: flex: 1 with py-3 around 14px/600, so the rail keeps its
+// exact height and the three bars divide it evenly.
+.tabCell {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: $space-3;
+  border-bottom: 3px solid transparent;
+}
+
+.tabBar {
+  width: 86px;
+}
+
+// --- Blocks ---------------------------------------------------------------
+
+.blockTitle {
+  width: 132px;
+}
+
+// --- Team form -----------------------------------------------------------
+
+.formTeam {
+  width: 128px;
+}
+
+// --- Scorecard table ------------------------------------------------------
+// Grid, not <table>: same column rhythm and zebra banding as .table without
+// asserting table semantics over content that hasn't arrived.
+
+.tableSk {
+  min-width: 100%;
+}
+
+.batRow,
+.bowlRow {
+  display: grid;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2;
+}
+
+.batRow {
+  grid-template-columns: minmax(88px, 1.6fr) minmax(96px, 1.4fr) repeat(5, minmax(28px, 40px));
+}
+
+.bowlRow {
+  grid-template-columns: minmax(96px, 2fr) repeat(5, minmax(28px, 44px));
+}
+
+// Zebra rows off $bg, matching the real table's alternating cells.
+.zebra:nth-child(even) {
+  background: $bg;
+}
+
+.headCell {
+  height: 8px;
+}
+
+.right {
+  margin-left: auto;
+}
+
+// --- Commentary ----------------------------------------------------------
+
+.overHeader {
+  width: 78px;
+  height: 14px;
+}
+
+.ballMarker {
+  width: 44px;
+  height: 18px;
+  border-radius: $radius-sm;
+}
+
+.ballText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+  min-width: 0;
+}
+
+.ballRuns {
+  width: 46px;
+}

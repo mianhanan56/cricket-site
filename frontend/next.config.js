@@ -54,7 +54,6 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@crex/shared'],
   sassOptions: {
     includePaths: [path.join(__dirname, 'scss')],
   },

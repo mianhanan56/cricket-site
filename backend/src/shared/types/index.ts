@@ -1,6 +1,6 @@
 // ============================================================================
-// PulseCrease — Shared TypeScript types
-// Imported by both `frontend` and `backend`. Keep framework-agnostic.
+// PulseCrease — Backend TypeScript types
+// Owned by the backend. The frontend keeps its own copy in frontend/types.
 // ============================================================================
 
 export type MatchFormat = 'TEST' | 'ODI' | 'T20';

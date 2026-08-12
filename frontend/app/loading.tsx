@@ -1,5 +1,5 @@
-import Spinner from '../components/ui/Spinner';
+import HomeSkeleton from '../components/home/HomeSkeleton';
 
 export default function Loading() {
-  return <Spinner label="Loading scores…" />;
+  return <HomeSkeleton />;
 }

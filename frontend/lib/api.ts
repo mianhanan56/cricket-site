@@ -6,7 +6,7 @@ import type {
   Player,
   RankingEntry,
   Team,
-} from '@crex/shared';
+} from '@/types';
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
 

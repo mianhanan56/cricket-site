@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import type { Match } from '@crex/shared';
+import type { Match } from '@/types';
 import MatchCard from './MatchCard';
 import styles from './MatchSlider.module.scss';
 

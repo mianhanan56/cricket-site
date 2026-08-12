@@ -1,0 +1,47 @@
+@use 'component' as *;
+
+// ===========================================================================
+// Fixtures skeleton — bar geometry only; the page, tab rail, grid and card
+// boxes come from fixtures.module.scss / FixturesFilter.module.scss.
+// ===========================================================================
+
+.inert {
+  pointer-events: none;
+}
+
+// Matches a .tab: py-2 px-4 around 14px/600 text in a full pill.
+.tabBar {
+  height: 34px;
+  border-radius: 999px;
+}
+
+.tab1 {
+  width: 62px; // All
+}
+.tab2 {
+  width: 70px; // T20
+}
+.tab3 {
+  width: 72px; // ODI
+}
+.tab4 {
+  width: 78px; // TEST
+}
+
+.format {
+  width: 38px;
+}
+
+.date {
+  width: 124px; // "Sat, 14 Sep, 14:30" in the mono face
+}
+
+// The team codes sit at 20px/700 in a row with a 12px "vs" between them.
+.teamCode {
+  width: 54px;
+  height: 17px;
+}
+
+.vs {
+  width: 18px;
+}

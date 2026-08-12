@@ -181,28 +181,6 @@
   }
 }
 
-// --- Finished tab note: small "Last 7 days" badge beside the heading -------
-// Filled amber pill with dark ink for a crisp, readable chip (the soft tint
-// washed out on the light aurora background).
-.noteBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-1;
-  flex-shrink: 0;
-  font-size: $text-2xs; // 10px
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  padding: $space-1 $space-2; // py-1 px-2
-  border-radius: 999px; // full pill
-  background: $accent-amber;
-  color: oklch(0.24 0.04 75); // dark amber-ink — readable on the fill, both themes
-  box-shadow: 0 2px 8px -3px color-mix(in oklab, var(--amber) 70%, transparent);
-
-  svg {
-    flex-shrink: 0;
-  }
-}
-
 // --- Carousel: horizontal slider, cards never wrap -------------------------
 // Layout is a flex row [arrow] [track] [arrow]. The arrows sit in their own
 // side gutters so they never overlap the cards or reduce their width. The

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { searchQuery, type SearchResults } from '../../lib/api';
+import Skeleton, { stagger } from '../ui/Skeleton';
 import styles from './SearchBar.module.scss';
 
 interface FlatItem {
@@ -125,8 +126,14 @@ export default function SearchBar() {
         />
 
         {open && q.trim().length >= 2 && (
-          <ul className={styles.results} id="search-results" role="listbox">
-            {loading && <li className={styles.hint}>Searching…</li>}
+          <ul className={`${styles.results} ${loading ? stagger : ''}`} id="search-results" role="listbox">
+            {loading &&
+              [0, 1, 2].map((i) => (
+                <li className={`${styles.item} ${styles.itemPending}`} key={i} aria-hidden="true">
+                  <Skeleton variant="body" className={styles.pendingLabel} />
+                  <Skeleton variant="text" className={styles.pendingGroup} />
+                </li>
+              ))}
             {!loading && items.length === 0 && <li className={styles.hint}>No results.</li>}
             {!loading &&
               items.map((it, i) => (
