@@ -8,10 +8,13 @@
 .stats {
   display: grid;
   grid-template-columns: 1fr;
-  gap: $space-3; // gap-3 (12px)
+  gap: $space-2-5;
 
-  @include tablet {
+  // Two up as soon as a large phone can hold them — four stacked tiles pushed
+  // the tab rail below the fold on every phone in the range.
+  @include sm {
     grid-template-columns: repeat(2, 1fr);
+    gap: $space-3; // gap-3 (12px)
   }
 
   @include desktop {
@@ -25,9 +28,14 @@
   display: flex;
   align-items: center;
   gap: $space-3; // gap-3 (12px)
-  padding: $space-4; // p-4 (16px)
+  padding: $space-3;
+  min-width: 0;
   text-align: left;
   cursor: pointer;
+
+  @include sm {
+    padding: $space-4; // p-4 (16px)
+  }
 
   &:hover {
     transform: translateY(-2px); // -translate-y-0.5
@@ -74,6 +82,7 @@
 .statBody {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   line-height: 1.1;
 }
 
@@ -85,6 +94,7 @@
 
 // text-xs text-muted-foreground
 .statLabel {
+  @include truncate(1);
   font-size: $text-xs; // 12px
   color: $text-muted;
 }
@@ -95,8 +105,13 @@
   @include flex-between;
   flex-wrap: wrap;
   gap: $space-3; // gap-3 (12px)
-  margin-top: $space-8; // pt-8 (32px)
-  margin-bottom: $space-6; // mb-6 (24px)
+  margin-top: $space-6;
+  margin-bottom: $space-4;
+
+  @include sm {
+    margin-top: $space-8; // pt-8 (32px)
+    margin-bottom: $space-6; // mb-6 (24px)
+  }
 }
 
 // title + contextual badge, kept together on the left of the head row
@@ -110,26 +125,38 @@
 // font-display font-bold text-2xl
 .title {
   font-family: $font-display;
-  font-size: $text-2xl; // text-2xl (24px)
+  font-size: clamp(20px, 4.5vw, #{$text-2xl}); // caps at text-2xl (24px)
   font-weight: 700;
+}
+
+// Tab pills + the type dropdown, kept together on the right of the head row.
+// Wraps to its own line before either control has to shrink.
+.headRight {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2;
+  min-width: 0;
 }
 
 // inline-flex glass rounded-xl p-1 text-sm
 .pills {
   @include glass;
-  display: inline-flex;
+  @include scroll-x;
+  display: flex;
   gap: $space-1; // subtle separation
   padding: $space-1; // p-1 (4px)
   border-radius: $radius-xl; // rounded-xl (18px)
   font-size: $text-sm; // text-sm (14px)
 
-  // With five tabs the row can exceed a narrow viewport — let it scroll
-  // horizontally instead of overflowing the page. Scrollbar stays hidden.
+  // Four tabs exceed a narrow viewport, so the rail scrolls rather than
+  // overflowing the page. Full width on phones (it is the only thing on its
+  // wrapped line), shrink-to-fit once it shares the head row.
+  width: 100%;
   max-width: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
+
+  @include sm {
+    width: auto;
   }
 }
 
@@ -139,7 +166,7 @@
   align-items: center;
   gap: $space-2; // gap-2 (8px)
   flex-shrink: 0; // keep size when the row scrolls horizontally
-  padding: $space-2 $space-4; // py-2 px-4
+  padding: $space-2 $space-3;
   border-radius: $radius-lg; // rounded-lg (14px)
   font-weight: 500;
   white-space: nowrap;
@@ -153,8 +180,17 @@
     height: 16px; // h-4
   }
 
+  @include sm {
+    padding: $space-2 $space-4; // py-2 px-4
+  }
+
   &:hover {
     color: $text-primary; // hover:text-foreground
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 1px;
   }
 
   // bg-primary text-primary-foreground shadow-glow
@@ -182,41 +218,42 @@
 }
 
 // --- Carousel: horizontal slider, cards never wrap -------------------------
-// Layout is a flex row [arrow] [track] [arrow]. The arrows sit in their own
-// side gutters so they never overlap the cards or reduce their width. The
-// track flexes to fill the space between them and shows a fixed number of
-// cards per viewport: 1 (mobile) -> 2 (tablet) -> 3 (desktop).
-// The slider spans the full container width so ALL of it goes to the cards.
-// The arrows are absolutely positioned in the gutters outside this box.
+// The slider box spans the full container content width, so ALL of it goes to
+// the cards. The track scroll-snaps a fixed number of cards per view:
+// 1 (phone) -> 2 (large phone / tablet) -> 3 (desktop).
+//
+// Arrow placement is the part that has to flex. Below 1440px the page has no
+// spare gutter to park a 40px button in, so parking them there put them off the
+// side of the viewport (and dragged a horizontal scrollbar onto every page).
+// Instead they now sit at the track's own edges, offset out by exactly the page
+// gutter — which lands them over the card's padding, not its content. From
+// 1440px up the page finally has a real gutter (≥80px a side) and they move
+// back outside the cards entirely, as originally designed.
 .slider {
   position: relative;
 }
 
 .track {
+  @include scroll-x;
   display: flex;
-  gap: $space-4; // gap-4 (16px) — matches the previous grid gap exactly
-  overflow-x: auto;
+  gap: $space-3;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
 
   // A scroll container clips overflow on BOTH axes, which would cut off the
   // card borders + shadows. Pad the track to give them room, then pull it back
   // with a matching negative inline margin so the cards stay flush to the
-  // container edges (no visual shift, full width preserved). Vertical padding
-  // leaves room for the hover lift + glow.
-  padding: $space-3 $space-3 $space-5;
-  margin-inline: -$space-3;
+  // container edges (no visual shift, full width preserved). Both sides key off
+  // the container's own `--gutter`, so they stay in step at every breakpoint.
+  padding: $space-3 var(--gutter, #{$gutter}) $space-5;
+  margin-inline: calc(var(--gutter, #{$gutter}) * -1);
+  // Snapping aligns a slide to the scrollport's edge, not to its padding edge —
+  // without this the track quietly scrolls its own left padding away and the
+  // first card sits one gutter left of every other element on the page.
+  scroll-padding-inline: var(--gutter, #{$gutter});
 
-  // Navigation is via arrows / swipe — hide the native scrollbar.
-  scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  @include tablet {
-    padding-inline: $space-4;
-    margin-inline: -$space-4;
+  @include sm {
+    gap: $space-4; // gap-4 (16px) — matches the original grid gap exactly
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -224,10 +261,13 @@
   }
 }
 
-// One card per view on mobile; grows to 2 then 3 as space allows. Widths
-// account for the inter-card gap so exactly N cards fill the track.
+// One card per view on a phone; two from 576px, three from 1024px. Widths
+// subtract the inter-card gaps so exactly N cards fill the track — and because
+// they are percentages of the track, the cards fluidly resize between bands
+// rather than jumping at them.
 .slide {
   flex: 0 0 100%;
+  min-width: 0;
   scroll-snap-align: start;
 
   // Let the card fill the slide height for a uniform row.
@@ -235,7 +275,7 @@
     height: 100%;
   }
 
-  @include tablet {
+  @include sm {
     flex-basis: calc((100% - #{$space-4}) / 2); // 2 cards + 1 gap
   }
 
@@ -244,17 +284,18 @@
   }
 }
 
-// Round nav buttons parked in the gutters, fully outside the card area.
+// Round nav buttons. Visible and operable at every width — a phone can swipe
+// the track, but the buttons stay as the discoverable, accessible control.
 .arrow {
   @include flex-center;
+  @include glass;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  @include glass;
   box-shadow: $shadow-card;
   color: $text-primary;
   cursor: pointer;
@@ -264,8 +305,10 @@
     opacity 0.15s ease,
     transform 0.15s ease;
 
-  // Touch-first: hidden on mobile (swipe to scroll), shown from tablet up.
-  display: none;
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 
   &:hover:not(:disabled) {
     border-color: color-mix(in oklab, var(--accent-green) 40%, transparent);
@@ -273,33 +316,59 @@
     transform: translateY(-50%) scale(1.05);
   }
 
+  // Kept in place rather than removed: a control that disappears at an end
+  // makes the row jump and hides that navigation exists at all.
   &:disabled {
     opacity: 0.35;
     cursor: default;
   }
 
   @include tablet {
-    display: flex;
+    width: 40px;
+    height: 40px;
+
+    svg {
+      width: 22px;
+      height: 22px;
+    }
   }
 }
 
-// Sit just outside the card row: left arrow to the left, right arrow to the
-// right, each with a small gap so they never overlap the cards.
+// Pulled out to the page edge by exactly one gutter — far enough to clear the
+// card's content, never far enough to leave the viewport.
 .left {
-  right: 100%;
-  margin-right: $space-2;
+  left: calc(var(--gutter, #{$gutter}) * -1);
 }
 
 .right {
-  left: 100%;
-  margin-left: $space-2;
+  right: calc(var(--gutter, #{$gutter}) * -1);
+}
+
+// From 1440px the page has room either side of the 1280px container, so the
+// arrows move fully clear of the cards — the original desktop composition.
+@include xwide {
+  .left {
+    left: auto;
+    right: 100%;
+    margin-right: $space-3;
+  }
+
+  .right {
+    right: auto;
+    left: 100%;
+    margin-left: $space-3;
+  }
 }
 
 // glass rounded-2xl p-12 text-center text-muted-foreground
 .empty {
   @include card;
-  padding: $space-12; // p-12 (48px)
+  padding: $space-8;
   text-align: center;
   color: $text-muted;
   font-size: $text-sm;
+
+  @include sm {
+    padding: $space-12; // p-12 (48px)
+  }
 }

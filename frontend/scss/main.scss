@@ -18,10 +18,17 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
+  // A flex column establishes a min-content floor on its children; without this
+  // any single over-wide descendant would widen the whole shell instead of
+  // scrolling inside its own box.
+  width: 100%;
+  overflow-x: clip;
 }
 
 .main-content {
   flex: 1;
+  min-width: 0;
   padding-top: $navbar-height;
 }
 

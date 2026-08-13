@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import SearchBar from './SearchBar';
 import ThemeToggle from './ThemeToggle';
 import styles from './Navbar.module.scss';
 
@@ -47,8 +46,9 @@ export default function Navbar() {
           ))}
         </nav>
 
+        {/* Search lives on its own page (linked from the footer) rather than in
+            the bar — the bar carries navigation and the theme switch only. */}
         <div className={styles.actions}>
-          <SearchBar />
           <ThemeToggle />
           <button
             className={styles.burger}

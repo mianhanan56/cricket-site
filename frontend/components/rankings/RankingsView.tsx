@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
 import type { RankingEntry } from '@/types';
+import { useQueryTabs } from '@/hooks/useQueryTabs';
+import type { RankingsCategory, RankingsFormat, RankingsGender } from '@/lib/tabs';
 import styles from './RankingsView.module.scss';
 
-export type Format = 'test' | 'odi' | 't20i';
-export type Gender = 'men' | 'women';
-export type Category = 'batting' | 'bowling' | 'all-rounder';
+export type Format = RankingsFormat;
+export type Gender = RankingsGender;
+export type Category = RankingsCategory;
 
 // format × gender × category — every combination the API supports. Women's
 // Test isn't published by the ICC, so that slice is simply empty.
@@ -29,6 +30,7 @@ const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'all-rounder', label: 'All-rounder' },
 ];
 
+
 export interface RankingsViewProps {
   data: RankingsData;
   /**
@@ -37,20 +39,28 @@ export interface RankingsViewProps {
    * own, and the numbers can lag by weeks so leaving it implicit is dishonest.
    */
   asOf?: Partial<Record<Gender, string>>;
+  /** Active controls, read off the URL by the page. */
+  initial: { format: Format; gender: Gender; category: Category };
 }
 
-export default function RankingsView({ data, asOf }: RankingsViewProps) {
-  const [format, setFormat] = useState<Format>('odi');
-  const [gender, setGender] = useState<Gender>('men');
-  const [category, setCategory] = useState<Category>('batting');
+export default function RankingsView({ data, asOf, initial }: RankingsViewProps) {
+  // All three controls live in the URL, so a specific list is linkable:
+  // /rankings?format=test&gender=women&category=bowling.
+  const [{ format, gender, category }, setQuery] = useQueryTabs(initial, {
+    format: 'odi',
+    gender: 'men',
+    category: 'batting',
+  });
 
   // The ICC publishes no Women's Test rankings — drop that option for women.
   const formats = gender === 'women' ? FORMATS.filter((f) => f.key !== 'test') : FORMATS;
 
-  const changeGender = (g: Gender) => {
-    setGender(g);
-    if (g === 'women' && format === 'test') setFormat('odi');
-  };
+  const setFormat = (f: Format) => setQuery({ format: f });
+  const setCategory = (c: Category) => setQuery({ category: c });
+  // Switching to women while on Test would land on an empty list, so the
+  // format moves with the gender in the same URL update.
+  const changeGender = (g: Gender) =>
+    setQuery(g === 'women' && format === 'test' ? { gender: g, format: 'odi' } : { gender: g });
 
   const activeFormatLabel = FORMATS.find((f) => f.key === format)?.label ?? '';
   const rows = data[format]?.[gender]?.[category] ?? [];

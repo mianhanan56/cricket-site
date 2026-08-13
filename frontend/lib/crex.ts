@@ -17,6 +17,7 @@
 
 import type {
   BatsmanLine,
+  BowlerLine,
   CommentaryBall,
   InningsScore,
   Match,
@@ -114,6 +115,18 @@ interface FetchOpts {
   /** Next.js revalidate window, in seconds. Ignored in the browser. */
   revalidate?: number;
   signal?: AbortSignal;
+}
+
+/**
+ * crex counts balls, not overs, everywhere on the wire. Six per over — except
+ * on The Hundred, where their own scorecard divides by five. Nothing in the
+ * scorecard payload says which, so the caller passes it down from the match.
+ */
+const BALLS_PER_OVER = 6;
+
+/** 27 balls -> 4.3 overs. Cricket notation, not a decimal fraction. */
+function toOvers(balls: number, perOver: number): number {
+  return Math.floor(balls / perOver) + (balls % perOver) / 10;
 }
 
 async function crexGet<T>(path: string, opts: FetchOpts = {}): Promise<T> {
@@ -331,6 +344,8 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
     status,
     venue: names.v.get(cleanKey(m.v))?.n ?? 'TBD',
     startTime: toStartTime(m.ti),
+    // `hb` carries the balls-per-over on The Hundred and is absent elsewhere.
+    ballsPerOver: m.hb === 5 ? 5 : BALLS_PER_OVER,
     // `res` carries mid-match states too, so only surface it as a result once
     // the match is actually over.
     result: status === 'COMPLETED' ? m.res ?? m.a ?? null : null,
@@ -373,33 +388,45 @@ export async function getCrexMatchList(opts: FetchOpts = {}): Promise<Match[]> {
 // Scorecard
 // ---------------------------------------------------------------------------
 //
-// getSC4 returns one object per innings, each a bundle of packed strings. The
-// field order below was not guessed — it was derived and then checked
-// arithmetically across six innings from three matches: for every one of them
-// the decoded batting runs plus the decoded extras equal the innings total
-// exactly, and the count of dismissed batsmen equals the wicket count.
+// getSC4 returns one object per innings, each a bundle of packed strings.
 //
 // A batting line looks like:
 //
 //   AMG.70.73.7.4.165.122.2.7RD.APN/22.10-99.32/
 //   |   |  |  | | |   |   | |   |
-//   |   |  |  | | |   |   | |   `- bowler key
-//   |   |  |  | | |   |   | `----- fielder key
-//   |   |  |  | | |   |   `------- dismissal type code
-//   |   |  |  | | |   `----------- team ball count when out
-//   |   |  |  | | `--------------- team score when out
+//   |   |  |  | | |   |   | |   `- fielder key (catcher, keeper, run-out thrower)
+//   |   |  |  | | |   |   | `----- bowler key
+//   |   |  |  | | |   |   `------- dismissal type code (see DISMISSALS)
+//   |   |  |  | | |   `----------- team runs when out
+//   |   |  |  | | `--------------- team balls when out
 //   |   |  |  | `----------------- sixes
 //   |   |  |  `------------------- fours
 //   |   |  `---------------------- balls
 //   |   `------------------------- runs
 //   `----------------------------- player key
 //
-// The trailing /…/ is wagon-wheel data, ignored. A batsman who is not out (or
-// did not bat) simply stops after `sixes` — the presence of the dismissal-type
-// field is what marks a wicket, which is why `out` tests the token count rather
-// than looking for a bowler (run-outs credit no bowler).
+// The trailing /…/ is wagon-wheel data, ignored. A batsman still at the crease
+// stops after `sixes`; a player yet to bat is the bare key with no dots at all,
+// which is how the XI arrives before an innings starts.
+//
+// A bowling line (`a`) is the same idea, one per bowler used:
+//
+//   BQZ.37.24.0.2[.9]
+//   |   |  |  | |  `- dot balls (absent in some feeds)
+//   |   |  |  | `---- wickets
+//   |   |  |  `------ maidens
+//   |   |  `--------- balls
+//   |   `------------ runs conceded
+//   `---------------- player key
+//
+// Both layouts, and the dismissal codes below, are taken from crex's own
+// scorecard bundle rather than inferred, and check out arithmetically: bowler
+// runs + byes + leg-byes equal the innings total, bowler balls equal the
+// innings balls, and bowler wickets plus run-outs equal the wicket count.
 
 interface CrexScorecardInnings {
+  /** Bowling lines, one per bowler used by the fielding side. */
+  a?: string[];
   /** Batting lines, one per player in the XI. */
   b?: string[];
   /** Batting team key. */
@@ -408,26 +435,88 @@ interface CrexScorecardInnings {
   d?: string;
   /** Extras, "byes.legByes.wides.noBalls.penalty". */
   e?: string;
-  /** Phase breakdown and partnerships — not surfaced in the UI. */
-  a?: string[];
+  /** Partnerships — not surfaced in the UI. */
   p?: string[];
 }
 
-/** Index at which the dismissal-type token sits; its presence means "out". */
+/** Index of the dismissal-type token; its presence means the innings ended. */
 const DISMISSAL_TYPE_INDEX = 7;
+const BOWLER_INDEX = 8;
+const FIELDER_INDEX = 9;
+
+/**
+ * Dismissal type codes, verbatim from crex's scorecard bundle.
+ *
+ * Two of them — retired and absent hurt — end a batsman's innings without a
+ * wicket being credited, so they are flagged separately from the rest.
+ */
+const RETIRED_CODES = new Set(['11', '13']);
+
+/** crex renders the third name token, or the last if the name is shorter. */
+function shortName(key: string | undefined, names: typeof nameCache): string {
+  if (!key) return '';
+  const full = names.p.get(key)?.n;
+  if (!full) return key;
+
+  const parts = full.trim().split(/\s+/);
+  return parts[Math.min(parts.length - 1, 2)];
+}
+
+/**
+ * "c Pandya b Bumrah" from the type code plus the two player keys.
+ *
+ * Every branch degrades to the bare verb when a name is missing, so an
+ * unresolved key produces "caught" rather than "c undefined b undefined".
+ */
+function describeDismissal(head: string[], names: typeof nameCache): string {
+  const bowler = shortName(head[BOWLER_INDEX], names);
+  const fielder = shortName(head[FIELDER_INDEX], names);
+
+  switch (head[DISMISSAL_TYPE_INDEX]) {
+    case '1':
+      return bowler ? `b ${bowler}` : 'bowled';
+    case '2':
+      if (fielder && bowler) return `c ${fielder} b ${bowler}`;
+      return bowler ? `b ${bowler}` : 'caught';
+    case '3':
+      return bowler ? `c & b ${bowler}` : 'caught & bowled';
+    case '4':
+      if (bowler && fielder) return `run out (${bowler} / ${fielder})`;
+      return bowler ? `run out (${bowler})` : 'run out';
+    case '5':
+      return bowler ? `lbw b ${bowler}` : 'lbw';
+    case '6':
+      return bowler ? `hit wicket b ${bowler}` : 'hit wicket';
+    case '8':
+      if (fielder && bowler) return `st ${fielder} b ${bowler}`;
+      return bowler ? `st b ${bowler}` : 'stumped';
+    case '9':
+      return bowler ? `mankaded (${bowler})` : 'mankaded';
+    case '10':
+      return 'obstructing the field';
+    case '11':
+      return 'retired hurt';
+    case '12':
+      return 'retired out';
+    case '13':
+      return 'absent hurt';
+    case '14':
+      return 'timed out';
+    default:
+      return 'out';
+  }
+}
 
 function decodeBatsman(line: string, names: typeof nameCache): BatsmanLine | null {
   const head = line.split('/')[0].split('.');
   const [key, runs, balls, fours, sixes] = head;
-  if (!key) return null;
+
+  // A bare key is a player yet to bat — that is `yetToBat`, not a card row.
+  if (!key || head.length < 2) return null;
 
   const r = Number(runs) || 0;
   const b = Number(balls) || 0;
-
-  // Everyone in the XI is listed, including those who never batted. Faced no
-  // ball and scored nothing and wasn't dismissed → did not bat.
-  const out = head.length > DISMISSAL_TYPE_INDEX;
-  if (!b && !r && !out) return null;
+  const dismissed = head.length > DISMISSAL_TYPE_INDEX;
 
   return {
     playerId: key,
@@ -437,20 +526,60 @@ function decodeBatsman(line: string, names: typeof nameCache): BatsmanLine | nul
     fours: Number(fours) || 0,
     sixes: Number(sixes) || 0,
     strikeRate: b ? Math.round((r / b) * 10000) / 100 : 0,
-    out,
-    // Deliberately not reconstructed into "c Smith b Jones": the dismissal type
-    // codes (1,2,3,4,12…) are not decoded, and inventing the wording would put
-    // wrong cricket on the page. Names of the players involved are known but
-    // meaningless without the verb.
-    dismissal: out ? 'out' : 'not out',
+    // A retirement is not a wicket, so it must not count as `out` — but it does
+    // end the innings, and the text below says which it was.
+    out: dismissed && !RETIRED_CODES.has(head[DISMISSAL_TYPE_INDEX]),
+    dismissal: dismissed ? describeDismissal(head, names) : 'not out',
   };
 }
 
-/** Innings totals and batting cards for a crex match, in innings order. */
+function decodeBowler(
+  line: string,
+  names: typeof nameCache,
+  perOver: number
+): BowlerLine | null {
+  const [key, runs, balls, maidens, wickets] = line.split('/')[0].split('.');
+  if (!key || balls === undefined) return null;
+
+  const r = Number(runs) || 0;
+  const b = Number(balls) || 0;
+
+  return {
+    playerId: key,
+    name: names.p.get(key)?.n ?? key,
+    overs: toOvers(b, perOver),
+    maidens: Number(maidens) || 0,
+    runs: r,
+    wickets: Number(wickets) || 0,
+    economy: b ? Math.round((r / (b / perOver)) * 100) / 100 : 0,
+  };
+}
+
+/** The Worker caps /mapping at 200 keys per bucket, so ask in batches. */
+const MAPPING_BATCH = 200;
+
+/** Resolve any player keys we have not seen before, into the shared cache. */
+async function cachePlayerNames(keys: string[], opts: FetchOpts): Promise<void> {
+  const missing = [...new Set(keys.filter((k) => k && !nameCache.p.has(k)))];
+  if (!missing.length) return;
+
+  const batches: Promise<CrexMapping>[] = [];
+  for (let i = 0; i < missing.length; i += MAPPING_BATCH) {
+    batches.push(getCrexMapping({ p: missing.slice(i, i + MAPPING_BATCH) }, opts));
+  }
+
+  for (const mapping of await Promise.all(batches)) {
+    for (const entry of mapping.p ?? []) nameCache.p.set(entry.f_key, entry);
+  }
+}
+
+/** Innings totals, batting and bowling cards for a crex match, in order. */
 export async function getCrexScorecard(
   matchKey: string,
-  opts: FetchOpts = {}
+  opts: FetchOpts & { ballsPerOver?: number } = {}
 ): Promise<InningsScore[]> {
+  const perOver = opts.ballsPerOver || BALLS_PER_OVER;
+
   const raw = await crexGet<CrexScorecardInnings[] | Record<string, CrexScorecardInnings>>(
     `/match/scorecard?key=${encodeURIComponent(matchKey)}`,
     { revalidate: 5, ...opts }
@@ -459,33 +588,57 @@ export async function getCrexScorecard(
   const innings = Array.isArray(raw) ? raw : Object.values(raw ?? {});
   if (!innings.length) return [];
 
-  // Resolve batter and team names in one call for the whole card.
-  const playerKeys = innings.flatMap((i) => (i.b ?? []).map((l) => l.split('/')[0].split('.')[0]));
+  // Every key the card can name: batters, bowlers, and the catchers, keepers
+  // and fielders credited in a dismissal. Missing any of them would print a
+  // raw key like "c 6QP b BGT" on the page.
+  const playerKeys = innings.flatMap((i) => [
+    ...(i.b ?? []).flatMap((line) => {
+      const head = line.split('/')[0].split('.');
+      return [head[0], head[BOWLER_INDEX], head[FIELDER_INDEX]];
+    }),
+    ...(i.a ?? []).map((line) => line.split('.')[0]),
+  ]);
   const teamKeys = innings.map((i) => cleanKey(i.c)).filter(Boolean);
-  const mapping = await getCrexMapping({ p: playerKeys.filter(Boolean), t: teamKeys }, opts);
-  for (const kind of ['p', 't'] as const) {
-    for (const entry of mapping[kind] ?? []) nameCache[kind].set(entry.f_key, entry);
-  }
+
+  const [, teamMapping] = await Promise.all([
+    cachePlayerNames(playerKeys.filter(Boolean), opts),
+    getCrexMapping({ t: teamKeys }, opts),
+  ]);
+  for (const entry of teamMapping.t ?? []) nameCache.t.set(entry.f_key, entry);
 
   return innings.flatMap((inn) => {
     const total = /^(\d+)\/(\d+)\((\d+)/.exec(inn.d ?? '');
     const teamKey = cleanKey(inn.c);
     const balls = total ? Number(total[3]) : 0;
+    const lines = inn.b ?? [];
 
-    // crex always returns both innings, including the one that hasn't started.
-    // Emitting it would put a phantom "0/0" innings on the scorecard.
-    if (!total && !(inn.b ?? []).length) return [];
+    // Nothing at all — not even an XI — is an innings crex is holding a slot
+    // for. Emitting it would put a phantom "0/0" on the scorecard.
+    if (!total && !lines.length) return [];
 
     return {
       teamShortName: nameCache.t.get(teamKey)?.sn ?? teamKey,
       runs: total ? Number(total[1]) : 0,
       wickets: total ? Number(total[2]) : 0,
-      // crex reports balls; overs are the cricket-facing unit (6 balls each).
-      overs: Math.floor(balls / 6) + (balls % 6) / 10,
+      overs: toOvers(balls, perOver),
+      // An innings with an XI but no total has not begun. Callers use this to
+      // keep a "0/0" out of the header while still listing the side.
+      notStarted: !total,
       extras: (inn.e ?? '').split('.').reduce((sum, n) => sum + (Number(n) || 0), 0),
-      batting: (inn.b ?? [])
+      batting: lines
         .map((line) => decodeBatsman(line, nameCache))
         .filter((x): x is BatsmanLine => x !== null),
+      // The bare keys, in card order: the rest of the XI, or the whole XI when
+      // the innings has not started.
+      yetToBat: lines
+        .filter((line) => !line.split('/')[0].includes('.'))
+        .map((line) => {
+          const key = line.split('/')[0];
+          return { playerId: key, name: nameCache.p.get(key)?.n ?? key };
+        }),
+      bowling: (inn.a ?? [])
+        .map((line) => decodeBowler(line, nameCache, perOver))
+        .filter((x): x is BowlerLine => x !== null),
     };
   });
 }
@@ -510,23 +663,64 @@ interface CrexBallFeed {
 }
 
 /**
+ * How many deliveries to page back for. Three overs — the recent-balls strip in
+ * the match header is sized to that, and one page of the feed is barely two
+ * once over summaries and milestone markers are filtered out.
+ */
+const MIN_BALLS = 18;
+
+/** Stop regardless, so a feed that keeps handing back events can't spin. */
+const MAX_COMMENTARY_PAGES = 5;
+
+/**
  * Latest deliveries, newest first.
  *
  * The feed carries non-delivery events too (over summaries, partnership and
  * milestone markers); only actual balls are kept, identified by an `over.ball`
  * reference. Unlike the rest of crex's live data this endpoint returns plain
  * English, so nothing here is decoded — it is passed through.
+ *
+ * crex serves ~10 events per call, so this pages backwards with `lastDocId`
+ * until it has MIN_BALLS deliveries. A page that adds nothing new ends the
+ * walk, which is also what happens against a Worker too old to know the cursor
+ * — it degrades to a single page rather than looping on it.
  */
 export async function getCrexCommentary(
   matchKey: string,
   opts: FetchOpts = {}
 ): Promise<CommentaryBall[]> {
-  const feed = await crexGet<CrexBallFeed[]>(
-    `/match/commentary?matchKey=${encodeURIComponent(matchKey)}`,
-    { revalidate: 5, ...opts }
-  );
+  const feed: CrexBallFeed[] = [];
+  const seen = new Set<number>();
+  let cursor = '';
 
-  return (feed ?? [])
+  for (let page = 0; page < MAX_COMMENTARY_PAGES; page++) {
+    const qs = new URLSearchParams({ matchKey });
+    if (cursor) qs.set('lastDocId', cursor);
+
+    const batch = await crexGet<CrexBallFeed[]>(`/match/commentary?${qs}`, {
+      revalidate: 5,
+      ...opts,
+    });
+    if (!batch?.length) break;
+
+    // `id` is the cursor as well as the identity, so a page with no unseen ids
+    // means there is nothing further back to ask for.
+    const fresh = batch.filter((f) => f.id !== undefined && !seen.has(f.id));
+    if (!fresh.length) break;
+
+    for (const f of fresh) {
+      seen.add(f.id as number);
+      feed.push(f);
+    }
+
+    const balls = feed.filter((f) => f.type === 'b' || f.type === 'w').length;
+    if (balls >= MIN_BALLS) break;
+
+    cursor = String(batch[batch.length - 1].id ?? '');
+    if (!cursor) break;
+  }
+
+  return feed
     .filter((f) => f.type === 'b' || f.type === 'w')
     .map((f) => {
       const [over, ball] = String(f.o ?? '').split('.');

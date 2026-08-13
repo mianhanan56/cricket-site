@@ -38,7 +38,9 @@ interface BallEntry {
 }
 
 const MAX_COMMENTARY = 60;
-const MAX_DOTS = 12;
+// Three overs of the recent-balls strip. Two is too short to read the shape of
+// a spell; the feed is paged back far enough to fill it (see getCrexCommentary).
+const MAX_DOTS = 18;
 
 // CricAPI innings carry a label like "India Inning 1". Match an innings to a
 // team ONLY when that label contains the team's name (or short name) — no
@@ -56,11 +58,15 @@ function inningsListFor(match: Match, team: Team): InningsScore[] {
 
 // "287/4" (+ "120/2 & 287/4" across Test innings) with the current innings'
 // overs on their own line so the header never wraps mid-score on mobile.
+//
+// An innings crex lists before it starts is skipped: its XI belongs on the
+// scorecard, but a "0/0" next to a side that has not batted is a wrong score.
 function scoreParts(list: InningsScore[]): { runs: string; overs: string } | null {
-  if (!list.length) return null;
+  const batted = list.filter((i) => !i.notStarted);
+  if (!batted.length) return null;
   return {
-    runs: list.map((i) => `${i.runs}/${i.wickets}`).join(' & '),
-    overs: `(${list[list.length - 1].overs} ov)`,
+    runs: batted.map((i) => `${i.runs}/${i.wickets}`).join(' & '),
+    overs: `(${batted[batted.length - 1].overs} ov)`,
   };
 }
 
@@ -80,6 +86,18 @@ function fmtTime(iso: string) {
 function dismissalOf(b: BatsmanLine): string {
   if (b.dismissal) return b.dismissal;
   return b.out ? 'out' : 'not out';
+}
+
+// The `*` means "unbeaten at the crease". A retired batsman is also not out,
+// but has left the middle — their card says so in words instead.
+function atCrease(b: BatsmanLine): boolean {
+  return !b.out && dismissalOf(b) === 'not out';
+}
+
+// crex counts balls; overs are sixths, so 27 balls is 4.3 — always one decimal
+// so a completed spell reads "4.0", not "4".
+function fmtOvers(overs: number): string {
+  return overs.toFixed(1);
 }
 
 function dotKind(b: BallEntry): 'wicket' | 'six' | 'four' | 'dot' {
@@ -135,7 +153,10 @@ export default function MatchDetail({
   // Scorecard + ball-by-ball, but only while the match is live or recently
   // finished — an upcoming fixture has neither.
   const extrasEnabled = match.status !== 'UPCOMING';
-  const crexExtras = useCrexMatchExtras(matchId, { enabled: extrasEnabled });
+  const crexExtras = useCrexMatchExtras(matchId, {
+    enabled: extrasEnabled,
+    ballsPerOver: match.ballsPerOver,
+  });
 
   // A crex match arrives with a header score but no card or feed — those are two
   // more round trips. Until the first one lands, the Scorecard and Commentary
@@ -402,6 +423,7 @@ function ScorecardTab({
   const bowling: BowlerLine[] =
     current?.bowling ?? (isLatest ? match.scorecard?.bowling ?? [] : []);
   const extras = current?.extras ?? (isLatest ? match.scorecard?.extras : undefined);
+  const yetToBat = current?.yetToBat ?? [];
 
   return (
     <div className={styles.panel}>
@@ -441,7 +463,7 @@ function ScorecardTab({
                   <tr key={b.playerId}>
                     <td className={styles.left}>
                       {b.name}
-                      {!b.out && <span className={styles.notout}> *</span>}
+                      {atCrease(b) && <span className={styles.notout}> *</span>}
                     </td>
                     <td className={`${styles.left} ${styles.dismissal}`}>{dismissalOf(b)}</td>
                     <td className={styles.num}>{b.runs}</td>
@@ -477,15 +499,40 @@ function ScorecardTab({
           </div>
         ) : pending ? (
           <ScorecardSkeleton />
-        ) : (
+        ) : yetToBat.length ? null : (
           <p className={styles.empty}>
             {current
               ? `No ball-by-ball batting data for this innings — total ${current.runs}/${current.wickets} (${current.overs} ov).`
               : 'No batting data yet.'}
           </p>
         )}
+
+        {/* Before an innings starts its whole XI arrives as bare names — that
+            is the side's playing eleven, and it is worth showing rather than
+            an empty card. Once they start batting the same list is what's
+            left to come in. */}
+        {yetToBat.length > 0 && (
+          <div className={styles.yetToBat}>
+            <h3 className={styles.yetToBatTitle}>
+              {batting.length ? 'Yet to bat' : 'Playing XI'}
+            </h3>
+            <ul className={styles.yetToBatList}>
+              {yetToBat.map((p, i) => (
+                <li key={p.playerId}>
+                  {/* Numbers continue the card above, so a side three down
+                      starts at 4 rather than restarting at 1. */}
+                  <span className={styles.yetToBatNum}>{batting.length + i + 1}</span>
+                  <span>{p.name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
+      {/* An innings that has not begun has no bowling to report and no
+          promise worth making about it — the section is dropped, not emptied. */}
+      {!current?.notStarted && (
       <section className={styles.block}>
         <h2 className={styles.blockTitle}>Bowling</h2>
         {bowling.length ? (
@@ -505,7 +552,7 @@ function ScorecardTab({
                 {bowling.map((b) => (
                   <tr key={b.playerId}>
                     <td className={styles.left}>{b.name}</td>
-                    <td className={styles.num}>{b.overs}</td>
+                    <td className={styles.num}>{fmtOvers(b.overs)}</td>
                     <td className={styles.num}>{b.maidens}</td>
                     <td className={styles.num}>{b.runs}</td>
                     <td className={styles.num}>{b.wickets}</td>
@@ -521,6 +568,7 @@ function ScorecardTab({
           <p className={styles.empty}>No bowling data yet.</p>
         )}
       </section>
+      )}
     </div>
   );
 }

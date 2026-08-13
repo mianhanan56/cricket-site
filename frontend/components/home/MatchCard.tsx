@@ -112,7 +112,10 @@ export default function MatchCard({ match }: { match: Match }) {
               <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            {match.venue}
+            {/* The text needs its own box: `text-overflow` has no effect on the
+                anonymous item a flex container wraps a bare text node in, so
+                without this the venue is cut off mid-word with no ellipsis. */}
+            <span className={styles.venueText}>{match.venue}</span>
           </span>
           <span className={styles.view}>
             View

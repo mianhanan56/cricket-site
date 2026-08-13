@@ -3,10 +3,11 @@
 .page {
   @include container;
   padding-block: $space-5 $space-8;
+  min-width: 0;
 }
 
 .heading {
-  font-size: 30px;
+  font-size: clamp(#{$text-2xl}, 6vw, #{$text-3xl});
   margin-bottom: $space-4;
 }
 

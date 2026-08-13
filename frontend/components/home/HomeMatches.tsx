@@ -2,13 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
+import { useQueryTabs } from '@/hooks/useQueryTabs';
 import { seriesFromMatches } from '@/lib/crex';
+import {
+  MATCH_TYPE_OPTIONS,
+  filterByMatchType,
+  matchTypeKey,
+  parseMatchType,
+  type MatchTypeKey,
+} from '@/lib/matchType';
+import type { HomeTab } from '@/lib/tabs';
+import FilterSelect from '../ui/FilterSelect';
 import MatchCard from './MatchCard';
 import SeriesCard from './SeriesCard';
 import { MatchCarouselSkeleton } from './HomeSkeleton';
 import styles from './HomeMatches.module.scss';
 
-type Tab = 'live' | 'upcoming' | 'finished' | 'series';
+type Tab = HomeTab;
 
 // "Finished" surfaces every match completed in the last 7 days. The crex feed
 // arrives unfiltered, so the window is applied here.
@@ -113,38 +123,53 @@ function Carousel({ children, resetKey }: { children: ReactNode; resetKey: strin
   );
 }
 
-export default function HomeMatches() {
+export interface HomeMatchesProps {
+  /** Active tab from the URL; '' means "follow the data". */
+  initialTab: Tab | '';
+  initialType: MatchTypeKey;
+}
+
+export default function HomeMatches({ initialTab, initialType }: HomeMatchesProps) {
   // The crex Worker is the only source here — nothing is server-rendered, so
   // `isLoading` covers the first poll and placeholders stand in for it.
   const { matches, isLoading: crexLoading } = useCrexMatches();
 
+  // Tab and type both live in the URL: /?tab=upcoming&type=international.
+  const [{ tab: picked, type: typeKey }, setQuery] = useQueryTabs(
+    { tab: initialTab, type: initialType },
+    { type: 'all' }
+  );
+  const type = parseMatchType(typeKey);
+
+  // The type filter is applied before the lists are split, so the stat tiles
+  // count what the carousel will actually show.
+  const scoped = useMemo(() => filterByMatchType(matches, type), [matches, type]);
+
   const { liveList, upcomingList, finishedList } = useMemo(() => {
     const now = Date.now();
     return {
-      liveList: matches.filter((m) => m.status === 'LIVE'),
-      upcomingList: matches
+      liveList: scoped.filter((m) => m.status === 'LIVE'),
+      upcomingList: scoped
         .filter((m) => m.status === 'UPCOMING')
         .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
-      finishedList: matches
+      finishedList: scoped
         .filter((m) => m.status === 'COMPLETED' && now - +new Date(m.startTime) <= FINISHED_WINDOW_MS)
         .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime)),
     };
-  }, [matches]);
+  }, [scoped]);
 
   // Series are rolled up from the same match feed. Completed series are dropped
   // — a finished competition is not something anyone is coming here for.
   const seriesList = useMemo(
-    () => seriesFromMatches(matches).filter((s) => s.status !== 'COMPLETED'),
-    [matches]
+    () => seriesFromMatches(scoped).filter((s) => s.status !== 'COMPLETED'),
+    [scoped]
   );
 
-  // The opening tab follows the data until the reader picks one themselves.
-  // It can't be seeded from first render any more: that happens before the
-  // first poll lands, when every list is still empty.
-  const [picked, setPicked] = useState<Tab | null>(null);
+  // The opening tab follows the data until the reader picks one themselves —
+  // and a pick is now a URL param, so it also survives a reload or a share.
   const auto: Tab = liveList.length ? 'live' : upcomingList.length ? 'upcoming' : 'finished';
-  const tab = picked ?? auto;
-  const setTab = setPicked;
+  const tab: Tab = picked || auto;
+  const setTab = (next: Tab) => setQuery({ tab: next });
 
   const tabs = [
     { key: 'live' as Tab, label: 'Live', statLabel: 'Live now', value: liveList.length, Icon: FlameIcon, tone: styles.toneLive },
@@ -152,6 +177,10 @@ export default function HomeMatches() {
     { key: 'finished' as Tab, label: 'Finished', statLabel: 'Finished', value: finishedList.length, Icon: CheckCircleIcon, tone: styles.toneAmber },
     { key: 'series' as Tab, label: 'Series', statLabel: 'Ongoing series', value: seriesList.length, Icon: LayersIcon, tone: styles.toneBlue },
   ];
+
+  // Folded into the empty states so "nothing here" reads as a consequence of
+  // the active filter, not as a broken feed.
+  const typeNote = type === 'ALL' ? '' : `${type.toLowerCase()} `;
 
   const list = tab === 'live' ? liveList : tab === 'upcoming' ? upcomingList : finishedList;
   const isSeries = tab === 'series';
@@ -183,26 +212,36 @@ export default function HomeMatches() {
         <div className={styles.headLeft}>
           <h2 className={styles.title}>Matches</h2>
         </div>
-        <div className={styles.pills} role="tablist">
-          {tabs.map(({ key, label, value, Icon }) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => setTab(key)}
-              className={`${styles.pill} ${tab === key ? styles.pillActive : ''}`}
-            >
-              <Icon />
-              <span>{label}</span>
-              {key === 'live' && value > 0 && <span className={styles.count}>{value}</span>}
-            </button>
-          ))}
+        <div className={styles.headRight}>
+          <div className={styles.pills} role="tablist">
+            {tabs.map(({ key, label, value, Icon }) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={tab === key}
+                onClick={() => setTab(key)}
+                className={`${styles.pill} ${tab === key ? styles.pillActive : ''}`}
+              >
+                <Icon />
+                <span>{label}</span>
+                {key === 'live' && value > 0 && <span className={styles.count}>{value}</span>}
+              </button>
+            ))}
+          </div>
+
+          <FilterSelect
+            label="Type"
+            value={type}
+            options={MATCH_TYPE_OPTIONS}
+            onChange={(next) => setQuery({ type: matchTypeKey(next) })}
+          />
         </div>
       </div>
 
       {isSeries ? (
         seriesList.length ? (
-          <Carousel resetKey={tab}>
+          <Carousel resetKey={`${tab}-${type}`}>
             {seriesList.map((s) => (
               <div className={styles.slide} key={s.id || s.name}>
                 <SeriesCard series={s} />
@@ -212,10 +251,10 @@ export default function HomeMatches() {
         ) : crexLoading ? (
           <MatchCarouselSkeleton kind="series" />
         ) : (
-          <div className={styles.empty}>No recent series to show right now.</div>
+          <div className={styles.empty}>No {typeNote}series to show right now.</div>
         )
       ) : list.length ? (
-        <Carousel resetKey={tab}>
+        <Carousel resetKey={`${tab}-${type}`}>
           {list.map((m) => (
             <div className={styles.slide} key={m.id}>
               <MatchCard match={m} />
@@ -225,7 +264,7 @@ export default function HomeMatches() {
       ) : crexLoading ? (
         <MatchCarouselSkeleton />
       ) : (
-        <div className={styles.empty}>No matches in this category right now.</div>
+        <div className={styles.empty}>No {typeNote}matches in this category right now.</div>
       )}
     </>
   );

@@ -5,6 +5,11 @@
 .toggle {
   @include flex-center;
   padding: $space-2; // p-2 (8px) → 32px square with a 16px icon
+  // Floor the square at a comfortable tap target on touch screens; the visual
+  // box is unchanged from tablet up.
+  min-width: 36px;
+  min-height: 36px;
+  flex-shrink: 0;
   border-radius: $radius-lg; // rounded-lg (14px)
   background: $surface-elevated;
   border: 1px solid $card-border;

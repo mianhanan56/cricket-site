@@ -125,15 +125,20 @@ export const ROUTES: RouteDef[] = [
     params: {
       key: { type: 'string', required: true },
     },
-    note: 'Batting card + partnerships + extras, packed dot-delimited',
+    note: 'Batting (b) + bowling (a) + partnerships + extras, packed dot-delimited',
   },
   {
     // Ball-by-ball. Unlike the rest of crex's live data this one is plain text
     // over HTTP — `c1` is the headline, `c2` the description — so it needs no
     // decoding and no Firebase.
     //
-    // Returns only the most recent ~10 balls; `lastDocId` pages further back
-    // but is not exposed here since the UI only shows the live tail.
+    // Returns only the most recent ~10 events per call. `lastDocId` is the
+    // cursor: pass the `id` (epoch ms) of the last entry you received and the
+    // next page comes back older-still. Omit it for the live tail.
+    //
+    // Exposed because ~10 events is under two overs once over-summaries and
+    // milestone markers are counted out, and the header's recent-balls strip
+    // needs three overs of actual deliveries.
     match: '/match/commentary',
     base: 'oc',
     path: '/commentary/getBallFeeds',
@@ -141,9 +146,10 @@ export const ROUTES: RouteDef[] = [
     ttl: 5,
     params: {
       matchKey: { type: 'string', required: true },
+      lastDocId: { type: 'string', default: '' },
     },
-    bodyDefaults: { lastDocId: '', filters: {} },
-    note: 'Latest ~10 balls with commentary text',
+    bodyDefaults: { filters: {} },
+    note: 'Latest ~10 balls; lastDocId=<id of last entry> pages backwards',
   },
   {
     // Player rankings — one list per format/gender/discipline.

@@ -5,66 +5,70 @@
 }
 
 .track {
+  @include scroll-x;
   display: flex;
   gap: $space-3;
-  overflow-x: auto;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   padding-bottom: $space-2;
-  -webkit-overflow-scrolling: touch;
 
-  // Hide the native scrollbar — navigation is via arrows / swipe.
-  scrollbar-width: none;
-  &::-webkit-scrollbar {
-    display: none;
+  @media (prefers-reduced-motion: reduce) {
+    scroll-behavior: auto;
   }
 }
 
 .slide {
   scroll-snap-align: start;
-  flex: 0 0 280px; // consistent fixed card width across breakpoints
-  width: 280px;
+  // Fluid: 280px is the target, but never wider than the viewport allows —
+  // a fixed 280px is wider than the content box on a 320px screen.
+  flex: 0 0 min(280px, calc(100vw - var(--gutter, #{$gutter}) * 2 - #{$space-6}));
+  min-width: 0;
 
   // Make the card fill the slide height for a uniform row.
   > * {
     height: 100%;
   }
+
+  @include sm {
+    flex-basis: 280px;
+  }
 }
 
 .arrow {
   @include flex-center;
+  @include glass;
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   z-index: 5;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  @include glass;
   box-shadow: $shadow-card;
   color: $text-primary;
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1;
   cursor: pointer;
   transition: border-color 0.15s ease, transform 0.15s ease, color 0.15s ease;
 
-  // Touch-first: hidden on mobile (swipe), shown from tablet up.
-  display: none;
-
   &:hover {
-    border-color: rgba(78, 235, 159, 0.4);
+    border-color: color-mix(in oklab, var(--accent-green) 40%, transparent);
     color: $accent;
   }
 
   @include tablet {
-    display: flex;
+    width: 40px;
+    height: 40px;
+    font-size: 24px;
   }
 }
 
+// Anchored to the track edges, offset outward by the page gutter at most — far
+// enough to clear the card content, never far enough to leave the viewport.
 .left {
-  left: -16px;
+  left: calc(var(--gutter, #{$gutter}) * -1);
 }
 
 .right {
-  right: -16px;
+  right: calc(var(--gutter, #{$gutter}) * -1);
 }
