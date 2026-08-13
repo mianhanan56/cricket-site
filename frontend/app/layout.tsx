@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import '../scss/main.scss';
 import Navbar from '../components/layout/Navbar';
 import Footer from '../components/layout/Footer';
+import { Analytics } from '@vercel/analytics/next';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
@@ -96,6 +97,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="main-content">{children}</main>
           <Footer />
         </div>
+        <Analytics />
       </body>
     </html>
   );
