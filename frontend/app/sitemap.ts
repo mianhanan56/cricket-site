@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getMatches } from '../lib/api';
+import { getCrexMatchList } from '../lib/crex';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
@@ -10,14 +10,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let dynamic: MetadataRoute.Sitemap = [];
   try {
-    const matches = await getMatches();
+    const matches = await getCrexMatchList({ revalidate: 3600 });
     dynamic = matches.map((m) => ({
       url: `${SITE}/matches/${m.id}`,
       lastModified: new Date(),
       priority: 0.6,
     }));
   } catch {
-    // Backend unavailable at build time — ship the static routes only.
+    // Worker unreachable at build time — ship the static routes only.
   }
 
   return [...staticRoutes, ...dynamic];

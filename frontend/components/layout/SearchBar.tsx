@@ -2,32 +2,15 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { searchQuery, type SearchResults } from '../../lib/api';
+import { matchLabel, matchSublabel, searchMatches } from '../../lib/search';
 import Skeleton, { stagger } from '../ui/Skeleton';
 import styles from './SearchBar.module.scss';
 
 interface FlatItem {
   label: string;
-  sublabel: string;
   href: string;
+  /** Right-aligned qualifier — the match's status, not a category. */
   group: string;
-}
-
-function flatten(r: SearchResults): FlatItem[] {
-  return [
-    ...r.players.map((p) => ({
-      label: p.name,
-      sublabel: p.country,
-      href: `/player/${p.id}`,
-      group: 'Players',
-    })),
-    ...r.teams.map((t) => ({
-      label: t.name,
-      sublabel: t.country,
-      href: `/`,
-      group: 'Teams',
-    })),
-  ];
 }
 
 export default function SearchBar() {
@@ -49,8 +32,16 @@ export default function SearchBar() {
     setLoading(true);
     const t = setTimeout(async () => {
       try {
-        const res = await searchQuery(q.trim());
-        setItems(flatten(res));
+        // Six, not twelve: this is a dropdown, and the full list is one Enter
+        // away on /search.
+        const found = await searchMatches(q.trim(), 6);
+        setItems(
+          found.map((m) => ({
+            label: matchLabel(m),
+            href: `/matches/${m.id}`,
+            group: m.status === 'LIVE' ? 'Live' : m.status === 'UPCOMING' ? 'Upcoming' : 'Result',
+          }))
+        );
         setActive(-1);
       } catch {
         setItems([]);
@@ -116,7 +107,7 @@ export default function SearchBar() {
           ref={inputRef}
           className={styles.input}
           type="search"
-          placeholder="Search players, teams…"
+          placeholder="Search teams, series, venues…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKeyDown}

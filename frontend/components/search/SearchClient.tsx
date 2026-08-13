@@ -3,32 +3,40 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { searchQuery, type SearchResults } from '../../lib/api';
+import type { Match } from '@/types';
+import { matchLabel, matchSublabel, searchMatches } from '../../lib/search';
 import { SearchResultsSkeleton } from './SearchSkeleton';
 import styles from '../../app/search/search.module.scss';
 
-const EMPTY: SearchResults = { players: [], teams: [], series: [] };
+// Results are matches, grouped by status. Teams, series and venues are all
+// searchable, but what a query resolves to is the matches behind them — see
+// lib/search.ts for why there is no separate Teams or Players group.
+const GROUPS: { status: Match['status']; title: string }[] = [
+  { status: 'LIVE', title: 'Live' },
+  { status: 'UPCOMING', title: 'Upcoming' },
+  { status: 'COMPLETED', title: 'Results' },
+];
 
 export default function SearchClient() {
   const params = useSearchParams();
   const initial = params.get('q') ?? '';
   const [q, setQ] = useState(initial);
-  const [results, setResults] = useState<SearchResults>(EMPTY);
+  const [results, setResults] = useState<Match[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
   useEffect(() => {
     if (q.trim().length < 2) {
-      setResults(EMPTY);
+      setResults([]);
       setSearched(false);
       return;
     }
     setLoading(true);
     const t = setTimeout(async () => {
       try {
-        setResults(await searchQuery(q.trim()));
+        setResults(await searchMatches(q.trim()));
       } catch {
-        setResults(EMPTY);
+        setResults([]);
       } finally {
         setLoading(false);
         setSearched(true);
@@ -37,9 +45,6 @@ export default function SearchClient() {
     return () => clearTimeout(t);
   }, [q]);
 
-  const total =
-    results.players.length + results.teams.length + results.series.length;
-
   return (
     <div className={styles.page}>
       <h1 className={styles.heading}>Search</h1>
@@ -47,7 +52,7 @@ export default function SearchClient() {
         className={styles.input}
         type="search"
         autoFocus
-        placeholder="Search players, teams, series…"
+        placeholder="Search teams, series, venues…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
       />
@@ -59,45 +64,28 @@ export default function SearchClient() {
           <SearchResultsSkeleton rows={4} />
         </div>
       )}
-      {!loading && searched && total === 0 && (
+      {!loading && searched && results.length === 0 && (
         <p className={styles.hint}>No results for “{q}”.</p>
       )}
 
       {/* Every group is gated on !loading so the placeholder replaces the
           previous query's results instead of stacking on top of them. */}
-      {!loading && results.players.length > 0 && (
-        <Section title="Players">
-          {results.players.map((p) => (
-            <Link key={p.id} href={`/player/${p.id}`} className={styles.item}>
-              <span>{p.name}</span>
-              <span className={styles.sub}>{p.country}</span>
-            </Link>
-          ))}
-        </Section>
-      )}
+      {!loading &&
+        GROUPS.map(({ status, title }) => {
+          const rows = results.filter((m) => m.status === status);
+          if (!rows.length) return null;
 
-      {!loading && results.teams.length > 0 && (
-        <Section title="Teams">
-          {results.teams.map((t) => (
-            <Link key={t.id} href="/" className={styles.item}>
-              <span>{t.name}</span>
-              <span className={styles.sub}>{t.country}</span>
-            </Link>
-          ))}
-        </Section>
-      )}
-
-      {!loading && results.series.length > 0 && (
-        <Section title="Series">
-          {results.series.map((s) => (
-            <span key={s.id} className={styles.item}>
-              <span>{s.name}</span>
-              <span className={styles.sub}>{s.format}</span>
-            </span>
-          ))}
-        </Section>
-      )}
-
+          return (
+            <Section key={status} title={title}>
+              {rows.map((m) => (
+                <Link key={m.id} href={`/matches/${m.id}`} className={styles.item}>
+                  <span>{matchLabel(m)}</span>
+                  <span className={styles.sub}>{matchSublabel(m)}</span>
+                </Link>
+              ))}
+            </Section>
+          );
+        })}
     </div>
   );
 }

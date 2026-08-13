@@ -223,57 +223,7 @@ export interface WinProbability {
   updatedAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// API envelope
-// ---------------------------------------------------------------------------
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data: T | null;
-  error?: string;
-}
-
-export interface PaginatedResponse<T> {
-  success: boolean;
-  data: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-}
-
-// ---------------------------------------------------------------------------
-// Socket.io event payloads
-// ---------------------------------------------------------------------------
-
-export interface ScoreUpdatePayload {
-  matchId: string;
-  scorecard: Scorecard;
-  currentScore: string; // e.g. "287/4 (45.2)"
-}
-
-export interface BallDeliveredPayload {
-  matchId: string;
-  over: number;
-  ball: number;
-  runs: number;
-  isWicket: boolean;
-  commentary: string;
-}
-
-export interface WicketFallPayload {
-  matchId: string;
-  playerName: string;
-  score: string; // e.g. "142/3"
-  over: number;
-}
-
-export interface ServerToClientEvents {
-  'score:update': (data: ScoreUpdatePayload) => void;
-  'wicket:fall': (data: WicketFallPayload) => void;
-  'ball:delivered': (data: BallDeliveredPayload) => void;
-}
-
-export interface ClientToServerEvents {
-  'match:subscribe': (matchId: string) => void;
-  'match:unsubscribe': (matchId: string) => void;
-}
+// The API-envelope and Socket.io payload types lived here. Both described our
+// own Express backend's protocol — the { success, data } wrapper it replied with
+// and the events it pushed. Nothing speaks that protocol now: every source is
+// the crex Worker, which returns plain JSON over HTTP.

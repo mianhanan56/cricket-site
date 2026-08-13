@@ -1,11 +1,5 @@
-import type { RankingEntry } from '@/types';
-import { getRankings } from '../../lib/api';
-import RankingsView, {
-  type RankingsData,
-  type Format,
-  type Gender,
-  type Category,
-} from '../../components/rankings/RankingsView';
+import { getRankings } from '../../lib/rankings';
+import RankingsView from '../../components/rankings/RankingsView';
 
 export const metadata = {
   title: 'ICC Rankings',
@@ -13,31 +7,15 @@ export const metadata = {
     'Current ICC player rankings — Test, ODI and T20I, for batting, bowling and all-rounder, men and women.',
 };
 
-const FORMATS: Format[] = ['test', 'odi', 't20i'];
-const GENDERS: Gender[] = ['men', 'women'];
-const CATEGORIES: Category[] = ['batting', 'bowling', 'all-rounder'];
-
-// Fetch a single combination, degrading to an empty list so one failing (or
-// non-existent, e.g. women's Test) category never blanks the whole page.
-const safe = (type: string, gender: string, format: string) =>
-  getRankings(type, gender, format).catch(() => [] as RankingEntry[]);
+// Rankings move when a series ends, not when a ball is bowled, so an hour is
+// generous. It is also the cap on how long a KV edit takes to appear here —
+// which is the whole point of holding the data in KV: no deploy in that loop.
+export const revalidate = 3600;
 
 export default async function RankingsPage() {
-  const combos = FORMATS.flatMap((f) =>
-    GENDERS.flatMap((g) => CATEGORIES.map((c) => ({ f, g, c })))
-  );
+  // One request for every format/gender/category, where this used to fan out to
+  // eighteen. getRankings never throws and never returns empty — see lib.
+  const { data, asOf } = await getRankings();
 
-  const results = await Promise.all(
-    combos.map(({ f, g, c }) => safe(c, g, f).then((rows) => ({ f, g, c, rows })))
-  );
-
-  // Build data[format][gender][category].
-  const data = {} as RankingsData;
-  for (const f of FORMATS) {
-    data[f] = {} as RankingsData[Format];
-    for (const g of GENDERS) data[f][g] = {} as RankingsData[Format][Gender];
-  }
-  for (const { f, g, c, rows } of results) data[f][g][c] = rows;
-
-  return <RankingsView data={data} />;
+  return <RankingsView data={data} asOf={asOf} />;
 }

@@ -11,8 +11,11 @@ const withPWA = withPWAInit({
     // Precaching of build assets is automatic; these handle runtime requests.
     runtimeCaching: [
       {
-        // Backend API — stale-while-revalidate so the UI is instant + fresh.
-        urlPattern: /\/api\/.*$/i,
+        // The Workers that serve every page's data. This used to match `/api/*`
+        // on our own origin, which nothing serves now that the Express backend
+        // is gone — the data is cross-origin, so the pattern has to name the
+        // host. Stale-while-revalidate so the UI is instant and still fresh.
+        urlPattern: /^https:\/\/pulsecrease-(crex|cricket)\..*\.workers\.dev\/.*$/i,
         handler: 'StaleWhileRevalidate',
         options: {
           cacheName: 'crex-api',

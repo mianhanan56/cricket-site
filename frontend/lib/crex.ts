@@ -142,6 +142,35 @@ export function getCrexMatches(opts: FetchOpts = {}): Promise<CrexMatchesRespons
   return crexGet<CrexMatchesResponse>('/matches/live', { revalidate: 15, ...opts });
 }
 
+/** One row of an ICC ranking list. Keys resolve through /mapping. */
+export interface CrexRankingRow {
+  /** Rating. */
+  r: number;
+  /** Team f_key. */
+  tf: string;
+  /** Player f_key. */
+  pf: string;
+  /** Previous position — crex draws its up/down arrow from this. */
+  pr: number;
+  /** Current position. */
+  pos: number;
+}
+
+/**
+ * One ICC player-ranking list: a single format × gender × discipline.
+ *
+ * crex's own vocabulary, deliberately — `type` is the format and `play` the
+ * discipline. See the /rankings/players note in the Worker's routes.ts for why
+ * these names are not the ones you would guess.
+ */
+export function getCrexRankingList(
+  params: { type: 'test' | 'odi' | 't20'; gender: 'men' | 'women'; play: 'batting' | 'bowling' | 'allrounder' },
+  opts: FetchOpts = {}
+): Promise<CrexRankingRow[]> {
+  const qs = new URLSearchParams({ category: 'player', ...params });
+  return crexGet<CrexRankingRow[]>(`/rankings/players?${qs}`, { revalidate: 3600, ...opts });
+}
+
 /**
  * Resolve keys to names. Buckets are comma-separated; empty ones are omitted so
  * the Worker's cache key stays as small as possible.

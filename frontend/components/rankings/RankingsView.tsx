@@ -29,7 +29,17 @@ const CATEGORIES: { key: Category; label: string }[] = [
   { key: 'all-rounder', label: 'All-rounder' },
 ];
 
-export default function RankingsView({ data }: { data: RankingsData }) {
+export interface RankingsViewProps {
+  data: RankingsData;
+  /**
+   * ICC publication date per gender. Folded into the caption rather than given
+   * its own element — a date is a qualifier on "official", not a fact of its
+   * own, and the numbers can lag by weeks so leaving it implicit is dishonest.
+   */
+  asOf?: Partial<Record<Gender, string>>;
+}
+
+export default function RankingsView({ data, asOf }: RankingsViewProps) {
   const [format, setFormat] = useState<Format>('odi');
   const [gender, setGender] = useState<Gender>('men');
   const [category, setCategory] = useState<Category>('batting');
@@ -52,7 +62,10 @@ export default function RankingsView({ data }: { data: RankingsData }) {
       <header className={styles.head}>
         <div className={styles.headText}>
           <h1 className={styles.heading}>ICC Rankings</h1>
-          <p className={styles.caption}>Official {activeFormatLabel} player rankings</p>
+          <p className={styles.caption}>
+            Official {activeFormatLabel} player rankings
+            {asOf?.[gender] ? ` · as of ${asOf[gender]}` : ''}
+          </p>
         </div>
 
         {/* Gender — segmented control */}

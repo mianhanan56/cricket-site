@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import type {
   Match,
@@ -10,11 +10,7 @@ import type {
   BowlerLine,
   TeamFormEntry,
   SquadPlayer,
-  ScoreUpdatePayload,
-  BallDeliveredPayload,
-  WicketFallPayload,
 } from '@/types';
-import { connectSocket, disconnectSocket, joinMatch, leaveMatch, getSocket } from '../../lib/socket';
 import { useCrexMatch, useCrexMatchExtras } from '@/hooks/useCrexMatches';
 import WinProbability from './WinProbability';
 import {
@@ -106,17 +102,12 @@ function kindClass(b: BallEntry): string {
 export default function MatchDetail({
   matchId,
   initial,
-  source = 'db',
 }: {
   matchId: string;
   initial: Match;
-  /** Where the match came from — decides how it stays up to date. */
-  source?: 'db' | 'crex';
 }) {
   const [match, setMatch] = useState<Match>(initial);
   const [tab, setTab] = useState<TabKey>('info');
-  const [connected, setConnected] = useState(false);
-  const [wicket, setWicket] = useState<WicketFallPayload | null>(null);
 
   // Seed commentary + ball dots from the initial server-fetched scorecard.
   const seed: BallEntry[] = (initial.scorecard?.commentary ?? []).map((c) => ({
@@ -131,21 +122,19 @@ export default function MatchDetail({
   const [dots, setDots] = useState<BallEntry[]>(seed.slice(-MAX_DOTS));
 
   const isLive = match.status === 'LIVE';
-  const ballSeq = useRef(0);
-  const wicketTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // crex matches have no socket behind them, so they poll the Worker instead.
-  // Only enabled while the match is live and this is a crex match; for backend
-  // matches the hook stays inert and the socket below does the work.
-  const isCrex = source === 'crex';
-  const { match: polled, lastUpdated: crexUpdated } = useCrexMatch(matchId, {
+  // Every match now comes from crex, which has no push channel — the Worker is
+  // polled instead. There used to be a socket path here for backend-sourced
+  // matches; the socket server was dropped in the move to Workers, so it was
+  // connecting to nothing.
+  const { match: polled, lastUpdated } = useCrexMatch(matchId, {
     initial,
-    enabled: isCrex && match.status === 'LIVE',
+    enabled: match.status === 'LIVE',
   });
 
-  // Scorecard + ball-by-ball. Only fetched for crex matches, and only while the
-  // match is live or recently finished — an upcoming fixture has neither.
-  const extrasEnabled = isCrex && match.status !== 'UPCOMING';
+  // Scorecard + ball-by-ball, but only while the match is live or recently
+  // finished — an upcoming fixture has neither.
+  const extrasEnabled = match.status !== 'UPCOMING';
   const crexExtras = useCrexMatchExtras(matchId, { enabled: extrasEnabled });
 
   // A crex match arrives with a header score but no card or feed — those are two
@@ -154,23 +143,22 @@ export default function MatchDetail({
   // "No batting data yet".
   const extrasPending = extrasEnabled && !crexExtras.loaded;
 
-  // Fold each poll into local state so the socket path and the polling path
-  // both converge on the same `match`. The crex scorecard replaces the innings
+  // Fold each poll into local state. The crex scorecard replaces the innings
   // wholesale — it is a complete card each time, not a delta.
   useEffect(() => {
-    if (!isCrex || !polled) return;
+    if (!polled) return;
 
     setMatch(
       crexExtras.innings.length
         ? { ...polled, scorecard: { ...polled.scorecard, innings: crexExtras.innings } }
         : polled
     );
-  }, [isCrex, polled, crexExtras.innings]);
+  }, [polled, crexExtras.innings]);
 
   // crex commentary arrives newest-first already, which is the order this
   // component renders in — no reversing.
   useEffect(() => {
-    if (!isCrex || !crexExtras.commentary.length) return;
+    if (!crexExtras.commentary.length) return;
 
     const entries: BallEntry[] = crexExtras.commentary.map((c) => ({
       id: c.id,
@@ -183,72 +171,11 @@ export default function MatchDetail({
     setCommentary(entries.slice(0, MAX_COMMENTARY));
     // Dots read oldest-to-newest, so the tail of the feed reversed.
     setDots([...entries].reverse().slice(-MAX_DOTS));
-  }, [isCrex, crexExtras.commentary]);
+  }, [crexExtras.commentary]);
 
-  // The header's live indicator reads socket state. A crex match has no socket,
-  // so a landed poll is its equivalent of "connected" — without this the page
-  // would sit on "connecting…" forever while updating perfectly well.
-  const isConnected = isCrex ? Boolean(crexUpdated) : connected;
-
-  // Live matches stream over the socket (score:update every ball, ~10s cadence
-  // from the simulator) — no extra HTTP polling needed.
-  useEffect(() => {
-    if (!isLive || isCrex) return;
-
-    const socket = connectSocket();
-    joinMatch(matchId);
-    setConnected(socket.connected);
-
-    const onConnect = () => {
-      setConnected(true);
-      joinMatch(matchId); // re-join after a reconnect
-    };
-    const onDisconnect = () => setConnected(false);
-
-    const onScore = (data: ScoreUpdatePayload) => {
-      if (data.matchId !== matchId) return;
-      setMatch((prev) => ({ ...prev, scorecard: { ...prev.scorecard, ...data.scorecard } }));
-    };
-
-    const onBall = (data: BallDeliveredPayload) => {
-      if (data.matchId !== matchId) return;
-      const entry: BallEntry = {
-        id: `${data.over}.${data.ball}-${ballSeq.current++}`,
-        over: data.over,
-        ball: data.ball,
-        runs: data.runs,
-        isWicket: data.isWicket,
-        text: data.commentary,
-      };
-      setCommentary((prev) => [entry, ...prev].slice(0, MAX_COMMENTARY));
-      setDots((prev) => [...prev, entry].slice(-MAX_DOTS));
-    };
-
-    const onWicket = (data: WicketFallPayload) => {
-      if (data.matchId !== matchId) return;
-      setWicket(data);
-      if (wicketTimer.current) clearTimeout(wicketTimer.current);
-      wicketTimer.current = setTimeout(() => setWicket(null), 3000);
-    };
-
-    socket.on('connect', onConnect);
-    socket.on('disconnect', onDisconnect);
-    socket.on('score:update', onScore);
-    socket.on('ball:delivered', onBall);
-    socket.on('wicket:fall', onWicket);
-
-    return () => {
-      const s = getSocket();
-      s?.off('connect', onConnect);
-      s?.off('disconnect', onDisconnect);
-      s?.off('score:update', onScore);
-      s?.off('ball:delivered', onBall);
-      s?.off('wicket:fall', onWicket);
-      if (wicketTimer.current) clearTimeout(wicketTimer.current);
-      leaveMatch(matchId);
-      disconnectSocket();
-    };
-  }, [matchId, isLive, isCrex]);
+  // A landed poll is this page's equivalent of "connected" — without it the
+  // header would sit on "connecting…" forever while updating perfectly well.
+  const isConnected = Boolean(lastUpdated);
 
   const innings = match.scorecard?.innings ?? [];
   const homeScore = scoreParts(inningsListFor(match, match.homeTeam));
@@ -267,12 +194,10 @@ export default function MatchDetail({
 
   return (
     <div className={styles.page}>
-      {/* Wicket alert banner */}
-      {wicket && (
-        <div className={styles.wicketAlert} role="alert">
-          WICKET! {wicket.playerName} out! <span className={styles.wicketScore}>{wicket.score}</span>
-        </div>
-      )}
+      {/* The wicket-alert banner lived here. It was driven by the socket's
+          `wicket:fall` event; crex's feed has no equivalent push, and inferring
+          a wicket from a poll would fire it late and sometimes twice. Dropped
+          rather than faked — the commentary tab still reports the wicket. */}
 
       <Link href="/" className={styles.back}>
         ← All matches

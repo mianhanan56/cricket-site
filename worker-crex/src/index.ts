@@ -154,7 +154,7 @@ function fetchUpstream(route: RouteDef, params: Record<string, ParamValue>): Pro
   return fetch(`${base}${route.path}`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ ...route.bodyDefaults, ...params }),
+    body: JSON.stringify({ ...route.bodyDefaults, ...(route.buildBody ? route.buildBody(params) : params) }),
     cf,
   });
 }

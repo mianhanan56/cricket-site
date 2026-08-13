@@ -27,6 +27,9 @@ export interface ParamSpec {
   required?: boolean;
   /** `list` only: cap on how many keys one call may resolve. */
   maxItems?: number;
+  /** `int` only: inclusive bounds, for params that are a range rather than a set. */
+  min?: number;
+  max?: number;
 }
 
 export interface RouteDef {
@@ -44,6 +47,12 @@ export interface RouteDef {
   params?: Record<string, ParamSpec>;
   /** Constant fields merged into the POST body alongside the params. */
   bodyDefaults?: Record<string, unknown>;
+  /**
+   * Reshape the validated params into the body upstream wants, for endpoints
+   * whose payload is not flat. Return value is merged over `bodyDefaults`; the
+   * cache key is still derived from the params, not from this.
+   */
+  buildBody?: (params: Record<string, ParamValue>) => Record<string, unknown>;
   /** Extra request headers upstream requires. */
   headers?: Record<string, string>;
   /** One-line note surfaced by /health. */
@@ -137,6 +146,82 @@ export const ROUTES: RouteDef[] = [
     note: 'Latest ~10 balls with commentary text',
   },
   {
+    // Player rankings — one list per format/gender/discipline.
+    //
+    // Unlike the team-rankings endpoint above, this one takes *string* params,
+    // which is what made it look broken for so long: `category` selects player
+    // vs team, and `play` is the discipline. Sending `category=batting` (the
+    // obvious reading) gets you "category.toLowerCase is not a function" or a
+    // silent empty body. The names below come from crex's own rankings chunk,
+    // where the request object is built as
+    // `{category, gender, type, play, page}`.
+    //
+    // The response is keyed, not named: `pf` is a player f_key, `tf` a team's,
+    // `r` the rating, `pos` the position and `pr` the previous position (which
+    // is how their UI draws the up/down arrow). Resolve pf/tf through /mapping.
+    match: '/rankings/players',
+    base: 'oc',
+    path: '/ranking/getRanking',
+    method: 'POST',
+    // Ratings change when a series ends, so an hour of edge cache is generous
+    // and collapses the frontend's fan-out across all fifteen lists.
+    ttl: 3600,
+    params: {
+      category: { type: 'string', enum: ['player', 'team'], default: 'player' },
+      gender: { type: 'string', enum: ['men', 'women'], default: 'men' },
+      type: { type: 'string', enum: ['test', 'odi', 't20'], default: 'test' },
+      play: { type: 'string', enum: ['batting', 'bowling', 'allrounder', 'team'], default: 'batting' },
+      page: { type: 'string', default: '1' },
+    },
+    note: 'ICC player rankings; type=test|odi|t20, play=batting|bowling|allrounder',
+  },
+  {
+    // The full schedule — past results and upcoming matches — from crex's own
+    // fixtures page. Lives on `stats`, not `oc`: their bundle builds it from
+    // `baseNewUrl`, which is why probing `oc` for it only ever 404s.
+    //
+    // Upstream body is `{tl,type,page,wise,lang,formatType}`. `tl` is a
+    // three-slot filter array, and the three ints in it are ids from crex's own
+    // dropdowns — gender, format, level, in that order. `type` and `formatType`
+    // are inert on the wire (their UI uses them for labels, not filtering), so
+    // they are pinned in bodyDefaults rather than exposed.
+    //
+    // Pagination, verified against the live endpoint:
+    //   wise=1  date-wise. Flat array, 20 matches per page, ~2-3 days' worth.
+    //           page 0 starts today; page grows forward and goes NEGATIVE for
+    //           results already played (-1 is the days before today). This is
+    //           the only mode where page does anything useful.
+    //   wise=2  series-wise. Object keyed by month ("August 2026"); page steps
+    //           a month or two at a time, negative for past.
+    //   wise=3  team-wise. Object keyed by team id, ~1900 keys, and it IGNORES
+    //           page entirely — one call is the whole set.
+    // Slots out of range 400 upstream, so they are enum-bounded here.
+    match: '/fixtures',
+    base: 'stats',
+    path: '/fixture/getFixture',
+    method: 'POST',
+    // A schedule, not a scoreboard: rows only move when a match finishes, and
+    // finished-match detail belongs to /matches/live and /match/scorecard.
+    ttl: 300,
+    params: {
+      wise: { type: 'string', enum: ['1', '2', '3'], default: '1' },
+      // Bounded rather than open: at 20 matches a page this already reaches
+      // roughly four months either side of today, and an unbounded page number
+      // is an unbounded number of cache entries.
+      page: { type: 'int', default: 0, min: -60, max: 60 },
+      gender: { type: 'int', enum: [0, 5, 6], default: 0 }, // 0=all 5=men 6=women
+      format: { type: 'int', enum: [0, 1, 2, 3, 4, 5], default: 0 }, // 1=odi 2=t20 3=test 4=t10 5=100b
+      level: { type: 'int', enum: [0, 7, 8], default: 0 }, // 0=all 7=international 8=domestic
+    },
+    bodyDefaults: { type: '0', lang: 'en', formatType: '' },
+    buildBody: (p) => ({
+      tl: [p.gender, p.format, p.level],
+      page: p.page,
+      wise: p.wise,
+    }),
+    note: 'Schedule; wise 1=date 2=series 3=team, page 0=today and negative=past (wise=1,2 only)',
+  },
+  {
     match: '/news/topics',
     base: 'news',
     path: '/api/articlesOC/topics',
@@ -194,6 +279,12 @@ export function readParams(route: RouteDef, search: URLSearchParams): Record<str
     if (spec.type === 'int') {
       const n = Number(raw);
       if (!Number.isInteger(n)) throw new ParamError(`Param '${name}' must be an integer, got '${raw}'`);
+      if (spec.min !== undefined && n < spec.min) {
+        throw new ParamError(`Param '${name}' must be >= ${spec.min}, got '${raw}'`);
+      }
+      if (spec.max !== undefined && n > spec.max) {
+        throw new ParamError(`Param '${name}' must be <= ${spec.max}, got '${raw}'`);
+      }
       value = n;
     }
 

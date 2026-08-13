@@ -9,6 +9,10 @@ ALLOWED_ORIGINS = "http://localhost:3000,https://pulsecrease.vercel.app"
 
 # No secrets. Every crex endpoint in src/routes.ts is unauthenticated — the
 # allowlist, not a token, is what keeps this from being an open relay.
+# No KV either. Rankings briefly lived in a KV namespace, back when
+# oc/ranking/getRanking looked unreachable; it turned out to take string params
+# (see the /rankings/players note in src/routes.ts), so they come from crex live
+# like everything else and there is nothing to hand-maintain.
 
 # 8787 is the CricLive Worker's default; keep them on separate ports so both
 # can run at once during development.

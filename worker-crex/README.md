@@ -54,7 +54,9 @@ cacheable and the frontend stays simple.
 | `/matches/live` | `GET php /getLiveMatches` | 15s | — |
 | `/rankings` | `POST oc /ranking/rankingFront` | 1h | `category` 0=test 1=odi 2=t20, `gender` 0=men 1=women, `play` |
 | `/mapping` | `POST oc /mapping/getHomeMapData` | 6h | `t` teams, `v` venues, `s` series, `p` players, `u` umpires — comma-separated keys |
+| `/fixtures` | `POST stats /fixture/getFixture` | 5m | `wise` 1=date 2=series 3=team, `page` (negative = past), `gender`, `format`, `level` — see below |
 | `/news/topics` | `GET news /api/articlesOC/topics` | 15m | `page` |
+| `/rankings/players` | `POST oc /ranking/getRanking` | 1h | `category`, `play`, `type`, `gender`, `page` — **strings**, see below |
 
 Params are typed and enum-bounded. Unknown params (`utm_source` and friends) are
 dropped rather than rejected, so a decorated URL still hits the same cache
@@ -64,6 +66,84 @@ entry. Bad values get a 400 with the permitted set:
 curl 'localhost:8788/rankings?category=9'
 # {"error":"Param 'category' must be one of 0, 1, 2, got '9'","path":"/rankings"}
 ```
+
+## Fixtures and pagination
+
+`/fixtures` is the whole schedule, past and future. It is on **`stats`**, not
+`oc` — crex builds it from `baseNewUrl`, so probing `oc` for `/fixture/getFixture`
+only ever 404s.
+
+Upstream wants `{tl,type,page,wise,lang,formatType}`. `tl` is a three-slot filter
+array holding ids from crex's own dropdowns, which the Worker assembles from three
+named params:
+
+| Param | Slot | Values |
+|---|---|---|
+| `gender` | `tl[0]` | 0 all, 5 men, 6 women |
+| `format` | `tl[1]` | 0 all, 1 ODI, 2 T20, 3 Test, 4 T10, 5 100B |
+| `level` | `tl[2]` | 0 all, 7 international, 8 domestic |
+
+`type` and `formatType` are inert on the wire — their UI uses them for labels, not
+filtering — so they are pinned upstream and not exposed.
+
+**Pagination depends on `wise`:**
+
+- `wise=1` (default) — date-wise. Flat array, **20 matches per page**, covering
+  two or three days. `page=0` starts today, and `page` goes **negative** for
+  matches already played (`-1` is the days just before today).
+- `wise=2` — series-wise. Object keyed by month (`"August 2026"`), one or two
+  months per page, negative for past.
+- `wise=3` — team-wise. Object keyed by team id, ~1900 keys, and it **ignores
+  `page`** — one call returns the whole set.
+
+`page` is bounded to ±60, which at 20 a page is already about four months either
+side of today; unbounded page numbers would mean unbounded cache entries. Team,
+series and venue keys in the response (`t1f`, `t2f`, `sf`, `vf`) resolve through
+`/mapping` like everything else.
+
+```bash
+curl 'localhost:8788/fixtures'                        # today onward
+curl 'localhost:8788/fixtures?page=-1'                # yesterday and before
+curl 'localhost:8788/fixtures?format=3&level=7'       # international Tests
+curl 'localhost:8788/fixtures?wise=2&page=1'          # next month, by series
+```
+
+## Player rankings
+
+`/rankings/players` was the last thing here to come off hand-maintained data, and
+it is worth recording why it took so long. The endpoint is
+`POST oc/ranking/getRanking`, and unlike the rest of crex's API it takes **string**
+params — but not the ones you would guess:
+
+| Param | Values | What it actually selects |
+|---|---|---|
+| `category` | `player`, `team` | player-vs-team, **not** the discipline |
+| `play` | `batting`, `bowling`, `allrounder`, `team` | the discipline |
+| `type` | `test`, `odi`, `t20` | the format (`t20`, not `t20i`) |
+| `gender` | `men`, `women` | |
+| `page` | `1` | |
+
+Sending the natural `category=batting` gets you
+`{"error":{"status":500,"message":"category.toLowerCase is not a function"}}` with
+numeric enums, or a silent empty body with strings. Guessing the format field
+name gets `"format of game is missing from request"` forever, because it is
+called `type`. These names came out of crex's own lazy-loaded rankings chunk,
+where the request is built as `{category, gender, type, play, page}`:
+
+```bash
+curl -s "https://crex.com/runtime-es2015.<hash>.js" | grep -oE '38:"[a-z0-9]+"'
+curl -s "https://crex.com/38-es2015.<hash>.js" > r38.js
+grep -oE 'r_inside\s*=\s*\{[^}]+' r38.js
+```
+
+Rows are keyed, not named — `pf` is a player f_key, `tf` a team's, `r` the
+rating, `pos` the position, `pr` the previous position (which is how crex draws
+its up/down arrow). Resolve `pf`/`tf` through `/mapping`; the frontend does it in
+one call for every key across all fifteen lists.
+
+There is no "all rankings" call, so the frontend fans out over the fifteen lists
+the ICC publishes (not eighteen — no Women's Test). At a 1h TTL that is one burst
+an hour regardless of traffic.
 
 ## Local development
 
@@ -110,6 +190,11 @@ Decoding the errors:
 That last one costs the most time. `{"category":"test"}` fails;
 `{"category":0}` works.
 
+**But numeric enums are not universal** — `/ranking/getRanking` wants strings, and
+assuming otherwise is what kept it unwired for so long. If a field-name or
+payload-type guess stops making progress, stop guessing and read the call site in
+crex's bundle; see [Player rankings](#player-rankings) for how.
+
 Once it responds, add a row to `src/routes.ts` and redeploy.
 
 ### Endpoints found but not yet wired up
@@ -118,16 +203,19 @@ Discovered in crex's bundle, payloads not yet worked out. All are POST on `oc`
 unless noted:
 
 ```
-/fixture/getFixture              /player/getPlayerOverview
-/fixture/getIV4ForUpcomingMatch  /player/getPlayerMatches
-/series/getSeriesOverview        /team/getTeamOverview
-/series/getMatchesForSeriesID    /team/getMatchesForTeam
-/seriesInside/getPTableForSeriesID   /teamInside/getMatchForTeamID
-/seriesInside/getSqaudForSeriesID    /oc/getTopRecords
-/live/getMatchMetaData           /live/getPreLiveStats
-/commentary/getBallFeeds  (content)  /ranking/getRanking  (stats)
-/getSC4  /getSV3  (php)
+/fixture/getIV4ForUpcomingMatch  /player/getPlayerOverview
+/series/getSeriesOverview        /player/getPlayerMatches
+/series/getMatchesForSeriesID    /team/getTeamOverview
+/seriesInside/getPTableForSeriesID   /team/getMatchesForTeam
+/seriesInside/getSqaudForSeriesID    /teamInside/getMatchForTeamID
+/live/getMatchMetaData               /oc/getTopRecords
+/live/getPreLiveStats
+/getSV3  (php)
 ```
+
+`/player/getPlayerInfo` is also live on `oc` — it answers
+`{"err":"Not A Valid Request"}` to a wrong payload rather than a 404, so the path
+is right and only the body is unknown. That is the one blocking player profiles.
 
 ## Caveats
 
