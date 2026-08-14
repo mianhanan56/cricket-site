@@ -139,9 +139,21 @@
 }
 
 .matches {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-1 $space-2;
   font-size: $text-sm; // 14px
   font-weight: 600;
   color: $text-primary;
+}
+
+// Secondary to the total beside it — how far through the series we are, not a
+// second headline figure.
+.progress {
+  font-size: $text-xs;
+  font-weight: 500;
+  color: $text-muted;
 }
 
 // View → : revealed on card hover, matching MatchCard.

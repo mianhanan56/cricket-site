@@ -4,16 +4,18 @@ import {
   RANKINGS_CATEGORY_KEYS,
   RANKINGS_FORMAT_KEYS,
   RANKINGS_GENDER_KEYS,
+  RANKINGS_GROUP_KEYS,
   type RankingsCategory,
   type RankingsFormat,
   type RankingsGender,
+  type RankingsGroup,
 } from '../../lib/tabs';
 import RankingsView from '../../components/rankings/RankingsView';
 
 export const metadata = {
   title: 'ICC Rankings',
   description:
-    'Current ICC player rankings — Test, ODI and T20I, for batting, bowling and all-rounder, men and women.',
+    'Current ICC team and player rankings — Test, ODI and T20I, for batting, bowling and all-rounder, men and women.',
 };
 
 // Rankings move when a series ends, not when a ball is bowled, so an hour is
@@ -28,6 +30,7 @@ export default async function RankingsPage({
   // list is in the HTML instead of behind a Suspense shell.
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
+  const group = pickParam<RankingsGroup>(searchParams?.group, RANKINGS_GROUP_KEYS, 'players');
   const gender = pickParam<RankingsGender>(searchParams?.gender, RANKINGS_GENDER_KEYS, 'men');
   const requested = pickParam<RankingsFormat>(searchParams?.format, RANKINGS_FORMAT_KEYS, 'odi');
   const category = pickParam<RankingsCategory>(
@@ -40,7 +43,14 @@ export default async function RankingsPage({
 
   // One request for every format/gender/category, where this used to fan out to
   // eighteen. getRankings never throws and never returns empty — see lib.
-  const { data, asOf } = await getRankings();
+  const { data, teams, asOf } = await getRankings();
 
-  return <RankingsView data={data} asOf={asOf} initial={{ format, gender, category }} />;
+  return (
+    <RankingsView
+      data={data}
+      teams={teams}
+      asOf={asOf}
+      initial={{ group, format, gender, category }}
+    />
+  );
 }

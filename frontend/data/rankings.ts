@@ -24,6 +24,20 @@ export interface RankRow {
 }
 
 /**
+ * One team row as stored. `teamKey` is crex's f_key, kept so the fallback can
+ * still draw crests — without it the floor renders initials where the live path
+ * shows badges, which reads as a bug rather than as staleness.
+ */
+export interface TeamRankRow {
+  teamKey: string;
+  teamName: string;
+  shortName: string;
+  rating: number;
+  points: number;
+  matches: number;
+}
+
+/**
  * Shape of this file. Every level is partial: the
  * ICC publishes no Women's Test rankings, and a hand-edited payload may
  * legitimately omit a category rather than carry a stale one.
@@ -34,6 +48,8 @@ export interface RankingsPayload {
   rankings: Partial<
     Record<RankingFormat, Partial<Record<RankingGender, Partial<Record<RankingRole, RankRow[]>>>>>
   >;
+  /** Team rankings — one list per format × gender, no discipline axis. */
+  teams?: Partial<Record<RankingFormat, Partial<Record<RankingGender, TeamRankRow[]>>>>;
 }
 
 export const FALLBACK_RANKINGS = payload as RankingsPayload;

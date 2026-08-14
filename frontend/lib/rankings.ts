@@ -22,19 +22,29 @@
 // render eighteen empty tables — `.catch(() => [])` per combination — which is
 // the worst failure mode available: a page that looks fine and is wrong.
 
-import type { RankingEntry, RankingFormat, RankingGender, RankingRole } from '@/types';
+import type {
+  RankingEntry,
+  RankingFormat,
+  RankingGender,
+  RankingRole,
+  TeamRankingEntry,
+} from '@/types';
 import type {
   Category,
   Format,
   Gender,
   RankingsData,
+  TeamRankingsData,
 } from '@/components/rankings/RankingsView';
 import { FALLBACK_RANKINGS, type RankingsPayload } from '@/data/rankings';
 import {
   getCrexMapping,
   getCrexRankingList,
+  getCrexTeamRankings,
+  teamLogoUrl,
   type CrexMapping,
   type CrexRankingRow,
+  type CrexTeamRankingRow,
 } from './crex';
 
 // Stored vocabulary (uppercase, matching the old DB enums) -> view vocabulary.
@@ -49,6 +59,9 @@ const ROLES: Record<RankingRole, Category> = {
 // crex's vocabulary for the same three axes. Note t20, not t20i.
 const CREX_FORMAT = { test: 'test', odi: 'odi', t20i: 't20' } as const;
 const CREX_PLAY = { batting: 'batting', bowling: 'bowling', 'all-rounder': 'allrounder' } as const;
+
+/** The reverse of CREX_FORMAT — the team response is keyed by crex's names. */
+const FROM_CREX_FORMAT = { test: 'test', odi: 'odi', t20: 't20i' } as const;
 
 /** Every slice present and empty, so the view can index without optional chains. */
 function emptyData(): RankingsData {
@@ -103,6 +116,48 @@ export function toRankingsData(payload: RankingsPayload): RankingsData {
   return data;
 }
 
+/** Every team slice present and empty, so the view can index without guards. */
+function emptyTeamData(): TeamRankingsData {
+  const data = {} as TeamRankingsData;
+  for (const format of Object.values(FORMATS)) {
+    data[format] = { men: [], women: [] };
+  }
+  return data;
+}
+
+/** Flatten the bundled team snapshot into the view's shape. */
+export function toTeamRankingsData(payload: RankingsPayload): TeamRankingsData {
+  const data = emptyTeamData();
+
+  for (const [rawFormat, genders] of Object.entries(payload.teams ?? {})) {
+    const format = FORMATS[rawFormat as RankingFormat];
+    if (!format || !genders) continue;
+
+    for (const [rawGender, rows] of Object.entries(genders)) {
+      const gender = GENDERS[rawGender as RankingGender];
+      if (!gender || !rows) continue;
+
+      data[format][gender] = rows.map(
+        (row, i): TeamRankingEntry => ({
+          id: `${rawFormat}-${rawGender}-${row.teamKey || i}`,
+          teamKey: row.teamKey,
+          teamName: row.teamName,
+          shortName: row.shortName,
+          logo: teamLogoUrl(row.teamKey),
+          format: rawFormat as RankingFormat,
+          gender: rawGender as RankingGender,
+          points: row.points,
+          rating: row.rating,
+          matches: row.matches,
+          position: i + 1,
+        })
+      );
+    }
+  }
+
+  return data;
+}
+
 /** How many rows each list is trimmed to. crex returns ~100; the page shows 10. */
 const TOP_N = 10;
 
@@ -129,6 +184,8 @@ function combos(): Combo[] {
 
 export interface Rankings {
   data: RankingsData;
+  /** Team rankings — one list per format × gender. */
+  teams: TeamRankingsData;
   /** Publication date per gender — only set when serving the bundled snapshot. */
   asOf: RankingsPayload['asOf'];
   /** Which copy this came from. `bundled` means crex was unreachable. */
@@ -150,6 +207,7 @@ const RAW_ROLE = { batting: 'BATTING', bowling: 'BOWLING', 'all-rounder': 'ALLRO
 export async function getRankings(): Promise<Rankings> {
   const bundled = (): Rankings => ({
     data: toRankingsData(FALLBACK_RANKINGS),
+    teams: toTeamRankingsData(FALLBACK_RANKINGS),
     asOf: FALLBACK_RANKINGS.asOf,
     source: 'bundled',
   });
@@ -157,27 +215,46 @@ export async function getRankings(): Promise<Rankings> {
   try {
     const wanted = combos();
 
-    const lists = await Promise.all(
-      wanted.map((c) =>
-        getCrexRankingList({
-          type: CREX_FORMAT[c.format],
-          gender: c.gender,
-          play: CREX_PLAY[c.category],
-        }).catch(() => null)
-      )
-    );
+    const [lists, teamLists] = await Promise.all([
+      Promise.all(
+        wanted.map((c) =>
+          getCrexRankingList({
+            type: CREX_FORMAT[c.format],
+            gender: c.gender,
+            play: CREX_PLAY[c.category],
+          }).catch(() => null)
+        )
+      ),
+      // Two calls, not six: one response carries all three formats.
+      Promise.all(
+        (['men', 'women'] as Gender[]).map((g) =>
+          getCrexTeamRankings(g)
+            .then((r) => [g, r] as const)
+            .catch(() => [g, null] as const)
+        )
+      ),
+    ]);
 
     // If crex is down we want the snapshot, not a half-populated page. A single
     // missing list is tolerable; nothing at all is not.
     if (lists.every((l) => !l?.length)) return bundled();
 
-    // One /mapping call for every key across all fifteen lists.
+    // One /mapping call for every key across all seventeen lists — the fifteen
+    // player ones plus the six team slices, which name a dozen or so of the same
+    // sides and so mostly ride along for free.
     const playerKeys = new Set<string>();
     const teamKeys = new Set<string>();
     for (const list of lists) {
       for (const row of (list ?? []).slice(0, TOP_N)) {
         if (row.pf) playerKeys.add(row.pf);
         if (row.tf) teamKeys.add(row.tf);
+      }
+    }
+    for (const [, byFormat] of teamLists) {
+      for (const rows of Object.values(byFormat ?? {})) {
+        for (const row of (rows ?? []).slice(0, TOP_N)) {
+          if (row.tf) teamKeys.add(row.tf);
+        }
       }
     }
 
@@ -187,6 +264,9 @@ export async function getRankings(): Promise<Rankings> {
     }).catch(() => ({}) as CrexMapping);
 
     const players = new Map((mapping.p ?? []).map((e) => [e.f_key, e.n]));
+    // Whole entry, not just the name: a team row renders the short name on the
+    // crest fallback, so `sn` has to survive the lookup too.
+    const teamEntries = new Map((mapping.t ?? []).map((e) => [e.f_key, e]));
     const teams = new Map((mapping.t ?? []).map((e) => [e.f_key, e.n]));
 
     const data = emptyData();
@@ -209,15 +289,57 @@ export async function getRankings(): Promise<Rankings> {
         rating: row.r,
         // crex sends `pos`, already 1-based; fall back to array order.
         position: row.pos ?? idx + 1,
+        previousPosition: row.pr,
       }));
       filled++;
     });
 
     if (!filled) return bundled();
 
+    // Teams are built separately, and fall back separately: player lists coming
+    // through while the team call fails is a real outcome (they are different
+    // upstream endpoints), and it should cost the snapshot for teams only.
+    const teamData = emptyTeamData();
+    let teamsFilled = 0;
+
+    for (const [gender, byFormat] of teamLists) {
+      for (const [crexFormat, rows] of Object.entries(byFormat ?? {})) {
+        const format = FROM_CREX_FORMAT[crexFormat as keyof typeof FROM_CREX_FORMAT];
+        if (!format || !rows?.length) continue;
+
+        teamData[format][gender] = rows
+          .slice(0, TOP_N)
+          .map((row: CrexTeamRankingRow, idx): TeamRankingEntry => {
+            const entry = teamEntries.get(row.tf);
+            return {
+              id: `${format}-${gender}-${row.tf || idx}`,
+              teamKey: row.tf,
+              // An unresolved key shows as itself, same as the player lists —
+              // it makes a /mapping gap visible instead of blanking the row.
+              teamName: entry?.n ?? row.tf,
+              shortName: entry?.sn ?? row.tf,
+              logo: teamLogoUrl(row.tf),
+              format: RAW_FORMAT[format],
+              gender: RAW_GENDER[gender],
+              points: row.p,
+              rating: row.r,
+              matches: row.m,
+              // rankingFront sends no position — the list is already ordered.
+              position: idx + 1,
+            };
+          });
+        teamsFilled++;
+      }
+    }
+
     // No `asOf`: crex does not date its rankings, and it does not need to —
     // this is live. The caption only claims a date for the bundled snapshot.
-    return { data, asOf: {}, source: 'crex' };
+    return {
+      data,
+      teams: teamsFilled ? teamData : toTeamRankingsData(FALLBACK_RANKINGS),
+      asOf: {},
+      source: 'crex',
+    };
   } catch {
     return bundled();
   }

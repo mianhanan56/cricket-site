@@ -1,5 +1,20 @@
 @use 'component' as *;
 
+// ===========================================================================
+// /rankings — ICC player and team rankings.
+//
+// Identity is the app's own Aurora system; nothing new is invented here. What
+// this page adds on top of it:
+//
+//   * a single filter rail (glass dropdowns) instead of three rows of tabs —
+//     four axes do not fit in tab rows, and nine always-visible tabs were
+//     spending the top third of the viewport on options,
+//   * the podium: the top three as cards with #1 carrying the mint wash. The
+//     signature element, and the one place boldness is spent,
+//   * a quiet table for the rest, which drops its secondary columns onto a
+//     second line inside the name cell on phones rather than scrolling sideways.
+// ===========================================================================
+
 .page {
   @include container;
   padding-block: $space-6 $space-10;
@@ -14,20 +29,22 @@
   }
 }
 
-// ── Header ─────────────────────────────────────────────────────────────
-.head {
-  display: flex;
-  flex-direction: column;
-  gap: $space-4;
-
-  @include tablet {
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: space-between;
-  }
+// Visually hidden, still read out. Used for the movement chips' words and the
+// table caption — the arrows and the column headers carry it for sighted users.
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
-.headText {
+// ── Header ─────────────────────────────────────────────────────────────
+.head {
   display: flex;
   flex-direction: column;
   gap: $space-1;
@@ -46,180 +63,175 @@
   color: $text-muted;
 }
 
-// ── Gender segmented control ───────────────────────────────────────────
-.segment {
-  @include glass;
+// ── Filter rail ────────────────────────────────────────────────────────
+// Scrolls rather than wraps: four triggers on a 320px phone would wrap to two
+// lines and shift the podium down on every gender change.
+.rail {
   @include scroll-x;
   display: flex;
-  align-self: flex-start;
-  max-width: 100%;
-  padding: $space-1;
-  border-radius: $radius-xl;
-  gap: $space-1;
-}
-
-.segmentBtn {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: $text-secondary;
-  font-family: $font-primary;
-  font-size: $text-sm;
-  font-weight: 600;
-  flex-shrink: 0;
-  white-space: nowrap;
-  padding: $space-2 $space-4;
-  border-radius: $radius-lg;
-  cursor: pointer;
-  transition:
-    color 0.2s ease,
-    background 0.2s ease;
-
-  &:hover {
-    color: $text-primary;
-  }
-
-  &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 2px;
-  }
+  gap: $space-2;
+  padding-bottom: $space-1; // room for the focus ring inside the scroller
+  align-items: center;
 
   @include sm {
-    padding: $space-2 $space-5;
+    flex-wrap: wrap;
+    overflow: visible; // so an open menu is not clipped by the scroller
+    gap: $space-2-5;
   }
 }
 
-.segmentActive {
-  background: $accent;
-  color: $accent-green-ink;
+// ── Podium (signature element) ─────────────────────────────────────────
+.podium {
+  list-style: none;
+  display: grid;
+  gap: $space-3;
 
-  &:hover {
-    color: $accent-green-ink;
+  // #1 spans the full width above the other two, which pair off beneath it.
+  // A three-across row on a tablet would give the leader the same weight as
+  // third place, which is the one thing the podium exists to avoid.
+  @include sm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    > *:first-child {
+      grid-column: 1 / -1;
+    }
+  }
+
+  @include desktop {
+    grid-template-columns: 1.4fr 1fr 1fr;
+    gap: $space-4;
+
+    > *:first-child {
+      grid-column: auto;
+    }
   }
 }
 
-// ── Controls row (format + category) ───────────────────────────────────
-.controls {
-  display: flex;
-  flex-direction: column;
-  gap: $space-4;
-
-  @include tablet {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-  }
-}
-
-// ── Category pills ─────────────────────────────────────────────────────
-.pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $space-2;
-}
-
-.pill {
-  appearance: none;
-  cursor: pointer;
-  font-family: $font-primary;
-  font-size: $text-sm;
-  font-weight: 600;
-  color: $text-secondary;
-  background: $surface-elevated;
-  border: 1px solid $card-border;
-  border-radius: 999px;
-  padding: $space-2 $space-4;
-  transition:
-    color 0.2s ease,
-    border-color 0.2s ease,
-    background 0.2s ease;
-
-  &:hover {
-    color: $text-primary;
-    border-color: var(--card-hover-border);
-  }
-
-  &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 2px;
-  }
-}
-
-.pillActive {
-  color: $accent;
-  border-color: $accent;
-  background: $accent-light;
-
-  &:hover {
-    color: $accent;
-  }
-}
-
-// ── Leader spotlight (signature element) ───────────────────────────────
-.leader {
+.step {
   @include card;
+  @include card-hover;
   position: relative;
   overflow: hidden;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: $space-3;
   padding: $space-4;
 
-  // Soft mint wash bleeding in from the trailing edge.
+  @include tablet {
+    padding: $space-5;
+  }
+}
+
+// Ranks 2 and 3 on a phone: one row, rank and crest leading, rating trailing.
+// The eyebrow goes — the ring already says the number, and repeating it is the
+// kind of filler that makes a compact row feel cramped rather than dense.
+.stepCompact {
+  @include mobile-only {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-3 $space-4;
+
+    .stepEyebrow {
+      display: none;
+    }
+
+    // Same call the table makes on this band: movement is the first thing to
+    // go when the row is one line. The lead card above still carries its chip.
+    .move {
+      display: none;
+    }
+
+    .stepScore {
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0;
+      margin-top: 0;
+    }
+
+    .stepRating {
+      font-size: $text-2xl;
+    }
+
+    // The lead card two rows up still carries the "Rating" label, so the unit
+    // is established for the column; repeating it here is noise.
+    .stepRatingLabel {
+      display: none;
+    }
+  }
+}
+
+// The leader, and the only card with the wash on it.
+.stepLead {
   &::after {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(120% 140% at 100% 0%, var(--accent-green-soft), transparent 60%);
+    background: radial-gradient(120% 140% at 100% 0%, var(--accent-green-soft), transparent 62%);
     pointer-events: none;
   }
 
-  @include sm {
-    gap: $space-4;
-    padding: $space-5;
+  .stepRank {
+    color: $accent-green-ink;
+    background: $accent;
+    border-color: transparent;
+    box-shadow: $shadow-glow-accent;
   }
 
-  @include tablet {
-    padding: $space-6;
-    gap: $space-6;
+  .stepName {
+    font-size: $text-xl;
+
+    @include tablet {
+      font-size: $text-2xl;
+    }
+  }
+
+  .stepRating {
+    font-size: clamp(#{$text-3xl}, 9vw, #{$text-4xl});
   }
 }
 
-.leaderRing {
+.stepTop {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  position: relative; // above the leader's wash
+}
+
+.stepRank {
   @include flex-center;
+  @include score-number;
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  font-family: $font-display;
-  font-weight: 700;
-  font-size: $text-lg;
-  color: $accent-green-ink;
-  background: $accent;
-  box-shadow: $shadow-glow-accent;
-
-  @include sm {
-    width: 56px;
-    height: 56px;
-    font-size: $text-2xl;
-  }
+  font-size: $text-sm;
+  color: $text-secondary;
+  background: $surface-elevated;
+  border: 1px solid $card-border;
 
   @include tablet {
-    width: 68px;
-    height: 68px;
-    font-size: $text-3xl;
+    width: 40px;
+    height: 40px;
+    font-size: $text-base;
   }
 }
 
-.leaderMain {
+// Movement chip sits at the trailing edge of the card's top row.
+.stepTop .move {
+  margin-left: auto;
+}
+
+.stepBody {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
-  flex: 1;
+  position: relative;
 }
 
-.leaderEyebrow {
+.stepEyebrow {
   font-size: $text-2xs;
   font-weight: 700;
   text-transform: uppercase;
@@ -227,23 +239,20 @@
   color: $accent;
 }
 
-.leaderName {
-  @include truncate(1);
+.stepName {
+  @include truncate(2);
   font-family: $font-display;
   font-size: $text-base;
   font-weight: 700;
   letter-spacing: -0.01em;
+  line-height: $leading-tight;
 
   @include sm {
-    font-size: $text-xl;
-  }
-
-  @include tablet {
-    font-size: $text-2xl;
+    font-size: $text-lg;
   }
 }
 
-.leaderCountry {
+.stepSub {
   @include truncate(1);
   font-size: $text-xs;
   color: $text-muted;
@@ -253,33 +262,106 @@
   }
 }
 
-.leaderScore {
+.stepScore {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
+  align-items: baseline;
+  gap: $space-2;
+  position: relative;
+  margin-top: auto;
 }
 
-.leaderRating {
+.stepRating {
   @include score-number;
-  font-size: clamp(#{$text-2xl}, 8vw, #{$text-4xl});
+  font-size: clamp(#{$text-2xl}, 7vw, #{$text-3xl});
   color: $accent-green;
   line-height: 1;
 }
 
-.leaderRatingLabel {
+.stepRatingLabel {
   font-size: $text-2xs;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: $text-muted;
-  margin-top: $space-1;
 }
 
-// ── Standings table (ranks 2+) ─────────────────────────────────────────
+// ── Movement chip ──────────────────────────────────────────────────────
+.move {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  padding: 2px $space-1-5;
+  border-radius: 999px;
+  font-size: $text-2xs;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+}
+
+.moveUp {
+  color: $accent-green;
+  background: $accent-light;
+}
+
+.moveDown {
+  color: $accent-red;
+  background: $live-bg;
+}
+
+// "Held its place" needs a border as well as a fill: the elevated surface alone
+// is close enough to the card that the chip read as a stray dash on it.
+.moveFlat {
+  color: $text-muted;
+  background: $surface-elevated;
+  border: 1px solid $card-border;
+  padding-block: 1px;
+  min-width: 26px;
+  justify-content: center;
+}
+
+// ── Team crest ─────────────────────────────────────────────────────────
+.crest {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: $radius-sm;
+  overflow: hidden;
+  background: $surface-elevated;
+  border: 1px solid $card-border;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+.crestLg {
+  width: 44px;
+  height: 44px;
+  border-radius: $radius-md;
+
+  @include tablet {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+.crestFallback {
+  @include score-number;
+  font-size: $text-2xs;
+  color: $text-secondary;
+
+  .crestLg & {
+    font-size: $text-xs;
+  }
+}
+
+// ── Standings table (below the podium) ─────────────────────────────────
 .tableWrap {
   @include card;
-  @include scroll-x;
   padding: $space-2;
   max-width: 100%;
 
@@ -291,18 +373,16 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: $text-xs;
+  font-size: $text-sm;
 
   th,
   td {
-    padding: $space-2 $space-1-5;
+    padding: $space-2-5 $space-1-5;
     text-align: right;
     white-space: nowrap;
   }
 
   @include sm {
-    font-size: $text-sm;
-
     th,
     td {
       padding: $space-3;
@@ -334,14 +414,59 @@
   }
 }
 
+// Secondary columns are dropped below 576px and their content reappears under
+// the name — a four-column table on a 320px phone either scrolls or truncates
+// the one column that matters.
+.hideSm {
+  display: none;
+
+  @include sm {
+    display: table-cell;
+  }
+}
+
+.nameCell {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.nameStack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  @include truncate(1);
+  font-weight: 600;
+}
+
+.nameMeta {
+  @include truncate(1);
+  font-size: $text-2xs;
+  color: $text-muted;
+
+  // Redundant once the Country / Matches column is back.
+  @include sm {
+    display: none;
+  }
+}
+
 .pos {
   @include score-number;
   color: $text-muted;
   width: 1%;
 }
 
-.country {
+.muted {
   color: $text-muted;
+}
+
+.stat {
+  font-variant-numeric: tabular-nums;
+  color: $text-secondary;
 }
 
 .num {

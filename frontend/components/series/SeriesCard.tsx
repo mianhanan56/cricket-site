@@ -8,19 +8,26 @@ const STATUS_CLASS: Record<SeriesSummary['status'], string> = {
   COMPLETED: 'isCompleted',
 };
 
-function fmtDate(iso: string): string {
+function fmtDate(iso: string, withYear = true): string {
   return new Date(iso).toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
-    year: 'numeric',
+    ...(withYear ? { year: 'numeric' } : {}),
   });
 }
 
-// Collapse a single-day span to one date; otherwise show "start → end".
-function dateRange(start: string, end: string): { text: string; single: boolean } {
-  const s = fmtDate(start);
+/**
+ * "21 Jul → 16 Aug 2026", collapsed to one date for a single-day series.
+ *
+ * The year is printed once. Real series spans run weeks — now that these are the
+ * whole competition rather than the feed's window, repeating "2026" on both ends
+ * is noise on every card.
+ */
+function dateRange(start: string, end: string): string {
+  const sameYear = new Date(start).getFullYear() === new Date(end).getFullYear();
+  const s = fmtDate(start, !sameYear);
   const e = fmtDate(end);
-  return s === e ? { text: s, single: true } : { text: `${s} → ${e}`, single: false };
+  return fmtDate(start) === e ? e : `${s} → ${e}`;
 }
 
 export default function SeriesCard({ series }: { series: SeriesSummary }) {
@@ -47,13 +54,20 @@ export default function SeriesCard({ series }: { series: SeriesSummary }) {
           <rect x="3" y="4" width="18" height="18" rx="2" />
           <path d="M16 2v4M8 2v4M3 10h18" />
         </svg>
-        <span>{range.text}</span>
+        <span>{range}</span>
       </div>
 
-      {/* footer — match count + view link */}
+      {/* footer — the series' total, its progress through it, and the view link */}
       <div className={styles.footer}>
         <span className={styles.matches}>
           {series.matchCount} {series.matchCount === 1 ? 'match' : 'matches'}
+          {/* Progress only means something part-way through — nothing played yet,
+              or everything played, is already said by the status pill. */}
+          {series.playedCount !== undefined &&
+            series.playedCount > 0 &&
+            series.playedCount < series.matchCount && (
+              <span className={styles.progress}>{series.playedCount} played</span>
+            )}
         </span>
         <span className={styles.view}>
           View

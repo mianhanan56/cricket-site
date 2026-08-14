@@ -2,82 +2,73 @@
 
 // ===========================================================================
 // Rankings skeleton — bars, plus a row grid standing in for the standings
-// table. Page, head, segmented controls, pill rail and the leader spotlight all
-// come from RankingsView.module.scss.
+// table. Page, head, filter rail, podium and card internals all come from
+// RankingsView.module.scss, so the placeholders occupy the real boxes.
 // ===========================================================================
 
 .inert {
   pointer-events: none;
 }
 
+// The podium is an <ol> in the real view; strip the marker here too.
+.plain {
+  list-style: none;
+}
+
 .caption {
-  width: 232px; // "Official ODI player rankings"
+  width: 236px; // "Official ODI player rankings"
 }
 
-// Mirrors .segmentBtn: py-2 px-5 around 14px/600.
-.segmentBar {
+// --- Filter rail -----------------------------------------------------------
+// Mirrors FilterSelect's trigger: py-2 px-3 around 14px/600 plus the caret.
+
+.trigger {
+  height: 38px;
+  border-radius: $radius-xl;
+  flex-shrink: 0;
+}
+
+.triggerSm {
+  width: 78px; // Men / ODI
+}
+
+.triggerMd {
+  width: 100px; // Players
+}
+
+.triggerLg {
+  width: 118px; // Batting
+}
+
+// --- Podium ----------------------------------------------------------------
+
+.stepRank {
+  width: 34px;
   height: 34px;
-  border-radius: $radius-lg;
-}
-
-.segmentSm {
-  width: 66px; // Men / Women / Test
-}
-
-.segmentMd {
-  width: 74px; // ODI / T20I
-}
-
-// Mirrors .pill: py-2 px-4 in a full pill.
-.pillBar {
-  height: 34px;
-  border-radius: 999px;
-}
-
-.pill1 {
-  width: 92px; // Batting
-}
-.pill2 {
-  width: 96px; // Bowling
-}
-.pill3 {
-  width: 116px; // All-rounder
-}
-
-// --- Leader spotlight ------------------------------------------------------
-
-.leaderRing {
-  width: 56px;
-  height: 56px;
 
   @include tablet {
-    width: 68px;
-    height: 68px;
+    width: 40px;
+    height: 40px;
   }
 }
 
-.leaderEyebrow {
+.stepEyebrow {
   width: 54px;
 }
 
-.leaderName {
-  width: min(72%, 240px);
+.stepName {
+  width: min(80%, 220px);
   margin-block: 2px;
 }
 
-.leaderCountry {
+.stepSub {
   width: 88px;
 }
 
-.leaderRating {
+.stepRating {
   width: 78px;
   height: 32px;
   border-radius: $radius-md;
-}
-
-.leaderRatingLabel {
-  width: 46px;
-  margin-top: $space-1;
 }
 
 // --- Standings table ------------------------------------------------------

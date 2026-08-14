@@ -47,11 +47,15 @@ export const FIXTURE_FORMAT_KEYS: readonly FixtureFormatKey[] = FIXTURE_FORMAT_T
   (t) => t.key
 );
 
-// --- Rankings (/rankings?format=…&gender=…&category=…) ----------------------
+// --- Rankings (/rankings?group=…&format=…&gender=…&category=…) ---------------
+// `group` is the outermost axis: it changes what a row *is* (a player or a
+// side), and so which of the other controls apply — teams have no discipline.
+export type RankingsGroup = 'players' | 'teams';
 export type RankingsFormat = 'test' | 'odi' | 't20i';
 export type RankingsGender = 'men' | 'women';
 export type RankingsCategory = 'batting' | 'bowling' | 'all-rounder';
 
+export const RANKINGS_GROUP_KEYS: readonly RankingsGroup[] = ['players', 'teams'];
 export const RANKINGS_FORMAT_KEYS: readonly RankingsFormat[] = ['test', 'odi', 't20i'];
 export const RANKINGS_GENDER_KEYS: readonly RankingsGender[] = ['men', 'women'];
 export const RANKINGS_CATEGORY_KEYS: readonly RankingsCategory[] = [

@@ -1,15 +1,29 @@
 'use client';
 
 import type { Match } from '@/types';
+import { DEFAULT_BALLS_PER_OVER, ballsFrom } from '@/lib/overs';
 import styles from './WinProbability.module.scss';
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
-function maxOvers(format: string): number {
-  if (format === 'T20') return 20;
-  if (format === 'ODI') return 50;
-  return 90; // TEST (rough cap for projection)
+/**
+ * Balls in an innings. The Hundred carries its own limit (100) — taking the
+ * format's 20 overs at six a piece would hand a chase 20 balls it does not have,
+ * and flatter every required rate accordingly.
+ */
+function inningsBalls(match: Match, perOver: number): number {
+  if (match.ballsLimit) return match.ballsLimit;
+  if (match.format === 'T20') return 20 * perOver;
+  if (match.format === 'ODI') return 50 * perOver;
+  return 90 * perOver; // TEST (rough cap for projection)
 }
+
+/** A par first-innings score, per ball: 170 off a T20, 280 off an ODI, 350 in a day. */
+const PAR_PER_BALL: Record<Match['format'], number> = {
+  T20: 170 / 120,
+  ODI: 280 / 300,
+  TEST: 350 / 540,
+};
 
 /**
  * Basic, math-only win probability (no ML).
@@ -20,29 +34,31 @@ function compute(match: Match): { homePct: number; awayPct: number } | null {
   const inn = sc?.innings?.[sc?.currentInnings ?? 0];
   if (!inn) return null;
 
-  const overs = inn.overs ?? 0;
-  const ballsBowled = Math.floor(overs) * 6 + Math.round((overs % 1) * 10);
-  const crr = ballsBowled ? inn.runs / (ballsBowled / 6) : 0;
+  const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
+  const ballsBowled = ballsFrom(inn.overs ?? 0, perOver);
+  const crr = ballsBowled ? inn.runs / (ballsBowled / perOver) : 0;
   const wktsInHand = Math.max(0, 10 - inn.wickets);
-  const total = maxOvers(match.format);
+  const totalBalls = inningsBalls(match, perOver);
 
   let battingPct: number;
 
   if (sc?.target) {
     const need = sc.target - inn.runs;
-    const ballsLeft = total * 6 - ballsBowled;
+    const ballsLeft = totalBalls - ballsBowled;
     if (need <= 0) battingPct = 99;
     else if (ballsLeft <= 0) battingPct = 1;
     else {
-      const rrr = need / (ballsLeft / 6);
+      const rrr = need / (ballsLeft / perOver);
       const rate = clamp(50 + (crr - rrr) * 8, 5, 95);
       const wf = wktsInHand / 10;
       battingPct = clamp(rate * wf + 20 * (1 - wf), 3, 97);
     }
   } else {
-    // First innings — project the score and compare to a par total.
-    const projected = crr * total;
-    const par = match.format === 'T20' ? 170 : match.format === 'ODI' ? 280 : 350;
+    // First innings — project the score and compare to a par total. Par is held
+    // as a rate per ball rather than a flat score so it follows the innings
+    // length: The Hundred's 100 balls are not worth a 120-ball T20 par.
+    const projected = crr * (totalBalls / perOver);
+    const par = PAR_PER_BALL[match.format] * totalBalls;
     const scoreFactor = clamp(50 + ((projected - par) / par) * 60, 20, 80);
     battingPct = clamp(scoreFactor * 0.7 + (wktsInHand / 10) * 30, 15, 85);
   }

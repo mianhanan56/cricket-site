@@ -800,5 +800,423 @@
         ]
       }
     }
+  },
+  "teams": {
+    "TEST": {
+      "MEN": [
+        {
+          "teamKey": "Q",
+          "teamName": "Australia",
+          "shortName": "AUS",
+          "rating": 131,
+          "points": 3138,
+          "matches": 24
+        },
+        {
+          "teamKey": "P",
+          "teamName": "South Africa",
+          "shortName": "SA",
+          "rating": 119,
+          "points": 2256,
+          "matches": 19
+        },
+        {
+          "teamKey": "R",
+          "teamName": "New Zealand",
+          "shortName": "NZ",
+          "rating": 106,
+          "points": 2336,
+          "matches": 22
+        },
+        {
+          "teamKey": "O",
+          "teamName": "India",
+          "shortName": "IND",
+          "rating": 104,
+          "points": 2714,
+          "matches": 26
+        },
+        {
+          "teamKey": "S",
+          "teamName": "England",
+          "shortName": "ENG",
+          "rating": 99,
+          "points": 3158,
+          "matches": 32
+        },
+        {
+          "teamKey": "T",
+          "teamName": "Sri Lanka",
+          "shortName": "SL",
+          "rating": 76,
+          "points": 1222,
+          "matches": 16
+        },
+        {
+          "teamKey": "U",
+          "teamName": "Pakistan",
+          "shortName": "PAK",
+          "rating": 75,
+          "points": 1427,
+          "matches": 19
+        },
+        {
+          "teamKey": "V",
+          "teamName": "West Indies",
+          "shortName": "WI",
+          "rating": 74,
+          "points": 2008,
+          "matches": 27
+        },
+        {
+          "teamKey": "W",
+          "teamName": "Bangladesh",
+          "shortName": "BAN",
+          "rating": 73,
+          "points": 1539,
+          "matches": 21
+        },
+        {
+          "teamKey": "X",
+          "teamName": "Zimbabwe",
+          "shortName": "ZIM",
+          "rating": 17,
+          "points": 217,
+          "matches": 13
+        }
+      ]
+    },
+    "ODI": {
+      "MEN": [
+        {
+          "teamKey": "O",
+          "teamName": "India",
+          "shortName": "IND",
+          "rating": 116,
+          "points": 3841,
+          "matches": 33
+        },
+        {
+          "teamKey": "R",
+          "teamName": "New Zealand",
+          "shortName": "NZ",
+          "rating": 109,
+          "points": 3809,
+          "matches": 35
+        },
+        {
+          "teamKey": "Q",
+          "teamName": "Australia",
+          "shortName": "AUS",
+          "rating": 102,
+          "points": 2965,
+          "matches": 29
+        },
+        {
+          "teamKey": "P",
+          "teamName": "South Africa",
+          "shortName": "SA",
+          "rating": 102,
+          "points": 2855,
+          "matches": 28
+        },
+        {
+          "teamKey": "U",
+          "teamName": "Pakistan",
+          "shortName": "PAK",
+          "rating": 100,
+          "points": 3215,
+          "matches": 32
+        },
+        {
+          "teamKey": "T",
+          "teamName": "Sri Lanka",
+          "shortName": "SL",
+          "rating": 96,
+          "points": 3470,
+          "matches": 36
+        },
+        {
+          "teamKey": "S",
+          "teamName": "England",
+          "shortName": "ENG",
+          "rating": 93,
+          "points": 2898,
+          "matches": 31
+        },
+        {
+          "teamKey": "Y",
+          "teamName": "Afghanistan",
+          "shortName": "AFG",
+          "rating": 91,
+          "points": 2361,
+          "matches": 26
+        },
+        {
+          "teamKey": "W",
+          "teamName": "Bangladesh",
+          "shortName": "BAN",
+          "rating": 83,
+          "points": 3251,
+          "matches": 39
+        },
+        {
+          "teamKey": "V",
+          "teamName": "West Indies",
+          "shortName": "WI",
+          "rating": 77,
+          "points": 2624,
+          "matches": 34
+        }
+      ],
+      "WOMEN": [
+        {
+          "teamKey": "1I",
+          "teamName": "Australia Women",
+          "shortName": "AUS-W",
+          "rating": 163,
+          "points": 4565,
+          "matches": 28
+        },
+        {
+          "teamKey": "1L",
+          "teamName": "England Women",
+          "shortName": "ENG-W",
+          "rating": 125,
+          "points": 3247,
+          "matches": 26
+        },
+        {
+          "teamKey": "16",
+          "teamName": "India Women",
+          "shortName": "IND-W",
+          "rating": 124,
+          "points": 3712,
+          "matches": 30
+        },
+        {
+          "teamKey": "17",
+          "teamName": "South Africa Women",
+          "shortName": "SA-W",
+          "rating": 100,
+          "points": 3614,
+          "matches": 36
+        },
+        {
+          "teamKey": "1H",
+          "teamName": "New Zealand Women",
+          "shortName": "NZ-W",
+          "rating": 96,
+          "points": 2312,
+          "matches": 24
+        },
+        {
+          "teamKey": "1J",
+          "teamName": "Sri Lanka Women",
+          "shortName": "SL-W",
+          "rating": 89,
+          "points": 2133,
+          "matches": 24
+        },
+        {
+          "teamKey": "8Y",
+          "teamName": "West Indies Women",
+          "shortName": "WI-W",
+          "rating": 74,
+          "points": 1934,
+          "matches": 26
+        },
+        {
+          "teamKey": "1M",
+          "teamName": "Bangladesh Women",
+          "shortName": "BAN-W",
+          "rating": 73,
+          "points": 1537,
+          "matches": 21
+        },
+        {
+          "teamKey": "1K",
+          "teamName": "Pakistan Women",
+          "shortName": "PAK-W",
+          "rating": 73,
+          "points": 1902,
+          "matches": 26
+        },
+        {
+          "teamKey": "2H",
+          "teamName": "Ireland Women",
+          "shortName": "IRE-W",
+          "rating": 46,
+          "points": 1013,
+          "matches": 22
+        }
+      ]
+    },
+    "T20I": {
+      "MEN": [
+        {
+          "teamKey": "O",
+          "teamName": "India",
+          "shortName": "IND",
+          "rating": 268,
+          "points": 16366,
+          "matches": 61
+        },
+        {
+          "teamKey": "S",
+          "teamName": "England",
+          "shortName": "ENG",
+          "rating": 268,
+          "points": 10186,
+          "matches": 38
+        },
+        {
+          "teamKey": "Q",
+          "teamName": "Australia",
+          "shortName": "AUS",
+          "rating": 260,
+          "points": 9868,
+          "matches": 38
+        },
+        {
+          "teamKey": "R",
+          "teamName": "New Zealand",
+          "shortName": "NZ",
+          "rating": 247,
+          "points": 12348,
+          "matches": 50
+        },
+        {
+          "teamKey": "P",
+          "teamName": "South Africa",
+          "shortName": "SA",
+          "rating": 244,
+          "points": 11717,
+          "matches": 48
+        },
+        {
+          "teamKey": "U",
+          "teamName": "Pakistan",
+          "shortName": "PAK",
+          "rating": 240,
+          "points": 13679,
+          "matches": 57
+        },
+        {
+          "teamKey": "V",
+          "teamName": "West Indies",
+          "shortName": "WI",
+          "rating": 234,
+          "points": 13079,
+          "matches": 56
+        },
+        {
+          "teamKey": "W",
+          "teamName": "Bangladesh",
+          "shortName": "BAN",
+          "rating": 224,
+          "points": 11860,
+          "matches": 53
+        },
+        {
+          "teamKey": "T",
+          "teamName": "Sri Lanka",
+          "shortName": "SL",
+          "rating": 221,
+          "points": 9703,
+          "matches": 44
+        },
+        {
+          "teamKey": "Y",
+          "teamName": "Afghanistan",
+          "shortName": "AFG",
+          "rating": 220,
+          "points": 7935,
+          "matches": 36
+        }
+      ],
+      "WOMEN": [
+        {
+          "teamKey": "1I",
+          "teamName": "Australia Women",
+          "shortName": "AUS-W",
+          "rating": 291,
+          "points": 8151,
+          "matches": 28
+        },
+        {
+          "teamKey": "1L",
+          "teamName": "England Women",
+          "shortName": "ENG-W",
+          "rating": 276,
+          "points": 10504,
+          "matches": 38
+        },
+        {
+          "teamKey": "16",
+          "teamName": "India Women",
+          "shortName": "IND-W",
+          "rating": 262,
+          "points": 10743,
+          "matches": 41
+        },
+        {
+          "teamKey": "1H",
+          "teamName": "New Zealand Women",
+          "shortName": "NZ-W",
+          "rating": 249,
+          "points": 7966,
+          "matches": 32
+        },
+        {
+          "teamKey": "17",
+          "teamName": "South Africa Women",
+          "shortName": "SA-W",
+          "rating": 245,
+          "points": 9310,
+          "matches": 38
+        },
+        {
+          "teamKey": "8Y",
+          "teamName": "West Indies Women",
+          "shortName": "WI-W",
+          "rating": 237,
+          "points": 7829,
+          "matches": 33
+        },
+        {
+          "teamKey": "1J",
+          "teamName": "Sri Lanka Women",
+          "shortName": "SL-W",
+          "rating": 237,
+          "points": 8763,
+          "matches": 37
+        },
+        {
+          "teamKey": "1K",
+          "teamName": "Pakistan Women",
+          "shortName": "PAK-W",
+          "rating": 211,
+          "points": 7189,
+          "matches": 34
+        },
+        {
+          "teamKey": "2H",
+          "teamName": "Ireland Women",
+          "shortName": "IRE-W",
+          "rating": 203,
+          "points": 8520,
+          "matches": 42
+        },
+        {
+          "teamKey": "1M",
+          "teamName": "Bangladesh Women",
+          "shortName": "BAN-W",
+          "rating": 196,
+          "points": 7240,
+          "matches": 37
+        }
+      ]
+    }
   }
 }

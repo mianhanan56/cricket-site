@@ -1,8 +1,8 @@
-import type { Match } from '@/types';
+import type { Match, SeriesSummary } from '@/types';
 import { pickParam } from '../../lib/queryParams';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '../../lib/matchType';
 import { SERIES_STATUS_KEYS, type SeriesStatusKey } from '../../lib/tabs';
-import { getCrexMatchList } from '../../lib/crex';
+import { getCrexMatchList, seriesFromMatches, withSeriesSchedules } from '../../lib/crex';
 import SeriesFilter from '../../components/series/SeriesFilter';
 import styles from './series.module.scss';
 
@@ -26,7 +26,7 @@ export default async function SeriesPage({
   const status = pickParam<SeriesStatusKey>(searchParams?.status, SERIES_STATUS_KEYS, 'all');
   const type = pickParam<MatchTypeKey>(searchParams?.type, MATCH_TYPE_KEYS, 'all');
 
-  // The Worker has no series endpoint — a series is a rollup of the match list.
+  // Which series exist, and their live status, comes from the match feed.
   // Matches are handed down raw and grouped in the client component, because the
   // international/domestic filter has to apply *before* the rollup: filtering
   // afterwards would keep a domestic league whose group happens to contain one
@@ -38,6 +38,18 @@ export default async function SeriesPage({
   } catch {
     failed = true;
   }
+
+  // The feed only carries a window of each series, so its spans and counts are
+  // wrong for anything longer than a few days ("2 matches, 12–14 August" for a
+  // 34-match tournament). Real figures come from each series' own schedule,
+  // fetched here and keyed by series id so the client can merge them back after
+  // it regroups under a type filter.
+  const totals: Record<string, SeriesSummary> = Object.fromEntries(
+    (await withSeriesSchedules(seriesFromMatches(matches), matches, { revalidate })).map((s) => [
+      s.id,
+      s,
+    ])
+  );
 
   return (
     <div className={styles.page}>
@@ -51,7 +63,12 @@ export default async function SeriesPage({
       {failed ? (
         <p className={styles.empty}>Could not load series.</p>
       ) : (
-        <SeriesFilter matches={matches} initialStatus={status} initialType={type} />
+        <SeriesFilter
+          matches={matches}
+          totals={totals}
+          initialStatus={status}
+          initialType={type}
+        />
       )}
     </div>
   );

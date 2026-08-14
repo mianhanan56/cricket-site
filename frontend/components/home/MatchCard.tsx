@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Match, Team, InningsScore } from '@/types';
+import { formatProgress } from '@/lib/overs';
 import TeamBadge from './TeamBadge';
 import styles from './MatchCard.module.scss';
 
@@ -34,7 +35,17 @@ const STATUS_CLASS: Record<Match['status'], string> = {
   COMPLETED: 'isCompleted',
 };
 
-function TeamRow({ team, innings, dim }: { team: Team; innings?: InningsScore; dim?: boolean }) {
+function TeamRow({
+  team,
+  innings,
+  ballsPerOver,
+  dim,
+}: {
+  team: Team;
+  innings?: InningsScore;
+  ballsPerOver?: number;
+  dim?: boolean;
+}) {
   return (
     <div className={`${styles.team} ${dim ? styles.dim : ''}`}>
       <div className={styles.teamLeft}>
@@ -46,7 +57,11 @@ function TeamRow({ team, innings, dim }: { team: Team; innings?: InningsScore; d
           {team.name && team.name !== team.shortName && (
             <div className={styles.teamName}>{team.name}</div>
           )}
-          {innings && <div className={styles.overs}>{innings.overs} overs</div>}
+          {/* Overs on all but The Hundred, which is scored in balls — see
+              lib/overs. */}
+          {innings && (
+            <div className={styles.overs}>{formatProgress(innings.overs, ballsPerOver)}</div>
+          )}
         </div>
       </div>
       {innings ? (
@@ -90,8 +105,8 @@ export default function MatchCard({ match }: { match: Match }) {
 
       {/* teams */}
       <div className={styles.teams}>
-        <TeamRow team={match.homeTeam} innings={homeInn} />
-        <TeamRow team={match.awayTeam} innings={awayInn} />
+        <TeamRow team={match.homeTeam} innings={homeInn} ballsPerOver={match.ballsPerOver} />
+        <TeamRow team={match.awayTeam} innings={awayInn} ballsPerOver={match.ballsPerOver} />
       </div>
 
       {/* footer */}

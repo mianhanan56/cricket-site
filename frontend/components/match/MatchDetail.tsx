@@ -12,6 +12,12 @@ import type {
   SquadPlayer,
 } from '@/types';
 import { useCrexMatch, useCrexMatchExtras } from '@/hooks/useCrexMatches';
+import {
+  DEFAULT_BALLS_PER_OVER,
+  HUNDRED_BALLS_PER_OVER,
+  ballsFrom,
+  formatProgressShort,
+} from '@/lib/overs';
 import WinProbability from './WinProbability';
 import {
   BowlingSkeleton,
@@ -61,12 +67,12 @@ function inningsListFor(match: Match, team: Team): InningsScore[] {
 //
 // An innings crex lists before it starts is skipped: its XI belongs on the
 // scorecard, but a "0/0" next to a side that has not batted is a wrong score.
-function scoreParts(list: InningsScore[]): { runs: string; overs: string } | null {
+function scoreParts(list: InningsScore[], perOver: number): { runs: string; overs: string } | null {
   const batted = list.filter((i) => !i.notStarted);
   if (!batted.length) return null;
   return {
     runs: batted.map((i) => `${i.runs}/${i.wickets}`).join(' & '),
-    overs: `(${batted[batted.length - 1].overs} ov)`,
+    overs: `(${formatProgressShort(batted[batted.length - 1].overs, perOver)})`,
   };
 }
 
@@ -94,9 +100,10 @@ function atCrease(b: BatsmanLine): boolean {
   return !b.out && dismissalOf(b) === 'not out';
 }
 
-// crex counts balls; overs are sixths, so 27 balls is 4.3 — always one decimal
-// so a completed spell reads "4.0", not "4".
-function fmtOvers(overs: number): string {
+// A bowler's spell. Always one decimal so a completed one reads "4.0", not "4"
+// — except on The Hundred, where a spell is a plain count of balls.
+function fmtOvers(overs: number, perOver: number): string {
+  if (perOver === HUNDRED_BALLS_PER_OVER) return String(ballsFrom(overs, perOver));
   return overs.toFixed(1);
 }
 
@@ -118,16 +125,6 @@ function kindClass(b: BallEntry): string {
 }
 
 // ------------------------------------------------------------------ Run rates
-
-/**
- * Cricket over notation to a ball count: 36.3 is 36 overs and 3 balls, not 36.3
- * overs. Everything rate-related has to go through this — dividing runs by 36.3
- * flatters a run rate by up to half an over.
- */
-function ballsFrom(overs: number, perOver: number): number {
-  const whole = Math.floor(overs);
-  return whole * perOver + Math.round((overs - whole) * 10);
-}
 
 /** Scheduled overs per side. Test cricket has none, which is what null means. */
 const FORMAT_OVERS: Record<Match['format'], number | null> = {
@@ -183,7 +180,7 @@ interface Rates {
  * would print a confidently wrong target.
  */
 function computeRates(match: Match, innings: InningsScore[]): Rates | null {
-  const perOver = match.ballsPerOver || 6;
+  const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
   const batted = innings.filter((i) => !i.notStarted);
   if (!batted.length) return null;
 
@@ -293,8 +290,9 @@ export default function MatchDetail({
   const isConnected = Boolean(lastUpdated);
 
   const innings = match.scorecard?.innings ?? [];
-  const homeScore = scoreParts(inningsListFor(match, match.homeTeam));
-  const awayScore = scoreParts(inningsListFor(match, match.awayTeam));
+  const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
+  const homeScore = scoreParts(inningsListFor(match, match.homeTeam), perOver);
+  const awayScore = scoreParts(inningsListFor(match, match.awayTeam), perOver);
 
   // The delivery just bowled, shown large in the middle of the header. `dots` runs
   // oldest to newest, so the last entry is the live one.
@@ -558,6 +556,9 @@ function ScorecardTab({
 }) {
   const [selected, setSelected] = useState(Math.max(0, innings.length - 1));
   const current = innings[Math.min(selected, Math.max(0, innings.length - 1))];
+  const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
+  // The Hundred has no over column — a bowler's spell is counted in balls.
+  const isHundred = perOver === HUNDRED_BALLS_PER_OVER;
 
   // Per-innings lines when the scorecard carries them; otherwise the top-level
   // batting/bowling arrays describe the latest (in-progress) innings only.
@@ -634,7 +635,7 @@ function ScorecardTab({
                       Total
                     </td>
                     <td className={styles.num} colSpan={5}>
-                      {current.runs}/{current.wickets} ({current.overs} ov)
+                      {current.runs}/{current.wickets} ({formatProgressShort(current.overs, perOver)})
                     </td>
                   </tr>
                 )}
@@ -646,7 +647,7 @@ function ScorecardTab({
         ) : yetToBat.length ? null : (
           <p className={styles.empty}>
             {current
-              ? `No ball-by-ball batting data for this innings — total ${current.runs}/${current.wickets} (${current.overs} ov).`
+              ? `No ball-by-ball batting data for this innings — total ${current.runs}/${current.wickets} (${formatProgressShort(current.overs, perOver)}).`
               : 'No batting data yet.'}
           </p>
         )}
@@ -685,7 +686,7 @@ function ScorecardTab({
               <thead>
                 <tr>
                   <th className={styles.left}>Bowler</th>
-                  <th>O</th>
+                  <th>{isHundred ? 'B' : 'O'}</th>
                   <th>M</th>
                   <th>R</th>
                   <th>W</th>
@@ -696,7 +697,7 @@ function ScorecardTab({
                 {bowling.map((b) => (
                   <tr key={b.playerId}>
                     <td className={styles.left}>{b.name}</td>
-                    <td className={styles.num}>{fmtOvers(b.overs)}</td>
+                    <td className={styles.num}>{fmtOvers(b.overs, perOver)}</td>
                     <td className={styles.num}>{b.maidens}</td>
                     <td className={styles.num}>{b.runs}</td>
                     <td className={styles.num}>{b.wickets}</td>

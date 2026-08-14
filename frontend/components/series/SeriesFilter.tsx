@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { Match } from '@/types';
+import type { Match, SeriesSummary } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import { seriesFromMatches } from '@/lib/crex';
 import {
@@ -19,6 +19,12 @@ import styles from './SeriesFilter.module.scss';
 export interface SeriesFilterProps {
   /** The whole match feed; series are grouped out of it here. */
   matches: Match[];
+  /**
+   * Real spans and match totals from each series' own schedule, keyed by series
+   * id — see the /series page. The rollup below cannot know them: it only sees
+   * the feed's window.
+   */
+  totals?: Record<string, SeriesSummary>;
   /** Initial tab + type, read off the URL by the page. */
   initialStatus: SeriesStatusKey;
   initialType: MatchTypeKey;
@@ -26,6 +32,7 @@ export interface SeriesFilterProps {
 
 export default function SeriesFilter({
   matches,
+  totals,
   initialStatus,
   initialType,
 }: SeriesFilterProps) {
@@ -40,10 +47,14 @@ export default function SeriesFilter({
 
   // Type filter first, then the rollup: a series' status and match count both
   // have to describe the matches actually being shown.
-  const grouped = useMemo(
-    () => seriesFromMatches(filterByMatchType(matches, matchType)),
-    [matches, matchType]
-  );
+  // The rollup decides which series exist under the current type filter; where a
+  // full schedule was fetched for one, that replaces the rollup's figures wholesale
+  // — its span, total, played count and status are all better informed (see
+  // withSeriesSchedules).
+  const grouped = useMemo(() => {
+    const rolled = seriesFromMatches(filterByMatchType(matches, matchType));
+    return totals ? rolled.map((s) => totals[s.id] ?? s) : rolled;
+  }, [matches, matchType, totals]);
 
   const visible = useMemo(
     () => (active.status ? grouped.filter((s) => s.status === active.status) : grouped),

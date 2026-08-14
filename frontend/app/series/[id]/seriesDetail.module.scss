@@ -143,6 +143,128 @@
   color: $text-muted;
 }
 
+// --- Full schedule ---------------------------------------------------------
+// A list, not a card grid: 30-odd fixtures scanned by date want rows. One glass
+// panel, hairline-divided, so the section reads as a single table rather than as
+// thirty competing surfaces.
+
+.schedule {
+  @include card;
+  padding: 0;
+  overflow: hidden;
+}
+
+.row {
+  display: grid;
+  // Number | teams+meta | result. The middle column takes the slack; the outer
+  // two size to content so a long result never squeezes the teams to nothing.
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: $space-1 $space-3;
+  padding: $space-3;
+  transition: background 0.15s ease;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $card-border;
+  }
+
+  &:hover {
+    background: $card-hover;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: -2px;
+  }
+
+  // A fixture with no match page yet: no hover affordance, because there is
+  // nothing to click.
+  &.rowInert:hover {
+    background: none;
+  }
+
+  // From tablet the status/result moves onto the same line, right-aligned.
+  @include tablet {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: $space-3 $space-4;
+  }
+}
+
+// Match number — a quiet index, deliberately not competing with the teams.
+.rowNo {
+  @include flex-center;
+  min-width: 26px;
+  height: 26px;
+  padding-inline: $space-1;
+  border-radius: $radius-sm;
+  background: $surface-elevated;
+  font-family: $font-mono;
+  font-size: 11px;
+  color: $text-muted;
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rowTeams {
+  @include fluid-text;
+  font-size: $text-sm;
+  font-weight: 600;
+
+  @include sm {
+    font-size: $text-base;
+  }
+}
+
+.rowVs {
+  font-size: $text-2xs;
+  font-weight: 400;
+  color: $text-muted;
+  text-transform: uppercase;
+}
+
+.rowMeta {
+  @include truncate(1);
+  min-width: 0;
+  font-size: $text-xs;
+  color: $text-muted;
+}
+
+.rowResult {
+  @include fluid-text;
+  grid-column: 2;
+  font-size: $text-xs;
+  color: $accent-amber;
+
+  @include tablet {
+    grid-column: auto;
+    max-width: 28ch;
+    text-align: right;
+  }
+}
+
+.rowStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  grid-column: 2;
+  justify-self: start;
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px $space-2;
+  border-radius: $radius-md;
+
+  @include tablet {
+    grid-column: auto;
+    justify-self: end;
+  }
+}
+
 // Same fluid three-up grid as /fixtures and /series, so a match card keeps the
 // width it was designed for on every list page.
 .grid {

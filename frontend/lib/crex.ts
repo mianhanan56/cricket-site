@@ -207,6 +207,51 @@ export function getCrexRankingList(
   return crexGet<CrexRankingRow[]>(`/rankings/players?${qs}`, { revalidate: 3600, ...opts });
 }
 
+/** One row of an ICC *team* ranking list. `tf` resolves through /mapping. */
+export interface CrexTeamRankingRow {
+  /** Rating — points / matches, rounded the way the ICC publishes it. */
+  r: number;
+  /** Total rating points. */
+  p: number;
+  /** Matches counted in the rating period. */
+  m: number;
+  /** Team f_key. */
+  tf: string;
+}
+
+/** crex's own format keys on the team-rankings response. Note t20, not t20i. */
+export type CrexTeamRankingsResponse = Partial<
+  Record<'test' | 'odi' | 't20', CrexTeamRankingRow[]>
+>;
+
+/**
+ * Team rankings for one gender — all three formats in a single response.
+ *
+ * This is the Worker's `/rankings` (crex's rankingFront), NOT the string-param
+ * `/rankings/players` route with `category=team`. Both exist and this one is
+ * strictly better here: it returns every format at once, so the whole page costs
+ * two calls rather than six, and `category=team&type=t20&gender=women` on the
+ * other route comes back empty while this one has the list. `category` is passed
+ * only because the route requires it — the reply ignores it and sends all three.
+ */
+export function getCrexTeamRankings(
+  gender: 'men' | 'women',
+  opts: FetchOpts = {}
+): Promise<CrexTeamRankingsResponse> {
+  const qs = new URLSearchParams({
+    category: '0',
+    gender: gender === 'women' ? '1' : '0',
+    play: '0',
+  });
+  return crexGet<CrexTeamRankingsResponse>(`/rankings?${qs}`, { revalidate: 3600, ...opts });
+}
+
+/** Crest URL for a team f_key, or null when there is no key to build one from. */
+export function teamLogoUrl(key: string | undefined): string | null {
+  const clean = cleanKey(key);
+  return clean ? `${TEAM_LOGO_BASE}/${clean}.png` : null;
+}
+
 /**
  * Resolve keys to names. Buckets are comma-separated; empty ones are omitted so
  * the Worker's cache key stays as small as possible.
@@ -243,32 +288,68 @@ const nameCache: Record<CrexMapKind, Map<string, CrexMapEntry>> = {
 /** crex prefixes some keys with "^" on the match object but not in the map. */
 const cleanKey = (key: string | undefined): string => (key ?? '').replace(/^\^/, '');
 
-/** Fetch whatever is missing from the cache, then return the whole cache. */
-export async function resolveNames(
-  matches: CrexRawMatch[],
+/** The Worker caps /mapping at 200 keys per bucket, so ask in batches. */
+const MAPPING_BATCH = 200;
+
+/**
+ * Fetch whatever keys are not cached yet, then return the whole cache.
+ *
+ * The single door into `nameCache`: hand it the keys a payload referenced, in
+ * whatever buckets, and it asks for only the ones it has not seen. Requests are
+ * split into batches because the Worker caps /mapping at 200 keys per bucket.
+ */
+export async function resolveKeys(
+  wanted: Partial<Record<CrexMapKind, Iterable<string>>>,
   opts: FetchOpts = {}
 ): Promise<typeof nameCache> {
-  const wanted: Record<CrexMapKind, Set<string>> = { t: new Set(), v: new Set(), s: new Set(), p: new Set() };
+  const missing: Partial<Record<CrexMapKind, string[]>> = {};
+  let batches = 0;
 
-  for (const m of matches) {
-    for (const [kind, key] of [['t', m.b], ['t', m.c], ['v', m.v], ['s', m.q]] as const) {
-      const clean = cleanKey(key);
-      if (clean && !nameCache[kind].has(clean)) wanted[kind].add(clean);
+  for (const [kind, keys] of Object.entries(wanted) as Array<[CrexMapKind, Iterable<string>]>) {
+    const list = [...new Set([...(keys ?? [])].map(cleanKey))].filter(
+      (k) => k && !nameCache[kind].has(k)
+    );
+    if (list.length) {
+      missing[kind] = list;
+      batches = Math.max(batches, Math.ceil(list.length / MAPPING_BATCH));
     }
   }
+  if (!batches) return nameCache;
 
-  const missing = Object.fromEntries(
-    Object.entries(wanted).filter(([, set]) => set.size).map(([kind, set]) => [kind, [...set]])
-  ) as Partial<Record<CrexMapKind, string[]>>;
+  // One request per slice across all buckets at once, rather than per bucket:
+  // teams and venues for the same payload arrive together.
+  const requests: Promise<CrexMapping>[] = [];
+  for (let i = 0; i < batches; i++) {
+    const slice = Object.fromEntries(
+      Object.entries(missing)
+        .map(([kind, list]) => [kind, list.slice(i * MAPPING_BATCH, (i + 1) * MAPPING_BATCH)])
+        .filter(([, list]) => list.length)
+    ) as Partial<Record<CrexMapKind, string[]>>;
+    requests.push(getCrexMapping(slice, opts));
+  }
 
-  if (Object.keys(missing).length) {
-    const mapping = await getCrexMapping(missing, opts);
+  for (const mapping of await Promise.all(requests)) {
     for (const kind of ['t', 'v', 's', 'p'] as const) {
       for (const entry of mapping[kind] ?? []) nameCache[kind].set(entry.f_key, entry);
     }
   }
 
   return nameCache;
+}
+
+/** The teams, venues and series named by a batch of raw matches. */
+export function resolveNames(
+  matches: CrexRawMatch[],
+  opts: FetchOpts = {}
+): Promise<typeof nameCache> {
+  return resolveKeys(
+    {
+      t: matches.flatMap((m) => [m.b, m.c]),
+      v: matches.map((m) => m.v),
+      s: matches.map((m) => m.q),
+    },
+    opts
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -593,24 +674,6 @@ function decodeBowler(
   };
 }
 
-/** The Worker caps /mapping at 200 keys per bucket, so ask in batches. */
-const MAPPING_BATCH = 200;
-
-/** Resolve any player keys we have not seen before, into the shared cache. */
-async function cachePlayerNames(keys: string[], opts: FetchOpts): Promise<void> {
-  const missing = [...new Set(keys.filter((k) => k && !nameCache.p.has(k)))];
-  if (!missing.length) return;
-
-  const batches: Promise<CrexMapping>[] = [];
-  for (let i = 0; i < missing.length; i += MAPPING_BATCH) {
-    batches.push(getCrexMapping({ p: missing.slice(i, i + MAPPING_BATCH) }, opts));
-  }
-
-  for (const mapping of await Promise.all(batches)) {
-    for (const entry of mapping.p ?? []) nameCache.p.set(entry.f_key, entry);
-  }
-}
-
 /** Innings totals, batting and bowling cards for a crex match, in order. */
 export async function getCrexScorecard(
   matchKey: string,
@@ -638,11 +701,7 @@ export async function getCrexScorecard(
   ]);
   const teamKeys = innings.map((i) => cleanKey(i.c)).filter(Boolean);
 
-  const [, teamMapping] = await Promise.all([
-    cachePlayerNames(playerKeys.filter(Boolean), opts),
-    getCrexMapping({ t: teamKeys }, opts),
-  ]);
-  for (const entry of teamMapping.t ?? []) nameCache.t.set(entry.f_key, entry);
+  await resolveKeys({ p: playerKeys.filter(Boolean), t: teamKeys }, opts);
 
   return innings.flatMap((inn) => {
     const total = /^(\d+)\/(\d+)\((\d+)/.exec(inn.d ?? '');
@@ -787,16 +846,14 @@ export async function getCrexCommentary(
 /**
  * Roll the match list up into series.
  *
- * The backend's own series endpoint counts only matches synced into our DB,
- * which is why a full season shows as "1 match". Grouping the crex feed instead
- * gives a count that matches what a user can actually click through to, at no
- * extra request — the matches are already in hand.
+ * Cheap but partial: crex's match feed is a window (live, upcoming and recently
+ * finished), not a season, so the count and the dates here describe *the matches
+ * currently in the feed* — "2 matches, 12–14 August" for a tournament that runs
+ * 34 across a month.
  *
- * Caveat worth knowing: crex's feed is a window (live, upcoming and recently
- * finished), not a whole season, so this is "matches currently listed for this
- * series" rather than a season total. For an in-progress series that is the
- * number people care about; for a finished one it undercounts, which is
- * academic here because completed series are filtered out of the UI.
+ * Use it for grouping and for the status, then enrich with
+ * `getCrexSeriesSchedule` for figures a reader would recognise. Everything the
+ * UI shows as a total goes through that.
  */
 export function seriesFromMatches(matches: Match[]): SeriesSummary[] {
   const groups = new Map<string, Match[]>();
@@ -844,4 +901,285 @@ export function seriesFromMatches(matches: Match[]): SeriesSummary[] {
   return summaries.sort(
     (a, b) => rank[a.status] - rank[b.status] || +new Date(a.startDate) - +new Date(b.startDate)
   );
+}
+
+// ---------------------------------------------------------------------------
+// Series schedule — the whole competition, not the live window
+// ---------------------------------------------------------------------------
+//
+// /series/matches answers what /matches/live cannot: every match in a series,
+// including the ones that finished before the feed's window and the ones still
+// weeks out. It is the only honest source for a series' span and match total.
+
+/** One match as the series endpoint sends it, keyed by date ("2026/7/21"). */
+export interface CrexSeriesMatch {
+  /** Match f_key — the id /matches/{id} takes. */
+  mf: string;
+  /** Team 1 / team 2 keys. Resolve via /mapping `t`. */
+  t1f?: string;
+  t2f?: string;
+  /** Venue key. */
+  vf?: string;
+  /** Match number within the series, "1" or "Final". */
+  mn?: string;
+  /** Start time, epoch ms. */
+  t?: number;
+  /** 0 upcoming, 1 live, 2 finished. */
+  s?: number;
+  /** Result text, once there is one. */
+  r?: string;
+  /** Format id: 1 ODI, 2 T20, 3 Test, 4 T10, 5 The Hundred. */
+  ft?: number;
+}
+
+export type CrexSeriesMatchesResponse = Record<string, CrexSeriesMatch[]>;
+
+/** Raw schedule for one series, grouped by date. */
+export function getCrexSeriesMatches(
+  seriesKey: string,
+  opts: FetchOpts = {}
+): Promise<CrexSeriesMatchesResponse> {
+  return crexGet<CrexSeriesMatchesResponse>(
+    `/series/matches?key=${encodeURIComponent(cleanKey(seriesKey))}`,
+    { revalidate: 300, ...opts }
+  );
+}
+
+/** `s` on a series match. Not the same vocabulary as `n` on a feed match. */
+const SERIES_MATCH_STATUS: Record<number, MatchStatus> = {
+  0: 'UPCOMING',
+  1: 'LIVE',
+  2: 'COMPLETED',
+};
+
+/**
+ * Scheduled days a match of each format occupies.
+ *
+ * A series' end date is the last match's *start* plus this. Without it a two-Test
+ * tour whose second Test begins on the 22nd reads as ending on the 22nd, when the
+ * scheduled finish is the 26th — and crex's own series header says the 26th.
+ */
+const FORMAT_DAYS: Record<MatchFormat, number> = { TEST: 5, ODI: 1, T20: 1 };
+
+/** `ft` on a series match. T10 and The Hundred fold into T20, as in toMatchFormat. */
+const SERIES_MATCH_FORMAT: Record<number, MatchFormat> = {
+  1: 'ODI',
+  2: 'T20',
+  3: 'TEST',
+  4: 'T20',
+  5: 'T20',
+};
+
+/** One row of a series' schedule, with keys resolved to names. */
+export interface SeriesScheduleMatch {
+  /**
+   * Match key, or null on a fixture crex has not allocated one to yet — the
+   * playoffs of a league in progress, typically. Those rows are still real
+   * scheduled matches and still count; they just have nothing to link to.
+   */
+  id: string | null;
+  /** Stable list key: the match key, or its slot in the schedule. */
+  key: string;
+  /** "1", "Final", or null when crex has not numbered it. */
+  matchNo: string | null;
+  format: MatchFormat;
+  status: MatchStatus;
+  startTime: string;
+  venue: string;
+  result: string | null;
+  homeTeam: Team;
+  awayTeam: Team;
+}
+
+export interface SeriesSchedule extends SeriesSummary {
+  /** Every match in the series, earliest first. */
+  matches: SeriesScheduleMatch[];
+  /** How many are done — the other half of "12 of 34". */
+  playedCount: number;
+}
+
+/** The day a match is scheduled to finish on, as an ISO string. */
+function lastDay(match: SeriesScheduleMatch): string {
+  const days = FORMAT_DAYS[match.format] - 1;
+  if (!days) return match.startTime;
+  return new Date(+new Date(match.startTime) + days * 86_400_000).toISOString();
+}
+
+/**
+ * A series' full schedule: real start and end dates, a real match total, and
+ * every fixture in order.
+ *
+ * `fallback` supplies the name and format when the mapping has no entry for the
+ * series key, which is why the feed-derived summary is worth passing in.
+ * Returns null when crex lists no matches for the key at all.
+ */
+export async function getCrexSeriesSchedule(
+  seriesKey: string,
+  opts: FetchOpts & { fallback?: SeriesSummary } = {}
+): Promise<SeriesSchedule | null> {
+  const id = cleanKey(seriesKey);
+  const raw = await getCrexSeriesMatches(id, opts);
+
+  // A start time is the only field this needs: `mf` is missing on unallocated
+  // fixtures and requiring it undercounts a league by its whole playoff stage
+  // (7 of the CPL's 39 matches have keys today), which is exactly the wrong
+  // number to report as a total.
+  const rows = Object.values(raw ?? {})
+    .flat()
+    .filter((m): m is CrexSeriesMatch & { t: number } => Boolean(m?.t))
+    .sort((a, b) => a.t - b.t);
+  if (!rows.length) return null;
+
+  const names = await resolveKeys(
+    {
+      t: rows.flatMap((m) => [m.t1f ?? '', m.t2f ?? '']),
+      v: rows.map((m) => m.vf ?? ''),
+      s: [id],
+    },
+    opts
+  );
+
+  const matches: SeriesScheduleMatch[] = rows.map((m, i) => ({
+    id: m.mf || null,
+    key: m.mf || `${id}-${i}`,
+    // crex sometimes sends the number in its encoded form ("^0"), which is not a
+    // number and not worth decoding for a list index.
+    matchNo: m.mn && !m.mn.startsWith('^') ? m.mn : null,
+    format: SERIES_MATCH_FORMAT[m.ft ?? 0] ?? opts.fallback?.format ?? 'T20',
+    status: SERIES_MATCH_STATUS[m.s ?? 0] ?? 'UPCOMING',
+    startTime: new Date(m.t).toISOString(),
+    venue: names.v.get(cleanKey(m.vf))?.n ?? 'TBD',
+    result: m.r || null,
+    homeTeam: toTeam(m.t1f ?? '', names),
+    awayTeam: toTeam(m.t2f ?? '', names),
+  }));
+
+  // Same rule as seriesFromMatches: live if anything is live, else upcoming if
+  // anything is still to come.
+  const status: MatchStatus = matches.some((m) => m.status === 'LIVE')
+    ? 'LIVE'
+    : matches.some((m) => m.status === 'UPCOMING')
+      ? 'UPCOMING'
+      : 'COMPLETED';
+
+  // A tour can mix formats (Tests then ODIs); the most common one is the fairest
+  // single label.
+  const tally = new Map<MatchFormat, number>();
+  for (const m of matches) tally.set(m.format, (tally.get(m.format) ?? 0) + 1);
+  const format = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
+
+  return {
+    id,
+    name: names.s.get(id)?.n ?? opts.fallback?.name ?? 'Cricket',
+    format,
+    status,
+    matchCount: matches.length,
+    playedCount: matches.filter((m) => m.status === 'COMPLETED').length,
+    // Rows are sorted, so the span runs from the first match's start to the last
+    // one's scheduled finish.
+    startDate: matches[0].startTime,
+    endDate: lastDay(matches[matches.length - 1]),
+    matches,
+  };
+}
+
+/**
+ * A schedule assembled from the live feed instead of the series endpoint.
+ *
+ * The narrow view — only the matches inside the feed's window, so the span and
+ * the total are the feed's, not the season's. It exists as a fallback: a series
+ * page built solely on /series/matches would 404 outright whenever that endpoint
+ * is unreachable, and a short schedule beats no page.
+ */
+export function seriesScheduleFromMatches(
+  seriesId: string,
+  matches: Match[]
+): SeriesSchedule | null {
+  const id = cleanKey(seriesId);
+  const mine = matches
+    .filter((m) => m.series?.id === id)
+    .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime));
+
+  const summary = seriesFromMatches(mine)[0];
+  if (!summary) return null;
+
+  return {
+    ...summary,
+    playedCount: mine.filter((m) => m.status === 'COMPLETED').length,
+    matches: mine.map((m) => ({
+      id: m.id,
+      key: m.id,
+      matchNo: null,
+      format: m.format,
+      status: m.status,
+      startTime: m.startTime,
+      venue: m.venue,
+      result: m.result ?? null,
+      homeTeam: m.homeTeam,
+      awayTeam: m.awayTeam,
+    })),
+  };
+}
+
+/**
+ * Correct a schedule's per-match statuses from the live feed, then re-derive the
+ * series status and played count from the result.
+ *
+ * Both sources are wrong on their own. The schedule's `s` is up to five minutes
+ * stale, so a finished match can still read as live. The feed is current but only
+ * covers a window, so a tour whose one listed match has just finished looks over
+ * even with a Test still to come — which is exactly how "Bangladesh tour of
+ * Australia" came out as COMPLETED with a match left on the 22nd.
+ *
+ * Taking each match's status from the feed when the feed has it, and the series'
+ * status from the whole corrected list, is right in both directions.
+ */
+export function withFeedStatuses(schedule: SeriesSchedule, feed: Match[]): SeriesSchedule {
+  const fresh = new Map(
+    feed.filter((m) => m.series.id === schedule.id).map((m) => [m.id, m.status])
+  );
+
+  const matches = fresh.size
+    ? schedule.matches.map((m) => {
+        const current = m.id ? fresh.get(m.id) : undefined;
+        return current && current !== m.status ? { ...m, status: current } : m;
+      })
+    : schedule.matches;
+
+  return {
+    ...schedule,
+    matches,
+    status: matches.some((m) => m.status === 'LIVE')
+      ? 'LIVE'
+      : matches.some((m) => m.status === 'UPCOMING')
+        ? 'UPCOMING'
+        : 'COMPLETED',
+    playedCount: matches.filter((m) => m.status === 'COMPLETED').length,
+  };
+}
+
+/**
+ * Enrich feed-derived summaries with their real spans, totals and statuses.
+ *
+ * One request per series, in parallel — they are independent, edge-cached for
+ * five minutes apiece, and a series whose schedule fails to load keeps its
+ * feed-derived figures rather than dropping off the page.
+ */
+export async function withSeriesSchedules(
+  summaries: SeriesSummary[],
+  feed: Match[],
+  opts: FetchOpts = {}
+): Promise<SeriesSummary[]> {
+  const schedules = await Promise.all(
+    summaries.map((s) =>
+      getCrexSeriesSchedule(s.id, { ...opts, fallback: s }).catch(() => null)
+    )
+  );
+
+  return summaries.map((s, i) => {
+    const full = schedules[i];
+    if (!full) return s;
+    const { matches: _matches, ...summary } = withFeedStatuses(full, feed);
+    return summary;
+  });
 }

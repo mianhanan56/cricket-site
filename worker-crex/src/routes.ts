@@ -228,6 +228,34 @@ export const ROUTES: RouteDef[] = [
     note: 'Schedule; wise 1=date 2=series 3=team, page 0=today and negative=past (wise=1,2 only)',
   },
   {
+    // Every match in one series — the whole competition, not the live window.
+    //
+    // This is what /matches/live cannot answer. That feed is a rolling window of
+    // what is on now, next and just gone, so a series rolled up from it reports
+    // "2 matches, 12–14 August" for a tournament that actually runs 34 matches
+    // across a month. This endpoint returns the lot: every match keyed by date,
+    // with the match f_key (`mf`), both team keys (`t1f`/`t2f`), venue (`vf`),
+    // match number (`mn`), start time (`t`, epoch ms), status (`s`: 0 upcoming,
+    // 1 live, 2 finished) and result text (`r`) once played.
+    //
+    // The body param is `fkey`, which is worth recording because nothing else
+    // works: `seriesId`, `seriesKey`, `sf`, `series_fkey` and friends all come
+    // back "Not a valid Request", and `id` reaches the SQL layer and errors
+    // there. It takes a series f_key ("2AW"), the same one /mapping resolves.
+    match: '/series/matches',
+    base: 'oc',
+    path: '/seriesInside/getMatchForSeriesID',
+    method: 'POST',
+    // A schedule, like /fixtures: rows only move when a match finishes, and the
+    // live detail of a match in progress comes from /matches/live instead.
+    ttl: 300,
+    params: {
+      key: { type: 'string', required: true },
+    },
+    buildBody: (p) => ({ fkey: p.key }),
+    note: 'All matches in a series, grouped by date: /series/matches?key=2AW',
+  },
+  {
     match: '/news/topics',
     base: 'news',
     path: '/api/articlesOC/topics',

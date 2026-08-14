@@ -33,6 +33,12 @@ export interface ISeries {
 export interface ISeriesSummary extends ISeries {
   status: MatchStatus;
   matchCount: number;
+  /**
+   * How many of `matchCount` are already played. Only present when the figures
+   * come from a series' full schedule — a rollup of the live match feed has no
+   * way to know what happened before its window.
+   */
+  playedCount?: number;
 }
 
 export interface IPlayer {
@@ -218,6 +224,39 @@ export interface RankingEntry {
   gender: RankingGender;
   points: number;
   rating: number;
+  position: number;
+  /**
+   * Position on the previous list, when the source knows it. Absent on the
+   * bundled snapshot, which stores order and nothing about how it got there —
+   * so the movement indicator is drawn only when this is a number, rather than
+   * defaulting to "no change" and asserting something we don't know.
+   */
+  previousPosition?: number;
+}
+
+/**
+ * One row of an ICC *team* ranking list.
+ *
+ * Deliberately not a `RankingEntry` with the player fields blanked: a team row
+ * carries two facts a player row has no equivalent of — `matches` and `points`,
+ * from which the rating is the quotient — and rendering it means a crest rather
+ * than a name and a country. Folding the two together would give every consumer
+ * a type where half the fields are conditionally meaningless.
+ */
+export interface TeamRankingEntry {
+  id: string;
+  /** crex f_key — also what the crest URL is built from. */
+  teamKey: string;
+  teamName: string;
+  shortName: string;
+  logo: string | null;
+  format: RankingFormat;
+  gender: RankingGender;
+  /** Rating points accumulated over `matches`. */
+  points: number;
+  /** points / matches, as the ICC publishes it. */
+  rating: number;
+  matches: number;
   position: number;
 }
 
