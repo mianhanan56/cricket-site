@@ -2,7 +2,11 @@
 
 .page {
   @include container;
-  padding-block: $space-10 0; // pt-10 (40px); footer carries its own mt-24
+  padding-block: $space-6 0; // footer carries its own top margin
+
+  @include sm {
+    padding-block: $space-10 0; // pt-10 (40px)
+  }
 }
 
 .section {

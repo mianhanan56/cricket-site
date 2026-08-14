@@ -3,12 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
-import SearchBar from './SearchBar';
 import ThemeToggle from './ThemeToggle';
 import styles from './Navbar.module.scss';
 
 const NAV_LINKS = [
   { href: '/', label: 'Matches' },
+  { href: '/series', label: 'Series' },
   { href: '/fixtures', label: 'Fixtures' },
   { href: '/rankings', label: 'Rankings' },
 ];
@@ -47,8 +47,9 @@ export default function Navbar() {
           ))}
         </nav>
 
+        {/* Search lives on its own page (linked from the footer) rather than in
+            the bar — the bar carries navigation and the theme switch only. */}
         <div className={styles.actions}>
-          <SearchBar />
           <ThemeToggle />
           <button
             className={styles.burger}

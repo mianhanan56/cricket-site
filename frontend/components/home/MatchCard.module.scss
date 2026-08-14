@@ -7,13 +7,18 @@
   @include card; // glass + rounded-2xl (22px)
   display: flex;
   flex-direction: column;
-  padding: $space-5; // p-5 (20px)
+  padding: $space-4;
   height: 100%;
   width: 100%;
+  min-width: 0;
 
   &:hover {
     border-color: color-mix(in oklab, var(--accent-green) 40%, transparent);
     transform: translateY(-2px);
+  }
+
+  @include sm {
+    padding: $space-5; // p-5 (20px)
   }
 }
 
@@ -55,6 +60,7 @@
 // text-xs text-muted-foreground truncate
 .series {
   @include truncate(1);
+  min-width: 0; // shrink the title, never the row
   font-size: $text-xs; // 12px
   color: $text-muted;
 }
@@ -169,11 +175,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 15ch;
+  // 15ch is the intended reading length, but it must never win over the space
+  // the slide actually has — otherwise the name pushes the score off the card.
+  max-width: min(15ch, 100%);
 }
 
 // font-display font-semibold
 .teamCode {
+  @include truncate(1);
   font-family: $font-display;
   font-weight: 600;
   font-size: $text-base; // 16px
@@ -190,8 +199,13 @@
 .score {
   @include score-number;
   flex-shrink: 0;
-  font-size: $text-xl; // text-xl (20px)
+  white-space: nowrap;
+  font-size: $text-lg;
   color: $text-primary;
+
+  @include sm {
+    font-size: $text-xl; // text-xl (20px)
+  }
 }
 
 // wickets: text-muted-foreground font-medium text-base
@@ -246,14 +260,20 @@
 }
 
 .venue {
-  @include truncate(1);
   display: inline-flex;
   align-items: center;
   gap: $space-1; // gap-1 (4px)
+  min-width: 0;
+  overflow: hidden;
 
   svg {
     flex-shrink: 0;
   }
+}
+
+.venueText {
+  @include truncate(1);
+  min-width: 0;
 }
 
 // View → : text-primary, revealed on card hover
@@ -267,6 +287,11 @@
   transition: opacity 0.15s ease;
 
   .card:hover & {
+    opacity: 1;
+  }
+
+  // A touch device never hovers, so the affordance would never appear at all.
+  @media (hover: none) {
     opacity: 1;
   }
 }

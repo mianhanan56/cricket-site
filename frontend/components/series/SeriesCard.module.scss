@@ -7,13 +7,18 @@
   @include card; // glass + rounded-2xl (22px)
   display: flex;
   flex-direction: column;
-  padding: $space-5; // p-5 (20px)
+  padding: $space-4;
   height: 100%;
   width: 100%;
+  min-width: 0;
 
   &:hover {
     border-color: color-mix(in oklab, var(--accent-green) 40%, transparent);
     transform: translateY(-2px);
+  }
+
+  @include sm {
+    padding: $space-5; // p-5 (20px)
   }
 }
 
@@ -84,11 +89,16 @@
 .name {
   font-family: $font-display;
   font-weight: 700;
-  font-size: $text-lg; // 18px
+  font-size: $text-base;
   line-height: $leading-tight;
   color: $text-primary;
+  overflow-wrap: anywhere; // a single unbroken competition name must still fit
   // Keep long names to two lines so every card holds its shape.
   @include truncate(2);
+
+  @include sm {
+    font-size: $text-lg; // 18px
+  }
 }
 
 // date range
@@ -96,13 +106,22 @@
   display: flex;
   align-items: center;
   gap: $space-2;
+  min-width: 0;
   margin-top: $space-3;
-  font-size: $text-sm; // 14px
+  font-size: $text-xs;
   color: $text-muted;
 
   svg {
     flex-shrink: 0;
     color: $accent-blue;
+  }
+
+  span {
+    @include truncate(1);
+  }
+
+  @include sm {
+    font-size: $text-sm; // 14px
   }
 }
 

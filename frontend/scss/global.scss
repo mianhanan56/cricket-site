@@ -97,31 +97,76 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  // --- Surfaces (dark — refined near-black with a whisper of blue) ---
-  --bg-base: oklch(0.145 0.012 260);
-  --surface: oklch(0.19 0.014 260);
-  --surface-elevated: oklch(0.225 0.016 260);
-  --card: oklch(0.2 0.015 260);
-  --card-hover: oklch(0.225 0.016 260);
-  --muted: oklch(0.24 0.014 260);
-  --secondary: oklch(0.24 0.014 260);
+  // --- Surfaces (dark — "midnight aurora") ---
+  //
+  // Hue 275 rather than 260: the same violet the light theme's ink is built on,
+  // so the two themes are one family seen at two exposures instead of a blue
+  // dark mode bolted onto a violet light one.
+  //
+  // The steps are spaced further apart than they were (0.155 → 0.215 → 0.255).
+  // The old ramp put the card 0.055 above the page, which the glass surface then
+  // made translucent — cards read as barely-there rectangles. Each level is now
+  // separated enough to survive the glass on top of it.
+  --bg-base: oklch(0.155 0.014 275);
+  --surface: oklch(0.195 0.016 275);
+  --surface-elevated: oklch(0.255 0.018 275);
+  --card: oklch(0.215 0.017 275);
+  --card-hover: oklch(0.26 0.019 275);
+  --muted: oklch(0.265 0.017 275);
+  --secondary: oklch(0.265 0.017 275);
 
   // --- Text ---
-  --fg: oklch(0.97 0.005 260);
-  --text-secondary: oklch(0.82 0.012 260);
-  --muted-foreground: oklch(0.7 0.015 260);
+  // Held just under pure white: on a near-black surface a 1.0 foreground buzzes.
+  --fg: oklch(0.96 0.006 275);
+  --text-secondary: oklch(0.845 0.014 275);
+  --muted-foreground: oklch(0.73 0.016 275);
 
   // --- Brand ---
-  --accent-green: oklch(0.84 0.17 158);
-  --accent-green-ink: oklch(0.145 0.012 260);
-  --accent-purple: oklch(0.76 0.15 295);
-  --accent-blue: oklch(0.74 0.13 245); // Blue — series / competitions accent
-  --live: oklch(0.7 0.22 25);
-  --amber: oklch(0.82 0.15 80);
+  // The mint keeps its hue but comes down off full neon (0.84/0.17 → 0.82/0.15).
+  // At the old value it fluoresced against the dark ground and dominated every
+  // screen it appeared on; this still carries the brand and still clears 4.5:1
+  // both as text on the page and as ink on its own fill.
+  --accent-green: oklch(0.82 0.15 160);
+  --accent-green-ink: oklch(0.17 0.016 275);
+  // 18% of the mint reads on a white card but vanishes on a dark one, and this
+  // is what draws the active tab's underline, the won-form chips, the selected
+  // innings button and the squad rules. Lifted so those all register.
+  --accent-green-soft: color-mix(in oklab, var(--accent-green) 28%, transparent);
+  --accent-purple: oklch(0.75 0.14 295);
+  --accent-blue: oklch(0.73 0.12 245); // Blue — series / competitions accent
+  --live: oklch(0.68 0.2 25);
+  --amber: oklch(0.81 0.14 80);
 
   // --- Lines & chrome ---
-  --border: oklch(1 0 0 / 7%);
-  --navbar-bg: color-mix(in oklab, var(--bg-base) 72%, transparent);
+  // 7% white was invisible over a glass card — the borders that give every
+  // surface its edge simply weren't rendering.
+  --border: oklch(1 0 0 / 11%);
+  --navbar-bg: color-mix(in oklab, var(--bg-base) 78%, transparent);
+
+  // --- Effects ---
+  // Glass: near-opaque here. The light theme can afford 85/70 because its
+  // surfaces are bright; at these levels the page shows straight through and
+  // the aurora mottles the card contents.
+  --glass-bg: linear-gradient(
+    145deg,
+    color-mix(in oklab, var(--card) 94%, transparent),
+    color-mix(in oklab, var(--surface) 88%, transparent)
+  );
+  --glass-border: color-mix(in oklab, white 11%, transparent);
+
+  // Aurora: pushed into the corners and faded out sooner than the light theme's.
+  // The old dark mix left a heavy green haze across the top-left quarter of
+  // every page, muddying whatever sat on it; these read as light in the room
+  // while the signature glow is still unmistakably there.
+  --aurora-bg:
+    radial-gradient(ellipse 85% 55% at 10% -10%, color-mix(in oklab, var(--accent-green) 15%, transparent), transparent 60%),
+    radial-gradient(ellipse 75% 50% at 90% -2%, color-mix(in oklab, var(--accent-purple) 18%, transparent), transparent 60%),
+    radial-gradient(ellipse 110% 45% at 50% 108%, color-mix(in oklab, var(--accent-blue) 11%, transparent), transparent 60%),
+    var(--bg-base);
+
+  --shadow-card: 0 12px 32px -14px rgb(0 0 0 / 65%);
+  --shadow-glow: 0 0 32px -10px color-mix(in oklab, var(--accent-green) 45%, transparent);
+  --shadow-glow-accent: 0 0 32px -10px color-mix(in oklab, var(--accent-purple) 45%, transparent);
 
   // --- Skeleton placeholders (sheen gradient inherits from :root) ---
   // Lifted off the card with white rather than the near-white foreground: on a
@@ -130,10 +175,10 @@
   --sk-base-strong: color-mix(in oklab, white 13%, var(--card));
   --sk-hi: oklch(1 0 0 / 10%);
 
-  // --- Scrollbar (glow/glass/aurora inherit from :root, adapt via palette) ---
-  --shadow-card: 0 10px 30px -12px rgba(0, 0, 0, 0.5);
-  --scrollbar-thumb: color-mix(in oklab, white 10%, transparent);
-  --scrollbar-thumb-hover: color-mix(in oklab, white 18%, transparent);
+  // --- Selection & scrollbar ---
+  --selection: color-mix(in oklab, var(--accent-green) 32%, transparent);
+  --scrollbar-thumb: color-mix(in oklab, white 12%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklab, white 20%, transparent);
 }
 
 // ----------------------------------------------------------------------------
@@ -156,6 +201,12 @@ body {
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
+
+  // Backstop against a stray horizontal scrollbar. `clip` rather than `hidden`
+  // on purpose: `hidden` would turn the root into a scroll container and break
+  // the `position: sticky` navbar/tab rails. Every known overflow source is
+  // fixed at its cause — this only catches the unforeseen one.
+  overflow-x: clip;
 }
 
 img,
@@ -165,6 +216,12 @@ canvas,
 svg {
   display: block;
   max-width: 100%;
+}
+
+// Never let an intrinsically-sized image distort when its box narrows.
+img,
+video {
+  height: auto;
 }
 
 ul,
@@ -189,6 +246,7 @@ body {
   @include aurora-bg;
   background-attachment: fixed;
   min-height: 100vh;
+  min-height: 100dvh; // mobile browsers: exclude the collapsing URL bar
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

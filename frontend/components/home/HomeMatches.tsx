@@ -1,14 +1,23 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { Match } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
-import { seriesFromMatches } from '@/lib/crex';
+import { useQueryTabs } from '@/hooks/useQueryTabs';
+import {
+  MATCH_TYPE_OPTIONS,
+  filterByMatchType,
+  matchTypeKey,
+  parseMatchType,
+  type MatchTypeKey,
+} from '@/lib/matchType';
+import type { HomeTab } from '@/lib/tabs';
+import FilterSelect from '../ui/FilterSelect';
 import MatchCard from './MatchCard';
-import SeriesCard from './SeriesCard';
 import { MatchCarouselSkeleton } from './HomeSkeleton';
 import styles from './HomeMatches.module.scss';
 
-type Tab = 'live' | 'upcoming' | 'finished' | 'series';
+type Tab = HomeTab;
 
 // "Finished" surfaces every match completed in the last 7 days. The crex feed
 // arrives unfiltered, so the window is applied here.
@@ -113,48 +122,83 @@ function Carousel({ children, resetKey }: { children: ReactNode; resetKey: strin
   );
 }
 
-export default function HomeMatches() {
+export interface HomeMatchesProps {
+  /** Active tab from the URL; '' means "follow the data". */
+  initialTab: Tab | '';
+  initialType: MatchTypeKey;
+}
+
+export default function HomeMatches({ initialTab, initialType }: HomeMatchesProps) {
   // The crex Worker is the only source here — nothing is server-rendered, so
   // `isLoading` covers the first poll and placeholders stand in for it.
   const { matches, isLoading: crexLoading } = useCrexMatches();
 
+  // Tab and type both live in the URL: /?tab=upcoming&type=international.
+  const [{ tab: picked, type: typeKey }, setQuery] = useQueryTabs(
+    { tab: initialTab, type: initialType },
+    { type: 'all' }
+  );
+  const type = parseMatchType(typeKey);
+
+  // The type filter is applied before the lists are split, so the stat tiles
+  // count what the carousel will actually show.
+  const scoped = useMemo(() => filterByMatchType(matches, type), [matches, type]);
+
   const { liveList, upcomingList, finishedList } = useMemo(() => {
     const now = Date.now();
     return {
-      liveList: matches.filter((m) => m.status === 'LIVE'),
-      upcomingList: matches
+      liveList: scoped.filter((m) => m.status === 'LIVE'),
+      upcomingList: scoped
         .filter((m) => m.status === 'UPCOMING')
         .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
-      finishedList: matches
+      finishedList: scoped
         .filter((m) => m.status === 'COMPLETED' && now - +new Date(m.startTime) <= FINISHED_WINDOW_MS)
         .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime)),
     };
-  }, [matches]);
+  }, [scoped]);
 
-  // Series are rolled up from the same match feed. Completed series are dropped
-  // — a finished competition is not something anyone is coming here for.
-  const seriesList = useMemo(
-    () => seriesFromMatches(matches).filter((s) => s.status !== 'COMPLETED'),
-    [matches]
-  );
+  // The catch-all list: everything crex is carrying, in the order a reader cares
+  // about it — in progress, then next up, then just-finished. Deliberately built
+  // from `scoped` rather than by concatenating the three lists above, so a result
+  // older than the "Finished" window still appears here instead of vanishing.
+  const allList = useMemo(() => {
+    const rank: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
+    return [...scoped].sort(
+      (a, b) =>
+        rank[a.status] - rank[b.status] ||
+        // Soonest first while a match is still ahead of us, most recent first
+        // once it isn't.
+        (a.status === 'UPCOMING'
+          ? +new Date(a.startTime) - +new Date(b.startTime)
+          : +new Date(b.startTime) - +new Date(a.startTime))
+    );
+  }, [scoped]);
 
-  // The opening tab follows the data until the reader picks one themselves.
-  // It can't be seeded from first render any more: that happens before the
-  // first poll lands, when every list is still empty.
-  const [picked, setPicked] = useState<Tab | null>(null);
+  // The opening tab follows the data until the reader picks one themselves —
+  // and a pick is now a URL param, so it also survives a reload or a share.
   const auto: Tab = liveList.length ? 'live' : upcomingList.length ? 'upcoming' : 'finished';
-  const tab = picked ?? auto;
-  const setTab = setPicked;
+  const tab: Tab = picked || auto;
+  const setTab = (next: Tab) => setQuery({ tab: next });
 
   const tabs = [
     { key: 'live' as Tab, label: 'Live', statLabel: 'Live now', value: liveList.length, Icon: FlameIcon, tone: styles.toneLive },
     { key: 'upcoming' as Tab, label: 'Upcoming', statLabel: 'Upcoming', value: upcomingList.length, Icon: CalendarIcon, tone: styles.tonePurple },
     { key: 'finished' as Tab, label: 'Finished', statLabel: 'Finished', value: finishedList.length, Icon: CheckCircleIcon, tone: styles.toneAmber },
-    { key: 'series' as Tab, label: 'Series', statLabel: 'Ongoing series', value: seriesList.length, Icon: LayersIcon, tone: styles.toneBlue },
+    { key: 'all' as Tab, label: 'Matches', statLabel: 'All matches', value: allList.length, Icon: LayersIcon, tone: styles.toneBlue },
   ];
 
-  const list = tab === 'live' ? liveList : tab === 'upcoming' ? upcomingList : finishedList;
-  const isSeries = tab === 'series';
+  // Folded into the empty states so "nothing here" reads as a consequence of
+  // the active filter, not as a broken feed.
+  const typeNote = type === 'ALL' ? '' : `${type.toLowerCase()} `;
+
+  const list =
+    tab === 'live'
+      ? liveList
+      : tab === 'upcoming'
+        ? upcomingList
+        : tab === 'finished'
+          ? finishedList
+          : allList;
 
   return (
     <>
@@ -179,14 +223,26 @@ export default function HomeMatches() {
       </div>
 
       {/* Section head + tab pills */}
+      {/* Order here is the phone order — title and filter share the first line,
+          the tab rail wraps below. Desktop reorders the filter after the rail
+          with CSS, so both layouts come out of one DOM. */}
       <div className={styles.head}>
-        <div className={styles.headLeft}>
-          <h2 className={styles.title}>Matches</h2>
+        <h2 className={styles.title}>Matches</h2>
+
+        <div className={styles.headFilter}>
+          <FilterSelect
+            label="Type"
+            value={type}
+            options={MATCH_TYPE_OPTIONS}
+            onChange={(next) => setQuery({ type: matchTypeKey(next) })}
+          />
         </div>
+
         <div className={styles.pills} role="tablist">
           {tabs.map(({ key, label, value, Icon }) => (
             <button
               key={key}
+              type="button"
               role="tab"
               aria-selected={tab === key}
               onClick={() => setTab(key)}
@@ -200,22 +256,8 @@ export default function HomeMatches() {
         </div>
       </div>
 
-      {isSeries ? (
-        seriesList.length ? (
-          <Carousel resetKey={tab}>
-            {seriesList.map((s) => (
-              <div className={styles.slide} key={s.id || s.name}>
-                <SeriesCard series={s} />
-              </div>
-            ))}
-          </Carousel>
-        ) : crexLoading ? (
-          <MatchCarouselSkeleton kind="series" />
-        ) : (
-          <div className={styles.empty}>No recent series to show right now.</div>
-        )
-      ) : list.length ? (
-        <Carousel resetKey={tab}>
+      {list.length ? (
+        <Carousel resetKey={`${tab}-${type}`}>
           {list.map((m) => (
             <div className={styles.slide} key={m.id}>
               <MatchCard match={m} />
@@ -225,7 +267,11 @@ export default function HomeMatches() {
       ) : crexLoading ? (
         <MatchCarouselSkeleton />
       ) : (
-        <div className={styles.empty}>No matches in this category right now.</div>
+        <div className={styles.empty}>
+          {tab === 'all'
+            ? `No ${typeNote}matches are listed right now.`
+            : `No ${typeNote}matches in this category right now.`}
+        </div>
       )}
     </>
   );

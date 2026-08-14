@@ -3,10 +3,11 @@
 .page {
   @include container;
   padding-block: $space-5 $space-8;
+  min-width: 0;
 }
 
 .heading {
-  font-size: 30px;
+  font-size: clamp(#{$text-2xl}, 6vw, #{$text-3xl});
   margin-bottom: $space-4;
 }
 
@@ -51,9 +52,17 @@
 
 .item {
   @include flex-between;
-  gap: $space-3;
+  gap: $space-1 $space-3;
+  // A result label is a full "Team A vs Team B · Series" string; on a phone it
+  // wraps under the status qualifier rather than forcing the row wider.
+  flex-wrap: wrap;
   padding: $space-3;
   border-radius: $radius-sm;
+
+  // The label itself.
+  > span:first-child {
+    @include fluid-text;
+  }
 
   &:not(:last-child) {
     border-bottom: 1px solid $card-border;

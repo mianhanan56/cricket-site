@@ -32,7 +32,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#070a0f',
+  // Matches --bg-base in the dark theme, so the mobile browser chrome blends
+  // into the page instead of banding against it.
+  themeColor: '#0a0c12',
   width: 'device-width',
   initialScale: 1,
 };
@@ -91,6 +93,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         )}
       </head>
+      <Analytics />
       <body>
         <div className="app-shell">
           <Navbar />

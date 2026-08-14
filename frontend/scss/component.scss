@@ -66,10 +66,24 @@ $sk-base-strong: var(--sk-base-strong); // Static fill when motion is reduced
 $sk-sheen: var(--sk-sheen); // Mint→violet sweep (the aurora tell)
 
 // --- Breakpoints ---
-$mobile: 480px;
+// The six bands the whole app is designed against. Everything is mobile-first
+// (min-width), so a band inherits from the one below it and only the deltas are
+// written. `mobile-only` is the single max-width escape hatch, for the handful
+// of rules that must NOT survive into the next band.
+//
+//   ≤ 575px          phone                  (base — no media query)
+//   576px – 767px    large phone            @include sm
+//   768px – 1023px   tablet                 @include tablet
+//   1024px – 1279px  laptop / small desktop @include desktop
+//   1280px – 1439px  desktop                @include wide
+//   1440px +         large desktop          @include xwide
+$sm: 576px;
 $tablet: 768px;
 $desktop: 1024px;
 $wide: 1280px;
+$xwide: 1440px;
+$mobile-max: 575.98px; // upper bound of the base band, for mobile-only rules
+$phone-max: 767.98px; // upper bound of every phone band, for phone-only rules
 
 // --- Typography ---
 $font-primary: 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -121,6 +135,14 @@ $shadow-glow-accent: var(--shadow-glow-accent);
 // --- Layout ---
 $navbar-height: 64px;
 $container-max: 1280px;
+
+// Page gutter per band. Published as the `--gutter` custom property by the
+// `container` mixin so descendants (notably full-bleed carousel tracks and the
+// arrows parked in the gutter) can line up with it without re-deriving it.
+$gutter: $space-3; // ≤575px
+$gutter-sm: $space-4; // 576px+
+$gutter-wide: $space-6; // 1280px+
+
 $z-navbar: 100;
 $z-modal: 1000;
 
@@ -129,6 +151,12 @@ $z-modal: 1000;
 // ----------------------------------------------------------------------------
 
 // --- Responsive breakpoints (mobile-first, min-width) ---
+@mixin sm {
+  @media (min-width: $sm) {
+    @content;
+  }
+}
+
 @mixin tablet {
   @media (min-width: $tablet) {
     @content;
@@ -147,16 +175,68 @@ $z-modal: 1000;
   }
 }
 
+@mixin xwide {
+  @media (min-width: $xwide) {
+    @content;
+  }
+}
+
+// The one max-width query in the system. Use it only when a rule must not leak
+// upward (e.g. a control that changes position, not just size, on phones).
+@mixin mobile-only {
+  @media (max-width: $mobile-max) {
+    @content;
+  }
+}
+
+// Everything below the tablet band — for the handful of rules that change a
+// layout's *kind* on a phone (a carousel becoming a stack, a rail dropping its
+// icons) rather than just its scale. Keep it as rare as `mobile-only`.
+@mixin phone-only {
+  @media (max-width: $phone-max) {
+    @content;
+  }
+}
+
 // --- Layout helpers ---
+// Publishes `--gutter` so anything nested inside a container can align to the
+// page edge — full-bleed tracks pull out by it, gutter-parked arrows offset by
+// it — and all of them stay in step when the gutter changes per band.
 @mixin container {
+  --gutter: #{$gutter};
   width: 100%;
   max-width: $container-max;
   margin-inline: auto;
-  padding-inline: $space-3;
+  padding-inline: var(--gutter);
 
-  @include tablet {
-    padding-inline: $space-4;
+  @include sm {
+    --gutter: #{$gutter-sm};
   }
+
+  @include wide {
+    --gutter: #{$gutter-wide};
+  }
+}
+
+// Horizontal scroller: momentum on iOS, no visible scrollbar, and a swipe that
+// doesn't chain into the page/browser history when it reaches an end.
+@mixin scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+// Guard for any text that can arrive arbitrarily long (team names, venues,
+// series titles) inside a flex/grid cell, which otherwise refuses to shrink
+// below its content and pushes the row past the viewport.
+@mixin fluid-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 @mixin flex-center {
@@ -260,13 +340,15 @@ $z-modal: 1000;
 // ----------------------------------------------------------------------------
 
 @keyframes live-pulse {
+  // The ring is drawn from the --live token rather than a baked red so it
+  // tracks whichever theme is active.
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(255, 84, 83, 0.6);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--live) 60%, transparent);
     opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(255, 84, 83, 0);
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--live) 0%, transparent);
     opacity: 0.7;
   }
 }

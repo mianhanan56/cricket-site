@@ -1,16 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
-import type { Match, MatchFormat } from '@/types';
+import type { Match } from '@/types';
+import { useQueryTabs } from '@/hooks/useQueryTabs';
+import {
+  MATCH_TYPE_OPTIONS,
+  filterByMatchType,
+  matchTypeKey,
+  parseMatchType,
+  type MatchTypeKey,
+} from '@/lib/matchType';
+import { FIXTURE_FORMAT_TABS, type FixtureFormatKey } from '@/lib/tabs';
+import FilterSelect from '../ui/FilterSelect';
 import styles from './FixturesFilter.module.scss';
 
-const TABS: Array<{ key: 'ALL' | MatchFormat; label: string }> = [
-  { key: 'ALL', label: 'All' },
-  { key: 'T20', label: 'T20' },
-  { key: 'ODI', label: 'ODI' },
-  { key: 'TEST', label: 'TEST' },
-];
 
 function formatDateTime(iso: string) {
   const d = new Date(iso);
@@ -23,25 +27,56 @@ function formatDateTime(iso: string) {
   });
 }
 
-export default function FixturesFilter({ fixtures }: { fixtures: Match[] }) {
-  const [tab, setTab] = useState<'ALL' | MatchFormat>('ALL');
+export interface FixturesFilterProps {
+  fixtures: Match[];
+  /** Initial tab + type, read off the URL by the page. */
+  initialFormat: FixtureFormatKey;
+  initialType: MatchTypeKey;
+}
 
-  const visible = tab === 'ALL' ? fixtures : fixtures.filter((f) => f.format === tab);
+export default function FixturesFilter({
+  fixtures,
+  initialFormat,
+  initialType,
+}: FixturesFilterProps) {
+  // Both filters are URL state: /fixtures?format=t20&type=international.
+  const [{ format, type }, setQuery] = useQueryTabs(
+    { format: initialFormat, type: initialType },
+    { format: 'all', type: 'all' }
+  );
+
+  const active = FIXTURE_FORMAT_TABS.find((t) => t.key === format) ?? FIXTURE_FORMAT_TABS[0];
+  const matchType = parseMatchType(type);
+
+  const visible = useMemo(() => {
+    const byType = filterByMatchType(fixtures, matchType);
+    return active.format ? byType.filter((f) => f.format === active.format) : byType;
+  }, [fixtures, matchType, active.format]);
 
   return (
     <>
-      <div className={styles.tabs} role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            aria-selected={tab === t.key}
-            className={`${styles.tab} ${tab === t.key ? styles.active : ''}`}
-            onClick={() => setTab(t.key)}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div className={styles.toolbar}>
+        <div className={styles.tabs} role="tablist" aria-label="Match format">
+          {FIXTURE_FORMAT_TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={format === t.key}
+              className={`${styles.tab} ${format === t.key ? styles.active : ''}`}
+              onClick={() => setQuery({ format: t.key })}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <FilterSelect
+          label="Type"
+          value={matchType}
+          options={MATCH_TYPE_OPTIONS}
+          onChange={(next) => setQuery({ type: matchTypeKey(next) })}
+        />
       </div>
 
       {visible.length ? (
@@ -63,7 +98,10 @@ export default function FixturesFilter({ fixtures }: { fixtures: Match[] }) {
           ))}
         </div>
       ) : (
-        <p className={styles.empty}>No {tab === 'ALL' ? '' : tab + ' '}fixtures scheduled.</p>
+        <p className={styles.empty}>
+          No {type === 'all' ? '' : `${type} `}
+          {active.format ? `${active.format} ` : ''}fixtures scheduled.
+        </p>
       )}
     </>
   );

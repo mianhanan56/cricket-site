@@ -39,8 +39,13 @@
 
 .labels {
   @include flex-between;
-  font-size: 13px;
+  gap: $space-2;
+  font-size: $text-xs;
   color: $text-secondary;
+
+  @include sm {
+    font-size: 13px;
+  }
 
   strong {
     @include score-number;

@@ -11,8 +11,13 @@
 .toggle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: $space-2; // gap-2 (8px)
   padding: $space-2; // p-2 (8px)
+  // Icon-only on phones, so the box has to carry the tap target itself.
+  min-width: 36px;
+  min-height: 36px;
+  flex-shrink: 0;
   border-radius: $radius-lg; // rounded-lg (14px)
   background: $surface-elevated;
   border: 1px solid $card-border;
@@ -52,20 +57,46 @@
   }
 }
 
+// On a phone the trigger is not the last control in the bar — the theme toggle
+// and burger sit to its right — so a panel anchored to the trigger and grown
+// leftwards runs straight off the left edge of the screen. Below tablet it is
+// therefore pinned to the viewport's own gutters instead, and only from tablet
+// up (where 360px genuinely fits beside the trigger) does it hang off the
+// button. Revealed with a fade+lift rather than a width animation, since a
+// gutter-to-gutter panel has no width to animate.
 .panel {
-  position: absolute;
-  top: calc(100% + #{$space-2});
-  right: 0;
-  width: 0;
+  position: fixed;
+  top: calc(#{$navbar-height} + #{$space-2});
+  left: var(--gutter, #{$gutter});
+  right: var(--gutter, #{$gutter});
   opacity: 0;
-  overflow: hidden;
-  transition: width 0.2s ease, opacity 0.2s ease;
+  visibility: hidden;
+  transform: translateY(-6px);
   pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    visibility 0s linear 0.2s;
 
   &.open {
-    width: min(90vw, 360px);
     opacity: 1;
+    visibility: visible;
+    transform: none;
     pointer-events: auto;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s ease,
+      visibility 0s;
+  }
+
+  @include tablet {
+    position: absolute;
+    top: calc(100% + #{$space-2});
+    left: auto;
+    right: 0;
+    // Never wider than the viewport minus both page gutters, so the panel can
+    // never push the page sideways however narrow the screen is.
+    width: min(calc(100vw - var(--gutter, #{$gutter}) * 2), 360px);
   }
 }
 
@@ -76,7 +107,9 @@
   background: $secondary;
   border: 1px solid $card-border;
   color: $text-primary;
-  font-size: 14px;
+  // 16px exactly: iOS Safari zooms the viewport on focus for anything smaller,
+  // which leaves the page scrolled sideways after the keyboard closes.
+  font-size: 16px;
   outline: none;
 
   &:focus {
@@ -88,8 +121,11 @@
   @include card;
   margin-top: $space-2;
   padding: $space-1;
-  max-height: 60vh;
+  // Bounded by the space actually left under the navbar, not by the full
+  // viewport — on a landscape phone 60vh would run off the bottom.
+  max-height: min(60vh, calc(100dvh - #{$navbar-height} - #{$space-16}));
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .hint {
@@ -130,6 +166,7 @@
 
 .itemLabel {
   @include truncate(1);
+  min-width: 0; // the flex row must be allowed to shrink the label, not the row
   font-size: 14px;
   color: $text-primary;
 }

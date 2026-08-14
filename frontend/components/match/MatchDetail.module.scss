@@ -5,7 +5,12 @@
   padding-block: $space-4 $space-8;
   display: flex;
   flex-direction: column;
-  gap: $space-4;
+  gap: $space-3;
+  min-width: 0;
+
+  @include sm {
+    gap: $space-4;
+  }
 }
 
 .back {
@@ -20,11 +25,17 @@
 
 .header {
   @include card;
-  padding: $space-4;
+  padding: $space-3;
+
+  @include sm {
+    padding: $space-4;
+  }
 }
 
 .statusRow {
   @include flex-between;
+  flex-wrap: wrap;
+  gap: $space-2;
   margin-bottom: $space-4;
 }
 
@@ -50,7 +61,7 @@
 
   &.upcoming {
     color: $accent;
-    background: rgba(169, 240, 209, 0.35);
+    background: color-mix(in oklab, var(--accent-green) 22%, transparent);
   }
   &.completed {
     color: $text-secondary;
@@ -66,15 +77,22 @@
 
 .teams {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  // minmax(0, …) not 1fr: a plain 1fr refuses to shrink below its longest word,
+  // which is how a full team name pushed this header past a 320px viewport.
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: start;
-  gap: $space-3;
+  gap: $space-2;
+
+  @include sm {
+    gap: $space-3;
+  }
 }
 
 .team {
   display: flex;
   flex-direction: column;
   gap: $space-1;
+  min-width: 0;
 
   &.right {
     text-align: right;
@@ -83,8 +101,14 @@
 }
 
 .teamName {
-  font-size: $text-base;
+  @include fluid-text;
+  font-size: $text-sm;
   font-weight: 600;
+  line-height: $leading-tight;
+
+  @include sm {
+    font-size: $text-base;
+  }
 
   @include tablet {
     font-size: 20px;
@@ -100,9 +124,16 @@
 
 .score {
   @include score-number;
-  font-size: 20px;
+  font-size: $text-lg;
   color: $accent-green;
-  white-space: nowrap;
+  // A Test match reads "120/2 & 287/4" — too long to hold nowrap on a phone,
+  // where it would run straight out of the card.
+  white-space: normal;
+  overflow-wrap: anywhere;
+
+  @include sm {
+    font-size: 20px;
+  }
 
   @include tablet {
     font-size: $text-2xl;
@@ -123,6 +154,99 @@
   color: $text-muted;
 }
 
+// The header's one loud element: the delivery just bowled, sitting between the
+// two scores at display scale. It earns the size by being the only thing on the
+// page that changes every few seconds — and it colour-codes itself, so a
+// boundary or a wicket registers before the number is even read.
+.lastBall {
+  @include flex-center;
+  align-self: center;
+  flex-direction: column;
+  gap: $space-1;
+  min-width: 44px;
+}
+
+.lastBallValue {
+  @include score-number;
+  font-size: clamp(30px, 8vw, 46px);
+  line-height: 1;
+  color: $text-primary;
+  animation: last-ball-pop 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+
+  &.four {
+    color: $accent;
+  }
+  &.six {
+    color: $accent-amber;
+  }
+  &.wicket {
+    color: $live-color;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.lastBallOver {
+  font-family: $font-mono;
+  font-size: 11px;
+  color: $text-muted;
+}
+
+// --- Run rates -------------------------------------------------------------
+// CRR always; RRR and the chase line only while there is a target to chase.
+
+.rates {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-1-5;
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+}
+
+.rateList {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: $space-2 $space-5;
+  margin: 0;
+}
+
+.rate {
+  display: flex;
+  align-items: baseline;
+  gap: $space-1-5;
+}
+
+.rateLabel {
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: $text-muted;
+}
+
+.rateValue {
+  @include score-number;
+  margin: 0;
+  font-size: 15px;
+  color: $text-primary;
+}
+
+// The number under pressure — the one a reader checks against the CRR beside it.
+.rateChase {
+  color: $accent-amber;
+}
+
+.chase {
+  @include fluid-text;
+  font-size: 13px;
+  color: $text-secondary;
+  text-align: center;
+}
+
 .result {
   margin-top: $space-3;
   padding-top: $space-3;
@@ -134,6 +258,7 @@
 }
 
 .headerMeta {
+  @include fluid-text;
   margin-top: $space-3;
   padding-top: $space-3;
   border-top: 1px solid $card-border;
@@ -145,6 +270,7 @@
 // ---------------------------------------------------------------- Sticky tabs
 
 .tabs {
+  @include scroll-x;
   position: sticky;
   top: $navbar-height;
   z-index: 50;
@@ -152,11 +278,12 @@
   background: $card-bg;
   border-radius: $radius-md;
   box-shadow: $shadow-card;
-  overflow-x: auto;
 }
 
 .tab {
-  flex: 1;
+  // Grow to share the rail when there is room; never shrink below the label,
+  // so on a narrow screen the rail scrolls instead of clipping the text.
+  flex: 1 0 auto;
   padding: $space-3 $space-3;
   font-size: $text-sm;
   font-weight: 600;
@@ -178,7 +305,12 @@
 .panel {
   display: flex;
   flex-direction: column;
-  gap: $space-4;
+  gap: $space-3;
+  min-width: 0;
+
+  @include sm {
+    gap: $space-4;
+  }
 }
 
 // ---------------------------------------------------------------- Blocks
@@ -186,10 +318,17 @@
 .block {
   @include card;
   padding: $space-3;
+  min-width: 0;
+
+  @include tablet {
+    padding: $space-4;
+  }
 }
 
 .blockTitle {
   @include flex-between;
+  flex-wrap: wrap;
+  gap: $space-1 $space-2;
   font-size: $text-base;
   margin-bottom: $space-3;
   padding-left: $space-2;
@@ -218,7 +357,8 @@
 
 .formRow {
   @include flex-between;
-  gap: $space-3;
+  flex-wrap: wrap;
+  gap: $space-2 $space-3;
   padding: $space-2 0;
 
   &:not(:last-child) {
@@ -227,12 +367,14 @@
 }
 
 .formTeam {
+  @include fluid-text;
   font-size: $text-sm;
   font-weight: 600;
 }
 
 .formChips {
   display: flex;
+  flex-shrink: 0;
   gap: $space-1;
 }
 
@@ -267,8 +409,10 @@
 
 .detailRow {
   display: grid;
-  grid-template-columns: 96px 1fr;
-  gap: $space-3;
+  // The label column narrows on a phone and the value column is allowed to
+  // shrink (minmax(0,…)) so a long venue wraps instead of widening the grid.
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: $space-2 $space-3;
   padding: $space-2 0;
 
   &:not(:last-child) {
@@ -284,8 +428,13 @@
   }
 
   dd {
+    @include fluid-text;
     font-size: $text-sm;
     color: $text-primary;
+  }
+
+  @include sm {
+    grid-template-columns: 96px minmax(0, 1fr);
   }
 }
 
@@ -315,6 +464,11 @@
   font-size: $text-sm;
   padding: $space-2 $space-1;
 
+  // The player's name, which is the part allowed to wrap.
+  > span:first-child {
+    @include fluid-text;
+  }
+
   &:nth-child(even) {
     background: $bg;
   }
@@ -331,9 +485,10 @@
 // ---------------------------------------------------------------- Scorecard
 
 .inningsPicker {
+  @include scroll-x;
   display: flex;
   gap: $space-2;
-  overflow-x: auto;
+  padding-bottom: $space-1; // room for the focus ring inside the scroll box
 }
 
 .inningsBtn {
@@ -359,21 +514,34 @@
   }
 }
 
+// The scorecard has seven columns and cannot honestly compress to 320px — so
+// it scrolls inside its own box. The page never scrolls sideways; the table
+// does, and only the table.
 .tableWrap {
-  overflow-x: auto;
+  @include scroll-x;
+  max-width: 100%;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: $text-sm;
+  font-size: $text-xs;
 
   th,
   td {
-    padding: $space-2;
+    padding: $space-1-5 $space-1;
     text-align: right;
     white-space: nowrap;
     background: $card-bg;
+  }
+
+  @include sm {
+    font-size: $text-sm;
+
+    th,
+    td {
+      padding: $space-2;
+    }
   }
 
   th {
@@ -425,6 +593,53 @@
   }
 }
 
+// Yet to bat / Playing XI — one name per row, in batting order, so the list
+// reads down the way the card above it does. Deliberately quiet: no borders of
+// its own beyond the zebra, so it never competes with the scorecard table.
+.yetToBat {
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+}
+
+.yetToBatTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $text-muted;
+  margin-bottom: $space-2;
+}
+
+.yetToBatList {
+  display: flex;
+  flex-direction: column;
+
+  li {
+    @include fluid-text;
+    display: flex;
+    align-items: baseline;
+    gap: $space-2;
+    font-size: $text-sm;
+    color: $text-secondary;
+    padding: $space-2 $space-1;
+
+    &:nth-child(even) {
+      background: $bg;
+    }
+  }
+}
+
+// The batting position — the one piece of order the list carries. Tabular so
+// single and double digits line up down the column.
+.yetToBatNum {
+  @include score-number;
+  flex-shrink: 0;
+  width: 1.5em;
+  font-size: $text-xs;
+  color: $text-muted;
+}
+
 // ---------------------------------------------------------------- Commentary
 
 .commentary {
@@ -444,19 +659,23 @@
 
 .ballRow {
   display: flex;
-  gap: $space-3;
+  gap: $space-2;
   align-items: flex-start;
   padding: $space-2 0;
 
   &:not(:last-child) {
     border-bottom: 1px solid $card-border;
   }
+
+  @include sm {
+    gap: $space-3;
+  }
 }
 
 .ballMarker {
   @include score-number;
   flex-shrink: 0;
-  min-width: 44px;
+  min-width: 40px;
   padding: 2px $space-2;
   border-radius: $radius-sm;
   background: $card-hover;
@@ -465,7 +684,7 @@
   color: $text-secondary;
 
   &.boundary {
-    background: rgba(169, 240, 209, 0.45);
+    background: color-mix(in oklab, var(--accent-green) 26%, transparent);
     color: $accent;
   }
 
@@ -476,6 +695,7 @@
 }
 
 .ballText {
+  @include fluid-text;
   flex: 1;
   font-size: $text-sm;
   color: $text-secondary;
@@ -484,6 +704,7 @@
 .ballRuns {
   @include score-number;
   flex-shrink: 0;
+  white-space: nowrap;
   font-size: $text-xs;
   color: $text-muted;
 
@@ -514,7 +735,7 @@
   font-weight: 700;
   font-size: $text-base;
   letter-spacing: 0.02em;
-  box-shadow: 0 8px 24px rgba(232, 21, 58, 0.4);
+  box-shadow: 0 8px 24px color-mix(in oklab, var(--live) 40%, transparent);
   animation: wicket-slide-down 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -559,15 +780,28 @@
   color: $text-secondary;
 
   &.four {
-    background: rgba(169, 240, 209, 0.45);
+    background: color-mix(in oklab, var(--accent-green) 26%, transparent);
     color: $accent;
   }
   &.six {
-    background: rgba(249, 199, 79, 0.2);
+    background: color-mix(in oklab, var(--amber) 24%, transparent);
     color: $accent-amber;
   }
   &.wicket {
     background: $live-color;
     color: #fff;
+  }
+}
+
+// A new delivery lands rather than swaps — a 340ms pop is enough to catch the
+// eye at a glance without becoming a page that twitches.
+@keyframes last-ball-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }

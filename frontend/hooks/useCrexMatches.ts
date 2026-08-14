@@ -213,9 +213,9 @@ export interface UseCrexMatchExtrasResult {
  */
 export function useCrexMatchExtras(
   matchKey: string,
-  options: { enabled?: boolean; intervalMs?: number } = {}
+  options: { enabled?: boolean; intervalMs?: number; ballsPerOver?: number } = {}
 ): UseCrexMatchExtrasResult {
-  const { enabled = true, intervalMs = DEFAULT_INTERVAL_MS } = options;
+  const { enabled = true, intervalMs = DEFAULT_INTERVAL_MS, ballsPerOver } = options;
 
   const [innings, setInnings] = useState<InningsScore[]>([]);
   const [commentary, setCommentary] = useState<CommentaryBall[]>([]);
@@ -237,7 +237,7 @@ export function useCrexMatchExtras(
       }
 
       const [card, balls] = await Promise.all([
-        getCrexScorecard(matchKey, { signal: controller.signal }).catch(() => null),
+        getCrexScorecard(matchKey, { signal: controller.signal, ballsPerOver }).catch(() => null),
         getCrexCommentary(matchKey, { signal: controller.signal }).catch(() => null),
       ]);
 
@@ -259,7 +259,7 @@ export function useCrexMatchExtras(
       controller.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [active, matchKey, intervalMs]);
+  }, [active, matchKey, intervalMs, ballsPerOver]);
 
   return { innings, commentary, loaded };
 }

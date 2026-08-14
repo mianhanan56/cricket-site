@@ -3,25 +3,32 @@
 // Matches the original footer: mt-24, border-top only (aurora shows through),
 // py-10 inner, text-sm.
 .footer {
-  margin-top: $space-24; // mt-24 (96px)
+  margin-top: $space-16;
   border-top: 1px solid $card-border;
+
+  @include tablet {
+    margin-top: $space-24; // mt-24 (96px)
+  }
 }
 
 .inner {
   @include container;
   display: flex;
   flex-direction: column;
-  gap: $space-8; // gap-8 (32px)
-  padding-block: $space-10; // py-10 (40px)
+  gap: $space-6;
+  padding-block: $space-8;
 
   @include tablet {
     flex-direction: row;
     justify-content: space-between;
+    gap: $space-8; // gap-8 (32px)
+    padding-block: $space-10; // py-10 (40px)
   }
 }
 
 .brand {
-  max-width: 320px;
+  max-width: min(320px, 100%);
+  min-width: 0;
 }
 
 .logo {
@@ -43,7 +50,8 @@
 
 .columns {
   display: flex;
-  gap: $space-8; // gap-8 (32px)
+  flex-wrap: wrap;
+  gap: $space-6 $space-8; // gap-8 (32px)
 }
 
 .column {

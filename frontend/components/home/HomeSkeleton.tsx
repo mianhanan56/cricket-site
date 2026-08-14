@@ -2,7 +2,6 @@ import Skeleton, { stagger } from '../ui/Skeleton';
 import page from '../../app/page.module.scss';
 import home from './HomeMatches.module.scss';
 import card from './MatchCard.module.scss';
-import series from './SeriesCard.module.scss';
 import s from './HomeSkeleton.module.scss';
 
 // The carousel shows 3 cards on desktop, 2 on tablet, 1 on mobile. Rendering 3
@@ -56,52 +55,18 @@ export function MatchCardSkeleton() {
 }
 
 /**
- * The series equivalent — same glass shell, series-shaped content.
- *
- * The Series tab rolls its list up from the same polled match feed, so it has
- * the same first-load gap to cover.
- */
-export function SeriesCardSkeleton() {
-  return (
-    <div className={`${series.card} ${s.inert}`}>
-      <div className={series.header}>
-        <Skeleton className={s.formatChip} />
-        <Skeleton className={s.statusPill} />
-      </div>
-
-      <Skeleton variant="title" className={s.seriesName} />
-      <Skeleton variant="title" className={s.seriesName2} />
-
-      <div className={series.dates}>
-        <Skeleton variant="body" className={s.seriesDates} />
-      </div>
-
-      <div className={series.footer}>
-        <Skeleton variant="body" className={s.seriesCount} />
-      </div>
-    </div>
-  );
-}
-
-/**
  * The carousel track filled with card placeholders, phased left to right.
  *
- * `kind` picks which card shape fills it, so the placeholder always matches the
- * tab the reader is actually looking at.
+ * Every home tab is a list of matches now, so there is only one card shape to
+ * stand in for — the series placeholder lives with the /series page.
  */
-export function MatchCarouselSkeleton({
-  count = 3,
-  kind = 'match',
-}: {
-  count?: number;
-  kind?: 'match' | 'series';
-}) {
+export function MatchCarouselSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className={home.slider}>
       <div className={`${home.track} ${stagger}`}>
         {Array.from({ length: count }, (_, i) => (
           <div className={home.slide} key={i}>
-            {kind === 'series' ? <SeriesCardSkeleton /> : <MatchCardSkeleton />}
+            <MatchCardSkeleton />
           </div>
         ))}
       </div>
@@ -125,11 +90,15 @@ export default function HomeSkeleton() {
         ))}
       </div>
 
-      {/* Section head — title + the tab rail, still on its glass bed */}
+      {/* Section head — title, type filter, and the tab rail on its glass bed.
+          Same three-child order as the real head so it wraps identically. */}
       <div className={home.head}>
-        <div className={home.headLeft}>
-          <Skeleton variant="title" className={s.headTitle} />
+        <Skeleton variant="title" className={s.headTitle} />
+
+        <div className={home.headFilter}>
+          <Skeleton className={s.filterBar} />
         </div>
+
         <div className={home.pills}>
           <Skeleton className={`${s.pillBar} ${s.pill1}`} />
           <Skeleton className={`${s.pillBar} ${s.pill2}`} />

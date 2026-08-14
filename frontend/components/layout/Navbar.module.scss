@@ -17,42 +17,69 @@
   @include container;
   @include flex-between;
   height: 100%;
-  gap: $space-4; // gap-4 (16px)
+  // At 320px the wordmark, the search pill and three controls have to share the
+  // row — a fixed 16px gap is what tips it over. It opens back up from 576.
+  gap: $space-2;
+
+  @include sm {
+    gap: $space-4; // gap-4 (16px)
+  }
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: $space-2-5; // gap-2.5 (10px)
-  flex-shrink: 0;
+  gap: $space-2; // gap-2.5 from 576 up
+  min-width: 0; // let the wordmark truncate before the row overflows
+  flex-shrink: 1;
 
   &:hover .logoMark {
     box-shadow: 0 8px 26px -6px color-mix(in oklab, var(--accent-green) 75%, transparent);
+  }
+
+  @include sm {
+    gap: $space-2-5; // gap-2.5 (10px)
   }
 }
 
 .logoMark {
   @include flex-center;
-  width: 36px; // w-9
-  height: 36px; // h-9
+  width: 32px;
+  height: 32px;
   border-radius: $radius-xl; // rounded-xl (18px)
   background: linear-gradient(135deg, $accent, $accent-purple);
   color: $bg; // text-background
   box-shadow: 0 6px 20px -8px color-mix(in oklab, var(--accent-green) 55%, transparent);
   transition: box-shadow 0.2s ease;
+  flex-shrink: 0;
 
   svg {
-    width: 20px; // w-5
-    height: 20px; // h-5
+    width: 18px;
+    height: 18px;
+  }
+
+  @include sm {
+    width: 36px; // w-9
+    height: 36px; // h-9
+
+    svg {
+      width: 20px; // w-5
+      height: 20px; // h-5
+    }
   }
 }
 
 .logoText {
+  @include truncate(1);
   font-family: $font-display;
-  font-size: $text-lg; // text-lg (18px)
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.02em; // tracking-tight
   color: $text-primary;
+
+  @include sm {
+    font-size: $text-lg; // text-lg (18px)
+  }
 }
 
 .logoAccent {
@@ -60,13 +87,15 @@
 }
 
 .links {
-  // Mobile: slide-down glass panel.
-  position: absolute;
+  // Mobile: slide-down glass panel, pinned to the viewport (not the container)
+  // so it spans the full width under the bar at every size.
+  position: fixed;
   top: $navbar-height;
   left: 0;
   right: 0;
   flex-direction: column;
   gap: 0;
+  padding-inline: var(--gutter, #{$gutter});
   background: $surface;
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
@@ -77,18 +106,29 @@
   display: flex;
 
   &.open {
-    max-height: 320px;
+    // Capped to what's left of the viewport so a short landscape phone scrolls
+    // the menu instead of hiding its last item behind the fold.
+    max-height: calc(100dvh - #{$navbar-height});
+    overflow-y: auto;
+    padding-block: $space-2;
   }
 
   @include tablet {
     position: static;
     flex-direction: row;
     gap: $space-1; // gap-1 (4px)
+    padding: 0;
     background: none;
     backdrop-filter: none;
     border: none;
     max-height: none;
     overflow: visible;
+
+    &.open {
+      max-height: none;
+      overflow: visible;
+      padding: 0;
+    }
   }
 }
 
@@ -127,8 +167,9 @@
   @include flex-center;
   flex-direction: column;
   gap: 4px;
-  width: 40px;
+  width: 36px;
   height: 40px;
+  flex-shrink: 0;
   border-radius: $radius-lg;
   color: $text-primary;
 

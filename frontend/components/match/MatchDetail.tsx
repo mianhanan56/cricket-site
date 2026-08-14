@@ -38,7 +38,9 @@ interface BallEntry {
 }
 
 const MAX_COMMENTARY = 60;
-const MAX_DOTS = 12;
+// Three overs of the recent-balls strip. Two is too short to read the shape of
+// a spell; the feed is paged back far enough to fill it (see getCrexCommentary).
+const MAX_DOTS = 18;
 
 // CricAPI innings carry a label like "India Inning 1". Match an innings to a
 // team ONLY when that label contains the team's name (or short name) — no
@@ -56,11 +58,15 @@ function inningsListFor(match: Match, team: Team): InningsScore[] {
 
 // "287/4" (+ "120/2 & 287/4" across Test innings) with the current innings'
 // overs on their own line so the header never wraps mid-score on mobile.
+//
+// An innings crex lists before it starts is skipped: its XI belongs on the
+// scorecard, but a "0/0" next to a side that has not batted is a wrong score.
 function scoreParts(list: InningsScore[]): { runs: string; overs: string } | null {
-  if (!list.length) return null;
+  const batted = list.filter((i) => !i.notStarted);
+  if (!batted.length) return null;
   return {
-    runs: list.map((i) => `${i.runs}/${i.wickets}`).join(' & '),
-    overs: `(${list[list.length - 1].overs} ov)`,
+    runs: batted.map((i) => `${i.runs}/${i.wickets}`).join(' & '),
+    overs: `(${batted[batted.length - 1].overs} ov)`,
   };
 }
 
@@ -82,6 +88,18 @@ function dismissalOf(b: BatsmanLine): string {
   return b.out ? 'out' : 'not out';
 }
 
+// The `*` means "unbeaten at the crease". A retired batsman is also not out,
+// but has left the middle — their card says so in words instead.
+function atCrease(b: BatsmanLine): boolean {
+  return !b.out && dismissalOf(b) === 'not out';
+}
+
+// crex counts balls; overs are sixths, so 27 balls is 4.3 — always one decimal
+// so a completed spell reads "4.0", not "4".
+function fmtOvers(overs: number): string {
+  return overs.toFixed(1);
+}
+
 function dotKind(b: BallEntry): 'wicket' | 'six' | 'four' | 'dot' {
   if (b.isWicket) return 'wicket';
   if (b.runs === 6) return 'six';
@@ -97,6 +115,100 @@ function runsLabel(b: BallEntry): string {
 // Plain deliveries ('dot') have no extra class — avoid className "undefined".
 function kindClass(b: BallEntry): string {
   return styles[dotKind(b)] ?? '';
+}
+
+// ------------------------------------------------------------------ Run rates
+
+/**
+ * Cricket over notation to a ball count: 36.3 is 36 overs and 3 balls, not 36.3
+ * overs. Everything rate-related has to go through this — dividing runs by 36.3
+ * flatters a run rate by up to half an over.
+ */
+function ballsFrom(overs: number, perOver: number): number {
+  const whole = Math.floor(overs);
+  return whole * perOver + Math.round((overs - whole) * 10);
+}
+
+/** Scheduled overs per side. Test cricket has none, which is what null means. */
+const FORMAT_OVERS: Record<Match['format'], number | null> = {
+  T20: 20, // also The Hundred — 20 five-ball overs, via ballsPerOver
+  ODI: 50,
+  TEST: null,
+};
+
+/**
+ * How many balls the chasing side gets.
+ *
+ * The feed carries no innings limit, and the format's own is wrong for every
+ * rain-shortened game (crex is listing 18- and 19-over T20s right now). So it is
+ * read off the first innings instead: a side that was not bowled out batted
+ * exactly its allocation, and a limited-overs innings only ends mid-over when
+ * the batting side is out — so the ball count is the allocation, exactly.
+ *
+ * Being bowled out says nothing about the limit, and there the format's own
+ * figure is the best available guess.
+ */
+function inningsBallLimit(first: InningsScore, match: Match, perOver: number): number | null {
+  // The Hundred fixes the innings in balls, so no derivation is needed or wanted.
+  if (match.ballsLimit) return match.ballsLimit;
+
+  const scheduled = FORMAT_OVERS[match.format];
+  if (scheduled === null) return null;
+
+  const full = scheduled * perOver;
+  if (first.wickets >= 10) return full;
+
+  const bowled = ballsFrom(first.overs, perOver);
+  // Never above the scheduled figure: a miscounted feed should not invent balls
+  // the chase does not have.
+  return bowled > 0 ? Math.min(bowled, full) : full;
+}
+
+interface Rates {
+  /** Current run rate for the innings in progress. */
+  crr: number;
+  /** Required run rate — null unless a target is being chased. */
+  rrr: number | null;
+  /** "PAK-GO need 130 runs in 80 balls", or null when nothing is being chased. */
+  chase: string | null;
+}
+
+/**
+ * CRR for the innings in progress, plus the chase numbers when there is a target.
+ *
+ * Deliberately fed the fetched scorecard rather than `match.scorecard.innings`:
+ * only the scorecard endpoint returns innings in *innings* order. The header's
+ * own scores are decoded from the match list, where the two totals arrive in team
+ * order — first-innings-first is not guaranteed there, and getting it backwards
+ * would print a confidently wrong target.
+ */
+function computeRates(match: Match, innings: InningsScore[]): Rates | null {
+  const perOver = match.ballsPerOver || 6;
+  const batted = innings.filter((i) => !i.notStarted);
+  if (!batted.length) return null;
+
+  const current = batted[batted.length - 1];
+  const ballsBowled = ballsFrom(current.overs, perOver);
+  if (!ballsBowled) return null;
+
+  const crr = current.runs / (ballsBowled / perOver);
+
+  // A chase needs a completed innings to chase and a limit to do it in, so this
+  // is the second innings of a limited-overs match and nothing else.
+  const limit = batted.length === 2 ? inningsBallLimit(batted[0], match, perOver) : null;
+  if (limit === null) return { crr, rrr: null, chase: null };
+
+  const needRuns = batted[0].runs + 1 - current.runs;
+  const ballsLeft = limit - ballsBowled;
+  if (needRuns <= 0 || ballsLeft <= 0) return { crr, rrr: null, chase: null };
+
+  return {
+    crr,
+    rrr: needRuns / (ballsLeft / perOver),
+    chase: `${current.teamShortName} need ${needRuns} ${
+      needRuns === 1 ? 'run' : 'runs'
+    } in ${ballsLeft} ${ballsLeft === 1 ? 'ball' : 'balls'}`,
+  };
 }
 
 export default function MatchDetail({
@@ -135,7 +247,10 @@ export default function MatchDetail({
   // Scorecard + ball-by-ball, but only while the match is live or recently
   // finished — an upcoming fixture has neither.
   const extrasEnabled = match.status !== 'UPCOMING';
-  const crexExtras = useCrexMatchExtras(matchId, { enabled: extrasEnabled });
+  const crexExtras = useCrexMatchExtras(matchId, {
+    enabled: extrasEnabled,
+    ballsPerOver: match.ballsPerOver,
+  });
 
   // A crex match arrives with a header score but no card or feed — those are two
   // more round trips. Until the first one lands, the Scorecard and Commentary
@@ -180,6 +295,17 @@ export default function MatchDetail({
   const innings = match.scorecard?.innings ?? [];
   const homeScore = scoreParts(inningsListFor(match, match.homeTeam));
   const awayScore = scoreParts(inningsListFor(match, match.awayTeam));
+
+  // The delivery just bowled, shown large in the middle of the header. `dots` runs
+  // oldest to newest, so the last entry is the live one.
+  const lastBall = isLive ? dots[dots.length - 1] ?? null : null;
+
+  // Rates come off the fetched card, not `innings` — see computeRates. They are a
+  // live-only reading: a finished match has a result, which says more.
+  const rates = useMemo(
+    () => (isLive ? computeRates(match, crexExtras.innings) : null),
+    [isLive, match, crexExtras.innings]
+  );
 
   // Commentary grouped by over, newest over first (entries are newest-first).
   const overs = useMemo(() => {
@@ -234,7 +360,25 @@ export default function MatchDetail({
             <span className={styles.score}>{homeScore?.runs ?? '—'}</span>
             {homeScore && <span className={styles.scoreOvers}>{homeScore.overs}</span>}
           </div>
-          <span className={styles.vs}>VS</span>
+          {/* The centre column carries the last ball while one is live, and falls
+              back to "VS" before the feed lands or once the match is over. */}
+          {lastBall ? (
+            <div className={styles.lastBall}>
+              <span
+                // Remounts on every delivery, which is what replays the pop.
+                key={lastBall.id}
+                className={`${styles.lastBallValue} ${kindClass(lastBall)}`}
+                aria-label={`Last ball: ${runsLabel(lastBall)}`}
+              >
+                {lastBall.isWicket ? 'W' : lastBall.runs}
+              </span>
+              <span className={styles.lastBallOver}>
+                {lastBall.over}.{lastBall.ball}
+              </span>
+            </div>
+          ) : (
+            <span className={styles.vs}>VS</span>
+          )}
           <div className={`${styles.team} ${styles.right}`}>
             <span className={styles.teamName}>{match.awayTeam.name}</span>
             <span className={styles.teamShort}>{match.awayTeam.shortName}</span>
@@ -242,6 +386,27 @@ export default function MatchDetail({
             {awayScore && <span className={styles.scoreOvers}>{awayScore.overs}</span>}
           </div>
         </div>
+
+        {/* Run rates — the reading that turns two scores into a state of play. */}
+        {rates && (
+          <div className={styles.rates}>
+            <dl className={styles.rateList}>
+              <div className={styles.rate}>
+                <dt className={styles.rateLabel}>CRR</dt>
+                <dd className={styles.rateValue}>{rates.crr.toFixed(2)}</dd>
+              </div>
+              {rates.rrr !== null && (
+                <div className={styles.rate}>
+                  <dt className={styles.rateLabel}>RRR</dt>
+                  <dd className={`${styles.rateValue} ${styles.rateChase}`}>
+                    {rates.rrr.toFixed(2)}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            {rates.chase && <p className={styles.chase}>{rates.chase}</p>}
+          </div>
+        )}
 
         {match.result && <p className={styles.result}>{match.result}</p>}
 
@@ -402,6 +567,7 @@ function ScorecardTab({
   const bowling: BowlerLine[] =
     current?.bowling ?? (isLatest ? match.scorecard?.bowling ?? [] : []);
   const extras = current?.extras ?? (isLatest ? match.scorecard?.extras : undefined);
+  const yetToBat = current?.yetToBat ?? [];
 
   return (
     <div className={styles.panel}>
@@ -441,7 +607,7 @@ function ScorecardTab({
                   <tr key={b.playerId}>
                     <td className={styles.left}>
                       {b.name}
-                      {!b.out && <span className={styles.notout}> *</span>}
+                      {atCrease(b) && <span className={styles.notout}> *</span>}
                     </td>
                     <td className={`${styles.left} ${styles.dismissal}`}>{dismissalOf(b)}</td>
                     <td className={styles.num}>{b.runs}</td>
@@ -477,15 +643,40 @@ function ScorecardTab({
           </div>
         ) : pending ? (
           <ScorecardSkeleton />
-        ) : (
+        ) : yetToBat.length ? null : (
           <p className={styles.empty}>
             {current
               ? `No ball-by-ball batting data for this innings — total ${current.runs}/${current.wickets} (${current.overs} ov).`
               : 'No batting data yet.'}
           </p>
         )}
+
+        {/* Before an innings starts its whole XI arrives as bare names — that
+            is the side's playing eleven, and it is worth showing rather than
+            an empty card. Once they start batting the same list is what's
+            left to come in. */}
+        {yetToBat.length > 0 && (
+          <div className={styles.yetToBat}>
+            <h3 className={styles.yetToBatTitle}>
+              {batting.length ? 'Yet to bat' : 'Playing XI'}
+            </h3>
+            <ul className={styles.yetToBatList}>
+              {yetToBat.map((p, i) => (
+                <li key={p.playerId}>
+                  {/* Numbers continue the card above, so a side three down
+                      starts at 4 rather than restarting at 1. */}
+                  <span className={styles.yetToBatNum}>{batting.length + i + 1}</span>
+                  <span>{p.name}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
+      {/* An innings that has not begun has no bowling to report and no
+          promise worth making about it — the section is dropped, not emptied. */}
+      {!current?.notStarted && (
       <section className={styles.block}>
         <h2 className={styles.blockTitle}>Bowling</h2>
         {bowling.length ? (
@@ -505,7 +696,7 @@ function ScorecardTab({
                 {bowling.map((b) => (
                   <tr key={b.playerId}>
                     <td className={styles.left}>{b.name}</td>
-                    <td className={styles.num}>{b.overs}</td>
+                    <td className={styles.num}>{fmtOvers(b.overs)}</td>
                     <td className={styles.num}>{b.maidens}</td>
                     <td className={styles.num}>{b.runs}</td>
                     <td className={styles.num}>{b.wickets}</td>
@@ -521,6 +712,7 @@ function ScorecardTab({
           <p className={styles.empty}>No bowling data yet.</p>
         )}
       </section>
+      )}
     </div>
   );
 }
