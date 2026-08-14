@@ -6,11 +6,29 @@
 // ("Attempted to call includes() from the server"). The server pages validate
 // ?params against these, the client components render from the same lists.
 
-import type { MatchFormat } from '@/types';
+import type { MatchFormat, MatchStatus } from '@/types';
 
 // --- Home (/?tab=…) ---------------------------------------------------------
-export type HomeTab = 'live' | 'upcoming' | 'finished' | 'series';
-export const HOME_TAB_KEYS: readonly HomeTab[] = ['live', 'upcoming', 'finished', 'series'];
+// `all` is the unfiltered view — every match in the feed, live first. It sits
+// where a `series` tab used to: series are a browse-by-competition job rather
+// than a live-score one, so they moved to their own page at /series.
+export type HomeTab = 'live' | 'upcoming' | 'finished' | 'all';
+export const HOME_TAB_KEYS: readonly HomeTab[] = ['live', 'upcoming', 'finished', 'all'];
+
+// --- Series (/series?status=…) ----------------------------------------------
+export type SeriesStatusKey = 'all' | 'live' | 'upcoming' | 'finished';
+export const SERIES_STATUS_TABS: ReadonlyArray<{
+  key: SeriesStatusKey;
+  label: string;
+  /** null on "all" — no status constraint. */
+  status: MatchStatus | null;
+}> = [
+  { key: 'all', label: 'All', status: null },
+  { key: 'live', label: 'Live', status: 'LIVE' },
+  { key: 'upcoming', label: 'Upcoming', status: 'UPCOMING' },
+  { key: 'finished', label: 'Finished', status: 'COMPLETED' },
+];
+export const SERIES_STATUS_KEYS: readonly SeriesStatusKey[] = SERIES_STATUS_TABS.map((t) => t.key);
 
 // --- Fixtures (/fixtures?format=…) ------------------------------------------
 export type FixtureFormatKey = 'all' | 't20' | 'odi' | 'test';

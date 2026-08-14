@@ -154,6 +154,99 @@
   color: $text-muted;
 }
 
+// The header's one loud element: the delivery just bowled, sitting between the
+// two scores at display scale. It earns the size by being the only thing on the
+// page that changes every few seconds — and it colour-codes itself, so a
+// boundary or a wicket registers before the number is even read.
+.lastBall {
+  @include flex-center;
+  align-self: center;
+  flex-direction: column;
+  gap: $space-1;
+  min-width: 44px;
+}
+
+.lastBallValue {
+  @include score-number;
+  font-size: clamp(30px, 8vw, 46px);
+  line-height: 1;
+  color: $text-primary;
+  animation: last-ball-pop 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+
+  &.four {
+    color: $accent;
+  }
+  &.six {
+    color: $accent-amber;
+  }
+  &.wicket {
+    color: $live-color;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.lastBallOver {
+  font-family: $font-mono;
+  font-size: 11px;
+  color: $text-muted;
+}
+
+// --- Run rates -------------------------------------------------------------
+// CRR always; RRR and the chase line only while there is a target to chase.
+
+.rates {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-1-5;
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+}
+
+.rateList {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: $space-2 $space-5;
+  margin: 0;
+}
+
+.rate {
+  display: flex;
+  align-items: baseline;
+  gap: $space-1-5;
+}
+
+.rateLabel {
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: $text-muted;
+}
+
+.rateValue {
+  @include score-number;
+  margin: 0;
+  font-size: 15px;
+  color: $text-primary;
+}
+
+// The number under pressure — the one a reader checks against the CRR beside it.
+.rateChase {
+  color: $accent-amber;
+}
+
+.chase {
+  @include fluid-text;
+  font-size: 13px;
+  color: $text-secondary;
+  text-align: center;
+}
+
 .result {
   margin-top: $space-3;
   padding-top: $space-3;
@@ -697,5 +790,18 @@
   &.wicket {
     background: $live-color;
     color: #fff;
+  }
+}
+
+// A new delivery lands rather than swaps — a 340ms pop is enough to catch the
+// eye at a glance without becoming a page that twitches.
+@keyframes last-ball-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }

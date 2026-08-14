@@ -1,0 +1,68 @@
+@use 'component' as *;
+
+// ===========================================================================
+// Series skeleton — bar geometry only.
+//
+// The containers (toolbar tabs, grid, card, header, footer) come from
+// SeriesFilter.module.scss / SeriesCard.module.scss so the placeholder occupies
+// the real layout. What lives here is the fixed widths the bars need: inside a
+// content-sized flex row a percentage collapses.
+// ===========================================================================
+
+// Nothing in a skeleton is interactive — kill the hover lift the real card
+// carries, so a cursor crossing the page doesn't animate dead boxes.
+.inert {
+  pointer-events: none;
+}
+
+// --- Status tabs -----------------------------------------------------------
+// Each bar matches a .tab's box (py-2 px-4 around $text-sm plus a count chip).
+
+.tabBar {
+  height: 36px;
+  border-radius: 999px;
+}
+
+.tab1 {
+  width: 76px; // "All"
+}
+.tab2 {
+  width: 84px; // "Live"
+}
+.tab3 {
+  width: 118px; // "Upcoming"
+}
+.tab4 {
+  width: 110px; // "Finished"
+}
+
+// --- Series card ---------------------------------------------------------
+
+.formatChip {
+  width: 42px; // "ODI" / "T20"
+  height: 20px;
+  border-radius: $radius-md;
+}
+
+.statusPill {
+  width: 62px; // LIVE / UPCOMING / COMPLETED
+  height: 20px;
+  border-radius: $radius-md;
+}
+
+.name {
+  width: 88%;
+}
+
+.name2 {
+  width: 54%;
+  margin-top: $space-1-5;
+}
+
+.dates {
+  width: 172px; // "3 Aug 2026 → 21 Aug 2026"
+}
+
+.count {
+  width: 76px; // "12 matches"
+}

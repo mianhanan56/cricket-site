@@ -1,0 +1,172 @@
+@use 'component' as *;
+
+// Series detail: a quiet identity block (chips → name → dates/count) followed by
+// the schedule split into In progress / Upcoming / Results. The match cards are
+// the page's substance, so the header stays deliberately flat — no glass panel
+// competing with the row of cards directly beneath it.
+
+.page {
+  @include container;
+  padding-block: $space-5 $space-8;
+  min-width: 0;
+}
+
+// Back to the list — a text link, not a button: it is a wayfinder, not an action.
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  font-size: $text-sm;
+  color: $text-muted;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: $accent;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+    border-radius: $radius-sm;
+  }
+}
+
+.head {
+  margin-block: $space-3 $space-6;
+}
+
+.chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2;
+  margin-bottom: $space-2-5;
+}
+
+// Both chips mirror SeriesCard's, so the card the reader clicked and the page
+// they land on carry the same two markers.
+.format {
+  flex-shrink: 0;
+  font-size: $text-2xs;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: $space-1 $space-2;
+  border-radius: $radius-md;
+  background: $surface-elevated;
+  border: 1px solid $card-border;
+  color: $text-secondary;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  flex-shrink: 0;
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: $space-1 $space-2;
+  border-radius: $radius-md;
+}
+
+.live {
+  color: $live-color;
+  background: color-mix(in oklab, var(--live) 15%, transparent);
+}
+.upcoming {
+  color: $accent-purple;
+  background: color-mix(in oklab, var(--accent-purple) 15%, transparent);
+}
+.completed {
+  color: $text-secondary;
+  background: $surface-elevated;
+}
+
+.dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: $live-color;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: $live-color;
+    animation: series-detail-ring 1.8s ease-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before {
+      animation: none;
+    }
+  }
+}
+
+.heading {
+  font-size: clamp(#{$text-2xl}, 6vw, #{$text-3xl});
+  line-height: $leading-tight;
+  overflow-wrap: anywhere; // long tour names must not widen the page
+}
+
+.meta {
+  margin-top: $space-2;
+  font-size: $text-sm;
+  color: $text-muted;
+}
+
+.sep {
+  margin-inline: $space-2;
+}
+
+.section {
+  margin-top: $space-6;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-3;
+  font-size: $text-lg;
+  font-weight: 700;
+}
+
+.sectionCount {
+  font-size: $text-2xs;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: $surface-elevated;
+  color: $text-muted;
+}
+
+// Same fluid three-up grid as /fixtures and /series, so a match card keeps the
+// width it was designed for on every list page.
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $space-3;
+
+  @include sm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-4;
+  }
+
+  @include desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@keyframes series-detail-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}

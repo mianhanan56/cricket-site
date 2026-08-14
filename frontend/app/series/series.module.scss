@@ -1,0 +1,33 @@
+@use 'component' as *;
+
+// Page shell mirrors /fixtures so the two list pages share one rhythm; the only
+// addition is a one-line subhead, because "Series" alone doesn't say that these
+// are grouped out of the live feed rather than a full season archive.
+
+.page {
+  @include container;
+  padding-block: $space-5 $space-8;
+  min-width: 0;
+}
+
+.head {
+  margin-bottom: $space-4;
+}
+
+.heading {
+  font-size: clamp(#{$text-2xl}, 6vw, #{$text-3xl});
+}
+
+.sub {
+  margin-top: $space-1-5;
+  max-width: 52ch;
+  font-size: $text-sm;
+  color: $text-muted;
+}
+
+.empty {
+  @include card;
+  padding: $space-5;
+  text-align: center;
+  color: $text-muted;
+}

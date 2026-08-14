@@ -101,8 +101,12 @@
 
 // --- Section head + tab pills ----------------------------------------------
 // section pt-8; head: flex justify-between flex-wrap gap-3 mb-6
+// Three items in one wrapping row: title, filter, rail. Spacing is driven by the
+// title's auto margin rather than `space-between`, so the filter and the rail
+// stay welded together at the right end instead of drifting apart.
 .head {
-  @include flex-between;
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: $space-3; // gap-3 (12px)
   margin-top: $space-6;
@@ -114,29 +118,33 @@
   }
 }
 
-// title + contextual badge, kept together on the left of the head row
-.headLeft {
-  display: flex;
-  align-items: center;
-  gap: $space-3; // gap-3 (12px)
-  min-width: 0;
-}
-
-// font-display font-bold text-2xl
+// font-display font-bold text-2xl. `margin-right: auto` is what pushes the rail
+// and the filter to the right end of the row at every width.
 .title {
   font-family: $font-display;
   font-size: clamp(20px, 4.5vw, #{$text-2xl}); // caps at text-2xl (24px)
   font-weight: 700;
+  margin-right: auto;
+  min-width: 0;
 }
 
-// Tab pills + the type dropdown, kept together on the right of the head row.
-// Wraps to its own line before either control has to shrink.
-.headRight {
+// The type dropdown. Sits beside the title on a phone (its DOM position) and
+// moves to the far right of the row, after the tab rail, from the tablet band up.
+.headFilter {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: $space-2;
-  min-width: 0;
+  flex-shrink: 0;
+
+  @include tablet {
+    order: 3;
+  }
+
+  // The rail is a glass box around the pills, so it stands $space-1 of padding
+  // taller than a bare control — matching the trigger's vertical padding to
+  // (rail padding + pill padding) makes the two exactly the same height, with no
+  // fixed value to drift. The button is FilterSelect's trigger.
+  button {
+    padding-block: $space-1 + $space-2;
+  }
 }
 
 // inline-flex glass rounded-xl p-1 text-sm
@@ -157,6 +165,19 @@
 
   @include sm {
     width: auto;
+  }
+
+  // On a phone the rail stops scrolling and becomes a fixed four-up segmented
+  // control: all tabs visible at once beats a hidden fourth behind a swipe.
+  // The label alone carries the meaning at this size, so the icons come off
+  // (see .pill) and the four equal columns fit the narrowest viewport. Full
+  // width so it always takes the line below the title + filter.
+  @include phone-only {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    width: 100%;
+    overflow-x: visible;
+    font-size: $text-xs;
   }
 }
 
@@ -182,6 +203,23 @@
 
   @include sm {
     padding: $space-2 $space-4; // py-2 px-4
+  }
+
+  // Phone: label-only, centred in its grid column, and allowed to ellipsize
+  // rather than push the rail past the viewport.
+  @include phone-only {
+    justify-content: center;
+    gap: $space-1;
+    padding: $space-2 $space-1-5;
+    min-width: 0;
+
+    svg {
+      display: none;
+    }
+
+    > span:first-of-type {
+      @include truncate(1);
+    }
   }
 
   &:hover {
@@ -256,6 +294,18 @@
     gap: $space-4; // gap-4 (16px) — matches the original grid gap exactly
   }
 
+  // Phone: no slider. A phone shows one card per view anyway, so swiping only
+  // hid the list behind a gesture — stack every card down the y-axis instead and
+  // let the page's own scroll do the work. Snapping and the horizontal
+  // scrollport are both switched off so nothing fights the vertical scroll.
+  @include phone-only {
+    flex-direction: column;
+    gap: $space-3;
+    overflow-x: visible;
+    overscroll-behavior-x: auto;
+    scroll-snap-type: none;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     scroll-behavior: auto;
   }
@@ -281,6 +331,13 @@
 
   @include desktop {
     flex-basis: calc((100% - #{$space-4 * 2}) / 3); // 3 cards + 2 gaps
+  }
+
+  // Stacked: each card takes the full width and its natural height.
+  @include phone-only {
+    flex: 0 0 auto;
+    width: 100%;
+    scroll-snap-align: none;
   }
 }
 
@@ -321,6 +378,12 @@
   &:disabled {
     opacity: 0.35;
     cursor: default;
+  }
+
+  // Nothing to navigate once the track is a stack, so the arrows come out of the
+  // layout (and out of the tab order) entirely below the tablet band.
+  @include phone-only {
+    display: none;
   }
 
   @include tablet {

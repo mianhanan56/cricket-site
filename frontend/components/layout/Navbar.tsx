@@ -8,6 +8,7 @@ import styles from './Navbar.module.scss';
 
 const NAV_LINKS = [
   { href: '/', label: 'Matches' },
+  { href: '/series', label: 'Series' },
   { href: '/fixtures', label: 'Fixtures' },
   { href: '/rankings', label: 'Rankings' },
 ];

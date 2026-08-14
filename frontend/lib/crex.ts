@@ -84,6 +84,26 @@ export interface CrexRawMatch {
   finishTime?: number;
   /** State code: 0-3 upcoming, 4-7 live, 8+ finished. `finishTime` is safer. */
   n?: number;
+  /**
+   * Set on well over half the list, live Tests and CPL fixtures included — so
+   * whatever it gates on crex.com, it is NOT "don't show this match". Typed only
+   * to record that: do not filter on it. Use `isRenderableMatch` instead.
+   */
+  hide?: number;
+}
+
+/**
+ * crex mixes stub entries into the match list — objects carrying a `wp` field
+ * and nothing else: no teams, no series, no venue, no start time. They are not
+ * fixtures, and `toMatch` cannot tell, because every one of its fallbacks fires
+ * at once ('' for a team, 'Cricket' for the series, 'TBD' for the venue, and
+ * *now* for the missing `ti`) and produces a blank card dated today.
+ *
+ * The two team keys are the test: a real fixture always names both sides, even
+ * when everything else about it is still unannounced.
+ */
+export function isRenderableMatch(m: CrexRawMatch): boolean {
+  return Boolean(cleanKey(m.b) && cleanKey(m.c));
 }
 
 /** /matches/live returns an object keyed by match id, not an array. */
@@ -123,6 +143,9 @@ interface FetchOpts {
  * scorecard payload says which, so the caller passes it down from the match.
  */
 const BALLS_PER_OVER = 6;
+
+/** An innings of The Hundred, in balls. */
+const HUNDRED_BALLS = 100;
 
 /** 27 balls -> 4.3 overs. Cricket notation, not a decimal fraction. */
 function toOvers(balls: number, perOver: number): number {
@@ -252,14 +275,23 @@ export async function resolveNames(
 // Adapters onto our own vocabulary (@/types)
 // ---------------------------------------------------------------------------
 
+/** `n` at or above this is a finished match; see `CrexRawMatch.n`. */
+const FINISHED_STATE = 8;
+
 /**
- * `finishTime` is set the moment a match ends and never unset, which makes it a
- * far better signal than the `n` state code (whose bands shift between formats).
- * Anything with a score but no finish time is in progress — including the
- * mid-match states crex reports as results ("Innings Break", "Stumps").
+ * `finishTime` is set when a match ends and never unset, so it is the first
+ * thing checked — but crex does not always set it. Finished matches turn up
+ * with `finishTime: null`, a final `res` ("MIL won by 2 runs") and only `n` to
+ * say they are over, so the state code has to back it up or a completed match
+ * renders as live forever on the strength of having a score.
+ *
+ * `n` alone is not enough either: it is absent on some fixtures, which is why
+ * both signals are consulted rather than one replacing the other. Anything with
+ * a score and neither signal is in progress — including the mid-match states
+ * crex reports through `res` ("Innings Break", "Stumps").
  */
 export function toMatchStatus(m: CrexRawMatch): MatchStatus {
-  if (m.finishTime) return 'COMPLETED';
+  if (m.finishTime || (m.n !== undefined && m.n >= FINISHED_STATE)) return 'COMPLETED';
   if (m.j || m.k) return 'LIVE';
   return 'UPCOMING';
 }
@@ -346,6 +378,10 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
     startTime: toStartTime(m.ti),
     // `hb` carries the balls-per-over on The Hundred and is absent elsewhere.
     ballsPerOver: m.hb === 5 ? 5 : BALLS_PER_OVER,
+    // Any `hb` at all marks a 100-ball game. Worth carrying separately from the
+    // format (which folds The Hundred into T20): a required run rate worked out
+    // against T20's 120 balls would give a chase 20 balls it does not have.
+    ballsLimit: m.hb ? HUNDRED_BALLS : null,
     // `res` carries mid-match states too, so only surface it as a result once
     // the match is actually over.
     result: status === 'COMPLETED' ? m.res ?? m.a ?? null : null,
@@ -364,7 +400,7 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
 export async function getCrexMatch(id: string, opts: FetchOpts = {}): Promise<Match | null> {
   const raw = await getCrexMatches(opts);
   const match = raw[id];
-  if (!match) return null;
+  if (!match || !isRenderableMatch(match)) return null;
 
   const names = await resolveNames([match], opts);
   return toMatch(id, match, names);
@@ -376,7 +412,9 @@ export async function getCrexMatch(id: string, opts: FetchOpts = {}): Promise<Ma
  */
 export async function getCrexMatchList(opts: FetchOpts = {}): Promise<Match[]> {
   const raw = await getCrexMatches(opts);
-  const entries = Object.entries(raw);
+  // Stubs are dropped before names are resolved, so they cost neither a card nor
+  // a mapping lookup.
+  const entries = Object.entries(raw).filter(([, m]) => isRenderableMatch(m));
   const names = await resolveNames(entries.map(([, m]) => m), opts);
 
   return entries

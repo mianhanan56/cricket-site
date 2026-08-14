@@ -86,6 +86,12 @@ export interface IMatch {
   startTime: string; // ISO string
   /** 6 everywhere except The Hundred, which crex scores in sets of 5. */
   ballsPerOver?: number;
+  /**
+   * Balls in an innings when the format fixes that instead of an over count —
+   * 100 on The Hundred. Null/absent means the limit is the format's over count
+   * (50 or 20), or that there isn't one (Test).
+   */
+  ballsLimit?: number | null;
   result?: string | null;
   scorecard?: IScorecard | null;
   // Enrichments attached by GET /api/matches/:id (computed from the DB).

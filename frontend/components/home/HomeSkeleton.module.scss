@@ -29,13 +29,24 @@
 }
 
 .statLabel {
-  width: 74px; // "Live now" / "Recent series"
+  width: 74px; // "Live now" / "All matches"
 }
 
 // --- Section head ---------------------------------------------------------
 
+// Carries the real title's auto margin as well as its width, so the filter and
+// the rail sit at the right end of the row exactly as they do when loaded.
 .headTitle {
   width: 116px; // "Matches" at $text-2xl
+  margin-right: auto;
+}
+
+// The type dropdown's trigger: "All cricket" + caret, at the height the head row
+// aligns everything to.
+.filterBar {
+  width: 118px;
+  height: 48px;
+  border-radius: $radius-xl;
 }
 
 // Sits inside the real .pills glass rail; each bar matches a .pill's box
@@ -55,7 +66,18 @@
   width: 92px;
 }
 .pill4 {
-  width: 80px;
+  width: 92px; // "Matches" + icon
+}
+
+// The phone rail is a four-up grid of equal columns with no icons, so the bars
+// stop carrying their own label-sized widths and just fill their cell. Declared
+// after .pill1–.pill4 because a media query adds no specificity of its own.
+@include phone-only {
+  .pillBar {
+    width: auto;
+    min-width: 0;
+    height: 28px;
+  }
 }
 
 // --- Match card ----------------------------------------------------------
@@ -99,31 +121,4 @@
 
 .venue {
   width: 46%;
-}
-
-// --- Series card ---------------------------------------------------------
-// Same glass shell as a match card, different content: a two-line name, a date
-// range and a match count.
-
-.statusPill {
-  width: 62px;
-  height: 20px;
-  border-radius: $radius-md;
-}
-
-.seriesName {
-  width: 88%;
-}
-
-.seriesName2 {
-  width: 54%;
-  margin-top: $space-1-5;
-}
-
-.seriesDates {
-  width: 172px;
-}
-
-.seriesCount {
-  width: 76px;
 }

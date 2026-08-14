@@ -83,6 +83,7 @@ $desktop: 1024px;
 $wide: 1280px;
 $xwide: 1440px;
 $mobile-max: 575.98px; // upper bound of the base band, for mobile-only rules
+$phone-max: 767.98px; // upper bound of every phone band, for phone-only rules
 
 // --- Typography ---
 $font-primary: 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -184,6 +185,15 @@ $z-modal: 1000;
 // upward (e.g. a control that changes position, not just size, on phones).
 @mixin mobile-only {
   @media (max-width: $mobile-max) {
+    @content;
+  }
+}
+
+// Everything below the tablet band — for the handful of rules that change a
+// layout's *kind* on a phone (a carousel becoming a stack, a rail dropping its
+// icons) rather than just its scale. Keep it as rare as `mobile-only`.
+@mixin phone-only {
+  @media (max-width: $phone-max) {
     @content;
   }
 }
