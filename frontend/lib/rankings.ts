@@ -30,12 +30,10 @@ import type {
   TeamRankingEntry,
 } from '@/types';
 import type {
-  Category,
-  Format,
-  Gender,
-  RankingsData,
-  TeamRankingsData,
-} from '@/components/rankings/RankingsView';
+  RankingsCategory as Category,
+  RankingsFormat as Format,
+  RankingsGender as Gender,
+} from './tabs';
 import { FALLBACK_RANKINGS, type RankingsPayload } from '@/data/rankings';
 import {
   getCrexMapping,
@@ -46,6 +44,17 @@ import {
   type CrexRankingRow,
   type CrexTeamRankingRow,
 } from './crex';
+
+/**
+ * Every ranking list, indexed the way the view reads them: format × gender ×
+ * discipline. Owned here rather than by the component that renders it — this is
+ * the module that builds the shape. Women's Test isn't published by the ICC, so
+ * that slice is simply empty.
+ */
+export type RankingsData = Record<Format, Record<Gender, Record<Category, RankingEntry[]>>>;
+
+/** Teams have no discipline axis: a side is ranked as a side. */
+export type TeamRankingsData = Record<Format, Record<Gender, TeamRankingEntry[]>>;
 
 // Stored vocabulary (uppercase, matching the old DB enums) -> view vocabulary.
 const FORMATS: Record<RankingFormat, Format> = { TEST: 'test', ODI: 'odi', T20I: 't20i' };
@@ -81,7 +90,7 @@ function emptyData(): RankingsData {
  * `position` is the 1-based index within its list and `points` mirrors `rating`
  * — both were columns in the old Ranking table, and both were always derived.
  */
-export function toRankingsData(payload: RankingsPayload): RankingsData {
+function toRankingsData(payload: RankingsPayload): RankingsData {
   const data = emptyData();
 
   for (const [rawFormat, genders] of Object.entries(payload.rankings ?? {})) {
@@ -126,7 +135,7 @@ function emptyTeamData(): TeamRankingsData {
 }
 
 /** Flatten the bundled team snapshot into the view's shape. */
-export function toTeamRankingsData(payload: RankingsPayload): TeamRankingsData {
+function toTeamRankingsData(payload: RankingsPayload): TeamRankingsData {
   const data = emptyTeamData();
 
   for (const [rawFormat, genders] of Object.entries(payload.teams ?? {})) {
@@ -267,7 +276,6 @@ export async function getRankings(): Promise<Rankings> {
     // Whole entry, not just the name: a team row renders the short name on the
     // crest fallback, so `sn` has to survive the lookup too.
     const teamEntries = new Map((mapping.t ?? []).map((e) => [e.f_key, e]));
-    const teams = new Map((mapping.t ?? []).map((e) => [e.f_key, e.n]));
 
     const data = emptyData();
     let filled = 0;
@@ -281,7 +289,7 @@ export async function getRankings(): Promise<Rankings> {
         // An unresolved key is better shown as itself than as a blank row —
         // it makes a /mapping gap visible instead of silently truncating.
         playerName: players.get(row.pf) ?? row.pf,
-        country: teams.get(row.tf) ?? '',
+        country: teamEntries.get(row.tf)?.n ?? '',
         format: RAW_FORMAT[c.format],
         role: RAW_ROLE[c.category],
         gender: RAW_GENDER[c.gender],

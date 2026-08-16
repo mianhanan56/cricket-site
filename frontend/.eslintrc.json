@@ -1,0 +1,11 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    // A Pages-Router rule: a font <link> outside `pages/_document.js` there would
+    // load for one page only. This app is App Router — the <link> lives in
+    // `app/layout.tsx`, which wraps every route, so the premise does not hold.
+    // Fonts are loaded as Google Fonts by design (see .claude/skills/design-standards.md).
+    "@next/next/no-page-custom-font": "off"
+  },
+  "ignorePatterns": ["public/sw.js", "public/workbox-*.js", ".next/", "node_modules/"]
+}

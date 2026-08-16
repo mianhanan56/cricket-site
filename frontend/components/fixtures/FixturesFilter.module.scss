@@ -57,6 +57,59 @@
   }
 }
 
+// The calendar and the type filter share the right end of the toolbar. They stay
+// side by side even on a phone — both are short, and stacking them would push
+// the list a row further down for no gain.
+.selects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+// --- Day bands --------------------------------------------------------------
+// One band per day, and the page's only structure. The heading scrolls with its
+// band rather than sticking: pinned under the navbar it was a second opaque bar
+// permanently across the page, and it is the day's own title, not a page rail.
+
+.day {
+  margin-bottom: $space-8;
+}
+
+.dayHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-1 $space-3;
+  margin: 0 0 $space-3;
+}
+
+.dayLabel {
+  font-family: $font-display;
+  font-size: $text-xl;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: $text-primary;
+}
+
+// The absolute date beside the relative one: "Today" alone makes a shared or
+// reloaded page ambiguous, and on the other bands it is the only date given.
+.dayDate {
+  font-size: $text-xs;
+  color: $text-secondary;
+}
+
+.dayCount {
+  margin-left: auto;
+  flex-shrink: 0;
+  padding: $space-1 $space-2;
+  border-radius: 999px;
+  background: $surface-elevated;
+  font-size: $text-2xs;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: $text-muted;
+}
+
 // Fluid columns rather than a fixed count per band: cards find their own number
 // per row and resize with the viewport, so nothing jumps at a breakpoint. The
 // explicit steps below only cap how many can appear.
@@ -74,9 +127,12 @@
   }
 }
 
-.card {
+// Two variants because not every fixture is linkable: crex allocates a match key
+// close to the match, so anything further out is a card with nowhere to go. It
+// still gets the card, just not the affordance that says it can be opened.
+.card,
+.cardStatic {
   @include card;
-  @include card-hover;
   display: flex;
   flex-direction: column;
   gap: $space-3;
@@ -86,6 +142,10 @@
   @include sm {
     padding: $space-4;
   }
+}
+
+.card {
+  @include card-hover;
 }
 
 .cardTop {

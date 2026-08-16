@@ -115,7 +115,7 @@ export default function MatchDetailSkeleton() {
       <header className={`${md.header} ${s.inert}`}>
         <div className={md.statusRow}>
           <Skeleton className={s.statusBadge} />
-          <Skeleton variant="text" className={s.connLabel} />
+          <Skeleton variant="text" className={s.headerSeries} />
         </div>
 
         <div className={md.teams}>

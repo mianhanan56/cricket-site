@@ -18,8 +18,12 @@
   border-radius: $radius-sm;
 }
 
-.connLabel {
-  width: 72px;
+.headerSeries {
+  width: 108px;
+
+  @include tablet {
+    width: 160px;
+  }
 }
 
 .teamName {

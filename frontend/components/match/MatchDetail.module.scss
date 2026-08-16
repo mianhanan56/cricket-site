@@ -247,6 +247,107 @@
   text-align: center;
 }
 
+// --- At the crease ---------------------------------------------------------
+// Batters one side, bowler the other, mirroring the two team columns above so
+// the eye already knows which end of the header belongs to which side. Stacks
+// on a phone, where two columns would leave neither enough room for a name.
+
+.crease {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+
+  @include sm {
+    flex-direction: row;
+    justify-content: space-between;
+    gap: $space-4;
+  }
+}
+
+.creaseGroup {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+  min-width: 0;
+
+  &.right {
+    @include sm {
+      text-align: right;
+      align-items: flex-end;
+    }
+  }
+}
+
+.creaseLabel {
+  display: flex;
+  align-items: center;
+  gap: $space-1-5;
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-muted;
+}
+
+// The side's short name, carried as a chip so "BATTING TR" reads as one label
+// rather than two competing words.
+.creaseTeam {
+  padding: 1px $space-1-5;
+  border-radius: $radius-sm;
+  background: $card-border;
+  font-family: $font-mono;
+  letter-spacing: 0.04em;
+  color: $text-secondary;
+}
+
+.creaseList {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.creasePlayer {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  min-width: 0;
+  font-size: 13px;
+  color: $text-secondary;
+}
+
+.creaseName {
+  @include fluid-text;
+  overflow-wrap: anywhere;
+}
+
+// The batter on strike is the one the next ball happens to — the only row here
+// worth weighting.
+.onStrike {
+  color: $text-primary;
+  font-weight: 600;
+}
+
+.strikeMark {
+  color: $accent-green;
+}
+
+.creaseFigures {
+  @include score-number;
+  font-size: 13px;
+  color: $text-primary;
+  white-space: nowrap;
+}
+
+.creaseBalls {
+  color: $text-muted;
+}
+
 .result {
   margin-top: $space-3;
   padding-top: $space-3;

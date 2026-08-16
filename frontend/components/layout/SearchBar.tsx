@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { matchLabel, matchSublabel, searchMatches } from '../../lib/search';
+import { matchLabel, searchMatches } from '../../lib/search';
 import Skeleton, { stagger } from '../ui/Skeleton';
 import styles from './SearchBar.module.scss';
 

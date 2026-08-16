@@ -34,6 +34,12 @@ export default function SeriesCard({ series }: { series: SeriesSummary }) {
   const isLive = series.status === 'LIVE';
   const range = dateRange(series.startDate, series.endDate);
 
+  // Progress only means something part-way through — nothing played yet, or
+  // everything played, is already said by the status pill, so the rail stays off.
+  const played = series.playedCount;
+  const inProgress = played !== undefined && played > 0 && played < series.matchCount;
+  const pct = inProgress ? Math.round((played / series.matchCount) * 100) : 0;
+
   return (
     <Link href={`/series/${series.id}`} className={styles.card}>
       {/* header — format chip on the left, status on the right */}
@@ -57,24 +63,48 @@ export default function SeriesCard({ series }: { series: SeriesSummary }) {
         <span>{range}</span>
       </div>
 
-      {/* footer — the series' total, its progress through it, and the view link */}
+      {/* footer — the series' progress through its schedule, and the view link */}
       <div className={styles.footer}>
-        <span className={styles.matches}>
-          {series.matchCount} {series.matchCount === 1 ? 'match' : 'matches'}
-          {/* Progress only means something part-way through — nothing played yet,
-              or everything played, is already said by the status pill. */}
-          {series.playedCount !== undefined &&
-            series.playedCount > 0 &&
-            series.playedCount < series.matchCount && (
-              <span className={styles.progress}>{series.playedCount} played</span>
-            )}
-        </span>
-        <span className={styles.view}>
-          View
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M5 12h14M13 6l6 6-6 6" />
-          </svg>
-        </span>
+        <div className={styles.tally}>
+          {inProgress ? (
+            <span className={styles.count}>
+              <span className={styles.done}>{played}</span>
+              <span className={styles.of} aria-hidden="true">
+                /
+              </span>
+              {series.matchCount}
+              <span className={styles.label}>played</span>
+            </span>
+          ) : (
+            <span className={styles.count}>
+              {series.matchCount}
+              <span className={styles.label}>
+                {series.matchCount === 1 ? 'match' : 'matches'}
+              </span>
+            </span>
+          )}
+
+          <span className={styles.view}>
+            View
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </span>
+        </div>
+
+        {/* The rail carries the "how far through" reading that a bare number can't. */}
+        {inProgress && (
+          <span
+            className={styles.rail}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={series.matchCount}
+            aria-valuenow={played}
+            aria-label={`${played} of ${series.matchCount} matches played`}
+          >
+            <span className={styles.fill} data-pct={pct} />
+          </span>
+        )}
       </div>
     </Link>
   );

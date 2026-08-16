@@ -121,6 +121,75 @@
   margin-inline: $space-2;
 }
 
+// Progress rail — same component language as SeriesCard's footer, sized up for
+// the page header. Capped so it stays a meter, not a decorative full-bleed line.
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  max-width: 320px;
+  margin-top: $space-4;
+}
+
+.progressCount {
+  display: inline-flex;
+  align-items: baseline;
+  gap: $space-1;
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
+  font-size: $text-sm;
+  font-weight: 600;
+  color: $text-secondary;
+}
+
+.progressDone {
+  font-size: $text-lg;
+  font-weight: 700;
+  color: $text-primary;
+}
+
+.progressOf {
+  color: $text-muted;
+}
+
+.progressLabel {
+  font-family: $font-primary;
+  font-size: $text-2xs;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-muted;
+}
+
+.rail {
+  position: relative;
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: $surface-elevated;
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--accent-green) 55%, transparent), $accent);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  @for $i from 0 through 100 {
+    &[data-pct='#{$i}'] {
+      width: $i * 1%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}
+
 .section {
   margin-top: $space-6;
 }

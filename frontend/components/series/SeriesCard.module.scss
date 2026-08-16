@@ -131,29 +131,84 @@
 
 // footer: mt-auto pushes it to the bottom so cards align; border-t divider
 .footer {
-  @include flex-between;
-  gap: $space-2;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2-5;
   margin-top: auto;
   padding-top: $space-4;
   border-top: 1px solid $card-border;
 }
 
-.matches {
+.tally {
+  @include flex-between;
+  gap: $space-2;
+}
+
+// The fraction reads as one figure: mono + tabular so 9/34 and 33/34 occupy the
+// same width and the rail below never shifts under it.
+.count {
   display: inline-flex;
   align-items: baseline;
-  flex-wrap: wrap;
-  gap: $space-1 $space-2;
+  gap: $space-1;
+  min-width: 0;
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
   font-size: $text-sm; // 14px
   font-weight: 600;
+  color: $text-secondary;
+}
+
+// Played is the live half of the fraction — it gets the ink.
+.done {
+  font-size: $text-base;
+  font-weight: 700;
   color: $text-primary;
 }
 
-// Secondary to the total beside it — how far through the series we are, not a
-// second headline figure.
-.progress {
-  font-size: $text-xs;
-  font-weight: 500;
+.of {
   color: $text-muted;
+}
+
+.label {
+  font-family: $font-primary;
+  font-size: $text-2xs;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-muted;
+}
+
+// Signature element: the progress rail. A number says how many; the rail says
+// how far through — the thing a series card is actually for.
+.rail {
+  position: relative;
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: $surface-elevated;
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in oklab, var(--accent-green) 55%, transparent), $accent);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  // Width is data, not decoration — generated here so no component ships an
+  // inline style. 1% steps keep every real ratio exact.
+  @for $i from 0 through 100 {
+    &[data-pct='#{$i}'] {
+      width: $i * 1%;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
 }
 
 // View → : revealed on card hover, matching MatchCard.

@@ -26,15 +26,14 @@ import type {
   SeriesSummary,
   Team,
 } from '@/types';
+import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER, oversFrom } from './overs';
 
 // The home page has no other source now, so this falls back to the deployed
 // Worker rather than to '' — an unset env var used to mean "no crex", which now
 // means "no matches at all". Override it to point at a local `wrangler dev`.
 const DEFAULT_WORKER_URL = 'https://pulsecrease-crex.pulse-cricket.workers.dev';
 
-export const CREX_WORKER_URL = process.env.NEXT_PUBLIC_CREX_WORKER_URL ?? DEFAULT_WORKER_URL;
-
-export const isCrexConfigured = () => Boolean(CREX_WORKER_URL);
+const CREX_WORKER_URL = process.env.NEXT_PUBLIC_CREX_WORKER_URL ?? DEFAULT_WORKER_URL;
 
 /** crex serves team badges off Akamai, keyed by the same f_key as the match. */
 const TEAM_LOGO_BASE = 'https://cricketvectors.akamaized.net/Teams';
@@ -138,25 +137,16 @@ interface FetchOpts {
 }
 
 /**
- * crex counts balls, not overs, everywhere on the wire. Six per over — except
- * on The Hundred, where their own scorecard divides by five. Nothing in the
+ * crex counts balls, not overs, everywhere on the wire — six per over, except on
+ * The Hundred, where their own scorecard divides by five. Nothing in the
  * scorecard payload says which, so the caller passes it down from the match.
+ * Over notation itself lives in lib/overs.
  */
-const BALLS_PER_OVER = 6;
 
 /** An innings of The Hundred, in balls. */
 const HUNDRED_BALLS = 100;
 
-/** 27 balls -> 4.3 overs. Cricket notation, not a decimal fraction. */
-function toOvers(balls: number, perOver: number): number {
-  return Math.floor(balls / perOver) + (balls % perOver) / 10;
-}
-
 async function crexGet<T>(path: string, opts: FetchOpts = {}): Promise<T> {
-  if (!CREX_WORKER_URL) {
-    throw new Error('NEXT_PUBLIC_CREX_WORKER_URL is not set');
-  }
-
   const res = await fetch(`${CREX_WORKER_URL.replace(/\/$/, '')}${path}`, {
     headers: { Accept: 'application/json' },
     signal: opts.signal,
@@ -458,7 +448,7 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
     venue: names.v.get(cleanKey(m.v))?.n ?? 'TBD',
     startTime: toStartTime(m.ti),
     // `hb` carries the balls-per-over on The Hundred and is absent elsewhere.
-    ballsPerOver: m.hb === 5 ? 5 : BALLS_PER_OVER,
+    ballsPerOver: m.hb === HUNDRED_BALLS_PER_OVER ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER,
     // Any `hb` at all marks a 100-ball game. Worth carrying separately from the
     // format (which folds The Hundred into T20): a required run rate worked out
     // against T20's 120 balls would give a chase 20 balls it does not have.
@@ -666,7 +656,7 @@ function decodeBowler(
   return {
     playerId: key,
     name: names.p.get(key)?.n ?? key,
-    overs: toOvers(b, perOver),
+    overs: oversFrom(b, perOver),
     maidens: Number(maidens) || 0,
     runs: r,
     wickets: Number(wickets) || 0,
@@ -679,7 +669,7 @@ export async function getCrexScorecard(
   matchKey: string,
   opts: FetchOpts & { ballsPerOver?: number } = {}
 ): Promise<InningsScore[]> {
-  const perOver = opts.ballsPerOver || BALLS_PER_OVER;
+  const perOver = opts.ballsPerOver || DEFAULT_BALLS_PER_OVER;
 
   const raw = await crexGet<CrexScorecardInnings[] | Record<string, CrexScorecardInnings>>(
     `/match/scorecard?key=${encodeURIComponent(matchKey)}`,
@@ -717,7 +707,7 @@ export async function getCrexScorecard(
       teamShortName: nameCache.t.get(teamKey)?.sn ?? teamKey,
       runs: total ? Number(total[1]) : 0,
       wickets: total ? Number(total[2]) : 0,
-      overs: toOvers(balls, perOver),
+      overs: oversFrom(balls, perOver),
       // An innings with an XI but no total has not begun. Callers use this to
       // keep a "0/0" out of the header while still listing the side.
       notStarted: !total,
@@ -844,6 +834,30 @@ export async function getCrexCommentary(
 // ---------------------------------------------------------------------------
 
 /**
+ * A series' status from the statuses of its matches: live if anything is live,
+ * else upcoming if anything is still to come. Only when neither holds is it done.
+ */
+function seriesStatus(matches: Array<{ status: MatchStatus }>): MatchStatus {
+  if (matches.some((m) => m.status === 'LIVE')) return 'LIVE';
+  if (matches.some((m) => m.status === 'UPCOMING')) return 'UPCOMING';
+  return 'COMPLETED';
+}
+
+/**
+ * The single format label for a mixed list. A tour can run Tests and then ODIs;
+ * the most common format is the fairest one label for the whole thing.
+ */
+function dominantFormat(matches: Array<{ format: MatchFormat }>): MatchFormat {
+  const tally = new Map<MatchFormat, number>();
+  for (const m of matches) tally.set(m.format, (tally.get(m.format) ?? 0) + 1);
+  return [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
+/** How many of a list are finished — the other half of "12 of 34". */
+const playedCount = (matches: Array<{ status: MatchStatus }>): number =>
+  matches.filter((m) => m.status === 'COMPLETED').length;
+
+/**
  * Roll the match list up into series.
  *
  * Cheap but partial: crex's match feed is a window (live, upcoming and recently
@@ -871,25 +885,11 @@ export function seriesFromMatches(matches: Match[]): SeriesSummary[] {
   for (const [id, list] of groups) {
     const times = list.map((m) => +new Date(m.startTime)).filter(Number.isFinite);
 
-    // A series is live if anything in it is live; otherwise upcoming if
-    // anything is still to come. Only when neither holds is it done.
-    const status: MatchStatus = list.some((m) => m.status === 'LIVE')
-      ? 'LIVE'
-      : list.some((m) => m.status === 'UPCOMING')
-        ? 'UPCOMING'
-        : 'COMPLETED';
-
-    // Formats can be mixed on a tour (a Test series followed by ODIs); the most
-    // common one is the fairest single label.
-    const tally = new Map<MatchFormat, number>();
-    for (const m of list) tally.set(m.format, (tally.get(m.format) ?? 0) + 1);
-    const format = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
-
     summaries.push({
       id,
       name: list[0].series.name,
-      format,
-      status,
+      format: dominantFormat(list),
+      status: seriesStatus(list),
       matchCount: list.length,
       startDate: new Date(Math.min(...times)).toISOString(),
       endDate: new Date(Math.max(...times)).toISOString(),
@@ -1054,27 +1054,13 @@ export async function getCrexSeriesSchedule(
     awayTeam: toTeam(m.t2f ?? '', names),
   }));
 
-  // Same rule as seriesFromMatches: live if anything is live, else upcoming if
-  // anything is still to come.
-  const status: MatchStatus = matches.some((m) => m.status === 'LIVE')
-    ? 'LIVE'
-    : matches.some((m) => m.status === 'UPCOMING')
-      ? 'UPCOMING'
-      : 'COMPLETED';
-
-  // A tour can mix formats (Tests then ODIs); the most common one is the fairest
-  // single label.
-  const tally = new Map<MatchFormat, number>();
-  for (const m of matches) tally.set(m.format, (tally.get(m.format) ?? 0) + 1);
-  const format = [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
-
   return {
     id,
     name: names.s.get(id)?.n ?? opts.fallback?.name ?? 'Cricket',
-    format,
-    status,
+    format: dominantFormat(matches),
+    status: seriesStatus(matches),
     matchCount: matches.length,
-    playedCount: matches.filter((m) => m.status === 'COMPLETED').length,
+    playedCount: playedCount(matches),
     // Rows are sorted, so the span runs from the first match's start to the last
     // one's scheduled finish.
     startDate: matches[0].startTime,
@@ -1105,7 +1091,7 @@ export function seriesScheduleFromMatches(
 
   return {
     ...summary,
-    playedCount: mine.filter((m) => m.status === 'COMPLETED').length,
+    playedCount: playedCount(mine),
     matches: mine.map((m) => ({
       id: m.id,
       key: m.id,
@@ -1149,13 +1135,154 @@ export function withFeedStatuses(schedule: SeriesSchedule, feed: Match[]): Serie
   return {
     ...schedule,
     matches,
-    status: matches.some((m) => m.status === 'LIVE')
-      ? 'LIVE'
-      : matches.some((m) => m.status === 'UPCOMING')
-        ? 'UPCOMING'
-        : 'COMPLETED',
-    playedCount: matches.filter((m) => m.status === 'COMPLETED').length,
+    status: seriesStatus(matches),
+    playedCount: playedCount(matches),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Fixtures (the full schedule)
+// ---------------------------------------------------------------------------
+//
+// /matches/live is a rolling window — live now, next up, just gone — so the
+// upcoming slice of it is a couple of days deep at best. /fixtures is crex's own
+// schedule page: date-wise, 20 matches a page, page 0 starting today and each
+// further page another two or three days forward. Fetching a handful of pages is
+// what turns "the next eight matches" into a real fixtures list.
+
+/** One scheduled match as /fixtures (wise=1) sends it. */
+export interface CrexFixtureRow {
+  /**
+   * Match f_key — the id /matches/{id} takes. Absent on most future fixtures:
+   * crex allocates the key close to the match, so anything more than a few days
+   * out has no match page to link to yet.
+   */
+  mf?: string;
+  /** crex's own row id. Always present, so it is what keys the list. */
+  id?: number;
+  /** Team 1 / team 2 keys. Resolve via /mapping `t`. */
+  t1f?: string;
+  t2f?: string;
+  /** Series key. */
+  sf?: string;
+  /** Venue key. */
+  vf?: string;
+  /** Match number within the series; sometimes crex-encoded ("^0"). */
+  mn?: string;
+  /** Start time, epoch ms. */
+  t?: number;
+  /** 0 upcoming, 1 live, 2 finished — the same vocabulary as /series/matches. */
+  status?: number;
+  /** Format id: 1 ODI, 2 T20, 3 Test, 4 T10, 5 The Hundred. */
+  ft?: number;
+  /** Format label ("T20I", "One Day"). `ft` is the reliable one; this is a fallback. */
+  fo?: string;
+  /** Team 1 / team 2 score, "170/9". Only on live and finished rows. */
+  s1?: string;
+  s2?: string;
+  /** Overs faced, "20.0". */
+  o1?: string;
+  o2?: string;
+  /** Result text once there is one. */
+  result?: string;
+}
+
+/**
+ * A scheduled match, in our vocabulary.
+ *
+ * A `Match` plus the one thing the schedule cannot promise: `matchKey` is the
+ * crex id when crex has allocated one and null otherwise, so a card knows
+ * whether it has anywhere to link. `id` stays populated either way (it falls
+ * back to the row id) because everything downstream keys lists off it.
+ */
+export interface Fixture extends Match {
+  matchKey: string | null;
+}
+
+/** One page of the schedule, date-wise. Page 0 starts today; negative is past. */
+export function getCrexFixtures(page = 0, opts: FetchOpts = {}): Promise<CrexFixtureRow[]> {
+  return crexGet<CrexFixtureRow[]>(`/fixtures?wise=1&page=${page}`, {
+    revalidate: 300,
+    ...opts,
+  });
+}
+
+/** 20 rows a page, and crex 400s well before this — see the Worker's route. */
+const FIXTURE_PAGES = 12;
+
+/** An innings of The Hundred, in balls per over. `ft` 5 is the only signal here. */
+const HUNDRED_FORMAT = 5;
+
+function toFixture(row: CrexFixtureRow, names: typeof nameCache): Fixture {
+  const homeTeam = toTeam(row.t1f ?? '', names);
+  const awayTeam = toTeam(row.t2f ?? '', names);
+  const seriesKey = cleanKey(row.sf);
+  const matchKey = cleanKey(row.mf) || null;
+  const status = SERIES_MATCH_STATUS[row.status ?? 0] ?? 'UPCOMING';
+  const hundred = row.ft === HUNDRED_FORMAT;
+
+  const innings = [
+    parseScore(row.s1 && row.o1 ? `${row.s1}(${row.o1}` : row.s1, homeTeam.shortName),
+    parseScore(row.s2 && row.o2 ? `${row.s2}(${row.o2}` : row.s2, awayTeam.shortName),
+  ].filter((i): i is InningsScore => i !== null);
+
+  return {
+    id: matchKey ?? `fx-${row.id}`,
+    matchKey,
+    homeTeam,
+    awayTeam,
+    series: { id: seriesKey, name: names.s.get(seriesKey)?.n ?? 'Cricket' },
+    format: SERIES_MATCH_FORMAT[row.ft ?? 0] ?? 'T20',
+    status,
+    venue: names.v.get(cleanKey(row.vf))?.n ?? 'TBD',
+    startTime: new Date(row.t ?? Date.now()).toISOString(),
+    ballsPerOver: hundred ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER,
+    ballsLimit: hundred ? HUNDRED_BALLS : null,
+    result: status === 'COMPLETED' ? row.result ?? null : null,
+    scorecard: innings.length ? { innings } : null,
+  };
+}
+
+/**
+ * The schedule ahead: every match crex lists from today forward, earliest first.
+ *
+ * Pages are fetched in parallel and each is independently edge-cached, so a page
+ * that fails costs its own 20 rows and not the list. Rows are deduped on the way
+ * out — page boundaries fall mid-day, and crex repeats a day's tail on the next
+ * page often enough to matter.
+ */
+export async function getCrexFixtureList(
+  opts: FetchOpts & { pages?: number } = {}
+): Promise<Fixture[]> {
+  const pages = opts.pages ?? FIXTURE_PAGES;
+  const settled = await Promise.all(
+    Array.from({ length: pages }, (_, page) => getCrexFixtures(page, opts).catch(() => []))
+  );
+
+  // Both keys are needed: `id` is crex's row id and `mf` the match key, and a row
+  // can arrive on two pages carrying one of them and then both.
+  const seen = new Set<string>();
+  const rows: CrexFixtureRow[] = [];
+  for (const row of settled.flat()) {
+    if (!row?.t || !cleanKey(row.t1f) || !cleanKey(row.t2f)) continue;
+    const key = cleanKey(row.mf) || `id-${row.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    rows.push(row);
+  }
+
+  const names = await resolveKeys(
+    {
+      t: rows.flatMap((r) => [r.t1f ?? '', r.t2f ?? '']),
+      v: rows.map((r) => r.vf ?? ''),
+      s: rows.map((r) => r.sf ?? ''),
+    },
+    opts
+  );
+
+  return rows
+    .map((r) => toFixture(r, names))
+    .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime));
 }
 
 /**

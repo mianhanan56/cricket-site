@@ -79,7 +79,6 @@ function TeamRow({
 export default function MatchCard({ match }: { match: Match }) {
   const isLive = match.status === 'LIVE';
   const isUpcoming = match.status === 'UPCOMING';
-  const isCompleted = match.status === 'COMPLETED';
   const homeInn = inningsFor(match, match.homeTeam);
   const awayInn = inningsFor(match, match.awayTeam);
 

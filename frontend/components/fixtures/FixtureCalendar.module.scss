@@ -1,0 +1,272 @@
+@use 'component' as *;
+
+// ===========================================================================
+// FixtureCalendar — month grid over the days the schedule covers.
+// Speaks the same glass-popover language as FilterSelect: the surface, the
+// radius and the mint selection are shared, so the toolbar reads as one row of
+// controls rather than two libraries. What is new here is the count under each
+// date — the grid is a density map of the schedule, not just a date input.
+// ===========================================================================
+
+.root {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.trigger {
+  @include glass;
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 $space-3;
+  border-radius: $radius-xl;
+  font-size: $text-sm;
+  font-weight: 600;
+  color: $text-primary;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
+
+  &:hover {
+    border-color: color-mix(in oklab, var(--accent-green) 40%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+
+  svg {
+    color: $text-muted;
+  }
+}
+
+// A date is a narrower view than the page's default, so the control says so
+// rather than leaving the reader to notice the list got shorter.
+.triggerSet {
+  border-color: color-mix(in oklab, var(--accent-green) 45%, transparent);
+
+  svg {
+    color: $accent;
+  }
+}
+
+.triggerOpen {
+  border-color: color-mix(in oklab, var(--accent-green) 55%, transparent);
+  box-shadow: $shadow-glow;
+}
+
+.triggerLabel {
+  @include truncate(1);
+  max-width: 150px;
+}
+
+.panel {
+  @include glass;
+  position: absolute;
+  top: calc(100% + #{$space-2});
+  right: 0;
+  z-index: $z-navbar - 1;
+  width: 296px;
+  padding: $space-3;
+  border-radius: $radius-xl;
+  box-shadow: $shadow-card;
+  animation: calendar-in 0.16s ease-out;
+
+  // Anchored left on a phone: the trigger sits close enough to the right gutter
+  // that a right-anchored 296px panel would hang off the viewport.
+  @media (max-width: $mobile-max) {
+    right: auto;
+    left: 0;
+    width: min(296px, calc(100vw - #{$space-8}));
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+.head {
+  @include flex-between;
+  gap: $space-2;
+  margin-bottom: $space-3;
+}
+
+.month {
+  font-family: $font-display;
+  font-size: $text-sm;
+  font-weight: 700;
+  color: $text-primary;
+}
+
+.nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: $text-secondary;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+
+  &:hover:not(:disabled) {
+    background: $card-hover;
+    color: $text-primary;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.weekdays,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: $space-1;
+}
+
+.weekdays {
+  margin-bottom: $space-1;
+
+  span {
+    text-align: center;
+    font-size: $text-2xs;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $text-muted;
+  }
+}
+
+.pad {
+  aspect-ratio: 1;
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  aspect-ratio: 1;
+  border-radius: $radius-md;
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $text-primary;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+
+  &:hover:not(:disabled) {
+    background: $card-hover;
+    border-color: color-mix(in oklab, var(--accent-green) 30%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 1px;
+  }
+
+  // A day with no cricket on it. Still rendered — the gaps in a schedule are
+  // information — but it is not a choice.
+  &:disabled {
+    color: $text-muted;
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.dayCount {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: $accent;
+}
+
+.dayToday {
+  border-color: color-mix(in oklab, var(--accent-green) 45%, transparent);
+}
+
+.daySelected {
+  background: $accent;
+  border-color: transparent;
+  color: $accent-green-ink;
+  box-shadow: $shadow-glow;
+
+  .dayCount {
+    color: $accent-green-ink;
+    opacity: 0.75;
+  }
+
+  &:hover:not(:disabled) {
+    background: $accent;
+    border-color: transparent;
+  }
+}
+
+.foot {
+  display: flex;
+  gap: $space-2;
+  margin-top: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+}
+
+.clear {
+  flex: 1;
+  padding: $space-2;
+  border-radius: $radius-md;
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $text-secondary;
+  background: transparent;
+  border: 1px solid $card-border;
+  cursor: pointer;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
+
+  &:hover:not(:disabled) {
+    color: $text-primary;
+    border-color: color-mix(in oklab, var(--accent-green) 35%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+@keyframes calendar-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

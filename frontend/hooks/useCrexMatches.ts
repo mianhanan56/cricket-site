@@ -2,12 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CommentaryBall, InningsScore, Match } from '@/types';
-import {
-  getCrexCommentary,
-  getCrexMatchList,
-  getCrexScorecard,
-  isCrexConfigured,
-} from '@/lib/crex';
+import { getCrexCommentary, getCrexMatchList, getCrexScorecard } from '@/lib/crex';
 
 // crex has no push channel we can use — their live scores come off a Firebase
 // stream we deliberately don't touch (see worker-crex/README) — so the only
@@ -72,8 +67,6 @@ export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatc
   // Bumping this re-runs the scheduling effect, which is how refresh() works.
   const [tick, setTick] = useState(0);
 
-  const active = enabled && isCrexConfigured();
-
   const refresh = useCallback(() => {
     failures.current = 0;
     setTick((t) => t + 1);
@@ -87,7 +80,7 @@ export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatc
   }, []);
 
   useEffect(() => {
-    if (!active) {
+    if (!enabled) {
       setIsLoading(false);
       return;
     }
@@ -154,7 +147,7 @@ export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatc
       abort.current?.abort();
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [active, intervalMs, tick]);
+  }, [enabled, intervalMs, tick]);
 
   return { matches, isLoading, isRefreshing, error, lastUpdated, refresh };
 }
@@ -178,7 +171,7 @@ export function useCrexMatch(
 ): UseCrexMatchResult {
   const { initial = null, intervalMs, enabled } = options;
 
-  const { matches, lastUpdated, ...rest } = useCrexMatches({
+  const { matches, ...rest } = useCrexMatches({
     initial: initial ? [initial] : [],
     intervalMs,
     enabled,
@@ -189,7 +182,7 @@ export function useCrexMatch(
   // showing the last known state rather than blanking the page.
   const found = matches.find((m) => m.id === id) ?? null;
 
-  return { ...rest, lastUpdated, match: found ?? initial };
+  return { ...rest, match: found ?? initial };
 }
 
 export interface UseCrexMatchExtrasResult {
@@ -221,7 +214,7 @@ export function useCrexMatchExtras(
   const [commentary, setCommentary] = useState<CommentaryBall[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  const active = enabled && isCrexConfigured() && Boolean(matchKey);
+  const active = enabled && Boolean(matchKey);
 
   useEffect(() => {
     if (!active) return;

@@ -49,7 +49,7 @@ const NATIONS = new Set(
     // Americas & East Asia-Pacific
     'bermuda', 'bahamas', 'belize', 'cayman islands', 'panama', 'argentina',
     'brazil', 'chile', 'peru', 'mexico', 'costa rica', 'fiji', 'vanuatu',
-    'samoa', 'cook islands', 'tonga', 'philippines',
+    'samoa', 'cook islands', 'tonga',
   ]
 );
 

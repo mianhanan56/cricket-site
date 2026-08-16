@@ -3,26 +3,15 @@
 import type { RankingEntry, TeamRankingEntry } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import type {
-  RankingsCategory,
-  RankingsFormat,
-  RankingsGender,
-  RankingsGroup,
+  RankingsCategory as Category,
+  RankingsFormat as Format,
+  RankingsGender as Gender,
+  RankingsGroup as Group,
 } from '@/lib/tabs';
+import type { RankingsData, TeamRankingsData } from '@/lib/rankings';
 import FilterSelect, { type FilterOption } from '../ui/FilterSelect';
 import RankingCrest from './RankingCrest';
 import styles from './RankingsView.module.scss';
-
-export type Format = RankingsFormat;
-export type Gender = RankingsGender;
-export type Category = RankingsCategory;
-export type Group = RankingsGroup;
-
-// format × gender × category — every combination the API supports. Women's
-// Test isn't published by the ICC, so that slice is simply empty.
-export type RankingsData = Record<Format, Record<Gender, Record<Category, RankingEntry[]>>>;
-
-// Teams have no discipline axis: a side is ranked as a side.
-export type TeamRankingsData = Record<Format, Record<Gender, TeamRankingEntry[]>>;
 
 const GROUPS: readonly FilterOption<Group>[] = [
   { value: 'players', label: 'Players' },

@@ -19,8 +19,8 @@ export const metadata = {
 };
 
 // Rankings move when a series ends, not when a ball is bowled, so an hour is
-// generous. It is also the cap on how long a KV edit takes to appear here —
-// which is the whole point of holding the data in KV: no deploy in that loop.
+// generous. It matches the Worker's own edge TTL on the two ranking routes, so
+// this page costs one burst of upstream calls an hour however many read it.
 export const revalidate = 3600;
 
 export default async function RankingsPage({
@@ -41,8 +41,7 @@ export default async function RankingsPage({
   // ?gender=women&format=test has no data behind it — fold it to ODI.
   const format: RankingsFormat = gender === 'women' && requested === 'test' ? 'odi' : requested;
 
-  // One request for every format/gender/category, where this used to fan out to
-  // eighteen. getRankings never throws and never returns empty — see lib.
+  // getRankings never throws and never returns empty — see lib.
   const { data, teams, asOf } = await getRankings();
 
   return (

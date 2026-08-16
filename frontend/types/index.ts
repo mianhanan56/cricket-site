@@ -6,7 +6,6 @@
 export type MatchFormat = 'TEST' | 'ODI' | 'T20';
 export type MatchStatus = 'LIVE' | 'UPCOMING' | 'COMPLETED';
 export type PlayerRole = 'BATSMAN' | 'BOWLER' | 'ALL_ROUNDER' | 'WK';
-export type RankingType = 'batting' | 'bowling' | 'all-rounder';
 
 // ---------------------------------------------------------------------------
 // Core entities (canonical `I`-prefixed interfaces)
@@ -41,45 +40,11 @@ export interface ISeriesSummary extends ISeries {
   playedCount?: number;
 }
 
-export interface IPlayer {
-  id: string;
-  name: string;
-  country: string;
-  role: PlayerRole;
-  battingStyle?: string | null;
-  bowlingStyle?: string | null;
-  photo?: string | null;
-  stats?: PlayerStats | null;
-}
-
-export interface BattingStats {
-  matches: number;
-  innings: number;
-  runs: number;
-  average: number;
-  strikeRate: number;
-  hundreds: number;
-  fifties: number;
-  fours: number;
-  sixes: number;
-  highScore?: number;
-}
-
-export interface BowlingStats {
-  matches: number;
-  innings: number;
-  wickets: number;
-  average: number;
-  economy: number;
-  strikeRate: number;
-  fiveWickets: number;
-  bestBowling?: string;
-}
-
-export interface PlayerStats {
-  batting?: BattingStats;
-  bowling?: BowlingStats;
-}
+// The player entity and its batting/bowling stat blocks lived here. They
+// described the DB's Player table; crex has no player corpus we can read (its
+// player endpoint is payload-blocked — see lib/search), so nothing builds one.
+// Squad members are the only players the app names, and SquadPlayer is enough
+// for that.
 
 export interface IMatch {
   id: string;
@@ -121,12 +86,8 @@ export interface SquadPlayer {
 // Non-prefixed aliases — convenient short names used across the app. The
 // `I`-prefixed interfaces above are the canonical source of truth.
 export type Team = ITeam;
-export type Series = ISeries;
 export type SeriesSummary = ISeriesSummary;
-export type Player = IPlayer;
 export type Match = IMatch;
-export type Scorecard = IScorecard;
-export type NewsArticle = INewsArticle;
 
 // ---------------------------------------------------------------------------
 // Scoring
@@ -139,7 +100,6 @@ export interface InningsScore {
   runs: number;
   wickets: number;
   overs: number;
-  runRate?: number;
   // Optional per-innings lines; falls back to the top-level (current innings)
   // batting/bowling arrays when absent.
   batting?: BatsmanLine[];
@@ -178,14 +138,19 @@ export interface BowlerLine {
   economy: number;
 }
 
+/**
+ * `currentInnings`, `target` and `requiredRunRate` were fields here. No source
+ * sets them: crex's card is a list of innings and nothing else, so the innings in
+ * progress is the last one that has batted and a target is the first innings'
+ * total plus one. Both are derived where they are needed (lib/overs'
+ * `inningsBallLimit`, MatchDetail's `computeRates`) rather than carried as
+ * fields nothing fills in.
+ */
 export interface IScorecard {
   innings: InningsScore[];
-  currentInnings?: number;
   batting?: BatsmanLine[];
   bowling?: BowlerLine[];
   extras?: number;
-  target?: number;
-  requiredRunRate?: number;
   commentary?: CommentaryBall[];
 }
 
@@ -198,17 +163,6 @@ export interface CommentaryBall {
   isBoundary?: boolean;
   text: string;
   timestamp?: string;
-}
-
-export interface PointsTableRow {
-  teamId: string;
-  teamName: string;
-  played: number;
-  won: number;
-  lost: number;
-  tied: number;
-  points: number;
-  netRunRate: number;
 }
 
 export type RankingRole = 'BATTING' | 'BOWLING' | 'ALLROUNDER';
@@ -260,26 +214,9 @@ export interface TeamRankingEntry {
   position: number;
 }
 
-export interface INewsArticle {
-  id: string;
-  title: string;
-  slug: string;
-  content: string;
-  excerpt: string;
-  thumbnail?: string | null;
-  author: string;
-  publishedAt: string; // ISO string
-  tags: string[];
-}
-
-export interface WinProbability {
-  matchId: string;
-  homeTeamPct: number;
-  awayTeamPct: number;
-  updatedAt: string;
-}
-
-// The API-envelope and Socket.io payload types lived here. Both described our
-// own Express backend's protocol — the { success, data } wrapper it replied with
-// and the events it pushed. Nothing speaks that protocol now: every source is
-// the crex Worker, which returns plain JSON over HTTP.
+// Also gone from here, all of them shapes only the old backend ever produced:
+// the news article (there is no news source), the points table (crex serves no
+// standings), the win-probability record (the widget computes its own from the
+// card — see components/match/WinProbability), and the API-envelope and
+// Socket.io payload types. Nothing speaks that protocol now: every source is the
+// crex Worker, which returns plain JSON over HTTP.

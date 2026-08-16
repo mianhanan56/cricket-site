@@ -8,6 +8,7 @@ import type {
   InningsScore,
   BatsmanLine,
   BowlerLine,
+  CommentaryBall,
   TeamFormEntry,
   SquadPlayer,
 } from '@/types';
@@ -17,6 +18,7 @@ import {
   HUNDRED_BALLS_PER_OVER,
   ballsFrom,
   formatProgressShort,
+  inningsBallLimit,
 } from '@/lib/overs';
 import WinProbability from './WinProbability';
 import {
@@ -34,14 +36,21 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'commentary', label: 'Commentary' },
 ];
 
-interface BallEntry {
-  id: string;
-  over: number;
-  ball: number;
-  runs: number;
-  isWicket: boolean;
-  text: string;
-}
+/**
+ * A delivery as this component renders it — the feed's ball minus the fields
+ * nothing here reads (`isBoundary` is re-derived from `runs`, `timestamp` is
+ * never shown).
+ */
+type BallEntry = Pick<CommentaryBall, 'id' | 'over' | 'ball' | 'runs' | 'isWicket' | 'text'>;
+
+const toBallEntry = ({ id, over, ball, runs, isWicket, text }: CommentaryBall): BallEntry => ({
+  id,
+  over,
+  ball,
+  runs,
+  isWicket,
+  text,
+});
 
 const MAX_COMMENTARY = 60;
 // Three overs of the recent-balls strip. Two is too short to read the shape of
@@ -124,42 +133,51 @@ function kindClass(b: BallEntry): string {
   return styles[dotKind(b)] ?? '';
 }
 
-// ------------------------------------------------------------------ Run rates
+// ------------------------------------------------------------- At the crease
 
-/** Scheduled overs per side. Test cricket has none, which is what null means. */
-const FORMAT_OVERS: Record<Match['format'], number | null> = {
-  T20: 20, // also The Hundred — 20 five-ball overs, via ballsPerOver
-  ODI: 50,
-  TEST: null,
-};
+interface Crease {
+  /** Short name of the side batting, and of the side in the field. */
+  battingTeam: string;
+  fieldingTeam: string;
+  /** The unbeaten batters, striker first when the feed says who that is. */
+  batsmen: Array<{ line: BatsmanLine; onStrike: boolean }>;
+  /** The bowler mid-spell — null when the feed doesn't name one we can match. */
+  bowler: BowlerLine | null;
+}
+
+const normalizeName = (s: string) => s.toLowerCase().replace(/[^a-z\s]/g, ' ').trim();
 
 /**
- * How many balls the chasing side gets.
+ * Does a card name and a commentary name refer to the same player?
  *
- * The feed carries no innings limit, and the format's own is wrong for every
- * rain-shortened game (crex is listing 18- and 19-over T20s right now). So it is
- * read off the first innings instead: a side that was not bowled out batted
- * exactly its allocation, and a limited-overs innings only ends mid-over when
- * the batting side is out — so the ball count is the allocation, exactly.
- *
- * Being bowled out says nothing about the limit, and there the format's own
- * figure is the best available guess.
+ * The two feeds spell players differently — the card carries "Rashid Khan", the
+ * commentary usually a surname alone — so this asks whether every word the
+ * commentary used appears in the card name. A surname match is enough; a
+ * mismatch just leaves the striker unmarked rather than marking the wrong one.
  */
-function inningsBallLimit(first: InningsScore, match: Match, perOver: number): number | null {
-  // The Hundred fixes the innings in balls, so no derivation is needed or wanted.
-  if (match.ballsLimit) return match.ballsLimit;
-
-  const scheduled = FORMAT_OVERS[match.format];
-  if (scheduled === null) return null;
-
-  const full = scheduled * perOver;
-  if (first.wickets >= 10) return full;
-
-  const bowled = ballsFrom(first.overs, perOver);
-  // Never above the scheduled figure: a miscounted feed should not invent balls
-  // the chase does not have.
-  return bowled > 0 ? Math.min(bowled, full) : full;
+function nameMatches(cardName: string, feedName: string): boolean {
+  const card = normalizeName(cardName).split(/\s+/);
+  const feed = normalizeName(feedName).split(/\s+/).filter(Boolean);
+  if (!feed.length || !card.length) return false;
+  return feed.every((t) => card.includes(t));
 }
+
+/**
+ * The bowler and the striker off a delivery's headline, which crex writes as
+ * "Bumrah to Root" ahead of the description (joined with an em dash by
+ * `getCrexCommentary`). Anything that doesn't look like that headline — a ball
+ * with no `c1`, so the description leads — is left alone; the strip then shows
+ * the two not-out batters without marking a striker.
+ */
+function namesFromBall(text: string): { bowler: string; striker: string } | null {
+  const head = text.split('—')[0].trim().replace(/[,.]$/, '');
+  if (head.split(/\s+/).length > 8) return null;
+
+  const m = /^(.+?)\s+to\s+(.+)$/.exec(head);
+  return m ? { bowler: m[1], striker: m[2] } : null;
+}
+
+// ------------------------------------------------------------------ Run rates
 
 interface Rates {
   /** Current run rate for the innings in progress. */
@@ -218,17 +236,15 @@ export default function MatchDetail({
   const [match, setMatch] = useState<Match>(initial);
   const [tab, setTab] = useState<TabKey>('info');
 
-  // Seed commentary + ball dots from the initial server-fetched scorecard.
-  const seed: BallEntry[] = (initial.scorecard?.commentary ?? []).map((c) => ({
-    id: c.id,
-    over: c.over,
-    ball: c.ball,
-    runs: c.runs,
-    isWicket: c.isWicket,
-    text: c.text,
-  }));
-  const [commentary, setCommentary] = useState<BallEntry[]>([...seed].reverse());
-  const [dots, setDots] = useState<BallEntry[]>(seed.slice(-MAX_DOTS));
+  // Seed commentary + ball dots from the initial server-fetched scorecard. Both
+  // initialisers are lazy: the seed only matters on the first render, and the
+  // polls below replace it wholesale.
+  const [commentary, setCommentary] = useState<BallEntry[]>(() =>
+    (initial.scorecard?.commentary ?? []).map(toBallEntry).reverse()
+  );
+  const [dots, setDots] = useState<BallEntry[]>(() =>
+    (initial.scorecard?.commentary ?? []).map(toBallEntry).slice(-MAX_DOTS)
+  );
 
   const isLive = match.status === 'LIVE';
 
@@ -272,14 +288,7 @@ export default function MatchDetail({
   useEffect(() => {
     if (!crexExtras.commentary.length) return;
 
-    const entries: BallEntry[] = crexExtras.commentary.map((c) => ({
-      id: c.id,
-      over: c.over,
-      ball: c.ball,
-      runs: c.runs,
-      isWicket: c.isWicket,
-      text: c.text,
-    }));
+    const entries = crexExtras.commentary.map(toBallEntry);
     setCommentary(entries.slice(0, MAX_COMMENTARY));
     // Dots read oldest-to-newest, so the tail of the feed reversed.
     setDots([...entries].reverse().slice(-MAX_DOTS));
@@ -304,6 +313,36 @@ export default function MatchDetail({
     () => (isLive ? computeRates(match, crexExtras.innings) : null),
     [isLive, match, crexExtras.innings]
   );
+
+  // Who is actually out in the middle. Read off the fetched card for the same
+  // reason the rates are — only that endpoint returns innings in innings order,
+  // so its last batted innings is the one in progress.
+  const crease = useMemo<Crease | null>(() => {
+    if (!isLive) return null;
+
+    const batted = crexExtras.innings.filter((i) => !i.notStarted);
+    const current = batted[batted.length - 1];
+    if (!current) return null;
+
+    const unbeaten = (current.batting ?? []).filter(atCrease);
+    if (!unbeaten.length) return null;
+
+    const names = lastBall ? namesFromBall(lastBall.text) : null;
+    const striker = names ? unbeaten.find((b) => nameMatches(b.name, names.striker)) : undefined;
+    const ordered = striker ? [striker, ...unbeaten.filter((b) => b !== striker)] : unbeaten;
+
+    return {
+      battingTeam: current.teamShortName,
+      fieldingTeam:
+        [match.homeTeam.shortName, match.awayTeam.shortName].find(
+          (s) => s.toLowerCase() !== current.teamShortName.toLowerCase()
+        ) ?? '',
+      batsmen: ordered.slice(0, 2).map((line) => ({ line, onStrike: line === striker })),
+      bowler: names
+        ? (current.bowling ?? []).find((b) => nameMatches(b.name, names.bowler)) ?? null
+        : null,
+    };
+  }, [isLive, crexExtras.innings, lastBall, match.homeTeam.shortName, match.awayTeam.shortName]);
 
   // Commentary grouped by over, newest over first (entries are newest-first).
   const overs = useMemo(() => {
@@ -406,6 +445,53 @@ export default function MatchDetail({
           </div>
         )}
 
+        {/* Out in the middle — the two batters and the bowler mid-spell, each
+            under the short name of the side they are playing for. */}
+        {crease && (
+          <div className={styles.crease}>
+            <div className={styles.creaseGroup}>
+              <span className={styles.creaseLabel}>
+                Batting<span className={styles.creaseTeam}>{crease.battingTeam}</span>
+              </span>
+              <ul className={styles.creaseList}>
+                {crease.batsmen.map(({ line, onStrike }) => (
+                  <li
+                    key={line.playerId}
+                    className={`${styles.creasePlayer} ${onStrike ? styles.onStrike : ''}`}
+                  >
+                    <span className={styles.creaseName}>
+                      {line.name}
+                      {onStrike && <span className={styles.strikeMark}> *</span>}
+                    </span>
+                    <span className={styles.creaseFigures}>
+                      {line.runs} <span className={styles.creaseBalls}>({line.balls})</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {crease.bowler && (
+              <div className={`${styles.creaseGroup} ${styles.right}`}>
+                <span className={styles.creaseLabel}>
+                  Bowling<span className={styles.creaseTeam}>{crease.fieldingTeam}</span>
+                </span>
+                <ul className={styles.creaseList}>
+                  <li className={styles.creasePlayer}>
+                    <span className={styles.creaseName}>{crease.bowler.name}</span>
+                    <span className={styles.creaseFigures}>
+                      {crease.bowler.wickets}/{crease.bowler.runs}{' '}
+                      <span className={styles.creaseBalls}>
+                        ({fmtOvers(crease.bowler.overs, perOver)})
+                      </span>
+                    </span>
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         {match.result && <p className={styles.result}>{match.result}</p>}
 
         {/* Recent balls */}
@@ -424,7 +510,8 @@ export default function MatchDetail({
         </p>
       </header>
 
-      {isLive && <WinProbability match={match} />}
+      {/* Fed the fetched card for the same reason `rates` is — innings order. */}
+      {isLive && <WinProbability match={match} innings={crexExtras.innings} />}
 
       {/* ------------------------------------------------ Sticky tabs */}
       <nav className={styles.tabs} aria-label="Match sections">

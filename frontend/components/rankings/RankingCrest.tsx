@@ -31,8 +31,10 @@ export default function RankingCrest({
   return (
     <span className={`${styles.crest} ${size === 'lg' ? styles.crestLg : ''}`}>
       {logo && !failed ? (
-        // eslint-disable-next-line @next/next/no-img-element -- crests are 1-5KB
-        // webp already optimized on Akamai; next/image would add a proxy hop.
+        // Crests are 1-5KB webp already optimized on Akamai, so next/image would
+        // add a proxy hop for no gain. The directive has to sit immediately above
+        // the element — with the justification below it, it disabled nothing.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={logo}
           alt={`${name} crest`}

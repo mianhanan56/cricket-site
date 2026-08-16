@@ -57,6 +57,12 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  eslint: {
+    // `next lint` and the build's lint pass only cover app/, components/, lib/
+    // and pages/ by default, which silently skipped these three. Listed so the
+    // build checks everything the app actually ships.
+    dirs: ['app', 'components', 'lib', 'hooks', 'data', 'types'],
+  },
   sassOptions: {
     includePaths: [path.join(__dirname, 'scss')],
   },

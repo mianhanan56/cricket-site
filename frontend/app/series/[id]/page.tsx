@@ -64,10 +64,12 @@ function fmtDayTime(iso: string): string {
 
 /** "21 Jul → 16 Aug 2026" — the year printed once. */
 function span(start: string, end: string): string {
+  const from = fmtDate(start);
+  const to = fmtDate(end);
+  if (from === to) return to;
+
   const sameYear = new Date(start).getFullYear() === new Date(end).getFullYear();
-  return fmtDate(start) === fmtDate(end)
-    ? fmtDate(end)
-    : `${fmtDate(start, !sameYear)} → ${fmtDate(end)}`;
+  return `${sameYear ? fmtDate(start, false) : from} → ${to}`;
 }
 
 /**
@@ -76,22 +78,8 @@ function span(start: string, end: string): string {
  * empty. What it does carry — number, sides, time, result — is a list.
  */
 function ScheduleRow({ match }: { match: SeriesScheduleMatch }) {
-  const isDone = match.status === 'COMPLETED';
-
-  // Unallocated fixtures (a league's playoffs, before the table decides them)
-  // have no match page to open, so they render as a row rather than a link.
-  const Row = match.id
-    ? ({ children }: { children: React.ReactNode }) => (
-        <Link href={`/matches/${match.id}`} className={styles.row}>
-          {children}
-        </Link>
-      )
-    : ({ children }: { children: React.ReactNode }) => (
-        <div className={`${styles.row} ${styles.rowInert}`}>{children}</div>
-      );
-
-  return (
-    <Row>
+  const body = (
+    <>
       <span className={styles.rowNo}>{match.matchNo ?? '—'}</span>
 
       <span className={styles.rowMain}>
@@ -105,7 +93,7 @@ function ScheduleRow({ match }: { match: SeriesScheduleMatch }) {
       </span>
 
       {/* A result when there is one, the state when there isn't. */}
-      {isDone && match.result ? (
+      {match.status === 'COMPLETED' && match.result ? (
         <span className={styles.rowResult}>{match.result}</span>
       ) : (
         <span
@@ -117,7 +105,17 @@ function ScheduleRow({ match }: { match: SeriesScheduleMatch }) {
           {match.status}
         </span>
       )}
-    </Row>
+    </>
+  );
+
+  // Unallocated fixtures (a league's playoffs, before the table decides them)
+  // have no match page to open, so they render as a row rather than a link.
+  return match.id ? (
+    <Link href={`/matches/${match.id}`} className={styles.row}>
+      {body}
+    </Link>
+  ) : (
+    <div className={`${styles.row} ${styles.rowInert}`}>{body}</div>
   );
 }
 
@@ -134,11 +132,14 @@ export default async function SeriesDetailPage({ params }: { params: { id: strin
   if (!base) notFound();
 
   const series = withFeedStatuses(base, feed);
-  const status = series.status;
 
   // Anything in progress, with its live score — the one thing the schedule
   // endpoint cannot supply.
   const liveNow = feed.filter((m) => m.series.id === series.id && m.status === 'LIVE');
+
+  // Same rule as the series cards: the rail only reads as information mid-series.
+  const inProgress = series.playedCount > 0 && series.playedCount < series.matchCount;
+  const pct = inProgress ? Math.round((series.playedCount / series.matchCount) * 100) : 0;
 
   return (
     <div className={styles.page}>
@@ -152,9 +153,9 @@ export default async function SeriesDetailPage({ params }: { params: { id: strin
       <header className={styles.head}>
         <div className={styles.chips}>
           <span className={styles.format}>{series.format}</span>
-          <span className={`${styles.status} ${styles[status.toLowerCase()]}`}>
-            {status === 'LIVE' && <span className={styles.dot} aria-hidden="true" />}
-            {status}
+          <span className={`${styles.status} ${styles[series.status.toLowerCase()]}`}>
+            {series.status === 'LIVE' && <span className={styles.dot} aria-hidden="true" />}
+            {series.status}
           </span>
         </div>
 
@@ -166,17 +167,32 @@ export default async function SeriesDetailPage({ params }: { params: { id: strin
             ·
           </span>
           {series.matchCount} {series.matchCount === 1 ? 'match' : 'matches'}
-          {/* Progress reads as information mid-series and as noise either side of
-              it — 0 played before it starts, all played once it is over. */}
-          {series.playedCount > 0 && series.playedCount < series.matchCount && (
-            <>
-              <span className={styles.sep} aria-hidden="true">
-                ·
-              </span>
-              {series.playedCount} played
-            </>
-          )}
         </p>
+
+        {/* Progress reads as information mid-series and as noise either side of
+            it — 0 played before it starts, all played once it is over. */}
+        {inProgress && (
+          <div className={styles.progress}>
+            <span className={styles.progressCount}>
+              <span className={styles.progressDone}>{series.playedCount}</span>
+              <span className={styles.progressOf} aria-hidden="true">
+                /
+              </span>
+              {series.matchCount}
+              <span className={styles.progressLabel}>played</span>
+            </span>
+            <span
+              className={styles.rail}
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={series.matchCount}
+              aria-valuenow={series.playedCount}
+              aria-label={`${series.playedCount} of ${series.matchCount} matches played`}
+            >
+              <span className={styles.fill} data-pct={pct} />
+            </span>
+          </div>
+        )}
       </header>
 
       {liveNow.length > 0 && (

@@ -1,8 +1,8 @@
-import type { Match } from '@/types';
 import { pickParam } from '../../lib/queryParams';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '../../lib/matchType';
 import { FIXTURE_FORMAT_KEYS, type FixtureFormatKey } from '../../lib/tabs';
-import { getCrexMatchList } from '../../lib/crex';
+import { dayKeyOf, pickDayParam } from '../../lib/fixtureDays';
+import { getCrexFixtureList, type Fixture } from '../../lib/crex';
 import FixturesFilter from '../../components/fixtures/FixturesFilter';
 import styles from './fixtures.module.scss';
 
@@ -25,21 +25,21 @@ export default async function FixturesPage({
 }) {
   const format = pickParam<FixtureFormatKey>(searchParams?.format, FIXTURE_FORMAT_KEYS, 'all');
   const type = pickParam<MatchTypeKey>(searchParams?.type, MATCH_TYPE_KEYS, 'all');
+  // A free-form value rather than one of a fixed set, so it gets its own
+  // validator: anything that is not a "2026-08-20" reads as the unfiltered view.
+  const date = pickDayParam(searchParams?.date);
 
-  let fixtures: Match[] = [];
+  let fixtures: Fixture[] = [];
   let failed = false;
   try {
-    // The Worker serves one list covering live, upcoming and recent matches;
-    // fixtures are the upcoming slice of it.
-    const all = await getCrexMatchList({ revalidate });
+    // crex's schedule endpoint, not the live feed: the feed is a rolling window
+    // two or three days deep, which is what made this page look half-empty.
+    // getCrexFixtureList already hands back soonest-first.
+    const all = await getCrexFixtureList({ revalidate });
     fixtures = all.filter((m) => m.status === 'UPCOMING');
   } catch {
     failed = true;
   }
-
-  // Sort by start date ascending (soonest first). getCrexMatchList hands back
-  // newest-first, which is backwards for a fixtures list.
-  fixtures.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
   return (
     <div className={styles.page}>
@@ -47,7 +47,15 @@ export default async function FixturesPage({
       {failed ? (
         <p className={styles.empty}>Could not load fixtures.</p>
       ) : (
-        <FixturesFilter fixtures={fixtures} initialFormat={format} initialType={type} />
+        <FixturesFilter
+          fixtures={fixtures}
+          initialFormat={format}
+          initialType={type}
+          initialDate={date}
+          // The server's own today, so the first paint says "Today" instead of a
+          // bare date. The client re-derives it for its own timezone on mount.
+          serverToday={dayKeyOf(new Date())}
+        />
       )}
     </div>
   );

@@ -7,6 +7,8 @@
  * ball count has to go through here with the match's own `ballsPerOver`.
  */
 
+import type { InningsScore, Match, MatchFormat } from '@/types';
+
 export const DEFAULT_BALLS_PER_OVER = 6;
 
 /** The Hundred's five-ball sets. Used to spot it, since it alone counts in balls. */
@@ -48,4 +50,45 @@ export function formatProgressShort(
 ): string {
   if (perOver === HUNDRED_BALLS_PER_OVER) return `${ballsFrom(overs, perOver)} balls`;
   return `${overs} ov`;
+}
+
+// ------------------------------------------------------------- Innings length
+
+/** Scheduled overs per side. Test cricket has none, which is what null means. */
+export const SCHEDULED_OVERS: Record<MatchFormat, number | null> = {
+  T20: 20, // also The Hundred — 20 five-ball overs, via ballsPerOver
+  ODI: 50,
+  TEST: null,
+};
+
+/**
+ * How many balls the chasing side gets, given the innings it is chasing.
+ *
+ * The feed carries no innings limit, and the format's own is wrong for every
+ * rain-shortened game (crex is listing 18- and 19-over T20s right now). So it is
+ * read off the first innings instead: a side that was not bowled out batted
+ * exactly its allocation, and a limited-overs innings only ends mid-over when
+ * the batting side is out — so the ball count is the allocation, exactly.
+ *
+ * Being bowled out says nothing about the limit, and there the format's own
+ * figure is the best available guess. Null means the format sets no limit (Test).
+ */
+export function inningsBallLimit(
+  first: InningsScore,
+  match: Match,
+  perOver: number = DEFAULT_BALLS_PER_OVER
+): number | null {
+  // The Hundred fixes the innings in balls, so no derivation is needed or wanted.
+  if (match.ballsLimit) return match.ballsLimit;
+
+  const scheduled = SCHEDULED_OVERS[match.format];
+  if (scheduled === null) return null;
+
+  const full = scheduled * perOver;
+  if (first.wickets >= 10) return full;
+
+  const bowled = ballsFrom(first.overs, perOver);
+  // Never above the scheduled figure: a miscounted feed should not invent balls
+  // the chase does not have.
+  return bowled > 0 ? Math.min(bowled, full) : full;
 }
