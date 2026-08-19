@@ -19,6 +19,23 @@ import styles from './HomeMatches.module.scss';
 
 type Tab = HomeTab;
 
+/**
+ * A Test between days: the match is live, but no cricket is being played and none
+ * will be until tomorrow.
+ *
+ * Those come out of the "Live" tab, which reads as "on right now". They are not
+ * finished either, and the status logic is careful never to call them that — so
+ * they stay in the catch-all "Matches" tab (and out of "Finished") until the last
+ * day is done, and rejoin "Live" the moment the next day's play starts.
+ *
+ * Only stumps. A drinks break or an innings break is a pause of minutes inside a
+ * session someone is watching, and dropping a match off the live tab for those
+ * would make the tab flicker. crex draws the same line on its own home page.
+ */
+function isAtStumps(match: Match): boolean {
+  return match.note?.kind === 'STUMPS';
+}
+
 // "Finished" surfaces every match completed in the last 7 days. The crex feed
 // arrives unfiltered, so the window is applied here.
 const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -147,7 +164,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
   const { liveList, upcomingList, finishedList } = useMemo(() => {
     const now = Date.now();
     return {
-      liveList: scoped.filter((m) => m.status === 'LIVE'),
+      liveList: scoped.filter((m) => m.status === 'LIVE' && !isAtStumps(m)),
       upcomingList: scoped
         .filter((m) => m.status === 'UPCOMING')
         .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),

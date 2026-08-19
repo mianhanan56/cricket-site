@@ -1,0 +1,150 @@
+@use 'component' as *;
+
+// Key moments. Rendered as rows inside whichever block hosts it — hairline
+// separators, no border of its own, no zebra — because that is exactly how the
+// Match Details list next to it is built. A bordered box inside a card would read
+// as a third level of container the page does not otherwise have.
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  // Mobile first: the tag and the over sit on one row, the sentence beneath them.
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    'kind over'
+    'text text';
+  align-items: center;
+  gap: $space-1 $space-2;
+  padding: $space-2-5 0;
+
+  &:not(:last-child) {
+    border-bottom: 1px solid $card-border;
+  }
+
+  @include sm {
+    // One line each. The tag column is fixed so the sentences line up down the
+    // list, and wide enough for the longest label there is ("End of over 10") so
+    // none of them is ever cut to an ellipsis.
+    grid-template-columns: 124px minmax(0, 1fr) auto;
+    grid-template-areas: 'kind text over';
+    align-items: baseline;
+    gap: $space-3;
+  }
+}
+
+// Same shape as the status pill and the retired-hurt tag: one badge geometry
+// across the page, only the tone changes.
+.kind {
+  grid-area: kind;
+  justify-self: start;
+  padding: 2px $space-2;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--tone) 32%, transparent);
+  background: color-mix(in oklab, var(--tone) 12%, transparent);
+  color: var(--tone);
+  font-family: $font-primary;
+  font-size: $text-xs;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+
+  @include sm {
+    justify-self: stretch;
+    text-align: center;
+  }
+}
+
+.kindWicket {
+  --tone: #{$accent-red};
+}
+// Over summaries are the quiet baseline of the list — muted, so a wicket or a
+// milestone is the thing the eye catches when scanning down it.
+.kindOver {
+  --tone: #{$text-muted};
+}
+.kindInnings {
+  --tone: #{$accent-blue};
+}
+.kindTarget {
+  --tone: #{$accent-purple};
+}
+.kindToss {
+  --tone: #{$accent-green};
+}
+.kindMilestone {
+  --tone: #{$accent-amber};
+}
+.kindReview {
+  --tone: #{$accent-blue};
+}
+
+.text {
+  grid-area: text;
+  min-width: 0;
+  color: $text-secondary;
+  font-size: $text-sm;
+  line-height: $leading-normal;
+  // Long commentary sentences are clamped rather than allowed to set the row
+  // height: the panel is a scan of recent moments, not a read.
+  @include truncate(2);
+}
+
+.over {
+  grid-area: over;
+  justify-self: end;
+  color: $text-muted;
+  font-family: $font-mono;
+  font-size: $text-xs;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.empty {
+  margin: 0;
+  color: $text-muted;
+  font-size: $text-sm;
+}
+
+// ----------------------------------------------------------------------------
+// Loading state
+//
+// Placeholder rows in the same grid as the real ones, so the list does not shift
+// when the feed lands. Widths are fixed here rather than by variant: a tag and an
+// over reference are boxes of known size, not lines of text.
+// ----------------------------------------------------------------------------
+.skeleton {
+  // The rows are inert while loading — no hover, no pointer.
+  pointer-events: none;
+}
+
+.kindSk {
+  grid-area: kind;
+  justify-self: start;
+  width: 84px;
+  height: 18px;
+  border-radius: 999px;
+
+  @include sm {
+    justify-self: stretch;
+    width: auto;
+  }
+}
+
+.textSk {
+  grid-area: text;
+  display: block;
+  min-width: 0;
+}
+
+.overSk {
+  grid-area: over;
+  justify-self: end;
+  width: 34px;
+}

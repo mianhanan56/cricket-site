@@ -94,6 +94,18 @@
   }
 }
 
+// A live match with play stopped: STUMPS, DELAY, BREAK. One word, and no dot —
+// the dot means a ball is about to be bowled, which is precisely what is not
+// happening. Amber rather than red for the same reason: the match is alive but
+// nothing is moving, and the full wording is a tap away on the match page.
+.paused {
+  flex-shrink: 0;
+  font-size: $text-xs;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: $accent-amber;
+}
+
 .upcoming {
   flex-shrink: 0;
   font-size: $text-xs;
@@ -206,6 +218,21 @@
   @include sm {
     font-size: $text-xl; // text-xl (20px)
   }
+}
+
+// A Test's earlier innings, inside the same score element. Set a step down from
+// the live figure and in the muted colour so the row still has one number the eye
+// lands on — the score area gains a prefix, not a second score.
+.priorInnings {
+  font-family: $font-display;
+  font-weight: 500;
+  font-size: $text-base;
+  color: $text-muted;
+}
+
+.ampersand {
+  font-weight: 400;
+  color: $text-muted;
 }
 
 // wickets: text-muted-foreground font-medium text-base

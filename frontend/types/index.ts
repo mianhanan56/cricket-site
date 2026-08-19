@@ -64,6 +64,16 @@ export interface IMatch {
    */
   ballsLimit?: number | null;
   result?: string | null;
+  /**
+   * Official in-match state beyond `status` — the break, delay or stumps note
+   * crex is currently reporting. Null when play is simply going on.
+   */
+  note?: MatchNote | null;
+  /**
+   * Day of play, 1-based, on a format that has more than one. Null on ODIs and
+   * T20s, which are always day 1 and where showing it would be noise.
+   */
+  day?: number | null;
   scorecard?: IScorecard | null;
   // Enrichments attached by GET /api/matches/:id (computed from the DB).
   teamForm?: { home: TeamFormEntry[]; away: TeamFormEntry[] } | null;
@@ -90,6 +100,86 @@ export type SeriesSummary = ISeriesSummary;
 export type Match = IMatch;
 
 // ---------------------------------------------------------------------------
+// In-match state: breaks, interruptions and events
+// ---------------------------------------------------------------------------
+//
+// LIVE / UPCOMING / COMPLETED answers "is this match on", and nothing more. A
+// reader watching a live page needs the next question answered too: play has
+// stopped — is that drinks, is it rain, is it the end of the day, or is it over?
+// crex sends that as a status code on the match feed, and these types carry it.
+
+/**
+ * Why play is stopped, or what the match state is beyond the three statuses.
+ *
+ * The kinds are display groupings, not crex codes: several codes share one
+ * (rain, bad light and a wet outfield are all `DELAY`) because a reader wants
+ * the same thing from all of them — the label, and the fact that nobody is
+ * batting right now.
+ */
+export type MatchNoteKind =
+  /** Scheduled interval: innings break, drinks, lunch, tea. */
+  | 'BREAK'
+  /** A day's play is over. The match is not — Tests only. */
+  | 'STUMPS'
+  /** Unscheduled hold-up: rain, bad light, wet outfield, a delayed toss. */
+  | 'DELAY'
+  /** Play has stopped and may not resume: paused, cancelled, abandoned. */
+  | 'SUSPENDED'
+  /** Toss result, before the first ball. */
+  | 'TOSS'
+  /** A terminal state that is not a win: drawn, tied, no result, super over. */
+  | 'RESULT'
+  /** Something crex reported that this vocabulary has no code for. */
+  | 'INFO';
+
+export interface MatchNote {
+  /** crex's own wording — "Drinks Break", "Stumps", "Match paused due to rain". */
+  label: string;
+  kind: MatchNoteKind;
+  /** Qualifier crex sends alongside the status, e.g. "(wet outfield)". */
+  detail?: string | null;
+  /**
+   * Play is stopped but the match is still alive. The one flag the UI needs to
+   * say "paused" rather than "in progress" without re-reading the kind, and what
+   * keeps a Test at stumps from reading as finished.
+   */
+  paused: boolean;
+}
+
+/** Where an innings sits in the match. Tests are the only format with four. */
+export type InningsPhase = 'COMPLETED' | 'CURRENT' | 'UPCOMING';
+
+/** A discrete thing that happened, as the ball feed reported it. */
+export type MatchEventKind =
+  | 'WICKET'
+  | 'OVER'
+  | 'INNINGS_END'
+  | 'TARGET'
+  | 'TOSS'
+  | 'MILESTONE'
+  | 'REVIEW'
+  | 'PLAYER'
+  | 'NOTE';
+
+export interface MatchEvent {
+  id: string;
+  kind: MatchEventKind;
+  /** Short heading — "Wicket", "End of over 22". */
+  label: string;
+  /** crex's own sentence about it, when it sent one. Never synthesised. */
+  text?: string | null;
+  /** Over the event belongs to, when the feed says. */
+  over?: number | null;
+  timestamp?: string;
+}
+
+/**
+ * A batsman who left the middle without being dismissed. crex has a dismissal
+ * code for each, so these are read off the card rather than inferred from prose.
+ */
+export type RetirementKind = 'HURT' | 'ABSENT' | 'OUT';
+
+// ---------------------------------------------------------------------------
 // Scoring
 // ---------------------------------------------------------------------------
 
@@ -109,6 +199,18 @@ export interface InningsScore {
   yetToBat?: YetToBat[];
   /** The side is listed but has not batted — treat the 0/0 total as no score. */
   notStarted?: boolean;
+  /**
+   * Which of the batting side's innings this is, 1-based. Only ever 2 in a
+   * Test; absent where the source does not say.
+   */
+  inningsNumber?: number;
+  /** Closed by a declaration rather than by ten wickets or an over limit. */
+  declared?: boolean;
+  /**
+   * Completed, in progress, or still to come. Lets a Test card show three
+   * innings at once without the reader having to work out which is live.
+   */
+  phase?: InningsPhase;
 }
 
 export interface YetToBat {
@@ -126,6 +228,12 @@ export interface BatsmanLine {
   strikeRate: number;
   out?: boolean;
   dismissal?: string;
+  /**
+   * Set when the batsman left the middle without being dismissed — `HURT` and
+   * `ABSENT` are the injury signals crex actually publishes, `OUT` a tactical
+   * retirement. `out` stays false for all three; this says which it was.
+   */
+  retired?: RetirementKind;
 }
 
 export interface BowlerLine {
@@ -152,13 +260,28 @@ export interface IScorecard {
   bowling?: BowlerLine[];
   extras?: number;
   commentary?: CommentaryBall[];
+  /** Non-delivery events from the ball feed, newest first. */
+  events?: MatchEvent[];
 }
+
+/**
+ * Extra charged on a delivery, when the feed marks one. `wide` and `noball` are
+ * illegal deliveries — they carry a one-run penalty and do not advance the
+ * over — while `bye` and `legbye` are legal balls whose runs miss the bat.
+ */
+export type BallExtra = 'wide' | 'noball' | 'bye' | 'legbye';
 
 export interface CommentaryBall {
   id: string;
   over: number;
   ball: number;
+  /** Everything the delivery cost: bat runs + extras, penalty included. */
   runs: number;
+  /** Runs off the bat. */
+  batRuns: number;
+  /** Runs charged as extras, including the wide/no-ball penalty itself. */
+  extraRuns: number;
+  extra: BallExtra | null;
   isWicket: boolean;
   isBoundary?: boolean;
   text: string;

@@ -1,0 +1,82 @@
+@use 'component' as *;
+
+// Retired-batsman list, and the tone tokens its tags read from.
+//
+// The tones stay declared per kind even though only two are used today: they are
+// the app's map from a kind of match state to an accent, and the next thing that
+// needs to badge one should take it from here rather than picking a colour.
+
+// ----------------------------------------------------------------------------
+// Tones
+//
+// Each sets a local --tone, and every element below colours itself from that.
+// One declaration per kind instead of one per kind per element.
+// ----------------------------------------------------------------------------
+.toneBreak {
+  --tone: #{$accent-amber};
+}
+.toneStumps {
+  --tone: #{$accent-purple};
+}
+.toneDelay {
+  --tone: #{$accent-blue};
+}
+.toneSuspended {
+  --tone: #{$accent-red};
+}
+.toneToss {
+  --tone: #{$accent-green};
+}
+.toneResult {
+  --tone: #{$text-secondary};
+}
+.toneInfo {
+  --tone: #{$text-muted};
+}
+
+// ----------------------------------------------------------------------------
+// Player situations
+// ----------------------------------------------------------------------------
+// Sits under the key-moments list inside the same block, separated by the hairline
+// the rest of the page uses between related groups rather than by a second card.
+.situations {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+  margin: $space-3 0 0;
+  padding: $space-3 0 0;
+  border-top: 1px solid $card-border;
+  list-style: none;
+}
+
+.situation {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+  font-size: $text-sm;
+}
+
+.situationTag {
+  padding: 2px $space-2;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--tone) 35%, transparent);
+  background: color-mix(in oklab, var(--tone) 12%, transparent);
+  color: var(--tone);
+  font-size: $text-xs;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.situationName {
+  color: $text-primary;
+  font-weight: 600;
+  @include truncate;
+}
+
+.situationTeam {
+  color: $text-muted;
+  font-family: $font-mono;
+  font-size: $text-xs;
+  margin-left: auto;
+}

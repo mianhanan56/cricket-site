@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  BallExtra,
   Match,
+  MatchEvent,
   Team,
   InningsScore,
   BatsmanLine,
@@ -20,6 +21,9 @@ import {
   formatProgressShort,
   inningsBallLimit,
 } from '@/lib/overs';
+import { battedInnings, formatTeamScore, inningsFor } from '@/lib/innings';
+import { PlayerSituations, pausedWord } from './MatchState';
+import MatchEvents from './MatchEvents';
 import WinProbability from './WinProbability';
 import {
   BowlingSkeleton,
@@ -41,13 +45,29 @@ const TABS: Array<{ key: TabKey; label: string }> = [
  * nothing here reads (`isBoundary` is re-derived from `runs`, `timestamp` is
  * never shown).
  */
-type BallEntry = Pick<CommentaryBall, 'id' | 'over' | 'ball' | 'runs' | 'isWicket' | 'text'>;
+type BallEntry = Pick<
+  CommentaryBall,
+  'id' | 'over' | 'ball' | 'runs' | 'batRuns' | 'extraRuns' | 'extra' | 'isWicket' | 'text'
+>;
 
-const toBallEntry = ({ id, over, ball, runs, isWicket, text }: CommentaryBall): BallEntry => ({
+const toBallEntry = ({
   id,
   over,
   ball,
   runs,
+  batRuns,
+  extraRuns,
+  extra,
+  isWicket,
+  text,
+}: CommentaryBall): BallEntry => ({
+  id,
+  over,
+  ball,
+  runs,
+  batRuns,
+  extraRuns,
+  extra,
   isWicket,
   text,
 });
@@ -57,30 +77,22 @@ const MAX_COMMENTARY = 60;
 // a spell; the feed is paged back far enough to fill it (see getCrexCommentary).
 const MAX_DOTS = 18;
 
-// CricAPI innings carry a label like "India Inning 1". Match an innings to a
-// team ONLY when that label contains the team's name (or short name) — no
-// positional fallback (same rule as MatchCard). No match → yet to bat.
-function inningsListFor(match: Match, team: Team): InningsScore[] {
-  const innings = match.scorecard?.innings ?? [];
-  const name = team.name.toLowerCase();
-  const short = team.shortName.toLowerCase();
-  return innings.filter((i) => {
-    if (i.teamId) return i.teamId === team.id;
-    const label = (i.inning ?? i.teamShortName ?? '').toLowerCase();
-    return !!label && (label.includes(name) || label.includes(short));
-  });
-}
-
-// "287/4" (+ "120/2 & 287/4" across Test innings) with the current innings'
-// overs on their own line so the header never wraps mid-score on mobile.
+// "287/4", or "462 & 193/10" once a Test side has batted twice, with the current
+// innings' overs on their own line so the header never wraps mid-score on mobile.
 //
-// An innings crex lists before it starts is skipped: its XI belongs on the
-// scorecard, but a "0/0" next to a side that has not batted is a wrong score.
-function scoreParts(list: InningsScore[], perOver: number): { runs: string; overs: string } | null {
-  const batted = list.filter((i) => !i.notStarted);
+// The runs come from `formatTeamScore`, the same function the match card uses, so
+// a side's score is written identically wherever the reader meets it. An innings
+// crex lists before it starts is skipped by it: an XI belongs on the scorecard,
+// but a "0/0" next to a side that has not batted is a wrong score.
+function scoreParts(
+  list: InningsScore[],
+  perOver: number,
+  multiInnings: boolean
+): { runs: string; overs: string } | null {
+  const batted = battedInnings(list);
   if (!batted.length) return null;
   return {
-    runs: batted.map((i) => `${i.runs}/${i.wickets}`).join(' & '),
+    runs: formatTeamScore(batted, multiInnings),
     overs: `(${formatProgressShort(batted[batted.length - 1].overs, perOver)})`,
   };
 }
@@ -116,16 +128,89 @@ function fmtOvers(overs: number, perOver: number): string {
   return overs.toFixed(1);
 }
 
-function dotKind(b: BallEntry): 'wicket' | 'six' | 'four' | 'dot' {
+/**
+ * The name a strip group is filed under. `over` counts COMPLETED overs, so the
+ * deliveries numbered `31.x` are bowled in the 32nd — same convention crex
+ * prints, and the reason the group heading is one higher than the ball numbers
+ * it used to sit under. The Hundred has no overs, so its groups are sets of five.
+ */
+function overGroupLabel(over: number, perOver: number): string {
+  return perOver === HUNDRED_BALLS_PER_OVER ? `Set ${over + 1}` : `Over ${over + 1}`;
+}
+
+/**
+ * How each kind of extra is written: a token small enough for a 26px dot, and
+ * the words for the commentary column and for screen readers.
+ */
+const EXTRA_LABELS: Record<BallExtra, { short: string; long: string }> = {
+  wide: { short: 'wd', long: 'Wide' },
+  noball: { short: 'nb', long: 'No Ball' },
+  bye: { short: 'b', long: 'Bye' },
+  legbye: { short: 'lb', long: 'Leg Bye' },
+};
+
+/** Wides and no balls cost a run before anything is run off them. */
+function isIllegal(b: BallEntry): boolean {
+  return b.extra === 'wide' || b.extra === 'noball';
+}
+
+/** Runs on top of the penalty an illegal delivery costs by itself. */
+function scoredOffExtra(b: BallEntry): number {
+  return Math.max(b.runs - 1, 0);
+}
+
+// Boundaries are read off the bat, not off the total: four wides is an extra,
+// not a four, and colouring it green would say the batter hit it.
+function dotKind(b: BallEntry): 'wicket' | 'six' | 'four' | 'extra' | 'dot' {
   if (b.isWicket) return 'wicket';
-  if (b.runs === 6) return 'six';
-  if (b.runs === 4) return 'four';
+  if (b.batRuns === 6) return 'six';
+  if (b.batRuns === 4) return 'four';
+  if (b.extra) return 'extra';
   return 'dot';
 }
 
+function plural(runs: number): string {
+  return runs === 1 ? '1 run' : `${runs} runs`;
+}
+
+/**
+ * The delivery in a dot's worth of characters: "W", "4", "wd", "wd+4", "1lb".
+ * An illegal delivery reads as its own token plus whatever came off it, so a
+ * wide is never a "0".
+ */
+function shortLabel(b: BallEntry): string {
+  if (b.isWicket) return b.runs ? `W+${b.runs}` : 'W';
+  if (isIllegal(b)) {
+    const scored = scoredOffExtra(b);
+    const token = EXTRA_LABELS[b.extra as BallExtra].short;
+    return scored ? `${token}+${scored}` : token;
+  }
+  if (b.extra) return `${b.runs}${EXTRA_LABELS[b.extra].short}`;
+  return String(b.runs);
+}
+
+/** The same delivery in words — "Wide + 1 run", "No Ball + 4 runs", "4 runs". */
 function runsLabel(b: BallEntry): string {
-  if (b.isWicket) return 'W';
-  return b.runs === 1 ? '1 run' : `${b.runs} runs`;
+  const parts: string[] = [];
+
+  if (isIllegal(b)) {
+    const scored = scoredOffExtra(b);
+    parts.push(EXTRA_LABELS[b.extra as BallExtra].long);
+    if (scored) parts.push(plural(scored));
+  } else if (b.extra) {
+    const word = EXTRA_LABELS[b.extra].long.toLowerCase();
+    parts.push(`${b.runs} ${word}${b.runs === 1 ? '' : 's'}`);
+  } else if (b.runs || !b.isWicket) {
+    parts.push(plural(b.runs));
+  }
+
+  if (b.isWicket) parts.unshift('W');
+  return parts.join(' + ');
+}
+
+/** "21.2 — Wide + 1 run", for the strip's tooltips and screen readers. */
+function ballTitle(b: BallEntry): string {
+  return `${b.over}.${b.ball} — ${runsLabel(b)}`;
 }
 
 // Plain deliveries ('dot') have no extra class — avoid className "undefined".
@@ -263,6 +348,9 @@ export default function MatchDetail({
   const crexExtras = useCrexMatchExtras(matchId, {
     enabled: extrasEnabled,
     ballsPerOver: match.ballsPerOver,
+    // Lets the fetched card mark which innings is being played, which is what
+    // the innings ledger and the scorecard's phase labels read.
+    status: match.status,
   });
 
   // A crex match arrives with a header score but no card or feed — those are two
@@ -300,12 +388,38 @@ export default function MatchDetail({
 
   const innings = match.scorecard?.innings ?? [];
   const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
-  const homeScore = scoreParts(inningsListFor(match, match.homeTeam), perOver);
-  const awayScore = scoreParts(inningsListFor(match, match.awayTeam), perOver);
+  // The header's status word. A stoppage names itself ("Stumps", "Delay"); a match
+  // that is simply being played says nothing, since everything below the badge
+  // already reports live play. Upcoming and finished keep a quiet label, which is
+  // the only thing at the top of the page that dates it.
+  // `pausedWord` decides *whether* there is a stoppage to report; the label is
+  // taken in full here rather than reduced to one word, because a page header has
+  // room for "Innings Break" and a carousel card did not.
+  const stopped = pausedWord(match.status, match.note) ? match.note?.label ?? null : null;
+  const statusWord = isLive
+    ? stopped
+    : match.status === 'UPCOMING'
+      ? 'UPCOMING'
+      : 'RESULT';
+  const statusTone = stopped
+    ? styles.statusPaused
+    : match.status === 'UPCOMING'
+      ? styles.statusUpcoming
+      : styles.statusResult;
+
+  // A Test is the only format where a side bats twice, and the only one where a
+  // closed innings is written without its wickets ("462", not "462/10").
+  const multiInnings = match.format === 'TEST';
+  const homeScore = scoreParts(inningsFor(match, match.homeTeam), perOver, multiInnings);
+  const awayScore = scoreParts(inningsFor(match, match.awayTeam), perOver, multiInnings);
 
   // The delivery just bowled, shown large in the middle of the header. `dots` runs
   // oldest to newest, so the last entry is the live one.
-  const lastBall = isLive ? dots[dots.length - 1] ?? null : null;
+  //
+  // Not while play is stopped: at an innings break the newest delivery is the last
+  // ball of the innings that just ended, and showing it in the "just happened" slot
+  // says a ball was bowled a moment ago when nobody is even at the crease.
+  const lastBall = isLive && !stopped ? dots[dots.length - 1] ?? null : null;
 
   // Rates come off the fetched card, not `innings` — see computeRates. They are a
   // live-only reading: a finished match has a result, which says more.
@@ -344,6 +458,56 @@ export default function MatchDetail({
     };
   }, [isLive, crexExtras.innings, lastBall, match.homeTeam.shortName, match.awayTeam.shortName]);
 
+  /**
+   * The recent-balls strip, grouped the way a scoreboard reads it: one row of
+   * deliveries per over, headed by the over and closed by what it cost.
+   *
+   * Totals come from `commentary`, not from `dots`: `dots` is capped at
+   * MAX_DOTS, so its OLDEST over is usually cut off mid-way and summing only the
+   * deliveries on screen would print a total that disagrees with the scorecard.
+   * That group is left unheaded too — it is a tail, not an over.
+   */
+  const ballGroups = useMemo(() => {
+    const runsByOver = new Map<number, number>();
+    for (const b of commentary) {
+      runsByOver.set(b.over, (runsByOver.get(b.over) ?? 0) + b.runs);
+    }
+
+    const groups: Array<{ over: number; balls: BallEntry[] }> = [];
+    for (const b of dots) {
+      const last = groups[groups.length - 1];
+      if (last && last.over === b.over) last.balls.push(b);
+      else groups.push({ over: b.over, balls: [b] });
+    }
+
+    return groups.map((g, i) => {
+      // Only the first group can be clipped by MAX_DOTS — everything after it
+      // starts at the top of its over.
+      const truncated = i === 0 && g.balls[0].ball > 1;
+      // A yet-to-be-bowled slot for the rest of the over in progress, so the
+      // reader sees how much of it is left. Illegal deliveries don't advance the
+      // over, so they don't consume one.
+      const legal = g.balls.filter((b) => !isIllegal(b)).length;
+      const pending =
+        i === groups.length - 1 && legal < perOver ? perOver - legal : 0;
+      return {
+        over: g.over,
+        balls: g.balls,
+        runs: runsByOver.get(g.over) ?? g.balls.reduce((sum, b) => sum + b.runs, 0),
+        truncated,
+        pending,
+      };
+    });
+  }, [dots, commentary, perOver]);
+
+  // Newest over sits at the right-hand end, past the edge on a narrow screen —
+  // so every new delivery pulls the strip along to stay in view.
+  const stripRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = stripRef.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [dots]);
+
   // Commentary grouped by over, newest over first (entries are newest-first).
   const overs = useMemo(() => {
     const map = new Map<number, BallEntry[]>();
@@ -362,38 +526,31 @@ export default function MatchDetail({
           a wicket from a poll would fire it late and sometimes twice. Dropped
           rather than faked — the commentary tab still reports the wicket. */}
 
-      <Link href="/" className={styles.back}>
-        ← All matches
-      </Link>
-
       {/* ------------------------------------------------ Match header */}
       <header className={styles.header}>
-        <div className={styles.statusRow}>
-          {isLive ? (
-            <span
-              className={styles.liveBadge}
-              title={isConnected ? 'Live connection active' : 'Connecting…'}
-            >
-              LIVE
-            </span>
-          ) : (
-            <span
-              className={`${styles.statusBadge} ${
-                match.status === 'COMPLETED' ? styles.completed : styles.upcoming
-              }`}
-            >
-              {match.status}
-            </span>
-          )}
-          {isLive && (
-            <span className={styles.connLabel}>{isConnected ? 'real-time' : 'connecting…'}</span>
-          )}
-        </div>
+        {/* Status, top right, in a word and in plain type — the same wording the
+            match cards use, without the badge, because a page header does not need
+            to shout what a carousel card had to.
+
+            Nothing at all while the ball is in play: a LIVE badge here competed
+            with the live score, the strike rates and the ball strip directly under
+            it, all of which say the same thing more usefully. */}
+        {(statusWord || (isLive && !isConnected)) && (
+          <div className={styles.statusRow}>
+            {isLive && !isConnected && <span className={styles.connLabel}>connecting…</span>}
+            {statusWord && (
+              <span className={`${styles.statusWord} ${statusTone}`}>{statusWord}</span>
+            )}
+          </div>
+        )}
 
         <div className={styles.teams}>
           <div className={styles.team}>
+            {/* The full name only. The short code that sat under it repeated the
+                same team twice in three lines, and the abbreviation already appears
+                wherever a figure needs one — the crease labels, the run-rate line,
+                the scorecard's innings picker. */}
             <span className={styles.teamName}>{match.homeTeam.name}</span>
-            <span className={styles.teamShort}>{match.homeTeam.shortName}</span>
             <span className={styles.score}>{homeScore?.runs ?? '—'}</span>
             {homeScore && <span className={styles.scoreOvers}>{homeScore.overs}</span>}
           </div>
@@ -404,10 +561,12 @@ export default function MatchDetail({
               <span
                 // Remounts on every delivery, which is what replays the pop.
                 key={lastBall.id}
-                className={`${styles.lastBallValue} ${kindClass(lastBall)}`}
+                className={`${styles.lastBallValue} ${kindClass(lastBall)} ${
+                  shortLabel(lastBall).length > 2 ? styles.lastBallLong : ''
+                }`}
                 aria-label={`Last ball: ${runsLabel(lastBall)}`}
               >
-                {lastBall.isWicket ? 'W' : lastBall.runs}
+                {shortLabel(lastBall)}
               </span>
               <span className={styles.lastBallOver}>
                 {lastBall.over}.{lastBall.ball}
@@ -418,7 +577,6 @@ export default function MatchDetail({
           )}
           <div className={`${styles.team} ${styles.right}`}>
             <span className={styles.teamName}>{match.awayTeam.name}</span>
-            <span className={styles.teamShort}>{match.awayTeam.shortName}</span>
             <span className={styles.score}>{awayScore?.runs ?? '—'}</span>
             {awayScore && <span className={styles.scoreOvers}>{awayScore.overs}</span>}
           </div>
@@ -494,19 +652,55 @@ export default function MatchDetail({
 
         {match.result && <p className={styles.result}>{match.result}</p>}
 
-        {/* Recent balls */}
-        {isLive && dots.length > 0 && (
-          <div className={styles.dots} aria-label="Recent balls">
-            {dots.map((b) => (
-              <span key={b.id} className={`${styles.ballDot} ${kindClass(b)}`}>
-                {b.isWicket ? 'W' : b.runs}
-              </span>
+        {/* Recent balls, over by over: the deliveries of one over on a row of
+            their own, headed by the over and closed by what it cost. Reads as a
+            spell rather than as eighteen loose numbers — and each delivery keeps
+            its exact over.ball in the tooltip and for screen readers. */}
+        {isLive && ballGroups.length > 0 && (
+          <div className={styles.dots} ref={stripRef} aria-label="Recent balls">
+            {ballGroups.map((g) => (
+              <section key={g.over} className={styles.stripOver}>
+                {/* The clipped oldest group has no heading — it is the tail of an
+                    over, and heading it would claim balls that aren't shown. */}
+                {!g.truncated && (
+                  <h3 className={styles.overLabel}>{overGroupLabel(g.over, perOver)}</h3>
+                )}
+                <ol className={styles.overBalls}>
+                  {g.balls.map((b) => (
+                    <li
+                      key={b.id}
+                      className={`${styles.ballDot} ${kindClass(b)}`}
+                      title={ballTitle(b)}
+                    >
+                      <span aria-hidden="true">{shortLabel(b)}</span>
+                      <span className={styles.srOnly}>{ballTitle(b)}</span>
+                    </li>
+                  ))}
+                  {Array.from({ length: g.pending }, (_, i) => (
+                    <li key={`pending-${i}`} className={styles.ballPending} aria-hidden="true" />
+                  ))}
+                </ol>
+                <span className={styles.overTotal}>
+                  <span aria-hidden="true">= {g.runs}</span>
+                  <span className={styles.srOnly}>{g.runs} runs off the over</span>
+                </span>
+              </section>
             ))}
           </div>
         )}
 
+        {/* The competition, the format, which day of it, and where. Facts about the
+            match rather than its state — the innings ledger that sat here is gone,
+            because the score line above already reads "462 & 193/10". */}
         <p className={styles.headerMeta}>
-          {match.series.name} · {match.format} · {match.venue}
+          {[
+            match.series.name,
+            match.format,
+            match.status === 'LIVE' && match.day && match.day > 1 ? `Day ${match.day}` : null,
+            match.venue,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </p>
       </header>
 
@@ -528,7 +722,14 @@ export default function MatchDetail({
         ))}
       </nav>
 
-      {tab === 'info' && <InfoTab match={match} />}
+      {tab === 'info' && (
+        <InfoTab
+          match={match}
+          events={crexExtras.events}
+          innings={crexExtras.innings}
+          pending={extrasPending}
+        />
+      )}
       {tab === 'scorecard' && (
         <ScorecardTab match={match} innings={innings} pending={extrasPending} />
       )}
@@ -585,7 +786,18 @@ function SquadColumn({ team, players }: { team: Team; players: SquadPlayer[] }) 
   );
 }
 
-function InfoTab({ match }: { match: Match }) {
+function InfoTab({
+  match,
+  events,
+  innings,
+  pending,
+}: {
+  match: Match;
+  events: MatchEvent[];
+  /** The fetched card, for the retired-hurt lines. */
+  innings: InningsScore[];
+  pending?: boolean;
+}) {
   const details: Array<[string, string]> = [
     ['Date', fmtDate(match.startTime)],
     ['Time', fmtTime(match.startTime)],
@@ -594,8 +806,26 @@ function InfoTab({ match }: { match: Match }) {
     ['Series', match.series.name],
   ];
 
+  // Events lead the tab while there is a match to have them: they are the most
+  // perishable thing on the page, and this tab opens by default, so they sit
+  // directly under the score without needing a container of their own above it.
+  const showMoments = match.status !== 'UPCOMING';
+
   return (
     <div className={styles.panel}>
+      {showMoments && (
+        <section className={styles.block}>
+          <h2 className={styles.blockTitle}>
+            Match Events <span className={styles.blockHint}>latest first</span>
+          </h2>
+          <MatchEvents events={events} pending={pending} />
+          {/* Batsmen who left the middle without being dismissed — grouped with the
+              moments because that is what a retirement is, and it is the only
+              player condition crex publishes as data. */}
+          <PlayerSituations innings={innings} />
+        </section>
+      )}
+
       {match.teamForm && (
         <section className={styles.block}>
           <h2 className={styles.blockTitle}>Team Form <span className={styles.blockHint}>last 5 · latest first</span></h2>
@@ -840,9 +1070,11 @@ function CommentaryTab({
                         className={`${styles.ballMarker} ${
                           b.isWicket
                             ? styles.wicket
-                            : b.runs === 4 || b.runs === 6
+                            : b.batRuns === 4 || b.batRuns === 6
                               ? styles.boundary
-                              : ''
+                              : b.extra
+                                ? styles.extraMarker
+                                : ''
                         }`}
                       >
                         {b.over}.{b.ball}

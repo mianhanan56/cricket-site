@@ -1,22 +1,20 @@
 import Link from 'next/link';
 import type { Match, Team, InningsScore } from '@/types';
 import { formatProgress } from '@/lib/overs';
+import { battedInnings, formatInnings, inningsFor, isClosed } from '@/lib/innings';
+import { pausedWord } from '../match/MatchState';
 import TeamBadge from './TeamBadge';
 import styles from './MatchCard.module.scss';
 
-// CricAPI innings carry a label like "New Zealand Women Inning 1". Match an
-// innings to a team ONLY when that label contains the team's name (or short
-// name) — no positional fallback, so a single innings is never handed to the
-// wrong team. No match → the team hasn't batted yet.
-function inningsFor(match: Match, team: Team): InningsScore | undefined {
-  const innings = match.scorecard?.innings ?? [];
-  if (!innings.length) return undefined;
-  const name = team.name.toLowerCase();
-  const short = team.shortName.toLowerCase();
-  return innings.find((i) => {
-    const label = ((i as { inning?: string }).inning ?? i.teamShortName ?? '').toLowerCase();
-    return !!label && (label.includes(name) || label.includes(short));
-  });
+/**
+ * A side's innings for its row, oldest first.
+ *
+ * Usually one. A Test gives two, and both belong in the score the row already
+ * has — "462 & 193/10" — rather than in a second box: the reader is looking at
+ * one number for one side, and the innings before it is part of that number.
+ */
+function rowInnings(match: Match, team: Team): InningsScore[] {
+  return battedInnings(inningsFor(match, team));
 }
 
 function formatStart(iso: string) {
@@ -39,13 +37,26 @@ function TeamRow({
   team,
   innings,
   ballsPerOver,
+  multiInnings,
   dim,
 }: {
   team: Team;
-  innings?: InningsScore;
+  /** Every innings the side has batted, oldest first. */
+  innings: InningsScore[];
   ballsPerOver?: number;
+  /** Format where a side bats twice, i.e. a Test. */
+  multiInnings?: boolean;
   dim?: boolean;
 }) {
+  // The innings the row's figures describe: the latest one. Its predecessors are
+  // written in front of it, closed and abbreviated the way a scorecard does it.
+  const latest = innings[innings.length - 1];
+  const earlier = innings.slice(0, -1);
+
+  // A closed innings on a Test card is written as the runs alone ("350"), which
+  // is both how a scorecard writes it and what keeps a two-innings line short.
+  // Only on Tests: a single-innings card has always shown "168/7" and still does.
+  const closed = Boolean(multiInnings && latest && isClosed(latest));
   return (
     <div className={`${styles.team} ${dim ? styles.dim : ''}`}>
       <div className={styles.teamLeft}>
@@ -58,16 +69,31 @@ function TeamRow({
             <div className={styles.teamName}>{team.name}</div>
           )}
           {/* Overs on all but The Hundred, which is scored in balls — see
-              lib/overs. */}
-          {innings && (
-            <div className={styles.overs}>{formatProgress(innings.overs, ballsPerOver)}</div>
+              lib/overs. Always the innings in progress, never a closed one. */}
+          {latest && (
+            <div className={styles.overs}>{formatProgress(latest.overs, ballsPerOver)}</div>
           )}
         </div>
       </div>
-      {innings ? (
+      {latest ? (
         <div className={styles.score}>
-          {innings.runs}
-          <span className={styles.wickets}>/{innings.wickets}</span>
+          {/* A Test's earlier innings, joined with "&". Ten wickets down is
+              written as the runs alone — every all-out innings ends on ten, so
+              the figure says nothing and the line reads shorter without it. */}
+          {earlier.map((inn, i) => (
+            <span key={inn.inningsNumber ?? i} className={styles.priorInnings}>
+              {formatInnings(inn)}
+              <span className={styles.ampersand}> &amp; </span>
+            </span>
+          ))}
+          {closed ? (
+            formatInnings(latest)
+          ) : (
+            <>
+              {latest.runs}
+              <span className={styles.wickets}>/{latest.wickets}</span>
+            </>
+          )}
         </div>
       ) : (
         <div className={styles.yetToBat}>Yet to bat</div>
@@ -79,8 +105,13 @@ function TeamRow({
 export default function MatchCard({ match }: { match: Match }) {
   const isLive = match.status === 'LIVE';
   const isUpcoming = match.status === 'UPCOMING';
-  const homeInn = inningsFor(match, match.homeTeam);
-  const awayInn = inningsFor(match, match.awayTeam);
+  const homeInn = rowInnings(match, match.homeTeam);
+  const awayInn = rowInnings(match, match.awayTeam);
+  const multiInnings = match.format === 'TEST';
+  // One word when a live match has stopped — STUMPS at the end of a Test day,
+  // DELAY for rain or bad light, BREAK for an interval. Null while the ball is in
+  // play, which is when the card shows LIVE and its dot instead.
+  const stopped = pausedWord(match.status, match.note);
 
   return (
     <Link href={`/matches/${match.id}`} className={`${styles.card} ${styles[STATUS_CLASS[match.status]]}`}>
@@ -90,11 +121,17 @@ export default function MatchCard({ match }: { match: Match }) {
           <span className={styles.format}>{match.format}</span>
           <span className={styles.series}>{match.series.name}</span>
         </div>
+        {/* Status, in a word. A stopped match names the stoppage rather than
+            claiming to be live; the wording in full is on the match page. */}
         {isLive ? (
-          <span className={styles.live}>
-            <span className={styles.dot} aria-hidden="true" />
-            LIVE
-          </span>
+          stopped ? (
+            <span className={styles.paused}>{stopped}</span>
+          ) : (
+            <span className={styles.live}>
+              <span className={styles.dot} aria-hidden="true" />
+              LIVE
+            </span>
+          )
         ) : isUpcoming ? (
           <span className={styles.upcoming}>UPCOMING</span>
         ) : (
@@ -104,8 +141,18 @@ export default function MatchCard({ match }: { match: Match }) {
 
       {/* teams */}
       <div className={styles.teams}>
-        <TeamRow team={match.homeTeam} innings={homeInn} ballsPerOver={match.ballsPerOver} />
-        <TeamRow team={match.awayTeam} innings={awayInn} ballsPerOver={match.ballsPerOver} />
+        <TeamRow
+          team={match.homeTeam}
+          innings={homeInn}
+          ballsPerOver={match.ballsPerOver}
+          multiInnings={multiInnings}
+        />
+        <TeamRow
+          team={match.awayTeam}
+          innings={awayInn}
+          ballsPerOver={match.ballsPerOver}
+          multiInnings={multiInnings}
+        />
       </div>
 
       {/* footer */}

@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CommentaryBall, InningsScore, Match } from '@/types';
-import { getCrexCommentary, getCrexMatchList, getCrexScorecard } from '@/lib/crex';
+import type { CommentaryBall, InningsScore, Match, MatchEvent, MatchStatus } from '@/types';
+import { getCrexMatchFeed, getCrexMatchList, getCrexScorecard } from '@/lib/crex';
 
 // crex has no push channel we can use — their live scores come off a Firebase
 // stream we deliberately don't touch (see worker-crex/README) — so the only
@@ -190,6 +190,11 @@ export interface UseCrexMatchExtrasResult {
   innings: InningsScore[];
   /** Deliveries, newest first. */
   commentary: CommentaryBall[];
+  /**
+   * Non-delivery events from the same feed — wickets, ends of overs, the toss,
+   * milestones — newest first.
+   */
+  events: MatchEvent[];
   loaded: boolean;
 }
 
@@ -206,12 +211,19 @@ export interface UseCrexMatchExtrasResult {
  */
 export function useCrexMatchExtras(
   matchKey: string,
-  options: { enabled?: boolean; intervalMs?: number; ballsPerOver?: number } = {}
+  options: {
+    enabled?: boolean;
+    intervalMs?: number;
+    ballsPerOver?: number;
+    /** Lets the card mark the innings in progress — see `getCrexScorecard`. */
+    status?: MatchStatus;
+  } = {}
 ): UseCrexMatchExtrasResult {
-  const { enabled = true, intervalMs = DEFAULT_INTERVAL_MS, ballsPerOver } = options;
+  const { enabled = true, intervalMs = DEFAULT_INTERVAL_MS, ballsPerOver, status } = options;
 
   const [innings, setInnings] = useState<InningsScore[]>([]);
   const [commentary, setCommentary] = useState<CommentaryBall[]>([]);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   const active = enabled && Boolean(matchKey);
@@ -229,9 +241,15 @@ export function useCrexMatchExtras(
         return;
       }
 
-      const [card, balls] = await Promise.all([
-        getCrexScorecard(matchKey, { signal: controller.signal, ballsPerOver }).catch(() => null),
-        getCrexCommentary(matchKey, { signal: controller.signal }).catch(() => null),
+      const [card, feed] = await Promise.all([
+        getCrexScorecard(matchKey, {
+          signal: controller.signal,
+          ballsPerOver,
+          status,
+        }).catch(() => null),
+        // One walk of the ball feed for both halves, so the events strip and the
+        // commentary can never show different moments of the same over.
+        getCrexMatchFeed(matchKey, { signal: controller.signal }).catch(() => null),
       ]);
 
       if (cancelled || controller.signal.aborted) return;
@@ -239,8 +257,11 @@ export function useCrexMatchExtras(
       // Only overwrite on success — a failed poll keeps the last good card
       // rather than emptying the tab.
       if (card) setInnings(card);
-      if (balls) setCommentary(balls);
-      if (card || balls) setLoaded(true);
+      if (feed) {
+        setCommentary(feed.balls);
+        setEvents(feed.events);
+      }
+      if (card || feed) setLoaded(true);
 
       timer = setTimeout(run, intervalMs);
     }
@@ -252,7 +273,7 @@ export function useCrexMatchExtras(
       controller.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [active, matchKey, intervalMs, ballsPerOver]);
+  }, [active, matchKey, intervalMs, ballsPerOver, status]);
 
-  return { innings, commentary, loaded };
+  return { innings, commentary, events, loaded };
 }

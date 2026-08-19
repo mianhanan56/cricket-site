@@ -16,17 +16,29 @@
 // able to lose crex entirely and still render.
 
 import type {
+  BallExtra,
   BatsmanLine,
   BowlerLine,
   CommentaryBall,
+  InningsPhase,
   InningsScore,
   Match,
+  MatchEvent,
+  MatchEventKind,
   MatchFormat,
+  MatchNote,
+  MatchNoteKind,
   MatchStatus,
+  RetirementKind,
   SeriesSummary,
   Team,
 } from '@/types';
-import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER, oversFrom } from './overs';
+import {
+  DEFAULT_BALLS_PER_OVER,
+  HUNDRED_BALLS_PER_OVER,
+  SCHEDULED_OVERS,
+  oversFrom,
+} from './overs';
 
 // The home page has no other source now, so this falls back to the deployed
 // Worker rather than to '' — an unset env var used to mean "no crex", which now
@@ -50,9 +62,21 @@ const TEAM_LOGO_BASE = 'https://cricketvectors.akamaized.net/Teams';
  * (odds, promo flags, YouTube metadata) that are deliberately left alone.
  */
 export interface CrexRawMatch {
-  /** Result text, sometimes crex-encoded ("&20wBi") — prefer `res`. */
+  /**
+   * Status code, and the only structured source for breaks and interruptions.
+   * Three forms, all decoded by `decodeMatchNote`:
+   *
+   *   "$a".."$x"  a status from crex's own table — Drinks Break, Stumps, Rain
+   *               Delay, Abandoned. The reliable form.
+   *   "^0".."^3"  the toss: who won it and what they chose.
+   *   "&…"        crex-compressed result text. Not decoded — `res` carries the
+   *               same thing in plain English.
+   *
+   * Older payloads send the bare letter ("l" for Stumps) rather than "$l", so
+   * both spellings are read.
+   */
   a?: string;
-  /** Qualifier on the status, e.g. "due to rain". */
+  /** Qualifier on the status, e.g. "(wet outfield)". */
   ac?: string;
   /** Team 1 key. Resolve via /mapping `t`. */
   b: string;
@@ -67,10 +91,33 @@ export interface CrexRawMatch {
    * instead, so without it those matches fall through to the ODI default.
    */
   hb?: number;
-  /** Team 1 score, "282/6(50.0" — note the unclosed paren. */
+  /**
+   * The four innings slots, by side rather than by chronology:
+   *
+   *   j  team 1's first innings, "282/6(50.0" — note the unclosed paren
+   *   k  team 2's first innings
+   *   l  team 1's second innings   } Tests only; absent on the single-innings
+   *   m  team 2's second innings   } formats
+   *
+   * Verified against /match/scorecard, whose innings carry an explicit batting
+   * team: the card's four innings line up with j, k, l, m in that order on every
+   * match in the feed, Tests included. A "!" in front of the runs marks a
+   * declaration.
+   */
   j?: string;
-  /** Team 2 score. */
+  /** Team 2's first innings. */
   k?: string;
+  /** Team 1's second innings — Tests only. */
+  l?: string;
+  /** Team 2's second innings — Tests only. */
+  m?: string;
+  /**
+   * Which innings is in progress. 1 or 2 means the sides are on their first
+   * innings, 3–6 their second; odd means team 1 is the side batting, even team 2.
+   * crex derives its whole header from this pairing, and it holds on all eight
+   * matches checked against the scorecard endpoint.
+   */
+  d?: number;
   /** Series key, usually "^"-prefixed. */
   q: string;
   /** Human-readable status/result: "Innings Break", "UAE won by 97 runs". */
@@ -79,9 +126,18 @@ export interface CrexRawMatch {
   ti: number | string;
   /** Venue key. Resolve via /mapping `v`. */
   v: string;
-  /** Set once the match is over. The most reliable completion signal. */
+  /**
+   * Set once the match is over and never unset. Only consulted when `n` is
+   * missing: crex's own site ignores this field entirely and switches on `n`,
+   * and the two never disagreed across a full feed.
+   */
   finishTime?: number;
-  /** State code: 0-3 upcoming, 4-7 live, 8+ finished. `finishTime` is safer. */
+  /**
+   * Packed state: format in `n % 4`, live/upcoming/finished in `(n % 12) / 4`
+   * and the day of play in `n / 12`. Read it through `decodeMatchState` — it is
+   * NOT a threshold, and treating it as one reports a Test in progress as
+   * finished from its second day on.
+   */
   n?: number;
   /**
    * Set on well over half the list, live Tests and CPL fixtures included — so
@@ -346,25 +402,104 @@ export function resolveNames(
 // Adapters onto our own vocabulary (@/types)
 // ---------------------------------------------------------------------------
 
-/** `n` at or above this is a finished match; see `CrexRawMatch.n`. */
-const FINISHED_STATE = 8;
+// `n` is not a flat status code — it packs three fields into one integer, and
+// reading it as a threshold ("8 and up is finished") is what made multi-day
+// matches collapse into Finished after the first day's play. The layout, taken
+// from crex's own `liveHomeParsingMethod`:
+//
+//   format = n % 4                    0 T20, 1 ODI, 2 Test, 3 T10/The Hundred
+//   state  = ⌊(n % 12) / 4⌋           0 upcoming, 1 live, 2 finished
+//   day    = ⌊n / 12⌋ + 1             1-based day of a multi-day match
+//
+// So a Test's state code repeats every 12: day 1 live is 6, day 2 live is 18,
+// day 3 is 30, day 4 is 42 — every one of them "8 or more", and every one of
+// them a match still in progress. The same Test reads 46 once it is actually
+// over (day 4, state 2), and 2 before a ball is bowled (day 1, state 0).
+//
+// Single-day formats never leave the first cycle, so `n` there stays inside
+// 0–11, where the decode agrees with the old thresholds on every value the feed
+// actually carries. It is stricter in one place: `n` in 4–7 is live even before
+// a score is posted, so an ODI or T20 between the toss and the first ball now
+// reads Live rather than Upcoming — which is what crex shows.
+
+/** One turn of the state × format cycle; `n` gains this much per extra day. */
+const STATE_CYCLE = 12;
+
+/** States per cycle: the four format slots share one state code. */
+const FORMAT_SLOTS = 4;
+
+const STATE_STATUS: Record<number, MatchStatus> = {
+  0: 'UPCOMING',
+  1: 'LIVE',
+  2: 'COMPLETED',
+};
+
+/** Format by `n % 4`. T10 and The Hundred fold into T20, as in `toMatchFormat`. */
+const SLOT_FORMAT: Record<number, MatchFormat> = {
+  0: 'T20',
+  1: 'ODI',
+  2: 'TEST',
+  3: 'T20',
+};
+
+export interface CrexMatchState {
+  status: MatchStatus;
+  /** Format packed into `n`, already folded onto our three. */
+  format: MatchFormat;
+  /**
+   * Day of play, 1-based. Always 1 on the single-day formats; on a Test it is
+   * the day the state code describes, so it keeps counting up across the match.
+   */
+  day: number;
+}
+
+/** Unpack crex's `n`. Returns null for a value that cannot be one. */
+export function decodeMatchState(n: number | undefined): CrexMatchState | null {
+  if (n === undefined || !Number.isFinite(n) || n < 0) return null;
+
+  const cycle = Math.floor(n) % STATE_CYCLE;
+  const status = STATE_STATUS[Math.floor(cycle / FORMAT_SLOTS)];
+  if (!status) return null;
+
+  return {
+    status,
+    format: SLOT_FORMAT[cycle % FORMAT_SLOTS] ?? 'ODI',
+    day: Math.floor(n / STATE_CYCLE) + 1,
+  };
+}
 
 /**
- * `finishTime` is set when a match ends and never unset, so it is the first
- * thing checked — but crex does not always set it. Finished matches turn up
- * with `finishTime: null`, a final `res` ("MIL won by 2 runs") and only `n` to
- * say they are over, so the state code has to back it up or a completed match
- * renders as live forever on the strength of having a score.
+ * Which of Live / Upcoming / Finished a feed match belongs under.
  *
- * `n` alone is not enough either: it is absent on some fixtures, which is why
- * both signals are consulted rather than one replacing the other. Anything with
- * a score and neither signal is in progress — including the mid-match states
- * crex reports through `res` ("Innings Break", "Stumps").
+ * `n` is asked first and believed: it is the field crex's own site switches on,
+ * it says what the match *is* rather than what today's play is doing, and it is
+ * the only signal that survives a Test's rest days, stumps, rain delays and
+ * innings breaks without flipping. A day ending changes the day in `n`, not the
+ * state, so the match stays Live until the whole thing is decided.
+ *
+ * `finishTime` and the scores are the fallback, for the fixtures that arrive
+ * without `n` at all. `finishTime` is set once a match ends and never unset;
+ * a match with a score and no completion signal is in progress, including the
+ * mid-match states crex reports through `res` ("Innings Break", "Stumps").
  */
 export function toMatchStatus(m: CrexRawMatch): MatchStatus {
-  if (m.finishTime || (m.n !== undefined && m.n >= FINISHED_STATE)) return 'COMPLETED';
-  if (m.j || m.k) return 'LIVE';
-  return 'UPCOMING';
+  const state = decodeMatchState(m.n);
+
+  if (state) {
+    // Upcoming is a claim about a match that has not begun, and two things in
+    // the payload can contradict it: a day counter past the first (an earlier
+    // day was played) and a score on the board. crex keeps the state at "live"
+    // through stumps and rest days, so neither is expected — but reading the
+    // state alone would put a Test that had been batting for three days back
+    // under Upcoming on the strength of one stale integer, and the fields that
+    // rule it out are right there. Not a format special-case: a single-day
+    // match cannot reach day 2, so the guard is inert for ODIs and T20s.
+    if (state.status === 'UPCOMING' && (state.day > 1 || m.j || m.k)) return 'LIVE';
+    return state.status;
+  }
+
+  if (m.finishTime) return 'COMPLETED';
+  return m.j || m.k ? 'LIVE' : 'UPCOMING';
 }
 
 /**
@@ -375,6 +510,10 @@ export function toMatchStatus(m: CrexRawMatch): MatchStatus {
  * The Hundred is checked first and via `hb`, not `fo`: crex sends no `fo` at
  * all on those matches, so anything relying on the label alone mislabels a
  * 100-ball game as an ODI.
+ *
+ * `n` has the last word for anything the label does not cover. crex leaves `fo`
+ * off more than The Hundred — T10 fixtures arrive bare too — and the ODI default
+ * turned those into 50-over games. The format slot in `n` is unambiguous.
  */
 export function toMatchFormat(m: CrexRawMatch): MatchFormat {
   if (m.hb) return 'T20';
@@ -382,14 +521,160 @@ export function toMatchFormat(m: CrexRawMatch): MatchFormat {
   const f = (m.fo ?? '').toUpperCase();
   if (f.includes('TEST')) return 'TEST';
   if (f.includes('T20') || f.includes('T10') || f.includes('HUN')) return 'T20';
-  return 'ODI';
+  if (f.includes('ODI') || f.includes('ONE DAY') || f.includes('LIST')) return 'ODI';
+
+  return decodeMatchState(m.n)?.format ?? 'ODI';
 }
 
-/** "282/6(50.0" -> { runs: 282, wickets: 6, overs: 50 }. Tolerates the missing paren. */
+// ---------------------------------------------------------------------------
+// In-match state: breaks, interruptions, stumps
+// ---------------------------------------------------------------------------
+//
+// The status table below is crex's own, transcribed from the map in their home
+// bundle rather than guessed at. Two things about it are worth knowing:
+//
+//   - It is the ONLY structured source for an interruption. The ball feed
+//     carries prose about a physio walking on but no code for it, so anything
+//     not in this table (or in `res`) is not something we can report as an
+//     official status without making it up.
+//   - Stumps lives here, which is why a Test at the end of a day's play is
+//     Live-with-a-note rather than finished. The two facts are independent and
+//     crex sends them separately: `n` says the match is in progress, `a` says
+//     nobody is batting at this moment.
+
+interface NoteSpec {
+  label: string;
+  kind: MatchNoteKind;
+  /** Play is stopped but the match lives on. */
+  paused: boolean;
+}
+
+/**
+ * crex's status codes, keyed by the letter that follows the "$".
+ *
+ * Labels are theirs, down to the wording — a reader comparing our page with
+ * crex's should see the same words. Cancelled and abandoned are not `paused`:
+ * play is not resuming, so the UI must not promise that it will.
+ */
+const NOTE_CODES: Record<string, NoteSpec> = {
+  a: { label: 'Innings Break', kind: 'BREAK', paused: true },
+  b: { label: 'Drinks Break', kind: 'BREAK', paused: true },
+  c: { label: 'Lunch Break', kind: 'BREAK', paused: true },
+  d: { label: 'Tea Break', kind: 'BREAK', paused: true },
+  e: { label: 'Break', kind: 'BREAK', paused: true },
+  f: { label: 'Rain Delay', kind: 'DELAY', paused: true },
+  g: { label: 'Low Light Delay', kind: 'DELAY', paused: true },
+  h: { label: 'Match Paused', kind: 'SUSPENDED', paused: true },
+  i: { label: 'Cancelled due to rain', kind: 'SUSPENDED', paused: false },
+  j: { label: 'Cancelled due to low light', kind: 'SUSPENDED', paused: false },
+  k: { label: 'Match Cancelled', kind: 'SUSPENDED', paused: false },
+  l: { label: 'Stumps', kind: 'STUMPS', paused: true },
+  m: { label: 'Timeout', kind: 'BREAK', paused: true },
+  n: { label: 'Match Drawn', kind: 'RESULT', paused: false },
+  o: { label: 'Super Over', kind: 'RESULT', paused: false },
+  p: { label: 'Match Tied', kind: 'RESULT', paused: false },
+  q: { label: 'Abandoned', kind: 'SUSPENDED', paused: false },
+  r: { label: 'Rescheduled', kind: 'SUSPENDED', paused: false },
+  s: { label: 'Toss delayed', kind: 'DELAY', paused: true },
+  t: { label: 'Toss delayed due to rain', kind: 'DELAY', paused: true },
+  u: { label: 'Toss delayed due to bad weather', kind: 'DELAY', paused: true },
+  v: { label: 'Toss delayed due to low light', kind: 'DELAY', paused: true },
+  w: { label: 'Toss delayed due to wet outfield', kind: 'DELAY', paused: true },
+  x: { label: 'No Result', kind: 'RESULT', paused: false },
+};
+
+/** `a` = "^0".."^3": which side won the toss and what they chose. */
+const TOSS_CODES: Record<string, { side: 1 | 2; choice: 'bat' | 'bowl' }> = {
+  '0': { side: 1, choice: 'bat' },
+  '1': { side: 1, choice: 'bowl' },
+  '2': { side: 2, choice: 'bat' },
+  '3': { side: 2, choice: 'bowl' },
+};
+
+/**
+ * Words that place a status crex sent as free text rather than as a code.
+ *
+ * This is a tone decision, not invented data: the label shown is always crex's
+ * own string ("Start Delayed"), and all this picks is which icon and colour it
+ * gets. An unrecognised status still displays, verbatim, as `INFO`.
+ */
+const NOTE_TEXT_KINDS: ReadonlyArray<[RegExp, MatchNoteKind]> = [
+  [/stumps|day'?s play/i, 'STUMPS'],
+  [/break|drinks|lunch|tea|timeout/i, 'BREAK'],
+  [/delay|rain|wet|light|weather|suspend/i, 'DELAY'],
+  [/abandon|cancel|no result/i, 'SUSPENDED'],
+  [/drawn|tied|super over/i, 'RESULT'],
+  [/toss/i, 'TOSS'],
+];
+
+/** Kinds that mean the match is over, so the note must not claim a pause. */
+const TERMINAL_KINDS: ReadonlySet<MatchNoteKind> = new Set(['RESULT', 'SUSPENDED']);
+
+/** Does this text read as a finished-match result rather than a live status? */
+function looksLikeResult(text: string): boolean {
+  return /won by|won the match|beat |wins? by/i.test(text);
+}
+
+/**
+ * The match's own account of what is happening right now, or null when the
+ * answer is "cricket".
+ *
+ * `a` is preferred over `res` because it is a code rather than a sentence: the
+ * same interruption reads "Rain Delay" every time. `res` is the fallback, and it
+ * is where the statuses crex has no code for arrive ("Start Delayed"); its
+ * result text is filtered out, since a finished match's result already has a
+ * home of its own on the card.
+ */
+export function decodeMatchNote(
+  m: CrexRawMatch,
+  teams: { first?: string; second?: string } = {}
+): MatchNote | null {
+  const detail = m.ac?.trim() || null;
+  // A "!" is a display marker in crex's own renderer, not part of the code.
+  const raw = (m.a ?? '').replace('!', '').trim();
+
+  if (raw.startsWith('^')) {
+    const toss = TOSS_CODES[raw.slice(1)];
+    const side = toss && (toss.side === 1 ? teams.first : teams.second);
+    if (toss && side) {
+      return {
+        label: `${side} won the toss and chose to ${toss.choice}`,
+        kind: 'TOSS',
+        detail,
+        paused: false,
+      };
+    }
+  }
+
+  // "$l", or the bare "l" older payloads send. Both are one letter of the table;
+  // anything longer is a word (a compressed blob or a plain status) and belongs
+  // to the `res` path below.
+  if (raw && !raw.startsWith('&')) {
+    const letter = raw.startsWith('$') ? raw.slice(1) : raw;
+    const spec = letter.length === 1 ? NOTE_CODES[letter.toLowerCase()] : undefined;
+    if (spec) return { label: spec.label, kind: spec.kind, detail, paused: spec.paused };
+  }
+
+  const text = m.res?.trim();
+  if (!text || looksLikeResult(text)) return null;
+
+  const kind = NOTE_TEXT_KINDS.find(([pattern]) => pattern.test(text))?.[1] ?? 'INFO';
+  return { label: text, kind, detail, paused: !TERMINAL_KINDS.has(kind) };
+}
+
+/**
+ * "282/6(50.0" -> { runs: 282, wickets: 6, overs: 50 }. Tolerates the missing paren.
+ *
+ * A leading "!" marks a declaration ("!450/5(120.0"), which crex renders as
+ * "450/5 d". It is stripped here and recorded as a flag, so a declared innings
+ * is not mistaken for one still in progress on five wickets down.
+ */
 function parseScore(score: string | undefined, teamShortName: string): InningsScore | null {
   if (!score) return null;
 
-  const m = /^(\d+)\/(\d+)\s*\(?\s*([\d.]+)?/.exec(score.trim());
+  const trimmed = score.trim();
+  const declared = trimmed.includes('!');
+  const m = /^(\d+)\/(\d+)\s*\(?\s*([\d.]+)?/.exec(trimmed.replace(/!/g, ''));
   if (!m) return null;
 
   return {
@@ -397,7 +682,53 @@ function parseScore(score: string | undefined, teamShortName: string): InningsSc
     runs: Number(m[1]),
     wickets: Number(m[2]),
     overs: Number(m[3] ?? 0),
+    ...(declared ? { declared } : null),
   };
+}
+
+/**
+ * The innings the feed is carrying, tagged with whose they are and where each
+ * one sits in the match.
+ *
+ * Built from all four slots rather than the two the header used to read, which
+ * is what lets a Test card show "350 & 210" instead of only the first innings —
+ * and lets the completed innings stay on screen once the next one starts, since
+ * they are separate entries rather than one score being overwritten.
+ *
+ * The innings in progress comes from `d`, not from guesswork about wickets: an
+ * innings can close on a declaration at five down or on an over limit at eight,
+ * so counting wickets identifies neither reliably. Everything else with a score
+ * has been played, and once the match is over nothing is current.
+ */
+function feedInnings(m: CrexRawMatch, home: Team, away: Team, status: MatchStatus): InningsScore[] {
+  const pair = (m.d ?? 1) <= 2 ? 1 : 2;
+  const battingSide = (m.d ?? 1) % 2 === 1 ? 1 : 2;
+
+  const slots: Array<{ raw?: string; team: Team; side: 1 | 2; inningsNumber: number }> = [
+    { raw: m.j, team: home, side: 1, inningsNumber: 1 },
+    { raw: m.k, team: away, side: 2, inningsNumber: 1 },
+    { raw: m.l, team: home, side: 1, inningsNumber: 2 },
+    { raw: m.m, team: away, side: 2, inningsNumber: 2 },
+  ];
+
+  const out: InningsScore[] = [];
+
+  for (const slot of slots) {
+    const parsed = parseScore(slot.raw, slot.team.shortName);
+    if (!parsed) continue;
+
+    const current =
+      status === 'LIVE' && slot.inningsNumber === pair && slot.side === battingSide;
+
+    out.push({
+      ...parsed,
+      teamId: slot.team.id,
+      inningsNumber: slot.inningsNumber,
+      phase: current ? 'CURRENT' : 'COMPLETED',
+    });
+  }
+
+  return out;
 }
 
 /** crex sends epoch ms, but substitutes a countdown string on some fixtures. */
@@ -420,6 +751,69 @@ function toTeam(key: string, names: typeof nameCache): Team {
   };
 }
 
+/** Innings a match of each format plays in total. Four in a Test, two elsewhere. */
+const TOTAL_INNINGS: Record<MatchFormat, number> = { TEST: 4, ODI: 2, T20: 2 };
+
+/**
+ * Has this innings finished? Ten down, declared, or the full quota of overs bowled.
+ */
+function inningsOver(inn: InningsScore, format: MatchFormat, perOver: number): boolean {
+  if (inn.wickets >= 10 || inn.declared) return true;
+
+  const scheduled = SCHEDULED_OVERS[format];
+  // A Test innings has no over quota, so wickets and declarations are all there is.
+  return scheduled !== null && oversFrom(Math.round(inn.overs * perOver), perOver) >= scheduled;
+}
+
+/**
+ * The gap between innings, worked out from the score rather than read off a field.
+ *
+ * crex's own site says "Players Entering" here, but that word comes off their
+ * Firebase live-state stream, which this app deliberately does not touch (see the
+ * Worker's README). `/matches/live` sends nothing for it: at an innings break the
+ * payload is simply a closed innings, no second score, and a live match state.
+ *
+ * That is enough to know what is happening, so the state is derived from those
+ * three facts and labelled for what it is — an innings break. Nothing is invented:
+ * if a ball had been bowled in the new innings there would be a score for it, and
+ * if the innings that just ended were still going it would not be closed.
+ */
+function inningsBreakNote(
+  innings: InningsScore[],
+  status: MatchStatus,
+  format: MatchFormat,
+  perOver: number
+): MatchNote | null {
+  if (status !== 'LIVE') return null;
+
+  // crex opens the next innings' slot the moment the last one closes, as an all-zero
+  // score with no balls bowled. That IS the break, not an innings under way, so a
+  // slot nobody has faced a ball in does not count as one played.
+  const played = innings.filter((inn) => inn.overs > 0 || inn.runs > 0 || inn.wickets > 0);
+  if (!played.length) return null;
+
+  // Still innings to come, and every one played so far is finished.
+  if (played.length >= TOTAL_INNINGS[format]) return null;
+  if (!played.every((inn) => inningsOver(inn, format, perOver))) return null;
+
+  return { label: 'Innings Break', kind: 'BREAK', detail: null, paused: true };
+}
+
+/**
+ * Which of the two accounts of the match state to believe.
+ *
+ * A stoppage crex reports itself always wins — it knows about rain and stumps and
+ * we do not. But crex leaves the toss code in `a` for the whole first innings, and
+ * an hour later "won the toss and chose to bat" is not what is happening: it masks
+ * the innings break the scores plainly show. So a derived break outranks any note
+ * that is not itself a stoppage, and the toss survives only while there is nothing
+ * truer to say.
+ */
+function pickNote(reported: MatchNote | null, derived: MatchNote | null): MatchNote | null {
+  if (reported?.paused) return reported;
+  return derived ?? reported;
+}
+
 /**
  * Build one of our `Match` objects from a crex match plus the resolved names.
  *
@@ -430,25 +824,27 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
   const homeTeam = toTeam(m.b, names);
   const awayTeam = toTeam(m.c, names);
 
-  const innings = [
-    parseScore(m.j, homeTeam.shortName),
-    parseScore(m.k, awayTeam.shortName),
-  ].filter((i): i is InningsScore => i !== null);
-
   const seriesKey = cleanKey(m.q);
   const status = toMatchStatus(m);
+  const state = decodeMatchState(m.n);
+  const format = toMatchFormat(m);
+  const innings = feedInnings(m, homeTeam, awayTeam, status);
+  // The Hundred is scored in sets of five, so an over quota has to be read against
+  // its own balls-per-over rather than six.
+  const perOver =
+    m.hb === HUNDRED_BALLS_PER_OVER ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER;
 
   return {
     id,
     homeTeam,
     awayTeam,
     series: { id: seriesKey, name: names.s.get(seriesKey)?.n ?? 'Cricket' },
-    format: toMatchFormat(m),
+    format,
     status,
     venue: names.v.get(cleanKey(m.v))?.n ?? 'TBD',
     startTime: toStartTime(m.ti),
     // `hb` carries the balls-per-over on The Hundred and is absent elsewhere.
-    ballsPerOver: m.hb === HUNDRED_BALLS_PER_OVER ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER,
+    ballsPerOver: perOver,
     // Any `hb` at all marks a 100-ball game. Worth carrying separately from the
     // format (which folds The Hundred into T20): a required run rate worked out
     // against T20's 120 balls would give a chase 20 balls it does not have.
@@ -456,6 +852,16 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
     // `res` carries mid-match states too, so only surface it as a result once
     // the match is actually over.
     result: status === 'COMPLETED' ? m.res ?? m.a ?? null : null,
+    // Whatever has stopped play, in crex's words where they sent them, and
+    // derived from the innings state where they did not. Independent of `status`:
+    // a Test at stumps is LIVE with a STUMPS note, and both facts are needed to
+    // say "day 3 — stumps" rather than either "in progress" or "finished".
+    note: pickNote(
+      decodeMatchNote(m, { first: homeTeam.shortName, second: awayTeam.shortName }),
+      inningsBreakNote(innings, status, format, perOver)
+    ),
+    // Only meaningful where a match spans days; `n` reports 1 for the rest.
+    day: state && state.format === 'TEST' ? state.day : null,
     scorecard: innings.length ? { innings } : null,
   };
 }
@@ -561,6 +967,20 @@ const FIELDER_INDEX = 9;
  */
 const RETIRED_CODES = new Set(['11', '13']);
 
+/**
+ * The three ways a batsman's innings ends without a wicket, by dismissal code.
+ *
+ * Injury is not something crex publishes as a match status — there is no code
+ * for a physio on the field, and the ball feed only mentions one in prose. These
+ * are the API's own record of a player leaving the middle hurt, so they are what
+ * the UI reports, rather than a guess read out of commentary text.
+ */
+const RETIREMENT_KINDS: Record<string, RetirementKind> = {
+  '11': 'HURT',
+  '12': 'OUT',
+  '13': 'ABSENT',
+};
+
 /** crex renders the third name token, or the last if the name is shorter. */
 function shortName(key: string | undefined, names: typeof nameCache): string {
   if (!key) return '';
@@ -639,6 +1059,9 @@ function decodeBatsman(line: string, names: typeof nameCache): BatsmanLine | nul
     // end the innings, and the text below says which it was.
     out: dismissed && !RETIRED_CODES.has(head[DISMISSAL_TYPE_INDEX]),
     dismissal: dismissed ? describeDismissal(head, names) : 'not out',
+    ...(dismissed && RETIREMENT_KINDS[head[DISMISSAL_TYPE_INDEX]]
+      ? { retired: RETIREMENT_KINDS[head[DISMISSAL_TYPE_INDEX]] }
+      : null),
   };
 }
 
@@ -664,10 +1087,16 @@ function decodeBowler(
   };
 }
 
-/** Innings totals, batting and bowling cards for a crex match, in order. */
+/**
+ * Innings totals, batting and bowling cards for a crex match, in order.
+ *
+ * `status` is optional and only decides whether the innings in progress is
+ * marked CURRENT: this endpoint returns a card, not a match state, and a card on
+ * its own cannot tell a live innings from the last one of a finished match.
+ */
 export async function getCrexScorecard(
   matchKey: string,
-  opts: FetchOpts & { ballsPerOver?: number } = {}
+  opts: FetchOpts & { ballsPerOver?: number; status?: MatchStatus } = {}
 ): Promise<InningsScore[]> {
   const perOver = opts.ballsPerOver || DEFAULT_BALLS_PER_OVER;
 
@@ -693,7 +1122,11 @@ export async function getCrexScorecard(
 
   await resolveKeys({ p: playerKeys.filter(Boolean), t: teamKeys }, opts);
 
-  return innings.flatMap((inn) => {
+  // Each side's innings are numbered as they arrive: the card lists them in slot
+  // order (team 1's first, team 2's first, team 1's second, team 2's second), so
+  // a side's second entry is its second innings.
+  const seenPerTeam = new Map<string, number>();
+  const cards = innings.flatMap((inn) => {
     const total = /^(\d+)\/(\d+)\((\d+)/.exec(inn.d ?? '');
     const teamKey = cleanKey(inn.c);
     const balls = total ? Number(total[3]) : 0;
@@ -703,7 +1136,12 @@ export async function getCrexScorecard(
     // for. Emitting it would put a phantom "0/0" on the scorecard.
     if (!total && !lines.length) return [];
 
+    const inningsNumber = (seenPerTeam.get(teamKey) ?? 0) + 1;
+    seenPerTeam.set(teamKey, inningsNumber);
+
     return {
+      teamId: teamKey,
+      inningsNumber,
       teamShortName: nameCache.t.get(teamKey)?.sn ?? teamKey,
       runs: total ? Number(total[1]) : 0,
       wickets: total ? Number(total[2]) : 0,
@@ -728,6 +1166,20 @@ export async function getCrexScorecard(
         .filter((x): x is BowlerLine => x !== null),
     };
   });
+
+  // Phases in one pass over the finished list, because "current" is a statement
+  // about the whole card: it is the last innings that has batted, and only while
+  // the match is live. A side listed with an XI and no total has not begun.
+  const lastBatted = cards.reduce((last, inn, i) => (inn.notStarted ? last : i), -1);
+
+  return cards.map((inn, i) => ({
+    ...inn,
+    phase: (inn.notStarted
+      ? 'UPCOMING'
+      : i === lastBatted && opts.status === 'LIVE'
+        ? 'CURRENT'
+        : 'COMPLETED') satisfies InningsPhase as InningsPhase,
+  }));
 }
 
 // ---------------------------------------------------------------------------
@@ -735,18 +1187,47 @@ export async function getCrexScorecard(
 // ---------------------------------------------------------------------------
 
 interface CrexBallFeed {
-  /** Runs off the ball as a string, or "W" for a wicket, "WD" for a wide. */
-  b?: string;
+  /**
+   * The outcome, crex's own shorthand. Seen in live data: a plain count off
+   * the bat ("0", "4"), "W" for a wicket, "WD"/"NB" for a wide or no ball that
+   * cost only its penalty, "<n>wd"/"<n>nb" when runs came off one, "<n>lb" and
+   * "<n>b" for leg byes and byes, and "<bat>+<extra>" for a ball that was both.
+   * Parsed by `parseBallOutcome` — `Number(b)` is NaN on every form but the
+   * first, which is what used to render a wide as "0".
+   */
+  b?: string | number;
   /** Over.ball, e.g. "48.2". */
   o?: string | number;
   /** Headline, "Bowler to Batsman". */
   c1?: string;
   /** Descriptive text. Often empty on minor events. */
   c2?: string;
-  /** Event kind: "b" ball, "w" wicket, "o" over summary, plus others. */
+  /**
+   * Event kind. `"b"` is a delivery; everything else is a marker the same feed
+   * interleaves — `"o"` an over summary, `"w"` a wicket card, `"ic2"` an innings
+   * closing, `"tc"` a target, `"to"` the toss, `"pm"`/`"tm"` a milestone,
+   * `"rc"`/`"ac"` an umpire review, `"t"` a written note, and `"ps"`/`"pbc"`/
+   * `"pl"` the stat cards and polls crex's own app shows.
+   */
   type?: string;
   /** Epoch ms. */
   id?: number;
+  /** The marker's sentence, on the event rows that carry one. */
+  c?: string;
+  /** Over number on an over summary. */
+  on?: number;
+  /** Runs off the over. */
+  runs?: number;
+  /** Wickets in the over. */
+  ow?: number;
+  /** Player or team name on a milestone or wicket card. */
+  n?: string;
+  /** Batsman's name on a wicket card. */
+  player_fullname?: string;
+  /** Runs and balls on a wicket card. */
+  r?: number;
+  /** Innings index, 0-based. */
+  inning?: number;
 }
 
 /**
@@ -758,6 +1239,196 @@ const MIN_BALLS = 18;
 
 /** Stop regardless, so a feed that keeps handing back events can't spin. */
 const MAX_COMMENTARY_PAGES = 5;
+
+/**
+ * A real delivery, as opposed to the over summaries, partnership notes and
+ * milestone markers the same feed carries. Those arrive as `type: "w"` rows
+ * with no commentary text and a `b` that is a partnership total, not a ball's
+ * outcome — counting them as wickets is where the old filter went wrong.
+ */
+function isDelivery(f: CrexBallFeed): boolean {
+  return f.type === 'b' && String(f.o ?? '').includes('.');
+}
+
+/** What a delivery cost, decoded from crex's `b` shorthand. */
+export interface BallOutcome {
+  /** Bat runs + extras, penalty included — what the total went up by. */
+  runs: number;
+  batRuns: number;
+  extraRuns: number;
+  extra: BallExtra | null;
+  isWicket: boolean;
+}
+
+const EXTRA_CODES: Record<string, BallExtra> = {
+  wd: 'wide',
+  nb: 'noball',
+  lb: 'legbye',
+  b: 'bye',
+};
+
+/** Wides and no balls cost a run before anything is run or hit. */
+const PENALTY: Partial<Record<BallExtra, number>> = { wide: 1, noball: 1 };
+
+/**
+ * Decode one `b` value.
+ *
+ * The forms live data actually sends, all confirmed against the running total
+ * on either side of the ball:
+ *
+ * - `"0"`, `"4"` — runs off the bat.
+ * - `"W"` — wicket. Runs may ride along on a run out (`"W+1"`, `"1W"`).
+ * - `"WD"`, `"NB"` — a wide or no ball that cost only its one-run penalty.
+ * - `"4wd"`, `"2nb"` — the same plus runs: `"4wd"` is five to the total.
+ * - `"1lb"`, `"4b"` — leg byes and byes. Legal deliveries, no penalty.
+ * - `"0+1"` — runs off the bat plus extras on the same ball.
+ *
+ * Anything unrecognised decodes to a dot rather than throwing: an unknown
+ * shorthand should cost the reader one ball, not the whole strip.
+ */
+export function parseBallOutcome(raw: unknown): BallOutcome {
+  const none: BallOutcome = {
+    runs: 0,
+    batRuns: 0,
+    extraRuns: 0,
+    extra: null,
+    isWicket: false,
+  };
+
+  const token = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '');
+  if (!token) return none;
+
+  // Peel the wicket marker off first so the rest parses as a plain outcome —
+  // a run out can carry runs, and a wicket off a no ball carries the penalty.
+  let body = token;
+  let isWicket = false;
+  // The marker only comes off when what is left is itself an outcome — "wd"
+  // opens with the same letter and is a wide, not a wicket.
+  const REST = String.raw`\d*(?:wd|nb|lb|b)?`;
+  const wicket =
+    body.match(new RegExp(`^w\\+?(${REST})$`)) ?? body.match(new RegExp(`^(${REST})\\+?w$`));
+  if (wicket) {
+    isWicket = true;
+    body = wicket[1];
+  }
+  if (!body) return { ...none, isWicket };
+
+  // "<n>wd" / "<n>nb" / "<n>lb" / "<n>b" — the count is what was run or hit,
+  // on top of the penalty. Bare "WD"/"NB" is the penalty on its own.
+  const extra = body.match(/^(\d*)(wd|nb|lb|b)$/);
+  if (extra) {
+    const kind = EXTRA_CODES[extra[2]];
+    const penalty = PENALTY[kind] ?? 0;
+    // A bare "1lb" is one leg bye; a bare "NB" is a no ball nobody scored off.
+    const scored = extra[1] === '' ? (penalty ? 0 : 1) : Number(extra[1]);
+    // Runs off a no ball are the batter's; off a wide they never are.
+    const batRuns = kind === 'noball' ? scored : 0;
+    const extraRuns = penalty + (kind === 'noball' ? 0 : scored);
+    return { runs: batRuns + extraRuns, batRuns, extraRuns, extra: kind, isWicket };
+  }
+
+  // "<bat>+<extra>" — both on one ball, with no kind given for the extra.
+  const split = body.match(/^(\d+)\+(\d+)$/);
+  if (split) {
+    const batRuns = Number(split[1]);
+    const extraRuns = Number(split[2]);
+    return { runs: batRuns + extraRuns, batRuns, extraRuns, extra: null, isWicket };
+  }
+
+  const plain = body.match(/^\d+$/);
+  if (plain) {
+    const batRuns = Number(body);
+    return { runs: batRuns, batRuns, extraRuns: 0, extra: null, isWicket };
+  }
+
+  return { ...none, isWicket };
+}
+
+/**
+ * The events in the ball feed that are not deliveries, newest first.
+ *
+ * Everything here is crex's own — their sentence where they sent one, their
+ * numbers where they did not. Nothing is inferred from prose: an over summary
+ * becomes "End of over 22" because the row says `on: 21` and `runs: 6`, not
+ * because something in the text looked like an over.
+ *
+ * The rows crex's own app renders as cards rather than events — a batsman's
+ * career stats, a head-to-head, a poll — are dropped: they are UI payloads, not
+ * things that happened in the match.
+ */
+const EVENT_LABELS: Partial<Record<string, { label: string; kind: MatchEventKind }>> = {
+  w: { label: 'Wicket', kind: 'WICKET' },
+  o: { label: 'Over complete', kind: 'OVER' },
+  ic2: { label: 'Innings end', kind: 'INNINGS_END' },
+  tc: { label: 'Target set', kind: 'TARGET' },
+  to: { label: 'Toss', kind: 'TOSS' },
+  // A player and a team milestone share one label: the sentence beside it already
+  // names whose it is ("R Ram Arvindh — Scored 50 in 28 Balls" against "Chepauk
+  // Super Gillies — Scored 100 in 10.0 overs"), and "Team milestone" was long
+  // enough that the tag had to be cut to an ellipsis to fit.
+  pm: { label: 'Milestone', kind: 'MILESTONE' },
+  tm: { label: 'Milestone', kind: 'MILESTONE' },
+  rc: { label: 'Umpire review', kind: 'REVIEW' },
+  ac: { label: 'Umpire review', kind: 'REVIEW' },
+  t: { label: 'Update', kind: 'NOTE' },
+};
+
+/** crex writes bold tags and entities into its commentary; the UI renders text. */
+function plainText(raw: string | undefined): string {
+  return (raw ?? '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** One feed row as an event, or null when it is a delivery or a UI card. */
+function toMatchEvent(f: CrexBallFeed): MatchEvent | null {
+  if (isDelivery(f)) return null;
+
+  const spec = EVENT_LABELS[f.type ?? ''];
+  if (!spec) return null;
+
+  // `on` is the 0-based over the row belongs to, and -1 on the rows crex does not
+  // tie to one. It is also 0 on the toss and on a target being set, where an over
+  // number would be an invention — those happen between overs, not during one.
+  const OVERLESS: ReadonlySet<MatchEventKind> = new Set(['TOSS', 'TARGET']);
+  const over =
+    f.on !== undefined && f.on >= 0 && !OVERLESS.has(spec.kind) ? f.on + 1 : null;
+  let label = spec.label;
+  let text = plainText(f.c);
+
+  if (spec.kind === 'OVER') {
+    label = over ? `End of over ${over}` : 'Over complete';
+    // No sentence on these rows — the figures are the event.
+    const runs = f.runs ?? 0;
+    const wickets = f.ow ?? 0;
+    text =
+      `${runs} run${runs === 1 ? '' : 's'}` +
+      (wickets ? `, ${wickets} wicket${wickets === 1 ? '' : 's'}` : '');
+  } else if (spec.kind === 'WICKET' && !text) {
+    // A wicket card without commentary still names who went, and for how many.
+    const who = f.player_fullname ?? f.n;
+    text = who ? `${who} out${f.r !== undefined ? ` for ${f.r}` : ''}` : '';
+  } else if (spec.kind === 'MILESTONE' && f.n) {
+    text = `${f.n} — ${text}`;
+  }
+
+  if (!text) return null;
+
+  return {
+    id: String(f.id ?? `${f.type}-${f.on ?? ''}`),
+    kind: spec.kind,
+    label,
+    text,
+    over,
+    timestamp: f.id ? new Date(f.id).toISOString() : undefined,
+  };
+}
 
 /**
  * Latest deliveries, newest first.
@@ -776,6 +1447,27 @@ export async function getCrexCommentary(
   matchKey: string,
   opts: FetchOpts = {}
 ): Promise<CommentaryBall[]> {
+  return (await getCrexMatchFeed(matchKey, opts)).balls;
+}
+
+/** Deliveries and events from one walk of the feed, newest first. */
+export interface CrexMatchFeed {
+  balls: CommentaryBall[];
+  events: MatchEvent[];
+}
+
+/**
+ * Both halves of the ball feed in a single walk.
+ *
+ * The events and the deliveries come out of the same rows, so fetching them
+ * separately would double the request count to say the same thing twice — and
+ * risk a page showing a wicket in its event list that its own commentary has not
+ * caught up with.
+ */
+export async function getCrexMatchFeed(
+  matchKey: string,
+  opts: FetchOpts = {}
+): Promise<CrexMatchFeed> {
   const feed: CrexBallFeed[] = [];
   const seen = new Set<number>();
   let cursor = '';
@@ -800,33 +1492,48 @@ export async function getCrexCommentary(
       feed.push(f);
     }
 
-    const balls = feed.filter((f) => f.type === 'b' || f.type === 'w').length;
+    const balls = feed.filter(isDelivery).length;
     if (balls >= MIN_BALLS) break;
 
     cursor = String(batch[batch.length - 1].id ?? '');
     if (!cursor) break;
   }
 
-  return feed
-    .filter((f) => f.type === 'b' || f.type === 'w')
+  const balls = feed
+    .filter(isDelivery)
     .map((f) => {
       const [over, ball] = String(f.o ?? '').split('.');
-      const isWicket = f.b === 'W' || f.type === 'w';
-      const runs = isWicket ? 0 : Number(f.b) || 0;
-      const text = [f.c1, f.c2].filter(Boolean).join(' — ');
+      const outcome = parseBallOutcome(f.b);
+      // crex marks up its commentary — "<b>FOUR!!!</b>&nbsp;81.7 kph" — and the
+      // UI renders text, so the tags and entities come out here rather than being
+      // printed literally in the ball-by-ball list. Same treatment the event rows
+      // already get; see `plainText`.
+      const text = [plainText(f.c1), plainText(f.c2)].filter(Boolean).join(' — ');
 
       return {
         id: String(f.id ?? `${over}.${ball}`),
+        // crex numbers an illegal delivery with the ball it will be re-bowled
+        // as, so a wide never advances the count — the over.ball here is the
+        // real one and needs no adjusting.
         over: Number(over) || 0,
         ball: Number(ball) || 0,
-        runs,
-        isWicket,
-        isBoundary: runs === 4 || runs === 6,
+        runs: outcome.runs,
+        batRuns: outcome.batRuns,
+        extraRuns: outcome.extraRuns,
+        extra: outcome.extra,
+        isWicket: outcome.isWicket,
+        isBoundary: outcome.batRuns === 4 || outcome.batRuns === 6,
         text,
         timestamp: f.id ? new Date(f.id).toISOString() : undefined,
       } satisfies CommentaryBall;
     })
     .filter((b) => Boolean(b.text));
+
+  const events = feed
+    .map(toMatchEvent)
+    .filter((e): e is MatchEvent => e !== null);
+
+  return { balls, events };
 }
 
 // ---------------------------------------------------------------------------
