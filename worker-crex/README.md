@@ -57,6 +57,8 @@ cacheable and the frontend stays simple.
 | `/fixtures` | `POST stats /fixture/getFixture` | 5m | `wise` 1=date 2=series 3=team, `page` (negative = past), `gender`, `format`, `level` — see below |
 | `/news/topics` | `GET news /api/articlesOC/topics` | 15m | `page` |
 | `/rankings/players` | `POST oc /ranking/getRanking` | 1h | `category`, `play`, `type`, `gender`, `page` — **strings**, see below |
+| `/match/info` | `GET php /getIV4` | 5m | `key` — match f_key. Pre-match squads, captain/keeper, broadcast, weather |
+| `/player/overview` | `POST stats /player/getPlayerOverview` | 1h | `key` — player f_key. Profile, career stats, recent form — see below |
 
 Params are typed and enum-bounded. Unknown params (`utm_source` and friends) are
 dropped rather than rejected, so a decorated URL still hits the same cache
@@ -145,6 +147,51 @@ There is no "all rankings" call, so the frontend fans out over the fifteen lists
 the ICC publishes (not eighteen — no Women's Test). At a 1h TTL that is one burst
 an hour regardless of traffic.
 
+## Player profiles
+
+`/player/overview?key=<player f_key>` is a whole career in one call — and it was
+the last endpoint here that looked impossible. Two things hid it:
+
+- **It is on `stats`, not `oc`.** crex's profile service builds the URL from
+  `newBaseUrl`, so probing `oc` for anything under `/player/` only ever 404s.
+- **The body key is `pf`**, not the `fkey`/`key` every other keyed route here
+  wants. It is the same player f_key `/mapping` and `/rankings/players` speak.
+
+The call site is in crex's lazy-loaded profile chunk, where the route resolver is
+literally `this.profileService.getPlayerOverview({pf: this.playerFkey})`:
+
+```bash
+curl -s "https://crex.com/runtime-es2015.<hash>.js" | grep -oE '[0-9]+:"[a-f0-9]{20}"'
+# download the chunks, then
+grep -l getPlayerOverview *.js
+```
+
+The response is one object with six top-level keys:
+
+| Key | Holds |
+|---|---|
+| `a.bsi` | basic info — `fn` name, `dob`, `pob` birthplace, `h` height, `n` nationality, `bts`/`bwl` bats/bowls, `bp` batting position, `bs` 1=pace 2=spin, `rl` role, `tm` teams, `p` bio HTML |
+| `a.sts` | career stats: `bt` batting rows, `bl` bowling rows, one per competition × format, each with the debut (`btd`/`bod`) |
+| `b` | ICC ranking positions — `{ft, pos, type}` |
+| `c.btf` / `c.bof` | the last ten batting / bowling innings |
+| `d` | teams under contract; `h` the competitions they have figures in |
+| `t` | social video embeds — not used |
+
+**Formats are a pair, not a field.** Every stats and form row carries `st` (the
+competition) and a format (`ft` on career rows, `mt` on form rows), and the label
+comes from both together: `st=1, ft=3` is a Test, `st=5` is the IPL, `st=20` the
+T20 Blast. `playerFormatLabel` in
+[`frontend/lib/crex.ts`](../frontend/lib/crex.ts) is a transcription of crex's own
+`seriesFormatDecision`, which is the only place that mapping is written down.
+
+The bio in `a.bsi.p` is Google-Docs HTML — inline styles, `<span>` soup and all.
+The frontend strips it to an allowlist of tags and drops every attribute, so it
+inherits our own typography rather than arriving with crex's.
+
+```bash
+curl 'localhost:8788/player/overview?key=1IG'
+```
+
 ## Local development
 
 ```bash
@@ -203,8 +250,8 @@ Discovered in crex's bundle, payloads not yet worked out. All are POST on `oc`
 unless noted:
 
 ```
-/fixture/getIV4ForUpcomingMatch  /player/getPlayerOverview
-/series/getSeriesOverview        /player/getPlayerMatches
+/fixture/getIV4ForUpcomingMatch  /player/getPlayerMatches
+/series/getSeriesOverview        /player/searchPlayerInningsEntities
 /series/getMatchesForSeriesID    /team/getTeamOverview
 /seriesInside/getPTableForSeriesID   /team/getMatchesForTeam
 /seriesInside/getSqaudForSeriesID    /teamInside/getMatchForTeamID
@@ -213,9 +260,10 @@ unless noted:
 /getSV3  (php)
 ```
 
-`/player/getPlayerInfo` is also live on `oc` — it answers
-`{"err":"Not A Valid Request"}` to a wrong payload rather than a 404, so the path
-is right and only the body is unknown. That is the one blocking player profiles.
+`/player/getPlayerInfo` on `oc` is a dead end, and an expensive one: it answers
+`{"err":"Not A Valid Request"}` to every payload rather than 404-ing, which reads
+like a body you have not guessed yet. It is not — player profiles live on
+**`stats`**, at `/player/getPlayerOverview`. See [Player profiles](#player-profiles).
 
 ## Caveats
 

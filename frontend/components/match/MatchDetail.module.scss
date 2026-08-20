@@ -374,6 +374,102 @@
   text-align: center;
 }
 
+// ---------------------------------------------------------------- Player of the match
+//
+// Its own card in the Match Info tab rather than a line under the score: the
+// award names a player, a side and two sets of figures, and squeezed onto one
+// row in the header none of the three could be read. Laid out the way crex lays
+// it out — portrait, name, side, figures — with initials where their photograph
+// goes, because there is no player-image source (see `initialsOf`).
+
+.potm {
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+  padding: $space-4;
+  background: $surface;
+  border: 1px solid $card-border;
+  border-radius: $radius-lg;
+}
+
+// The medallion. Amber, the palette's colour for a record or a milestone, which
+// is exactly what this is — and the one place on the page it appears as a fill.
+.potmAvatar {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  font-family: $font-display;
+  font-size: $text-lg;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: $accent-amber;
+  background: color-mix(in srgb, $accent-amber 14%, transparent);
+  border: 1px solid color-mix(in srgb, $accent-amber 32%, transparent);
+  border-radius: 50%;
+
+  @include sm {
+    width: 60px;
+    height: 60px;
+    font-size: $text-xl;
+  }
+}
+
+.potmBody {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  min-width: 0;
+}
+
+.potmName {
+  @include fluid-text;
+  font-family: $font-display;
+  font-size: $text-base;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: $leading-tight;
+
+  @include sm {
+    font-size: $text-lg;
+  }
+}
+
+.potmTeam {
+  @include fluid-text;
+  font-size: $text-sm;
+  color: $text-secondary;
+}
+
+// The figures, as a pair of tiles: the label says which discipline, so "3/30"
+// is not left to be guessed at by a reader who does not already know.
+.potmStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2 $space-4;
+  margin-top: $space-1;
+}
+
+.potmStat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  dt {
+    font-size: $text-2xs;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: $text-muted;
+  }
+
+  dd {
+    @include score-number;
+    font-size: $text-base;
+    color: $accent-green;
+  }
+}
+
 // The stoppage is named once, by the status label at the top right of this header,
 // and not here in the middle as well. It was drafted for this slot (crex centres it)
 // and cut: two amber "Innings Break"s in one card is the clutter this page has spent
@@ -462,6 +558,33 @@
   border-left: 3px solid $accent;
 }
 
+// A player's name, wherever this page prints one, links to their profile.
+// Deliberately inherits its colour: a scorecard has forty names in it, and forty
+// accent-coloured links is a page with no hierarchy left. The affordance is the
+// underline, which only appears when the reader is actually on the name.
+.playerLink {
+  color: inherit;
+  text-decoration-color: transparent;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition:
+    color 0.15s ease,
+    text-decoration-color 0.15s ease;
+
+  &:hover {
+    color: $accent;
+    text-decoration-color: currentColor;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+    border-radius: 3px;
+    text-decoration-color: transparent;
+  }
+}
+
 .blockHint {
   font-size: 11px;
   font-weight: 400;
@@ -473,6 +596,25 @@
   color: $text-muted;
   font-size: $text-sm;
   padding: $space-2;
+}
+
+// A pointer to another tab, written into the sentence rather than sitting beside
+// it as a button — the empty state is one line of prose and this is part of it.
+.emptyLink {
+  font: inherit;
+  color: $accent-green;
+  font-weight: 600;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-bottom-color: currentColor;
+  }
 }
 
 .emptyInline {
@@ -566,6 +708,28 @@
 }
 
 // ---------------------------------------------------------------- Squads
+//
+// The pre-match card. Before a ball is bowled this IS the scorecard, so it is
+// built as one: a panel per side, a header band naming the team and how many it
+// has picked, and the XI below it on hairlines. Deliberately quieter than the
+// batting table it stands in for — no accent rules, no zebra fill — with the
+// tint on the role chips doing the one bit of colour work.
+
+// Larger and in the display face, unlike the accent-ruled headings elsewhere on
+// the page: with no table under it this heading is the only thing framing the
+// section, so it carries the weight itself.
+.squadsTitle {
+  font-family: $font-display;
+  font-size: $text-xl;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: $leading-tight;
+  margin-bottom: $space-4;
+
+  @include sm {
+    font-size: $text-2xl;
+  }
+}
 
 .squads {
   display: grid;
@@ -574,39 +738,141 @@
 
   @include tablet {
     grid-template-columns: 1fr 1fr;
+    gap: $space-5;
   }
 }
 
+.squadCol {
+  min-width: 0;
+  background: $surface;
+  border: 1px solid $card-border;
+  border-radius: $radius-lg;
+  // The header band's fill is clipped to the panel's corners.
+  overflow: hidden;
+}
+
+// The team's own band across the top of its panel: a whisper of mint, fading out
+// to the right so the count sits on plain surface and stays legible.
 .squadTeam {
-  font-size: $text-sm;
+  @include flex-between;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  background: linear-gradient(90deg, $accent-light, transparent 70%);
+  border-bottom: 1px solid $card-border;
+}
+
+.squadTeamName {
+  @include fluid-text;
+  font-family: $font-display;
+  font-size: $text-base;
   font-weight: 700;
-  padding-bottom: $space-2;
-  border-bottom: 2px solid $accent-light;
-  margin-bottom: $space-2;
+  letter-spacing: -0.01em;
+  line-height: $leading-tight;
+}
+
+// How many players the side has named — the one number a squad list carries, and
+// the quickest read of whether this is a full squad or a confirmed XI.
+.squadCount {
+  @include score-number;
+  flex-shrink: 0;
+  padding: $space-1 $space-2;
+  font-size: $text-xs;
+  color: $text-secondary;
+  background: $surface-elevated;
+  border-radius: $radius-sm;
+}
+
+.squadList {
+  display: flex;
+  flex-direction: column;
 }
 
 .squadPlayer {
   @include flex-between;
-  gap: $space-2;
-  font-size: $text-sm;
-  padding: $space-2 $space-1;
+  gap: $space-3;
+  padding: $space-2-5 $space-4;
+  transition: background 0.15s ease;
 
-  // The player's name, which is the part allowed to wrap.
-  > span:first-child {
-    @include fluid-text;
+  // Hairlines instead of alternating fills: sixteen striped rows read as a
+  // barcode, and the rule is doing the same separating job for a tenth of the ink.
+  & + & {
+    border-top: 1px solid $card-border;
   }
 
-  &:nth-child(even) {
-    background: $bg;
+  &:hover {
+    background: $card-hover;
   }
 }
 
+.squadNameCell {
+  @include fluid-text;
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+// The names are the content here, so they are set at body scale rather than the
+// 14px of a stats table — this list is read, not scanned for numbers.
+.squadName {
+  @include fluid-text;
+  font-size: $text-sm;
+  line-height: $leading-normal;
+  color: $text-primary;
+
+  @include sm {
+    font-size: $text-base;
+  }
+}
+
+// The captaincy, as a badge against the name it belongs to.
+.squadCaptain {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  font-family: $font-display;
+  font-size: $text-2xs;
+  font-weight: 700;
+  color: $accent-green-ink;
+  background: $accent-green;
+  border-radius: 50%;
+  text-decoration: none;
+  cursor: help;
+}
+
+// The discipline, as a chip. Tinted per role — see ROLE_CLASS. The tint is on the
+// text and a hairline border rather than a solid fill: four filled chips a row
+// would out-shout the names they describe.
 .squadRole {
-  font-size: 10px;
+  flex-shrink: 0;
+  padding: 2px $space-2;
+  font-size: $text-2xs;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: $text-muted;
   white-space: nowrap;
+  color: $text-muted;
+  border: 1px solid $card-border;
+  border-radius: $radius-sm;
+}
+
+.roleBatter {
+  // Neutral by design: it is the default role, and most of the list carries it.
+}
+
+.roleBowler {
+  color: $accent-blue;
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.roleAllRounder {
+  color: $accent-purple;
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.roleKeeper {
+  color: $accent-amber;
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
 }
 
 // ---------------------------------------------------------------- Scorecard

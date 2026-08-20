@@ -1,0 +1,567 @@
+@use 'component' as *;
+
+// Player profile: portrait + identity, then the form rail, then the reference
+// material (about, career tables, debuts, bio).
+//
+// The reading order is deliberate and it is not crex's. Their page opens with a
+// biography and buries the last ten innings below it; the question a reader
+// actually arrives with is "how is this player going right now", so the form
+// rail sits directly under the name and the prose goes last, folded away.
+//
+// Signature element: the form rail. Ten glass tiles, monospaced figures, and a
+// mint tier that fills on a hundred or a five-for — a player's shape reads off
+// the row before a single number is parsed. Everything else on the page is
+// deliberately quiet so that one band carries it.
+
+.page {
+  @include container;
+  padding-block: $space-5 $space-8;
+  min-width: 0;
+}
+
+// ── Header ──────────────────────────────────────────────────────────────────
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+  margin-bottom: $space-6;
+
+  @include tablet {
+    gap: $space-6;
+    margin-bottom: $space-8;
+  }
+}
+
+.identity {
+  @include fluid-text;
+}
+
+.name {
+  font-family: $font-display;
+  font-weight: 700;
+  font-size: $text-2xl;
+  line-height: $leading-tight;
+  letter-spacing: -0.02em;
+  color: $text-primary;
+
+  @include sm {
+    font-size: $text-3xl;
+  }
+
+  @include tablet {
+    font-size: $text-4xl;
+  }
+}
+
+// Country · age · role, separated by dots drawn in CSS so the markup stays a
+// list of facts rather than a string with punctuation baked into it.
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2;
+  margin-top: $space-1-5;
+  font-size: $text-sm;
+  color: $text-secondary;
+
+  > span + span::before {
+    content: '·';
+    margin-right: $space-2;
+    color: $text-muted;
+  }
+}
+
+.country {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  font-weight: 600;
+  color: $text-primary;
+
+  img {
+    display: block;
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    border-radius: 3px;
+  }
+}
+
+.ranks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  margin-top: $space-3;
+}
+
+.rank {
+  display: inline-flex;
+  align-items: baseline;
+  gap: $space-1-5;
+  padding: $space-1 $space-2-5;
+  border-radius: $radius-md;
+  background: $surface-elevated;
+  border: 1px solid $card-border;
+  font-size: $text-2xs;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $text-secondary;
+  white-space: nowrap;
+}
+
+.rankPos {
+  font-family: $font-mono;
+  font-size: $text-xs;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: $accent;
+}
+
+// ── Blocks ──────────────────────────────────────────────────────────────────
+
+.block {
+  @include card;
+  padding: $space-4;
+  margin-bottom: $space-4;
+
+  @include tablet {
+    padding: $space-5 $space-6;
+    margin-bottom: $space-5;
+  }
+}
+
+// The same mint rule the match page marks its sections with, so a reader
+// arriving from a scorecard is looking at one system.
+.blockTitle {
+  font-family: $font-display;
+  font-size: $text-base;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: $text-primary;
+  padding-left: $space-2-5;
+  border-left: 3px solid $accent;
+  margin-bottom: $space-4;
+}
+
+// ── Recent form (signature) ─────────────────────────────────────────────────
+
+.formGroup + .formGroup {
+  margin-top: $space-5;
+}
+
+.formTitle {
+  font-size: $text-2xs;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-muted;
+  margin-bottom: $space-2-5;
+}
+
+// A rail, not a grid: ten innings in chronological order are a sequence, and
+// wrapping them onto a second line breaks the reading of a run of form. It
+// scrolls on a phone and fits on a desktop.
+.formRail {
+  @include scroll-x;
+  display: flex;
+  gap: $space-2;
+  padding-bottom: $space-1;
+
+  // Pull the rail's ends out to the block's padding so a scrolled tile does not
+  // appear to start mid-air.
+  margin-inline: -#{$space-4};
+  padding-inline: $space-4;
+
+  @include tablet {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+}
+
+.formTile {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  flex: 0 0 auto;
+  min-width: 96px;
+  padding: $space-2-5 $space-3;
+  border-radius: $radius-md;
+  background: $surface-elevated;
+  border: 1px solid $card-border;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    background-color 0.15s ease;
+
+  &:hover {
+    border-color: var(--card-hover-border);
+    transform: translateY(-2px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: border-color 0.15s ease;
+
+    &:hover {
+      transform: none;
+    }
+  }
+}
+
+// An innings with no match page behind it: same tile, nothing to press.
+.formInert {
+  cursor: default;
+
+  &:hover {
+    border-color: $card-border;
+    transform: none;
+  }
+}
+
+// Fifty, or a three-wicket haul: outlined in mint, surface unchanged.
+.notable {
+  border-color: var(--card-hover-border);
+}
+
+// Hundred, or a five-for: mint tint behind a solid mint edge — the only filled
+// surface on the page. The figures stay in the body colour rather than going
+// mint too: on an 18%-tint fill, mint-on-mint is the one pairing here that
+// would not clear AA.
+.landmark {
+  background: $accent-light;
+  border-color: $accent;
+}
+
+.formFigures {
+  @include score-number;
+  font-size: $text-lg;
+  color: $text-primary;
+  white-space: nowrap;
+}
+
+.formNotOut {
+  color: $accent;
+  margin-left: 1px;
+}
+
+.formFixture {
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $text-secondary;
+  white-space: nowrap;
+}
+
+.formFormat {
+  font-size: $text-2xs;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $text-muted;
+  white-space: nowrap;
+}
+
+// ── About ───────────────────────────────────────────────────────────────────
+
+.about {
+  display: grid;
+  gap: 0;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: $space-8;
+  }
+}
+
+.aboutRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $space-4;
+  padding-block: $space-2-5;
+  border-bottom: 1px solid $card-border;
+
+  dt {
+    flex-shrink: 0;
+    font-size: $text-xs;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $text-muted;
+  }
+
+  dd {
+    @include fluid-text;
+    text-align: right;
+    font-size: $text-sm;
+    color: $text-primary;
+  }
+}
+
+// crex writes the batting and bowling traits in lower case. Casing them here
+// rather than in the decode keeps the lib honest about what the source said —
+// and it is applied per row, because the same rule on a height gives "6 Ft 1 In".
+.capitalize {
+  text-transform: capitalize;
+}
+
+.teams {
+  margin-top: $space-5;
+}
+
+.teamsTitle {
+  font-size: $text-2xs;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-muted;
+  margin-bottom: $space-2-5;
+}
+
+.teamList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+
+  li {
+    padding: $space-1 $space-2-5;
+    border-radius: $radius-sm;
+    background: $surface-elevated;
+    border: 1px solid $card-border;
+    font-size: $text-xs;
+    color: $text-secondary;
+  }
+}
+
+.social {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-4;
+  margin-top: $space-5;
+
+  a {
+    font-size: $text-sm;
+    font-weight: 600;
+    color: $accent;
+    transition: opacity 0.15s ease;
+
+    &:hover {
+      opacity: 0.75;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $accent;
+      outline-offset: 2px;
+      border-radius: $radius-sm;
+    }
+  }
+}
+
+// ── Career tables ───────────────────────────────────────────────────────────
+
+.tableWrap {
+  @include scroll-x;
+  max-width: 100%;
+  margin-inline: -#{$space-4};
+  padding-inline: $space-4;
+
+  @include tablet {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $text-xs;
+  font-variant-numeric: tabular-nums;
+
+  th,
+  td {
+    padding: $space-2 $space-1-5;
+    text-align: right;
+    white-space: nowrap;
+    color: $text-primary;
+    font-weight: 400;
+  }
+
+  thead th {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $text-muted;
+    border-bottom: 1px solid $card-border;
+  }
+
+  tbody tr + tr th,
+  tbody tr + tr td {
+    border-top: 1px solid $card-border;
+  }
+
+  // The format is the row's name, so it reads as a heading rather than a cell —
+  // and it is the column a reader scans down to find their format.
+  tbody th {
+    font-weight: 600;
+  }
+
+  @include sm {
+    font-size: $text-sm;
+
+    th,
+    td {
+      padding: $space-2 $space-2;
+    }
+  }
+
+  .left {
+    text-align: left;
+  }
+}
+
+// The one figure per row that answers "how good": runs on a batting row,
+// wickets on a bowling one.
+.figure {
+  font-weight: 700;
+  color: $accent-green;
+}
+
+// ── Debuts ──────────────────────────────────────────────────────────────────
+
+.debuts {
+  display: grid;
+  gap: 0;
+}
+
+.debutRow {
+  display: grid;
+  gap: $space-1;
+  padding-block: $space-2-5;
+  border-bottom: 1px solid $card-border;
+
+  @include sm {
+    grid-template-columns: 90px minmax(0, 1fr);
+    gap: $space-4;
+    align-items: baseline;
+  }
+
+  dt {
+    font-size: $text-xs;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $accent;
+  }
+
+  dd {
+    @include fluid-text;
+    font-size: $text-sm;
+    color: $text-secondary;
+  }
+}
+
+// ── Bio ─────────────────────────────────────────────────────────────────────
+
+.bio {
+  // The marker is replaced by the summary's own affordance below.
+  > summary::-webkit-details-marker {
+    display: none;
+  }
+}
+
+.bioSummary {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  list-style: none;
+  cursor: pointer;
+  font-size: $text-sm;
+  font-weight: 600;
+  color: $accent;
+  transition: opacity 0.15s ease;
+
+  &::after {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg) translateY(-1px);
+    transition: transform 0.2s ease;
+  }
+
+  &:hover {
+    opacity: 0.75;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 3px;
+    border-radius: $radius-sm;
+  }
+
+  .bio[open] &::after {
+    transform: rotate(-135deg) translateY(-1px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      transition: none;
+    }
+  }
+}
+
+.bioBody {
+  margin-top: $space-4;
+  max-width: 68ch;
+  font-size: $text-sm;
+  line-height: $leading-relaxed;
+  color: $text-secondary;
+
+  p {
+    margin-bottom: $space-3;
+  }
+
+  h2,
+  h3,
+  h4 {
+    font-family: $font-display;
+    font-size: $text-base;
+    font-weight: 700;
+    color: $text-primary;
+    margin-block: $space-5 $space-2;
+  }
+
+  ul,
+  ol {
+    margin-bottom: $space-3;
+    padding-left: $space-5;
+    list-style: disc;
+  }
+
+  li {
+    margin-bottom: $space-1;
+  }
+
+  blockquote {
+    margin-bottom: $space-3;
+    padding-left: $space-3;
+    border-left: 2px solid $card-border;
+    color: $text-muted;
+  }
+
+  strong,
+  b {
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  > *:last-child {
+    margin-bottom: 0;
+  }
+}

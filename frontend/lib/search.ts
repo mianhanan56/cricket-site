@@ -12,10 +12,12 @@
 //      but what comes back is its matches, because a match is the only one of
 //      the three with a page to link to. Grouping results by entity would mean
 //      rows that navigate nowhere.
-//   2. **Players are not searchable.** crex has no search endpoint and its
-//      player endpoint (oc/player/getPlayerInfo) is payload-blocked, so there
-//      is no player corpus to search. Nothing is silently degraded here — the
-//      placeholder text says teams, series and venues.
+//   2. **Players are not searchable.** A single player is now readable by key
+//      (see `getCrexPlayerProfile`), which is what the scorecard links with, but
+//      that is a lookup and not a corpus: crex has no search endpoint and no way
+//      to enumerate players, so there is nothing here to match a name against.
+//      Nothing is silently degraded — the placeholder text says teams, series
+//      and venues.
 
 import type { Match } from '@/types';
 import { getCrexMatchList } from './crex';

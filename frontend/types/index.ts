@@ -40,11 +40,10 @@ export interface ISeriesSummary extends ISeries {
   playedCount?: number;
 }
 
-// The player entity and its batting/bowling stat blocks lived here. They
-// described the DB's Player table; crex has no player corpus we can read (its
-// player endpoint is payload-blocked — see lib/search), so nothing builds one.
-// Squad members are the only players the app names, and SquadPlayer is enough
-// for that.
+// The player entity and its batting/bowling stat blocks lived here, describing
+// the DB's Player table. There is still no player *corpus* — crex has no search
+// endpoint, so nothing can enumerate players — but a single player, by key, is
+// now readable: see PlayerProfile at the foot of this file.
 
 export interface IMatch {
   id: string;
@@ -77,7 +76,9 @@ export interface IMatch {
   scorecard?: IScorecard | null;
   // Enrichments attached by GET /api/matches/:id (computed from the DB).
   teamForm?: { home: TeamFormEntry[]; away: TeamFormEntry[] } | null;
-  squads?: { home: SquadPlayer[]; away: SquadPlayer[] } | null;
+  squads?: MatchSquads | null;
+  /** Player of the match. Null until crex names one, which it does once the match is over. */
+  playerOfMatch?: PlayerOfMatch | null;
 }
 
 // One entry of a team's recent-results strip (most recent first).
@@ -87,10 +88,35 @@ export interface TeamFormEntry {
   opponent: string; // opponent short name
 }
 
+/**
+ * The match award, as crex reports it: the player, the side they played for, and
+ * whichever of their two figures they earned it with. A specialist gets one of
+ * the two — a batter has no bowling line to show — so both are nullable.
+ */
+export interface PlayerOfMatch {
+  id: string;
+  name: string;
+  /** Team f_key, so the caller can name the side without a second lookup. */
+  teamId: string;
+  teamShortName: string;
+  /** Batting figures, crex's own notation: "65(36)", or "78(121)*" unbeaten. */
+  batting: string | null;
+  /** Bowling figures, wickets first: "3/30". */
+  bowling: string | null;
+}
+
+/** Both squads for a match, home side first — what the match page renders. */
+export interface MatchSquads {
+  home: SquadPlayer[];
+  away: SquadPlayer[];
+}
+
 export interface SquadPlayer {
   id: string;
   name: string;
   role: PlayerRole;
+  /** Leads the side. Marked on the name rather than in `role`, which a captain shares with the rest of the XI. */
+  isCaptain?: boolean;
 }
 
 // Non-prefixed aliases — convenient short names used across the app. The
@@ -343,3 +369,128 @@ export interface TeamRankingEntry {
 // card — see components/match/WinProbability), and the API-envelope and
 // Socket.io payload types. Nothing speaks that protocol now: every source is the
 // crex Worker, which returns plain JSON over HTTP.
+
+// ---------------------------------------------------------------------------
+// Player profile
+// ---------------------------------------------------------------------------
+//
+// One player, by crex f_key — the key already on every scorecard line, squad
+// member and ranking row, so every name the app prints can now open a page.
+//
+// Two shapes worth explaining before the fields:
+//
+//   *Format* here is a label, not the three-way MatchFormat enum. crex reports a
+//   career per competition — Test, ODI and T20I alongside the IPL, the PSL, the
+//   T20 Blast — and a batter's IPL record is not an entry in a TEST|ODI|T20
+//   union. The label is decoded from crex's own pair of codes; see
+//   `playerFormatLabel` in lib/crex.
+//
+//   *Figures* on a form entry arrive composed ("22 (34)", "3-41") rather than as
+//   parts. The two disciplines read differently — runs off balls faced, wickets
+//   for runs conceded — and one field that already says which is cheaper for
+//   every consumer than a union they each have to re-render.
+
+/** crex's own word for what a player is, from `rl` on the profile. */
+export type PlayerRoleLabel = 'Batter' | 'Bowler' | 'All Rounder' | 'Wicket-keeper';
+
+/** A batting career in one competition and format. */
+export interface PlayerBattingCareer {
+  /** Display label — "Test", "ODI", "T20I", "IPL", "T20-Blast". */
+  format: string;
+  matches: number;
+  innings: number;
+  runs: number;
+  hundreds: number;
+  fifties: number;
+  highScore: number;
+  strikeRate: number;
+  average: number;
+  fours: number;
+  sixes: number;
+  /** crex sends this only on some formats; null where it does not. */
+  ducks: number | null;
+}
+
+/** A bowling career in one competition and format. */
+export interface PlayerBowlingCareer {
+  format: string;
+  matches: number;
+  innings: number;
+  wickets: number;
+  economy: number;
+  average: number;
+  /** Best innings figures, crex's notation: "5/23". Null when they have none. */
+  best: string | null;
+  threeWickets: number;
+  fiveWickets: number;
+  strikeRate: number;
+}
+
+/** One of a player's last ten innings, batting or bowling. */
+export interface PlayerFormEntry {
+  /** "22 (34)" batting, "3-41" bowling — wickets first, as crex prints it. */
+  figures: string;
+  /** Batting only: they were still in at the end. */
+  notOut: boolean;
+  /** "PAK vs ENG", the player's side first. */
+  fixture: string;
+  /** Competition label, or null when crex has no code for it. */
+  format: string | null;
+  /** crex match key, so the innings can link to the match. Null when absent. */
+  matchId: string | null;
+  date: string | null; // ISO string
+}
+
+/** A live ICC ranking position, as the profile header prints it. */
+export interface PlayerRanking {
+  format: string;
+  position: number;
+  discipline: 'Batter' | 'Bowler' | 'All Rounder';
+}
+
+/** When a player first played a format, in crex's own prose. */
+export interface PlayerDebut {
+  format: string;
+  /** "England v South Africa Kennington Oval, London, 8-9-2022". */
+  fixture: string;
+}
+
+export interface PlayerProfile {
+  /** crex f_key — what the page is routed by. */
+  id: string;
+  name: string;
+  /** Illustrated portrait crex serves off Akamai. Always built; may 404. */
+  image: string | null;
+  role: PlayerRoleLabel;
+  gender: 'Male' | 'Female';
+  dateOfBirth: string | null; // ISO string
+  /** Years, at today's date. Null when crex has no date of birth. */
+  age: number | null;
+  birthPlace: string | null;
+  height: string | null;
+  nationality: string | null;
+  /** "right handed · opener" — hand and position, as crex pairs them. */
+  bats: string | null;
+  /** "right-arm offbreak · spinner". Null for a player who does not bowl. */
+  bowls: string | null;
+  /** Their signature shot, when crex names one. Rarely filled in. */
+  popularShot: string | null;
+  /** Every side they have played for, most senior first — crex's own order. */
+  teams: string[];
+  /** National side's f_key, for the crest beside the name. */
+  countryKey: string | null;
+  countryShortName: string | null;
+  /**
+   * Editorial bio, sanitised to a handful of tags with every attribute dropped
+   * — crex sends Google-Docs HTML, inline styles and all. Null when unwritten.
+   */
+  bio: string | null;
+  instagram: string | null;
+  twitter: string | null;
+  rankings: PlayerRanking[];
+  batting: PlayerBattingCareer[];
+  bowling: PlayerBowlingCareer[];
+  recentBatting: PlayerFormEntry[];
+  recentBowling: PlayerFormEntry[];
+  debuts: PlayerDebut[];
+}

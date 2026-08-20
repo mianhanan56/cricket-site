@@ -1,8 +1,22 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CommentaryBall, InningsScore, Match, MatchEvent, MatchStatus } from '@/types';
-import { getCrexMatchFeed, getCrexMatchList, getCrexScorecard } from '@/lib/crex';
+import type {
+  CommentaryBall,
+  InningsScore,
+  Match,
+  MatchEvent,
+  MatchStatus,
+  SquadPlayer,
+} from '@/types';
+import {
+  clearResumedStoppages,
+  getCrexMatchFeed,
+  getCrexMatchList,
+  getCrexMatchSquads,
+  getCrexScorecard,
+} from '@/lib/crex';
+import type { StoppageWatch } from '@/lib/crex';
 
 // crex has no push channel we can use — their live scores come off a Firebase
 // stream we deliberately don't touch (see worker-crex/README) — so the only
@@ -64,6 +78,10 @@ export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatc
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abort = useRef<AbortController | null>(null);
   const mounted = useRef(true);
+  // What each match's reported break looked like last poll, so a break the score
+  // has since moved under can be spotted as a stale one — see
+  // `clearResumedStoppages`. Poll-to-poll memory, so a ref rather than state.
+  const stoppages = useRef(new Map<string, StoppageWatch>());
   // Bumping this re-runs the scheduling effect, which is how refresh() works.
   const [tick, setTick] = useState(0);
 
@@ -112,9 +130,10 @@ export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatc
         const next = await getCrexMatchList({ signal: controller.signal });
         if (!mounted.current || controller.signal.aborted) return;
 
-        setMatches(next);
+        const landed = new Date();
+        setMatches(clearResumedStoppages(next, stoppages.current, landed.getTime()));
         setError(null);
-        setLastUpdated(new Date());
+        setLastUpdated(landed);
         failures.current = 0;
         schedule(intervalMs);
       } catch (err) {
@@ -276,4 +295,50 @@ export function useCrexMatchExtras(
   }, [active, matchKey, intervalMs, ballsPerOver, status]);
 
   return { innings, commentary, events, loaded };
+}
+
+/**
+ * Both squads for a match, keyed by team f_key.
+ *
+ * Fetched once rather than polled, and kept out of `useCrexMatchExtras` for the
+ * same reason: a squad is announced, not scored. It changes when a team names
+ * its XI — a day or two before the toss — and never once play starts, so
+ * putting it on the 5s tick would be a third round trip every poll for a list
+ * that is identical every time.
+ *
+ * Failures are swallowed, like the extras above: no squad simply means the
+ * squad section is not shown.
+ */
+export function useCrexMatchSquads(
+  matchKey: string,
+  options: { enabled?: boolean } = {}
+): { squads: Record<string, SquadPlayer[]>; loaded: boolean } {
+  const { enabled = true } = options;
+
+  const [squads, setSquads] = useState<Record<string, SquadPlayer[]>>({});
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || !matchKey) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    getCrexMatchSquads(matchKey, { signal: controller.signal })
+      .then((next) => {
+        if (cancelled || controller.signal.aborted) return;
+        setSquads(next);
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded(true);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [enabled, matchKey]);
+
+  return { squads, loaded };
 }

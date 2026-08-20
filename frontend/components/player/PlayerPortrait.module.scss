@@ -1,0 +1,51 @@
+@use 'component' as *;
+
+// The portrait is the one figurative element on an otherwise typographic page,
+// so it sits in a soft mint well rather than floating: crex's illustrations are
+// cut out on transparency and read as unfinished on the aurora background.
+.portrait {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  flex-shrink: 0;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 120%, var(--accent-green-soft), transparent 70%),
+    $surface-elevated;
+  border: 1px solid $card-border;
+
+  img {
+    display: block;
+    // The illustrations are head-and-shoulders on a tall canvas, so they are
+    // scaled past the well and anchored to its foot — centring them leaves the
+    // head floating with a band of empty canvas underneath.
+    width: 118%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  @include sm {
+    width: 112px;
+    height: 112px;
+  }
+
+  @include tablet {
+    width: 132px;
+    height: 132px;
+  }
+}
+
+.fallback {
+  place-items: center;
+  font-family: $font-display;
+  font-weight: 700;
+  font-size: $text-2xl;
+  letter-spacing: -0.02em;
+  color: $accent;
+
+  @include tablet {
+    font-size: $text-3xl;
+  }
+}

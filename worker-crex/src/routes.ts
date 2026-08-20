@@ -128,6 +128,28 @@ export const ROUTES: RouteDef[] = [
     note: 'Batting (b) + bowling (a) + partnerships + extras, packed dot-delimited',
   },
   {
+    // Pre-match info, keyed by match: squads, who is captain and who keeps, the
+    // broadcasters, the weather and the head-to-head. This is what crex's own
+    // "Match info" tab is built from, and it is the only endpoint that names an
+    // XI before a ball is bowled — /match/scorecard holds an empty slot until
+    // the innings starts.
+    //
+    // Squads arrive in `tb` as two dot-packed lists, one per side, separated by
+    // "/" in the order `t` gives ("S-U"); `x` is captain/keeper for each side in
+    // turn. See frontend/lib/crex.ts for the decode.
+    match: '/match/info',
+    base: 'php',
+    path: '/getIV4',
+    method: 'GET',
+    // Squads are announced, not scored: they move once or twice before the toss
+    // and never after it, so this is cached far longer than the live routes.
+    ttl: 300,
+    params: {
+      key: { type: 'string', required: true },
+    },
+    note: 'Pre-match info: squads (tb), captain/keeper (x), broadcast, weather',
+  },
+  {
     // Ball-by-ball. Unlike the rest of crex's live data this one is plain text
     // over HTTP — `c1` is the headline, `c2` the description — so it needs no
     // decoding and no Firebase.
@@ -254,6 +276,41 @@ export const ROUTES: RouteDef[] = [
     },
     buildBody: (p) => ({ fkey: p.key }),
     note: 'All matches in a series, grouped by date: /series/matches?key=2AW',
+  },
+  {
+    // A player's whole profile in one payload — the thing that blocked player
+    // pages for so long. Two reasons it looked unreachable:
+    //
+    //   1. It is on `stats`, not `oc`. crex's own service builds it from
+    //      `newBaseUrl`, so every probe against `oc` 404s. `oc/player/getPlayerInfo`
+    //      exists and answers "Not A Valid Request" to everything, which reads
+    //      like a payload problem and is actually the wrong endpoint entirely.
+    //   2. The body key is `pf` — the player f_key, the same one /mapping and
+    //      /rankings/players speak. Not `fkey`, which every other keyed route here
+    //      wants.
+    //
+    // Read out of crex's own lazy-loaded profile chunk, where the route resolver
+    // calls `getPlayerOverview({pf: playerFkey})`.
+    //
+    // Response, all of it decoded in frontend/lib/crex.ts:
+    //   a.bsi   basic info — name, dob, birthplace, height, bio HTML, bats/bowls
+    //   a.sts   career stats, `bt` batting and `bl` bowling, one row per
+    //           (st, ft) — competition and format — plus the debut for each
+    //   b       ICC ranking positions
+    //   c.btf   last ten batting innings; c.bof the last ten bowling ones
+    //   d       teams under contract, h the competitions they have figures in
+    match: '/player/overview',
+    base: 'stats',
+    path: '/player/getPlayerOverview',
+    method: 'POST',
+    // A career, not a scoreboard: it moves once a match finishes. An hour is the
+    // same window the rankings use and collapses every reader onto one call.
+    ttl: 3600,
+    params: {
+      key: { type: 'string', required: true },
+    },
+    buildBody: (p) => ({ pf: p.key }),
+    note: 'Player profile, career stats and recent form: /player/overview?key=1IG',
   },
   {
     match: '/news/topics',

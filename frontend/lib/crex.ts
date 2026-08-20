@@ -29,14 +29,25 @@ import type {
   MatchNote,
   MatchNoteKind,
   MatchStatus,
+  PlayerBattingCareer,
+  PlayerBowlingCareer,
+  PlayerDebut,
+  PlayerFormEntry,
+  PlayerOfMatch,
+  PlayerProfile,
+  PlayerRanking,
+  PlayerRole,
+  PlayerRoleLabel,
   RetirementKind,
   SeriesSummary,
+  SquadPlayer,
   Team,
 } from '@/types';
 import {
   DEFAULT_BALLS_PER_OVER,
   HUNDRED_BALLS_PER_OVER,
   SCHEDULED_OVERS,
+  ballsFrom,
   oversFrom,
 } from './overs';
 
@@ -139,6 +150,19 @@ export interface CrexRawMatch {
    * finished from its second day on.
    */
   n?: number;
+  /**
+   * Player of the match, dot-packed and set only once the match is over:
+   *
+   *   "CO.1GK.65(36).3/30"
+   *    |  |    |       bowling figures
+   *    |  |    batting figures, "*" if unbeaten
+   *    |  the side they played for, a team key
+   *    player key, resolved through /mapping
+   *
+   * A specialist has only one of the two figures; the other arrives as the
+   * literal "-^-", which `decodePlayerOfMatch` reads as absent.
+   */
+  mm?: string;
   /**
    * Set on well over half the list, live Tests and CPL fixtures included — so
    * whatever it gates on crex.com, it is NOT "don't show this match". Typed only
@@ -393,6 +417,9 @@ export function resolveNames(
       t: matches.flatMap((m) => [m.b, m.c]),
       v: matches.map((m) => m.v),
       s: matches.map((m) => m.q),
+      // The award's player, on the finished matches that carry one. Cheap: a
+      // full feed names a dozen or so, and resolved names are cached for good.
+      p: matches.map((m) => (m.mm ?? '').split('.')[0]).filter(Boolean),
     },
     opts
   );
@@ -800,18 +827,182 @@ function inningsBreakNote(
 }
 
 /**
+ * Stoppages that cricket only ever takes between overs.
+ *
+ * An interval is called at the end of an over, a day's play closes at the end of
+ * an over, and an innings ends on the ball that ends it. Rain and bad light are
+ * deliberately not here: those stop play wherever the over happens to be.
+ */
+const OVER_BOUNDARY_KINDS: ReadonlySet<MatchNoteKind> = new Set(['BREAK', 'STUMPS']);
+
+/**
+ * How long after a delivery play is still, beyond argument, going on.
+ *
+ * Balls arrive 20-30 seconds apart in the feed. The shortest interval in cricket is
+ * drinks at five minutes, and lunch, tea, an innings break and stumps are all longer
+ * — so a delivery inside this window and a break cannot both be true, while the
+ * window is still wide enough to sit out a review or a change of bowler without
+ * calling the break off.
+ */
+const PLAY_RESUMED_MS = 150_000;
+
+/** What is known about the match, for judging a stoppage crex reported. */
+export interface StoppageCheck {
+  innings: InningsScore[];
+  format: MatchFormat;
+  perOver?: number;
+  /** The newest delivery in the ball feed, ISO, for callers that fetched one. */
+  lastBallAt?: string | null;
+  /**
+   * The moment to read `lastBallAt` against — the poll that brought it, not
+   * `Date.now()`, so a render stays a function of its props.
+   */
+  now?: number | null;
+}
+
+/**
+ * Is a stoppage crex reported contradicted by what is happening around it?
+ *
+ * `a` and `res` are latches. crex sets them when play stops and clears them off
+ * their Firebase live-state stream, which this app does not read (see the Worker's
+ * README), so in `/matches/live` a "Lunch Break" outlives the lunch break — by
+ * hours. The card then claimed nobody was batting while the over count beside it
+ * climbed, and the match page headed a strip of deliveries from the over in
+ * progress with "Lunch Break".
+ *
+ * Two things can contradict it, and neither is invented data:
+ *
+ *   - A part-bowled over. A break is called between overs, so balls going into an
+ *     open innings mean the players are out there. An innings that *ended* mid-over
+ *     is the exception — all out on the third ball is a real innings break — so an
+ *     innings already closed keeps its note.
+ *   - A delivery bowled seconds ago, where the caller has the ball feed. This is
+ *     the stronger of the two and the one that catches a latch left on at an over
+ *     boundary, which the score alone cannot.
+ *
+ * Only over-boundary stoppages are judged. Rain interrupts a half-bowled over all
+ * the time, and nothing here would tell us it had stopped.
+ */
+export function isStaleStoppage(note: MatchNote, check: StoppageCheck): boolean {
+  if (!note.paused || !OVER_BOUNDARY_KINDS.has(note.kind)) return false;
+
+  const perOver = check.perOver || DEFAULT_BALLS_PER_OVER;
+
+  if (check.lastBallAt && check.now) {
+    const bowled = Date.parse(check.lastBallAt);
+    if (Number.isFinite(bowled) && check.now - bowled < PLAY_RESUMED_MS) return true;
+  }
+
+  const batted = check.innings.filter((inn) => !inn.notStarted);
+  const batting = batted.find((inn) => inn.phase === 'CURRENT') ?? batted[batted.length - 1];
+  if (!batting || inningsOver(batting, check.format, perOver)) return false;
+
+  return ballsFrom(batting.overs, perOver) % perOver !== 0;
+}
+
+/**
+ * Does this note claim a stoppage that only happens between overs?
+ *
+ * The kinds that can be checked against play — see `isStaleStoppage` for why rain
+ * and bad light are not among them.
+ */
+function isOverBoundaryStoppage(note: MatchNote | null | undefined): boolean {
+  return Boolean(note?.paused && OVER_BOUNDARY_KINDS.has(note.kind));
+}
+
+/** One watched match: the stoppage it is reporting, and whether play went on under it. */
+export interface StoppageWatch {
+  label: string;
+  signature: string;
+  /** When the score last moved while this same stoppage stood. */
+  movedAt: number | null;
+}
+
+/** The part of a match a break is supposed to hold still: every score on the board. */
+function scoreSignature(match: Match): string {
+  return (match.scorecard?.innings ?? [])
+    .map((inn) => `${inn.runs}/${inn.wickets}@${inn.overs}`)
+    .join('|');
+}
+
+/**
+ * Drop the stoppages a caller has watched play carry straight through.
+ *
+ * The match list is the one surface with no ball feed to date the last delivery
+ * against — a card cannot fetch commentary for every match in the carousel — so
+ * for it the poll itself is the clock. A break means nobody is batting; if the
+ * score moves while crex is still reporting one, the report is a latch left on
+ * (see `isStaleStoppage`) and the card should say LIVE.
+ *
+ * Movement is only counted against a stoppage already being reported when the
+ * previous score was taken. That is what keeps the last ball before lunch from
+ * cancelling the lunch break it precedes: the note arrives with that score, not
+ * after it. And the suppression is only good for `PLAY_RESUMED_MS`, so once the
+ * score does settle — the players are off, whatever the label says — the stoppage
+ * comes back rather than a resumption hours ago silencing every break that follows.
+ *
+ * `watch` is the caller's, and is updated in place: this needs a memory of the
+ * previous poll, and the hook holding it across renders is the natural owner.
+ */
+export function clearResumedStoppages(
+  matches: Match[],
+  watch: Map<string, StoppageWatch>,
+  now: number
+): Match[] {
+  const live = new Set(matches.map((m) => m.id));
+  for (const id of watch.keys()) {
+    if (!live.has(id)) watch.delete(id);
+  }
+
+  return matches.map((match) => {
+    if (!isOverBoundaryStoppage(match.note)) {
+      watch.delete(match.id);
+      return match;
+    }
+
+    const label = match.note!.label;
+    const signature = scoreSignature(match);
+    const seen = watch.get(match.id);
+
+    // A stoppage we have not seen before — or a different one — starts its own
+    // watch. Nothing yet contradicts it.
+    if (!seen || seen.label !== label) {
+      watch.set(match.id, { label, signature, movedAt: null });
+      return match;
+    }
+
+    const movedAt = seen.signature === signature ? seen.movedAt : now;
+    watch.set(match.id, { label, signature, movedAt });
+
+    return movedAt !== null && now - movedAt < PLAY_RESUMED_MS
+      ? { ...match, note: null }
+      : match;
+  });
+}
+
+/**
  * Which of the two accounts of the match state to believe.
  *
- * A stoppage crex reports itself always wins — it knows about rain and stumps and
+ * A stoppage crex reports itself normally wins — it knows about rain and stumps and
  * we do not. But crex leaves the toss code in `a` for the whole first innings, and
  * an hour later "won the toss and chose to bat" is not what is happening: it masks
  * the innings break the scores plainly show. So a derived break outranks any note
  * that is not itself a stoppage, and the toss survives only while there is nothing
  * truer to say.
+ *
+ * A reported stoppage the score has already overtaken is dropped outright — see
+ * `isStaleStoppage`. Saying nothing is right when play has restarted: the card
+ * falls back to LIVE, which is what is happening.
  */
-function pickNote(reported: MatchNote | null, derived: MatchNote | null): MatchNote | null {
-  if (reported?.paused) return reported;
-  return derived ?? reported;
+function pickNote(
+  reported: MatchNote | null,
+  derived: MatchNote | null,
+  check: StoppageCheck
+): MatchNote | null {
+  const current = reported && isStaleStoppage(reported, check) ? null : reported;
+
+  if (current?.paused) return current;
+  return derived ?? current;
 }
 
 /**
@@ -820,6 +1011,39 @@ function pickNote(reported: MatchNote | null, derived: MatchNote | null): MatchN
  * Unresolved keys degrade to the key itself rather than throwing — a match with
  * an unknown team still renders, just with "X6" where a name should be.
  */
+/** crex's "this player has no figures of this kind" placeholder. */
+const NO_FIGURES = '-^-';
+
+const figures = (raw: string | undefined): string | null =>
+  raw && raw !== NO_FIGURES ? raw : null;
+
+/**
+ * The match award from `mm`. Null when crex has not named one — which is every
+ * match still being played, and the odd finished one (a washout has no award).
+ */
+function decodePlayerOfMatch(
+  m: CrexRawMatch,
+  names: typeof nameCache
+): PlayerOfMatch | null {
+  const [playerKey, teamKey, batting, bowling] = (m.mm ?? '').split('.');
+  const player = cleanKey(playerKey);
+  if (!player) return null;
+
+  const team = cleanKey(teamKey);
+
+  return {
+    id: player,
+    // A key we could not resolve is shown as the key rather than dropped: crex
+    // only names an award once, and losing it to a missed mapping lookup would
+    // be worse than printing "IZ".
+    name: names.p.get(player)?.n ?? player,
+    teamId: team,
+    teamShortName: names.t.get(team)?.sn ?? team,
+    batting: figures(batting),
+    bowling: figures(bowling),
+  };
+}
+
 export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): Match {
   const homeTeam = toTeam(m.b, names);
   const awayTeam = toTeam(m.c, names);
@@ -858,10 +1082,15 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
     // say "day 3 — stumps" rather than either "in progress" or "finished".
     note: pickNote(
       decodeMatchNote(m, { first: homeTeam.shortName, second: awayTeam.shortName }),
-      inningsBreakNote(innings, status, format, perOver)
+      inningsBreakNote(innings, status, format, perOver),
+      { innings, format, perOver }
     ),
     // Only meaningful where a match spans days; `n` reports 1 for the rest.
     day: state && state.format === 'TEST' ? state.day : null,
+    // crex sets `mm` only on a finished match, so this needs no status guard of
+    // its own — but it is still read through `status`, because a result and the
+    // award that goes with it belong to the same moment.
+    playerOfMatch: status === 'COMPLETED' ? decodePlayerOfMatch(m, names) : null,
     scorecard: innings.length ? { innings } : null,
   };
 }
@@ -1180,6 +1409,121 @@ export async function getCrexScorecard(
         ? 'CURRENT'
         : 'COMPLETED') satisfies InningsPhase as InningsPhase,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Squads
+// ---------------------------------------------------------------------------
+
+/**
+ * crex's pre-match info payload. Only the three fields the squad list needs are
+ * described; the same response also carries the weather, the broadcasters and
+ * the head-to-head, none of which this app renders yet.
+ */
+interface CrexMatchInfo {
+  /**
+   * Both squads. Sides are split on "/" in the order `t` gives, players within
+   * a side on "-", and a player's own fields on ".":
+   *
+   *   "EX.166.1.1.0.0.0.0.1-1IG.38.1.1..."
+   *    |   |   |
+   *    |   |   role — 1 batter, 2 bowler, 3 all-rounder
+   *    |   caps in this format
+   *    player f_key, resolved through /mapping
+   *
+   * The trailing field is crex's own sort bucket (right-hand bat, left-hand bat,
+   * all-rounder, spinner, seamer), which is why their list reads in that order —
+   * we keep their order but do not need the bucket itself.
+   */
+  tb?: string;
+  /** Captain and keeper of each side in turn: "<t1 capt>/<t1 wk>/<t2 capt>/<t2 wk>". */
+  x?: string;
+  /** Team f_keys, in the order `tb` lists them: "S-U". */
+  t?: string;
+}
+
+/** `tb`'s role field. Anything unrecognised falls back to batter. */
+const SQUAD_ROLES: Record<string, PlayerRole> = {
+  '1': 'BATSMAN',
+  '2': 'BOWLER',
+  '3': 'ALL_ROUNDER',
+};
+
+/** Field positions within one dot-packed `tb` player. */
+const SQUAD_KEY_INDEX = 0;
+const SQUAD_ROLE_INDEX = 2;
+
+/**
+ * Both squads for a match, keyed by team f_key.
+ *
+ * This is the only crex endpoint that names an XI before the match starts —
+ * `/match/scorecard` holds an empty innings slot until the first ball, so a
+ * scorecard is all the app could show for a Test that has not begun. Rather
+ * than resolve home and away here, the two sides are returned under their own
+ * team keys and the caller matches them to `match.homeTeam.id`: `tb`'s order is
+ * crex's, not ours.
+ *
+ * Empty object when crex has no squad yet — an announced XI arrives a day or
+ * two before the toss, and for some domestic matches never does.
+ *
+ * Only trustworthy BEFORE the match starts. Once play is on, crex prunes `tb`
+ * down to a handful of players (the bench and the batters still to come — its
+ * own captain and keeper keys are no longer even in the list), so a caller must
+ * not read this as the squad of a live or finished match. It does not need to:
+ * from the first ball the scorecard names everyone.
+ */
+export async function getCrexMatchSquads(
+  matchKey: string,
+  opts: FetchOpts = {}
+): Promise<Record<string, SquadPlayer[]>> {
+  const info = await crexGet<CrexMatchInfo>(
+    `/match/info?key=${encodeURIComponent(matchKey)}`,
+    { revalidate: 300, ...opts }
+  );
+
+  // An id crex does not know answers with a bare `null`, not a 404.
+  const sides = (info?.tb ?? '').split('/').filter(Boolean);
+  const teamKeys = (info?.t ?? '').split('-').map(cleanKey);
+  if (!sides.length || !teamKeys.length) return {};
+
+  // Captain and keeper come in pairs, one pair per side, in `tb`'s order.
+  const roleMarks = (info?.x ?? '').split('/').map(cleanKey);
+
+  const players = sides.map((side) =>
+    side
+      .split('-')
+      .filter(Boolean)
+      .map((entry) => entry.split('.'))
+      .filter((fields) => fields[SQUAD_KEY_INDEX])
+  );
+
+  // One mapping call for both squads — roughly 30 keys, well inside the cap.
+  await resolveKeys({ p: players.flat().map((fields) => fields[SQUAD_KEY_INDEX]) }, opts);
+
+  const out: Record<string, SquadPlayer[]> = {};
+  players.forEach((side, i) => {
+    const teamKey = teamKeys[i];
+    if (!teamKey) return;
+
+    const captain = roleMarks[i * 2];
+    const keeper = roleMarks[i * 2 + 1];
+
+    out[teamKey] = side.map((fields) => {
+      const key = cleanKey(fields[SQUAD_KEY_INDEX]);
+      const role = SQUAD_ROLES[fields[SQUAD_ROLE_INDEX]] ?? 'BATSMAN';
+
+      return {
+        id: key,
+        name: nameCache.p.get(key)?.n ?? key,
+        // A keeper is listed as a batter in `tb`; the distinction only exists in
+        // `x`, so it is applied over the role rather than alongside it.
+        role: key === keeper ? 'WK' : role,
+        isCaptain: key === captain,
+      };
+    });
+  });
+
+  return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -2016,4 +2360,477 @@ export async function withSeriesSchedules(
     const { matches: _matches, ...summary } = withFeedStatuses(full, feed);
     return summary;
   });
+}
+
+// ---------------------------------------------------------------------------
+// Player profiles
+// ---------------------------------------------------------------------------
+//
+// `/player/overview?key=<pf>` — a whole career in one call, keyed by the same
+// player f_key the scorecard, the squads and the ranking lists already carry.
+//
+// The payload is the most nested thing crex serves, and the decode below is
+// mostly about two of its habits:
+//
+//   1. **A format is a pair of codes, never a name.** Every career and form row
+//      carries `st` (which competition) and a format code — `ft` on career rows,
+//      `mt` on form rows — and only both together say "Test" or "PSL". See
+//      `playerFormatLabel`.
+//   2. **The bio is Google-Docs HTML.** Inline font stacks, `<span>` soup,
+//      colours that fight the theme. `sanitizeBio` keeps the structure and
+//      throws away every attribute.
+
+/** crex's illustrated player portraits, keyed by the same f_key. */
+const PLAYER_IMAGE_BASE = 'https://cricketvectors.akamaized.net/players/org';
+
+/** Basic info — crex's `a.bsi`. Only the fields the profile page reads. */
+interface CrexPlayerBasic {
+  /** Full name. */
+  fn?: string;
+  /** Date of birth, epoch ms. */
+  dob?: number | null;
+  /** Date of death — set on retired-and-since-died players. */
+  dod?: number | null;
+  /** Place of birth, free text. */
+  pob?: string;
+  /** Height, crex's own wording: "5 ft 10 in". */
+  h?: string;
+  /** Nationality as an adjective — "Pakistani", not "Pakistan". */
+  n?: string;
+  /** Bio, as HTML. */
+  p?: string;
+  /** Every team they have played for, comma-separated. */
+  tm?: string;
+  /** Instagram handle. */
+  iu?: string;
+  /** Twitter handle, sometimes with the leading @. */
+  tu?: string;
+  /** Role: 0 keeper, 1 batter, 3 bowler, anything else all-rounder. */
+  rl?: number;
+  /** Batting hand, lowercase: "right handed". */
+  bts?: string;
+  /** Batting position: "opener", "middle order". */
+  bp?: string;
+  /** Bowling type: "right-arm offbreak". Literally "na" for a non-bowler. */
+  bwl?: string;
+  /** Bowling style: 1 pace, 2 spin, -1 unknown. */
+  bs?: number;
+  /** Popular shot. Almost always empty. */
+  ps?: string;
+  /** Gender: 0 men, 1 women. */
+  g?: number;
+}
+
+/** One career row — batting or bowling, for one competition and format. */
+interface CrexCareerRow<S> {
+  /** Competition code. 1 is international; the rest are leagues. */
+  st: number;
+  /** Format code, read together with `st`. */
+  ft: number;
+  s: S;
+}
+
+interface CrexBattingStats {
+  m?: number;
+  i?: number;
+  r?: number;
+  /** Hundreds. */
+  hd?: number;
+  /** Fifties. */
+  ff?: number;
+  /** Highest score. */
+  hs?: number;
+  sr?: number;
+  av?: number;
+  /** Fours. */
+  fr?: number;
+  /** Sixes. */
+  sx?: number;
+  /**
+   * Ducks. crex's own profile page reads `dk` here and so prints "--" for
+   * everyone: the field on the wire is `du`. Both are read, `du` first.
+   */
+  du?: number;
+  dk?: number;
+  /** Batting debut, as prose. */
+  btd?: string;
+}
+
+interface CrexBowlingStats {
+  m?: number;
+  i?: number;
+  w?: number;
+  /** Best innings figures, "5/23". Empty string when they have none. */
+  bf?: string;
+  /** Economy. */
+  ec?: number;
+  w3?: number;
+  w5?: number;
+  /** Bowling average. */
+  bav?: number;
+  /** Bowling strike rate. */
+  bsr?: number;
+  /** Bowling debut, as prose. */
+  bod?: string;
+}
+
+/** One of the last ten innings — crex's `c.btf` / `c.bof`. */
+interface CrexFormRow {
+  /** Batting: runs scored. Bowling: runs conceded. */
+  r?: number;
+  /** Batting: balls faced. Bowling: wickets taken. */
+  b?: number;
+  /** Batting only: 1 dismissed, 0 not out. */
+  di?: number;
+  /** Match key. */
+  mf?: string;
+  /** Competition code. */
+  st?: number;
+  /** Match-type code — the format half of the label on a form row. */
+  mt?: number;
+  /** Start time, epoch ms. */
+  dt?: number;
+  /** The opposition's team key. */
+  vs?: string;
+  t1f?: string;
+  t2f?: string;
+}
+
+/** The whole profile payload. `t` (social embeds) is deliberately not typed. */
+interface CrexPlayerOverview {
+  a?: {
+    bsi?: CrexPlayerBasic;
+    sts?: {
+      bt?: CrexCareerRow<CrexBattingStats>[];
+      bl?: CrexCareerRow<CrexBowlingStats>[];
+    };
+  };
+  /** ICC ranking positions. `type` is the discipline, `ft` the format. */
+  b?: Array<{ ft: number; pos: number; type: number }>;
+  c?: { btf?: CrexFormRow[]; bof?: CrexFormRow[] };
+  /** Teams under contract. `st` arrives as a string here, unlike everywhere else. */
+  d?: Array<{ tf?: string; st?: string | number; ft?: number }>;
+}
+
+/**
+ * Competition labels for the codes `playerFormatLabel` falls through to.
+ *
+ * crex's own table, transcribed from their profile chunk. The odd entries are
+ * theirs: `1` is T20I rather than a league because international T20 shares the
+ * competition code with everything else international, and `18` is the Hundred
+ * under its scoring name.
+ */
+const PLAYER_COMPETITIONS: Record<number, string> = {
+  1: 'T20I',
+  2: 'First class',
+  3: 'List A',
+  4: 'T20',
+  5: 'IPL',
+  6: 'BBL',
+  7: 'CPL',
+  8: 'NPL',
+  9: 'BPL',
+  10: 'Abu Dhabi T10',
+  11: 'PSL',
+  12: 'QPL',
+  14: 'VPL',
+  15: 'D. T10',
+  16: 'TNPL',
+  17: 'KPL',
+  18: '100B',
+  19: 'Under 19',
+  20: 'T20-Blast',
+  21: 'The 6IXTY',
+  100: 'WC ODI',
+};
+
+/**
+ * The label for a (competition, format) pair — the one piece of crex's player
+ * vocabulary that is not guessable.
+ *
+ * Neither code means anything alone. `ft` names the shape of the game and `st`
+ * the competition it was played in, and which of the two wins depends on the
+ * combination: `st=1, ft=3` is a Test, but `st=2, ft=3` is List A cricket, and
+ * `st=1, ft=2` is a T20I while `st=5, ft=2` is an IPL match. This is a
+ * transcription of crex's `seriesFormatDecision`, branch order included —
+ * reordering it silently relabels careers.
+ *
+ * Returns null for a pair crex has no name for, which the UI drops rather than
+ * printing a code at the reader.
+ */
+export function playerFormatLabel(st: number, ft: number): string | null {
+  if (ft === 1 && st !== 3 && st !== 100) return 'ODI';
+  if (ft === 2 && (st === 2 || st === 3 || st === 10)) return 'T20';
+  if (ft === 3 && st !== 2) return 'Test';
+  if (ft === 4 && st !== 10 && st !== 12 && st !== 14 && st !== 15 && st !== 16) return 'T10';
+  if (ft === 5) return '100B';
+  return PLAYER_COMPETITIONS[st] ?? null;
+}
+
+/** crex's role codes. 2 only ever appears on a ranking row, 3 only on a player. */
+function playerRole(code: number | undefined): PlayerRoleLabel {
+  if (code === 1) return 'Batter';
+  if (code === 3) return 'Bowler';
+  if (code === 0) return 'Wicket-keeper';
+  return 'All Rounder';
+}
+
+/** The discipline a ranking list is for. Its codes are not the player's. */
+function rankingDiscipline(code: number): PlayerRanking['discipline'] {
+  if (code === 1) return 'Batter';
+  if (code === 2) return 'Bowler';
+  return 'All Rounder';
+}
+
+/**
+ * Tags kept when the bio is sanitised. Structure only: paragraphs, headings,
+ * emphasis and lists. No links — crex's bios link back into their own site.
+ */
+const BIO_TAGS = new Set([
+  'p',
+  'br',
+  'h2',
+  'h3',
+  'h4',
+  'strong',
+  'b',
+  'em',
+  'i',
+  'ul',
+  'ol',
+  'li',
+  'blockquote',
+]);
+
+/**
+ * crex's bio HTML, reduced to text and a few structural tags.
+ *
+ * It arrives pasted out of Google Docs: `<span style="font-family: Arial; color:
+ * rgb(0,0,0)">` around every sentence, `docs-internal-guid` ids, hard-coded
+ * black on a theme that is sometimes dark. Rather than allowlist attributes, this
+ * drops all of them and every tag outside `BIO_TAGS`, keeping the text those tags
+ * wrapped. What survives inherits our own typography, and there is nothing left
+ * for a script or a style block to hide in.
+ */
+export function sanitizeBio(html: string | undefined): string | null {
+  if (!html) return null;
+
+  const clean = html
+    // Script and style bodies go with their tags — stripping the tag alone would
+    // dump their contents into the page as text.
+    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<(\/?)([a-z0-9]+)\b[^>]*>/gi, (_match, slash: string, name: string) => {
+      const tag = name.toLowerCase();
+      return BIO_TAGS.has(tag) ? `<${slash}${tag}>` : '';
+    })
+    // crex leaves empty paragraphs behind between sections.
+    .replace(/<p>(\s|&nbsp;)*<\/p>/gi, '')
+    .trim();
+
+  return clean.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() ? clean : null;
+}
+
+/** Whole years since a date of birth. */
+function ageFrom(dob: number | null | undefined): number | null {
+  if (!dob) return null;
+  const born = new Date(dob);
+  const now = new Date();
+  let age = now.getUTCFullYear() - born.getUTCFullYear();
+  const monthDiff = now.getUTCMonth() - born.getUTCMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getUTCDate() < born.getUTCDate())) age -= 1;
+  return age >= 0 && age < 130 ? age : null;
+}
+
+/**
+ * "right handed · opener" from crex's two fields, either of which can be empty.
+ *
+ * `bwl` is "na" on a player who does not bowl — a real value in the payload
+ * rather than an absent one, so it is checked for by name.
+ */
+function joinTrait(...parts: Array<string | undefined>): string | null {
+  const kept = parts
+    .map((p) => (p ?? '').trim())
+    .filter((p) => p && p.toLowerCase() !== 'na' && p !== '-1');
+  return kept.length ? kept.join(' · ') : null;
+}
+
+/** Bowling style, spelled out. -1 is crex's "not recorded". */
+function bowlingStyle(code: number | undefined): string | undefined {
+  if (code === 1) return 'pacer';
+  if (code === 2) return 'spinner';
+  return undefined;
+}
+
+/**
+ * One form entry. The two disciplines share a row shape and read differently:
+ * batting is runs off balls, bowling is wickets for runs, and crex puts the
+ * wickets in `b` — the same field that holds balls faced on a batting row.
+ */
+function toFormEntry(
+  row: CrexFormRow,
+  discipline: 'batting' | 'bowling',
+  names: typeof nameCache
+): PlayerFormEntry {
+  const runs = row.r ?? 0;
+  const balls = row.b ?? 0;
+  // `vs` is the opposition, so the player's own side is whichever of the two
+  // team keys it is not.
+  const opponent = cleanKey(row.vs);
+  const own = cleanKey(row.t1f) === opponent ? cleanKey(row.t2f) : cleanKey(row.t1f);
+  const label = (key: string) => names.t.get(key)?.sn ?? names.t.get(key)?.n ?? key;
+
+  return {
+    figures: discipline === 'batting' ? `${runs} (${balls})` : `${balls}-${runs}`,
+    notOut: discipline === 'batting' && row.di === 0,
+    fixture: `${label(own)} vs ${label(opponent)}`,
+    format: playerFormatLabel(Number(row.st), Number(row.mt)),
+    matchId: cleanKey(row.mf) || null,
+    date: row.dt ? new Date(row.dt).toISOString() : null,
+  };
+}
+
+/**
+ * Everything crex knows about one player, decoded.
+ *
+ * Two requests: the profile itself, then one /mapping call for the teams its
+ * form rows and contracts reference. The player's own name comes from the same
+ * mapping bucket only as a fallback — `a.bsi.fn` is the fuller spelling
+ * ("Imam-ul-Haq" rather than a truncation), so it wins when present.
+ *
+ * Returns null on a key crex does not know, which is what the route 404s on.
+ */
+export async function getCrexPlayerProfile(
+  key: string,
+  opts: FetchOpts = {}
+): Promise<PlayerProfile | null> {
+  const id = cleanKey(key);
+  if (!id) return null;
+
+  const raw = await crexGet<CrexPlayerOverview>(`/player/overview?key=${encodeURIComponent(id)}`, {
+    revalidate: 3600,
+    ...opts,
+  });
+
+  const basic = raw.a?.bsi;
+  // crex answers an unknown key with a well-formed envelope and nothing in it.
+  if (!basic?.fn) return null;
+
+  const batting = raw.a?.sts?.bt ?? [];
+  const bowling = raw.a?.sts?.bl ?? [];
+  const recentBatting = raw.c?.btf ?? [];
+  const recentBowling = raw.c?.bof ?? [];
+  const contracts = raw.d ?? [];
+
+  const names = await resolveKeys(
+    {
+      t: [
+        ...recentBatting.flatMap((r) => [r.t1f ?? '', r.t2f ?? '', r.vs ?? '']),
+        ...recentBowling.flatMap((r) => [r.t1f ?? '', r.t2f ?? '', r.vs ?? '']),
+        ...contracts.map((c) => c.tf ?? ''),
+      ].filter(Boolean),
+      p: [id],
+    },
+    opts
+  );
+
+  // The national side, for the crest beside the name: st=1 is crex's
+  // international competition code, and a player has one row per format under it.
+  const national = contracts.find((c) => Number(c.st) === 1)?.tf;
+  const countryKey = cleanKey(national) || null;
+
+  // Debuts are per format, and the same fixture appears on both disciplines'
+  // rows — one entry each, batting's wording preferred because a specialist
+  // bowler's batting row still carries the match they debuted in.
+  const debuts: PlayerDebut[] = [];
+  for (const row of [...batting, ...bowling]) {
+    const format = playerFormatLabel(row.st, row.ft);
+    const fixture = (
+      (row.s as CrexBattingStats).btd ??
+      (row.s as CrexBowlingStats).bod ??
+      ''
+    ).trim();
+    if (!format || !fixture || debuts.some((d) => d.format === format)) continue;
+    debuts.push({ format, fixture });
+  }
+
+  return {
+    id,
+    name: basic.fn.trim() || names.p.get(id)?.n || id,
+    image: `${PLAYER_IMAGE_BASE}/${id}.png`,
+    role: playerRole(basic.rl),
+    gender: basic.g === 1 ? 'Female' : 'Male',
+    dateOfBirth: basic.dob ? new Date(basic.dob).toISOString() : null,
+    age: ageFrom(basic.dob),
+    birthPlace: basic.pob?.trim() || null,
+    height: basic.h?.trim() || null,
+    nationality: basic.n?.trim() || null,
+    bats: joinTrait(basic.bts, basic.bp),
+    bowls: joinTrait(basic.bwl, bowlingStyle(basic.bs)),
+    popularShot: basic.ps?.trim() || null,
+    teams: (basic.tm ?? '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean),
+    countryKey,
+    countryShortName: countryKey
+      ? names.t.get(countryKey)?.sn ?? names.t.get(countryKey)?.n ?? null
+      : null,
+    bio: sanitizeBio(basic.p),
+    instagram: basic.iu?.trim() || null,
+    twitter: basic.tu?.replace(/^@/, '').trim() || null,
+    // Rankings label their format with the international competition code, not
+    // the row's own — a #1 Test batter is ranked in Tests, not in a league.
+    rankings: (raw.b ?? [])
+      .map((r) => ({
+        format: playerFormatLabel(1, r.ft) ?? '',
+        position: r.pos,
+        discipline: rankingDiscipline(r.type),
+      }))
+      .filter((r) => r.format && r.position > 0),
+    batting: batting
+      .map((row) => {
+        const format = playerFormatLabel(row.st, row.ft);
+        if (!format) return null;
+        const s = row.s ?? {};
+        return {
+          format,
+          matches: s.m ?? 0,
+          innings: s.i ?? 0,
+          runs: s.r ?? 0,
+          hundreds: s.hd ?? 0,
+          fifties: s.ff ?? 0,
+          highScore: s.hs ?? 0,
+          strikeRate: s.sr ?? 0,
+          average: s.av ?? 0,
+          fours: s.fr ?? 0,
+          sixes: s.sx ?? 0,
+          ducks: s.du ?? s.dk ?? null,
+        } satisfies PlayerBattingCareer;
+      })
+      .filter((r): r is PlayerBattingCareer => r !== null),
+    bowling: bowling
+      .map((row) => {
+        const format = playerFormatLabel(row.st, row.ft);
+        if (!format) return null;
+        const s = row.s ?? {};
+        return {
+          format,
+          matches: s.m ?? 0,
+          innings: s.i ?? 0,
+          wickets: s.w ?? 0,
+          economy: s.ec ?? 0,
+          average: s.bav ?? 0,
+          // "0-0" is crex's placeholder for a bowler with no figures at all.
+          best: s.bf && s.bf !== '0-0' && s.bf !== '0/0' ? s.bf : null,
+          threeWickets: s.w3 ?? 0,
+          fiveWickets: s.w5 ?? 0,
+          strikeRate: s.bsr ?? 0,
+        } satisfies PlayerBowlingCareer;
+      })
+      .filter((r): r is PlayerBowlingCareer => r !== null),
+    recentBatting: recentBatting.map((r) => toFormEntry(r, 'batting', names)),
+    recentBowling: recentBowling.map((r) => toFormEntry(r, 'bowling', names)),
+    debuts,
+  };
 }

@@ -1,86 +1,254 @@
 @use 'component' as *;
 
-// Matches the original footer: mt-24, border-top only (aurora shows through),
-// py-10 inner, text-sm.
+// Aurora footer. Two things carry the identity here so the block reads as part
+// of the product rather than a generic sitemap strip:
+//   1. the "crease" — a mint→violet hairline that fades out at both edges,
+//      standing in for the flat 1px border the rest of the app uses;
+//   2. a soft green wash bleeding up from the bottom of the page, tying the
+//      footer back to the aurora background behind the cards.
 .footer {
+  position: relative;
   margin-top: $space-16;
-  border-top: 1px solid $card-border;
+  isolation: isolate;
+  overflow: hidden;
 
   @include tablet {
-    margin-top: $space-24; // mt-24 (96px)
+    margin-top: $space-24; // 96px
+  }
+
+  // The crease.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--accent-green) 55%, transparent) 22%,
+      color-mix(in oklab, var(--accent-purple) 55%, transparent) 78%,
+      transparent
+    );
+  }
+
+  // The wash. Kept behind content and low-contrast so text keeps AA.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 -40% 0;
+    z-index: -1;
+    height: 100%;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        60% 100% at 12% 100%,
+        color-mix(in oklab, var(--accent-green) 12%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        55% 100% at 88% 100%,
+        color-mix(in oklab, var(--accent-purple) 11%, transparent),
+        transparent 70%
+      );
   }
 }
 
 .inner {
   @include container;
-  display: flex;
-  flex-direction: column;
-  gap: $space-6;
-  padding-block: $space-8;
+  display: grid;
+  gap: $space-8;
+  padding-block: $space-10;
 
   @include tablet {
-    flex-direction: row;
-    justify-content: space-between;
-    gap: $space-8; // gap-8 (32px)
-    padding-block: $space-10; // py-10 (40px)
+    // Brand gets the wider track: the tagline and status chip need the room,
+    // and the asymmetry stops the row reading as two equal-weight blocks.
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    align-items: start;
+    gap: $space-12;
+    padding-block: $space-12;
+  }
+
+  @include desktop {
+    padding-block: $space-16;
   }
 }
 
 .brand {
-  max-width: min(320px, 100%);
   min-width: 0;
+  max-width: 44ch;
 }
 
 .logo {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2-5;
+  min-width: 0;
+
+  &:hover .logoMark {
+    box-shadow: 0 8px 26px -6px color-mix(in oklab, var(--accent-green) 75%, transparent);
+  }
+}
+
+// Same mark as the navbar so the wordmark is recognisably the same brand at
+// both ends of the page.
+.logoMark {
+  @include flex-center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: $radius-xl;
+  background: linear-gradient(135deg, $accent, $accent-purple);
+  color: $bg;
+  box-shadow: 0 6px 20px -8px color-mix(in oklab, var(--accent-green) 55%, transparent);
+  transition: box-shadow 0.2s ease;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.logoText {
+  @include truncate(1);
   font-family: $font-display;
-  font-size: $text-lg; // text-lg (18px) — matches the navbar wordmark
+  font-size: $text-lg;
   font-weight: 700;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, $accent, $accent-purple);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: $text-primary;
+}
+
+.logoAccent {
+  color: $accent;
 }
 
 .tagline {
-  margin-top: $space-3; // mt-3 (12px)
+  margin-top: $space-4;
   color: $text-muted;
-  font-size: $text-sm; // 14px
+  font-size: $text-sm;
+  line-height: $leading-relaxed;
+}
+
+// Status chip — reuses the app's live token/animation, so the footer states the
+// product's one job instead of decorating.
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  margin-top: $space-5;
+  padding: $space-1-5 $space-3;
+  border: 1px solid $card-border;
+  border-radius: 999px;
+  background: $surface-elevated;
+  color: $text-secondary;
+  font-size: $text-xs;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: $accent-green;
+  animation: footer-pulse 2.2s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent-green) 18%, transparent);
+  }
+}
+
+// The shared `live-pulse` ring is drawn from --live (red); this one tracks the
+// mint accent, since the chip reports freshness, not a live match.
+@keyframes footer-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--accent-green) 55%, transparent);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in oklab, var(--accent-green) 0%, transparent);
+    opacity: 0.75;
+  }
 }
 
 .columns {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $space-6 $space-8; // gap-8 (32px)
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-8;
+
+  @include tablet {
+    justify-items: end;
+    gap: $space-10;
+  }
 }
 
 .column {
   display: flex;
   flex-direction: column;
-  gap: $space-2; // space-y-2 (8px)
+  align-items: flex-start;
+  gap: $space-3;
+  min-width: 0;
 
   h4 {
     color: $text-primary;
     font-family: $font-display;
-    font-weight: 600;
-    font-size: $text-sm; // 14px
-    margin-bottom: $space-1;
+    font-size: $text-2xs;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
   }
 
   a {
-    color: $text-muted; // text-muted-foreground
-    font-size: $text-sm; // 14px
-    &:hover {
-      color: $accent;
+    position: relative;
+    color: $text-muted;
+    font-size: $text-sm;
+    transition: color 0.2s ease;
+
+    // Underline grows from the left on hover — the one micro-interaction here,
+    // matched to the nav link behaviour rather than a colour-only swap.
+    &::after {
+      content: '';
+      position: absolute;
+      inset: auto 0 -3px auto;
+      width: 0;
+      height: 1px;
+      background: $accent;
+      transition: width 0.2s ease;
+    }
+
+    &:hover,
+    &:focus-visible {
+      color: $text-primary;
+
+      &::after {
+        width: 100%;
+        left: 0;
+        right: auto;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      &::after {
+        transition: none;
+      }
     }
   }
 }
 
-// border-t py-5 text-center text-xs
 .bottom {
-  padding-block: $space-5; // py-5 (20px)
   border-top: 1px solid $card-border;
+}
+
+.bottomInner {
+  @include container;
+  padding-block: $space-5;
   color: $text-muted;
-  font-size: $text-xs; // text-xs (12px)
+  font-size: $text-xs;
   text-align: center;
+
+  @include tablet {
+    text-align: left;
+  }
 }

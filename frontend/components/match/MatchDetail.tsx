@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   BallExtra,
@@ -11,9 +12,16 @@ import type {
   BowlerLine,
   CommentaryBall,
   TeamFormEntry,
+  MatchSquads,
+  PlayerOfMatch,
+  PlayerRole,
   SquadPlayer,
 } from '@/types';
-import { useCrexMatch, useCrexMatchExtras } from '@/hooks/useCrexMatches';
+import {
+  useCrexMatch,
+  useCrexMatchExtras,
+  useCrexMatchSquads,
+} from '@/hooks/useCrexMatches';
 import {
   DEFAULT_BALLS_PER_OVER,
   HUNDRED_BALLS_PER_OVER,
@@ -22,6 +30,7 @@ import {
   inningsBallLimit,
 } from '@/lib/overs';
 import { battedInnings, formatTeamScore, inningsFor } from '@/lib/innings';
+import { isStaleStoppage } from '@/lib/crex';
 import { PlayerSituations, pausedWord } from './MatchState';
 import MatchEvents from './MatchEvents';
 import WinProbability from './WinProbability';
@@ -42,12 +51,22 @@ const TABS: Array<{ key: TabKey; label: string }> = [
 
 /**
  * A delivery as this component renders it — the feed's ball minus the fields
- * nothing here reads (`isBoundary` is re-derived from `runs`, `timestamp` is
- * never shown).
+ * nothing here reads (`isBoundary` is re-derived from `runs`). `timestamp` is
+ * never printed, but it dates the last ball, which is how the header tells a
+ * stoppage crex is still reporting from one it has stopped updating.
  */
 type BallEntry = Pick<
   CommentaryBall,
-  'id' | 'over' | 'ball' | 'runs' | 'batRuns' | 'extraRuns' | 'extra' | 'isWicket' | 'text'
+  | 'id'
+  | 'over'
+  | 'ball'
+  | 'runs'
+  | 'batRuns'
+  | 'extraRuns'
+  | 'extra'
+  | 'isWicket'
+  | 'text'
+  | 'timestamp'
 >;
 
 const toBallEntry = ({
@@ -60,6 +79,7 @@ const toBallEntry = ({
   extra,
   isWicket,
   text,
+  timestamp,
 }: CommentaryBall): BallEntry => ({
   id,
   over,
@@ -70,6 +90,7 @@ const toBallEntry = ({
   extra,
   isWicket,
   text,
+  timestamp,
 });
 
 const MAX_COMMENTARY = 60;
@@ -359,6 +380,24 @@ export default function MatchDetail({
   // "No batting data yet".
   const extrasPending = extrasEnabled && !crexExtras.loaded;
 
+  // Announced squads, from crex's pre-match info. `match.squads` used to be
+  // filled in by our own backend and has been empty since crex became the only
+  // source, so both tabs read this instead. Keyed by team, because crex lists
+  // the sides in its own order.
+  //
+  // Fetched only before the match starts, which is both where it is needed and
+  // the only place crex's squad field can be trusted: once play is on it holds a
+  // pruned list rather than the XI (see `getCrexMatchSquads`), and from the
+  // first ball the scorecard names everyone anyway.
+  const { squads: squadsByTeam } = useCrexMatchSquads(matchId, {
+    enabled: match.status === 'UPCOMING',
+  });
+  const squads = useMemo(() => {
+    const home = squadsByTeam[match.homeTeam.id] ?? match.squads?.home ?? [];
+    const away = squadsByTeam[match.awayTeam.id] ?? match.squads?.away ?? [];
+    return home.length || away.length ? { home, away } : null;
+  }, [squadsByTeam, match.homeTeam.id, match.awayTeam.id, match.squads]);
+
   // Fold each poll into local state. The crex scorecard replaces the innings
   // wholesale — it is a complete card each time, not a delta.
   useEffect(() => {
@@ -395,7 +434,27 @@ export default function MatchDetail({
   // `pausedWord` decides *whether* there is a stoppage to report; the label is
   // taken in full here rather than reduced to one word, because a page header has
   // room for "Innings Break" and a carousel card did not.
-  const stopped = pausedWord(match.status, match.note) ? match.note?.label ?? null : null;
+  //
+  // Checked against the innings and the ball feed first: crex latches its break code
+  // and stops updating it once play resumes, and this page holds both the freshest
+  // score there is (the scorecard endpoint's, not the list's) and the time of the
+  // last delivery, so it is the surface best placed to notice. See `isStaleStoppage`.
+  //
+  // The ball's age is only read once a poll has landed, and against that poll's own
+  // clock rather than `Date.now()`: the server rendered this header too, and a
+  // stoppage that evaporated between the two would be a hydration mismatch.
+  const note =
+    match.note &&
+    isStaleStoppage(match.note, {
+      innings,
+      format: match.format,
+      perOver,
+      lastBallAt: commentary[0]?.timestamp ?? null,
+      now: lastUpdated?.getTime() ?? null,
+    })
+      ? null
+      : match.note;
+  const stopped = pausedWord(match.status, note) ? note?.label ?? null : null;
   const statusWord = isLive
     ? stopped
     : match.status === 'UPCOMING'
@@ -617,10 +676,9 @@ export default function MatchDetail({
                     key={line.playerId}
                     className={`${styles.creasePlayer} ${onStrike ? styles.onStrike : ''}`}
                   >
-                    <span className={styles.creaseName}>
-                      {line.name}
+                    <PlayerLink id={line.playerId} name={line.name} className={styles.creaseName}>
                       {onStrike && <span className={styles.strikeMark}> *</span>}
-                    </span>
+                    </PlayerLink>
                     <span className={styles.creaseFigures}>
                       {line.runs} <span className={styles.creaseBalls}>({line.balls})</span>
                     </span>
@@ -636,7 +694,11 @@ export default function MatchDetail({
                 </span>
                 <ul className={styles.creaseList}>
                   <li className={styles.creasePlayer}>
-                    <span className={styles.creaseName}>{crease.bowler.name}</span>
+                    <PlayerLink
+                      id={crease.bowler.playerId}
+                      name={crease.bowler.name}
+                      className={styles.creaseName}
+                    />
                     <span className={styles.creaseFigures}>
                       {crease.bowler.wickets}/{crease.bowler.runs}{' '}
                       <span className={styles.creaseBalls}>
@@ -727,20 +789,118 @@ export default function MatchDetail({
           match={match}
           events={crexExtras.events}
           innings={crexExtras.innings}
+          squads={squads}
           pending={extrasPending}
         />
       )}
       {tab === 'scorecard' && (
-        <ScorecardTab match={match} innings={innings} pending={extrasPending} />
-      )}
-      {tab === 'commentary' && (
-        <CommentaryTab
-          overs={overs}
-          isLive={isLive}
-          connected={isConnected}
+        <ScorecardTab
+          match={match}
+          innings={innings}
+          squads={squads}
           pending={extrasPending}
+          onShowSquads={() => setTab('info')}
         />
       )}
+      {tab === 'commentary' && (
+        <CommentaryTab overs={overs} pending={extrasPending} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * The player's initials, for the medallion the card leads with. crex draws an
+ * illustrated portrait here; at this size — one 44px circle on a results card —
+ * a monogram reads better than a cropped face, and it never 404s. The portrait
+ * itself is on the player's own page.
+ */
+function initialsOf(name: string): string {
+  const words = name.split(/[\s-]+/).filter(Boolean);
+  if (!words.length) return '?';
+  const first = words[0][0];
+  const last = words.length > 1 ? words[words.length - 1][0] : '';
+  return (first + last).toUpperCase();
+}
+
+/**
+ * A player's name, linked to their profile.
+ *
+ * Every name this page prints comes with crex's player f_key already attached —
+ * scorecard lines, the XI, the squads and the award all carry it — so the link
+ * costs nothing to build. The few that arrive without one (a card line crex has
+ * not keyed yet) render as plain text rather than a dead link.
+ *
+ * Styled as text, not as a link: a scorecard where forty names are all in accent
+ * colour is unreadable. The underline appears on hover and focus instead.
+ */
+function PlayerLink({
+  id,
+  name,
+  className,
+  children,
+}: {
+  id: string | undefined;
+  name: string;
+  className?: string;
+  /** Marks rendered after the name — the not-out star, a captaincy badge. */
+  children?: React.ReactNode;
+}) {
+  if (!id) {
+    return (
+      <span className={className}>
+        {name}
+        {children}
+      </span>
+    );
+  }
+
+  return (
+    <Link href={`/players/${id}`} className={`${styles.playerLink} ${className ?? ''}`}>
+      {name}
+      {children}
+    </Link>
+  );
+}
+
+/**
+ * The match award, as its own card: who won it, which side they played for, and
+ * the figures they won it with.
+ *
+ * Both figures are optional and a specialist has only one — a batter's award
+ * reads without an empty tile where their bowling would go.
+ */
+function PlayerOfMatchCard({ award, teams }: { award: PlayerOfMatch; teams: Team[] }) {
+  // The full team name reads better than the three-letter code the feed packs
+  // beside the player; the match already carries both sides, so it costs nothing.
+  const team = teams.find((t) => t.id === award.teamId);
+  const figures: Array<[string, string]> = [];
+  if (award.batting) figures.push(['Batting', award.batting]);
+  if (award.bowling) figures.push(['Bowling', award.bowling]);
+
+  return (
+    <div className={styles.potm}>
+      <span className={styles.potmAvatar} aria-hidden="true">
+        {initialsOf(award.name)}
+      </span>
+
+      <div className={styles.potmBody}>
+        <p className={styles.potmName}>
+          <PlayerLink id={award.id} name={award.name} />
+        </p>
+        <p className={styles.potmTeam}>{team?.name ?? award.teamShortName}</p>
+
+        {figures.length > 0 && (
+          <dl className={styles.potmStats}>
+            {figures.map(([label, value]) => (
+              <div key={label} className={styles.potmStat}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
     </div>
   );
 }
@@ -770,15 +930,53 @@ function FormStrip({ team, form }: { team: Team; form: TeamFormEntry[] }) {
   );
 }
 
+// crex's own words for a role, rather than the enum shouted back at the reader
+// ("ALL ROUNDER"). The keeper is a role here because that is how a squad list
+// reads — it is the one thing about a batter worth naming before a ball is bowled.
+const ROLE_LABELS: Record<PlayerRole, string> = {
+  BATSMAN: 'Batter',
+  BOWLER: 'Bowler',
+  ALL_ROUNDER: 'All-rounder',
+  WK: 'Keeper',
+};
+
+// Each discipline carries its own tint, so the make-up of a side — how many
+// seamers, whether they picked a second spinner — reads off the column without a
+// legend to decode. Batter stays neutral: it is the default, and colouring the
+// majority of the list would say nothing.
+const ROLE_CLASS: Record<PlayerRole, string> = {
+  BATSMAN: 'roleBatter',
+  BOWLER: 'roleBowler',
+  ALL_ROUNDER: 'roleAllRounder',
+  WK: 'roleKeeper',
+};
+
 function SquadColumn({ team, players }: { team: Team; players: SquadPlayer[] }) {
+  if (!players.length) return null;
+
   return (
     <div className={styles.squadCol}>
-      <h3 className={styles.squadTeam}>{team.name}</h3>
+      <header className={styles.squadTeam}>
+        <h3 className={styles.squadTeamName}>{team.name}</h3>
+        <span className={styles.squadCount}>{players.length}</span>
+      </header>
       <ul className={styles.squadList}>
         {players.map((p) => (
           <li key={p.id} className={styles.squadPlayer}>
-            <span>{p.name}</span>
-            <span className={styles.squadRole}>{p.role.replace('_', ' ')}</span>
+            <span className={styles.squadNameCell}>
+              <PlayerLink id={p.id} name={p.name} className={styles.squadName} />
+              {/* The captaincy is the only rank in a squad list, so it is marked
+                  on the name itself rather than folded into the role column. A
+                  badge, not "(c)" — at this size the brackets read as ©. */}
+              {p.isCaptain && (
+                <abbr className={styles.squadCaptain} title="Captain">
+                  C
+                </abbr>
+              )}
+            </span>
+            <span className={`${styles.squadRole} ${styles[ROLE_CLASS[p.role]]}`}>
+              {ROLE_LABELS[p.role]}
+            </span>
           </li>
         ))}
       </ul>
@@ -790,12 +988,15 @@ function InfoTab({
   match,
   events,
   innings,
+  squads,
   pending,
 }: {
   match: Match;
   events: MatchEvent[];
   /** The fetched card, for the retired-hurt lines. */
   innings: InningsScore[];
+  /** Announced squads, or null while crex has none. */
+  squads: MatchSquads | null;
   pending?: boolean;
 }) {
   const details: Array<[string, string]> = [
@@ -813,11 +1014,21 @@ function InfoTab({
 
   return (
     <div className={styles.panel}>
+      {/* The award leads the tab on a finished match: it is the last thing to
+          happen and the first thing a reader arriving after the result wants. */}
+      {match.playerOfMatch && (
+        <section className={styles.block}>
+          <h2 className={styles.blockTitle}>Player of the Match</h2>
+          <PlayerOfMatchCard
+            award={match.playerOfMatch}
+            teams={[match.homeTeam, match.awayTeam]}
+          />
+        </section>
+      )}
+
       {showMoments && (
         <section className={styles.block}>
-          <h2 className={styles.blockTitle}>
-            Match Events <span className={styles.blockHint}>latest first</span>
-          </h2>
+          <h2 className={styles.blockTitle}>Match Events</h2>
           <MatchEvents events={events} pending={pending} />
           {/* Batsmen who left the middle without being dismissed — grouped with the
               moments because that is what a retirement is, and it is the only
@@ -828,9 +1039,19 @@ function InfoTab({
 
       {match.teamForm && (
         <section className={styles.block}>
-          <h2 className={styles.blockTitle}>Team Form <span className={styles.blockHint}>last 5 · latest first</span></h2>
+          <h2 className={styles.blockTitle}>Team Form <span className={styles.blockHint}>last 5</span></h2>
           <FormStrip team={match.homeTeam} form={match.teamForm.home} />
           <FormStrip team={match.awayTeam} form={match.teamForm.away} />
+        </section>
+      )}
+
+      {squads && (
+        <section className={styles.block}>
+          <h2 className={styles.squadsTitle}>Squads</h2>
+          <div className={styles.squads}>
+            <SquadColumn team={match.homeTeam} players={squads.home} />
+            <SquadColumn team={match.awayTeam} players={squads.away} />
+          </div>
         </section>
       )}
 
@@ -845,16 +1066,6 @@ function InfoTab({
           ))}
         </dl>
       </section>
-
-      {match.squads && (match.squads.home.length > 0 || match.squads.away.length > 0) && (
-        <section className={styles.block}>
-          <h2 className={styles.blockTitle}>Squads</h2>
-          <div className={styles.squads}>
-            <SquadColumn team={match.homeTeam} players={match.squads.home} />
-            <SquadColumn team={match.awayTeam} players={match.squads.away} />
-          </div>
-        </section>
-      )}
     </div>
   );
 }
@@ -864,12 +1075,18 @@ function InfoTab({
 function ScorecardTab({
   match,
   innings,
+  squads,
   pending,
+  onShowSquads,
 }: {
   match: Match;
   innings: InningsScore[];
+  /** Announced squads, or null while crex has none — only to know whether to point at them. */
+  squads: MatchSquads | null;
   /** The card is still being fetched — show placeholders, not an empty state. */
   pending?: boolean;
+  /** Switches to the tab the squads are on. */
+  onShowSquads: () => void;
 }) {
   const [selected, setSelected] = useState(Math.max(0, innings.length - 1));
   const current = innings[Math.min(selected, Math.max(0, innings.length - 1))];
@@ -886,6 +1103,34 @@ function ScorecardTab({
     current?.bowling ?? (isLatest ? match.scorecard?.bowling ?? [] : []);
   const extras = current?.extras ?? (isLatest ? match.scorecard?.extras : undefined);
   const yetToBat = current?.yetToBat ?? [];
+
+  // Before a ball is bowled there is no card at all — crex does not open an
+  // innings slot until the first delivery, so a Test hours from its start has
+  // nothing here to tabulate. One line saying so, and where the squads are,
+  // rather than two tables sitting empty.
+  const awaitingFirstBall = !pending && !batting.length && !bowling.length && !yetToBat.length;
+
+  if (awaitingFirstBall) {
+    return (
+      <div className={styles.panel}>
+        <section className={styles.block}>
+          <h2 className={styles.blockTitle}>Scorecard</h2>
+          <p className={styles.empty}>
+            The card opens with the first ball.
+            {squads && (
+              <>
+                {' '}
+                <button type="button" className={styles.emptyLink} onClick={onShowSquads}>
+                  See the squads
+                </button>{' '}
+                in Match Info.
+              </>
+            )}
+          </p>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.panel}>
@@ -924,8 +1169,9 @@ function ScorecardTab({
                 {batting.map((b) => (
                   <tr key={b.playerId}>
                     <td className={styles.left}>
-                      {b.name}
-                      {atCrease(b) && <span className={styles.notout}> *</span>}
+                      <PlayerLink id={b.playerId} name={b.name}>
+                        {atCrease(b) && <span className={styles.notout}> *</span>}
+                      </PlayerLink>
                     </td>
                     <td className={`${styles.left} ${styles.dismissal}`}>{dismissalOf(b)}</td>
                     <td className={styles.num}>{b.runs}</td>
@@ -984,7 +1230,7 @@ function ScorecardTab({
                   {/* Numbers continue the card above, so a side three down
                       starts at 4 rather than restarting at 1. */}
                   <span className={styles.yetToBatNum}>{batting.length + i + 1}</span>
-                  <span>{p.name}</span>
+                  <PlayerLink id={p.playerId} name={p.name} />
                 </li>
               ))}
             </ul>
@@ -1013,7 +1259,9 @@ function ScorecardTab({
               <tbody>
                 {bowling.map((b) => (
                   <tr key={b.playerId}>
-                    <td className={styles.left}>{b.name}</td>
+                    <td className={styles.left}>
+                      <PlayerLink id={b.playerId} name={b.name} />
+                    </td>
                     <td className={styles.num}>{fmtOvers(b.overs, perOver)}</td>
                     <td className={styles.num}>{b.maidens}</td>
                     <td className={styles.num}>{b.runs}</td>
@@ -1039,25 +1287,16 @@ function ScorecardTab({
 
 function CommentaryTab({
   overs,
-  isLive,
-  connected,
   pending,
 }: {
   overs: Array<[number, BallEntry[]]>;
-  isLive: boolean;
-  connected: boolean;
   /** The feed is still being fetched — show placeholders, not an empty state. */
   pending?: boolean;
 }) {
   return (
     <div className={styles.panel}>
       <section className={styles.block}>
-        <h2 className={styles.blockTitle}>
-          Ball by Ball
-          {isLive && (
-            <span className={styles.blockHint}>{connected ? 'updating live' : 'connecting…'}</span>
-          )}
-        </h2>
+        <h2 className={styles.blockTitle}>Ball by Ball</h2>
         {overs.length ? (
           <div className={styles.commentary}>
             {overs.map(([over, balls]) => (
