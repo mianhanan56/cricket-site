@@ -399,9 +399,17 @@
     border-bottom: 1px solid $card-border;
   }
 
+  // Rows rule off from each other, but a group heading opens its own block and
+  // must not carry the previous group's bottom border into it.
   tbody tr + tr th,
   tbody tr + tr td {
     border-top: 1px solid $card-border;
+  }
+
+  tbody + tbody tr:first-child th,
+  tbody + tbody tr:first-child td,
+  .groupRow th {
+    border-top: 0;
   }
 
   // The format is the row's name, so it reads as a heading rather than a cell —
@@ -429,6 +437,55 @@
 .figure {
   font-weight: 700;
   color: $accent-green;
+}
+
+// The International / Club & franchise divider inside a career table. A band,
+// not a heading — it separates without competing with the section title above.
+.groupRow th {
+  padding-top: $space-4;
+  padding-bottom: $space-1-5;
+  font-size: $text-2xs;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-muted;
+}
+
+// Career totals. Ruled off above rather than tinted: it is a sum of the rows, so
+// it reads as the end of the column, not as another entry in it.
+.totalRow {
+  th,
+  td {
+    padding-top: $space-2-5;
+    border-top: 2px solid $card-border;
+    font-weight: 700;
+  }
+}
+
+// A figure that opens the match it was made in — the highest score, a debut
+// fixture. Same restraint as the player links on the match page: the number
+// stays a number, and the underline is the affordance.
+.cellLink {
+  color: inherit;
+  text-decoration-color: transparent;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition:
+    color 0.15s ease,
+    text-decoration-color 0.15s ease;
+
+  &:hover {
+    color: $accent;
+    text-decoration-color: currentColor;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+    border-radius: 3px;
+    text-decoration-color: transparent;
+  }
 }
 
 // ── Debuts ──────────────────────────────────────────────────────────────────
@@ -467,57 +524,7 @@
 
 // ── Bio ─────────────────────────────────────────────────────────────────────
 
-.bio {
-  // The marker is replaced by the summary's own affordance below.
-  > summary::-webkit-details-marker {
-    display: none;
-  }
-}
-
-.bioSummary {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-2;
-  list-style: none;
-  cursor: pointer;
-  font-size: $text-sm;
-  font-weight: 600;
-  color: $accent;
-  transition: opacity 0.15s ease;
-
-  &::after {
-    content: '';
-    width: 6px;
-    height: 6px;
-    border-right: 2px solid currentColor;
-    border-bottom: 2px solid currentColor;
-    transform: rotate(45deg) translateY(-1px);
-    transition: transform 0.2s ease;
-  }
-
-  &:hover {
-    opacity: 0.75;
-  }
-
-  &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 3px;
-    border-radius: $radius-sm;
-  }
-
-  .bio[open] &::after {
-    transform: rotate(-135deg) translateY(-1px);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    &::after {
-      transition: none;
-    }
-  }
-}
-
 .bioBody {
-  margin-top: $space-4;
   max-width: 68ch;
   font-size: $text-sm;
   line-height: $leading-relaxed;

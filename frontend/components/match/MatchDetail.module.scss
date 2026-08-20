@@ -877,11 +877,63 @@
 
 // ---------------------------------------------------------------- Scorecard
 
+// Innings picker on the left, the innings' score on the right — which is the
+// space the picker was leaving empty. Stacked on a phone, where a Test's three
+// or four tabs already fill the row on their own.
+.inningsHead {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+
+  @include sm {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: $space-4;
+  }
+}
+
 .inningsPicker {
   @include scroll-x;
   display: flex;
   gap: $space-2;
   padding-bottom: $space-1; // room for the focus ring inside the scroll box
+  // In the flex row above, a scroll box has to be allowed to be narrower than
+  // its tabs or it pushes the score off the side instead of scrolling.
+  min-width: 0;
+}
+
+// The single-innings case: no tabs to label the card, so the innings names
+// itself. Same weight as a block title — it is one.
+.inningsName {
+  font-family: $font-display;
+  font-size: $text-sm;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: $text-secondary;
+}
+
+.inningsScore {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  flex-shrink: 0;
+}
+
+.inningsRuns {
+  @include score-number;
+  font-size: $text-2xl;
+  color: $accent-green;
+
+  @include sm {
+    font-size: $text-3xl;
+  }
+}
+
+.inningsOvers {
+  font-family: $font-mono;
+  font-size: $text-xs;
+  color: $text-muted;
 }
 
 .inningsBtn {

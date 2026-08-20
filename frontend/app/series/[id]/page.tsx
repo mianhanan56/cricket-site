@@ -62,15 +62,6 @@ function fmtDayTime(iso: string): string {
   });
 }
 
-/** "21 Jul → 16 Aug 2026" — the year printed once. */
-function span(start: string, end: string): string {
-  const from = fmtDate(start);
-  const to = fmtDate(end);
-  if (from === to) return to;
-
-  const sameYear = new Date(start).getFullYear() === new Date(end).getFullYear();
-  return `${sameYear ? fmtDate(start, false) : from} → ${to}`;
-}
 
 /**
  * One row of the schedule. Deliberately not a MatchCard: the schedule endpoint
@@ -96,11 +87,7 @@ function ScheduleRow({ match }: { match: SeriesScheduleMatch }) {
       {match.status === 'COMPLETED' && match.result ? (
         <span className={styles.rowResult}>{match.result}</span>
       ) : (
-        <span
-          className={`${styles.rowStatus} ${
-            match.status === 'LIVE' ? styles.live : styles.upcoming
-          }`}
-        >
+        <span className={styles.rowStatus} data-status={match.status}>
           {match.status === 'LIVE' && <span className={styles.dot} aria-hidden="true" />}
           {match.status}
         </span>
@@ -137,9 +124,19 @@ export default async function SeriesDetailPage({ params }: { params: { id: strin
   // endpoint cannot supply.
   const liveNow = feed.filter((m) => m.series.id === series.id && m.status === 'LIVE');
 
-  // Same rule as the series cards: the rail only reads as information mid-series.
-  const inProgress = series.playedCount > 0 && series.playedCount < series.matchCount;
-  const pct = inProgress ? Math.round((series.playedCount / series.matchCount) * 100) : 0;
+  // Same rail as the series cards, and drawn at every stage for the same reason:
+  // it is what carries the date span, so a card or header that dropped it lost
+  // its bottom row. Empty before a ball is bowled, full once it is over.
+  const pct =
+    series.matchCount > 0 ? Math.round((series.playedCount / series.matchCount) * 100) : 0;
+
+  // The rail's endpoints. The year prints on the end, and on the start only when
+  // the span actually crosses one.
+  const crossesYear =
+    new Date(series.startDate).getFullYear() !== new Date(series.endDate).getFullYear();
+  const start = fmtDate(series.startDate, crossesYear);
+  const end = fmtDate(series.endDate);
+  const oneDay = fmtDate(series.startDate) === end;
 
   return (
     <div className={styles.page}>
@@ -150,10 +147,10 @@ export default async function SeriesDetailPage({ params }: { params: { id: strin
         All series
       </Link>
 
-      <header className={styles.head}>
+      <header className={styles.head} data-status={series.status}>
         <div className={styles.chips}>
           <span className={styles.format}>{series.format}</span>
-          <span className={`${styles.status} ${styles[series.status.toLowerCase()]}`}>
+          <span className={styles.status}>
             {series.status === 'LIVE' && <span className={styles.dot} aria-hidden="true" />}
             {series.status}
           </span>
@@ -161,38 +158,54 @@ export default async function SeriesDetailPage({ params }: { params: { id: strin
 
         <h1 className={styles.heading}>{series.name}</h1>
 
-        <p className={styles.meta}>
-          {span(series.startDate, series.endDate)}
-          <span className={styles.sep} aria-hidden="true">
-            ·
+        {/* The same schedule block the series cards carry, sized up for a page
+            header: how many are played, how far through, over what dates. The
+            reader clicked that construct on /series and lands on it here. */}
+        <div className={styles.progress}>
+          <span className={styles.progressCount}>
+            {series.playedCount > 0 ? (
+              <>
+                <span className={styles.progressDone}>{series.playedCount}</span>
+                <span className={styles.progressOf} aria-hidden="true">
+                  /
+                </span>
+                {series.matchCount}
+                <span className={styles.progressLabel}>played</span>
+              </>
+            ) : (
+              <>
+                <span className={styles.progressDone}>{series.matchCount}</span>
+                <span className={styles.progressLabel}>
+                  {series.matchCount === 1 ? 'match' : 'matches'}
+                </span>
+              </>
+            )}
           </span>
-          {series.matchCount} {series.matchCount === 1 ? 'match' : 'matches'}
-        </p>
 
-        {/* Progress reads as information mid-series and as noise either side of
-            it — 0 played before it starts, all played once it is over. */}
-        {inProgress && (
-          <div className={styles.progress}>
-            <span className={styles.progressCount}>
-              <span className={styles.progressDone}>{series.playedCount}</span>
-              <span className={styles.progressOf} aria-hidden="true">
-                /
-              </span>
-              {series.matchCount}
-              <span className={styles.progressLabel}>played</span>
-            </span>
-            <span
-              className={styles.rail}
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={series.matchCount}
-              aria-valuenow={series.playedCount}
-              aria-label={`${series.playedCount} of ${series.matchCount} matches played`}
-            >
-              <span className={styles.fill} data-pct={pct} />
-            </span>
+          <span
+            className={styles.rail}
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={series.matchCount}
+            aria-valuenow={series.playedCount}
+            aria-label={`${series.playedCount} of ${series.matchCount} matches played`}
+          >
+            <span className={styles.fill} data-pct={pct} />
+          </span>
+
+          <div className={styles.span}>
+            {oneDay ? (
+              <time dateTime={series.startDate} className={styles.single}>
+                {end}
+              </time>
+            ) : (
+              <>
+                <time dateTime={series.startDate}>{start}</time>
+                <time dateTime={series.endDate}>{end}</time>
+              </>
+            )}
           </div>
-        )}
+        </div>
       </header>
 
       {liveNow.length > 0 && (

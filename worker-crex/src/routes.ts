@@ -68,11 +68,11 @@ export const ROUTES: RouteDef[] = [
     base: 'php',
     path: '/getLiveMatches',
     method: 'GET',
-    // 5s, matched to the frontend poll interval. These two numbers must move
+    // 2s, matched to the frontend poll interval. These two numbers must move
     // together — a longer TTL here caps freshness no matter how often the
     // client asks. Still collapses traffic hard: any number of viewers cost at
-    // most 12 upstream calls a minute between them.
-    ttl: 5,
+    // most 30 upstream calls a minute between them.
+    ttl: 2,
     note: 'All matches; obfuscated single-letter keys',
   },
   {

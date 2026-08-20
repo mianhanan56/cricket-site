@@ -397,6 +397,12 @@ export type PlayerRoleLabel = 'Batter' | 'Bowler' | 'All Rounder' | 'Wicket-keep
 export interface PlayerBattingCareer {
   /** Display label — "Test", "ODI", "T20I", "IPL", "T20-Blast". */
   format: string;
+  /**
+   * Played for a country rather than a club. crex groups its own tables this
+   * way and it is the split that matters: 1,300 T20 Blast runs and 1,300 Test
+   * runs are not the same achievement, and averaging them together says nothing.
+   */
+  international: boolean;
   matches: number;
   innings: number;
   runs: number;
@@ -409,11 +415,15 @@ export interface PlayerBattingCareer {
   sixes: number;
   /** crex sends this only on some formats; null where it does not. */
   ducks: number | null;
+  /** The match the highest score was made in, so the innings can be opened. */
+  highScoreMatchId: string | null;
 }
 
 /** A bowling career in one competition and format. */
 export interface PlayerBowlingCareer {
   format: string;
+  /** See PlayerBattingCareer.international. */
+  international: boolean;
   matches: number;
   innings: number;
   wickets: number;
@@ -453,6 +463,8 @@ export interface PlayerDebut {
   format: string;
   /** "England v South Africa Kennington Oval, London, 8-9-2022". */
   fixture: string;
+  /** The debut match itself, where crex still keys it. */
+  matchId: string | null;
 }
 
 export interface PlayerProfile {

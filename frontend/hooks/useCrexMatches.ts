@@ -22,11 +22,11 @@ import type { StoppageWatch } from '@/lib/crex';
 // stream we deliberately don't touch (see worker-crex/README) — so the only
 // option is polling.
 //
-// 5s is matched to the Worker's edge TTL on /matches/live, which was dropped to
-// 5s alongside this. The two numbers have to move together: polling faster than
+// 2s is matched to the Worker's edge TTL on /matches/live, which was dropped to
+// 2s alongside this. The two numbers have to move together: polling faster than
 // the TTL just serves the same cached body repeatedly, and a longer TTL would
 // cap freshness no matter how often we ask.
-const DEFAULT_INTERVAL_MS = 5_000;
+const DEFAULT_INTERVAL_MS = 2_000;
 
 // After a failure, back off rather than hammering a struggling upstream. Each
 // consecutive error doubles the wait, up to this ceiling.

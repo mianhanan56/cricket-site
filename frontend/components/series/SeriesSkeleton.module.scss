@@ -3,7 +3,7 @@
 // ===========================================================================
 // Series skeleton — bar geometry only.
 //
-// The containers (toolbar tabs, grid, card, header, footer) come from
+// The containers (toolbar tabs, grid, card, header, schedule) come from
 // SeriesFilter.module.scss / SeriesCard.module.scss so the placeholder occupies
 // the real layout. What lives here is the fixed widths the bars need: inside a
 // content-sized flex row a percentage collapses.
@@ -59,10 +59,20 @@
   margin-top: $space-1-5;
 }
 
-.dates {
-  width: 172px; // "3 Aug 2026 → 21 Aug 2026"
+.nameBlock {
+  width: 100%;
 }
 
 .count {
   width: 76px; // "12 matches"
+}
+
+.rail {
+  height: 5px;
+  border-radius: 999px;
+}
+
+.date {
+  width: 58px; // "14 Aug 2026"
+  height: 12px;
 }

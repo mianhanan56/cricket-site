@@ -139,7 +139,49 @@ function FormRail({
   );
 }
 
+/**
+ * Career rows split into international and everything else.
+ *
+ * crex prints one undifferentiated list, and it reads as a ranking of the
+ * player's competitions when it is nothing of the kind — 1,300 T20 Blast runs
+ * sitting directly under 3,395 Test runs invites exactly the comparison that
+ * makes no sense. Two groups, each with its own subtotal, is the same data
+ * saying something true.
+ */
+function groupCareer<T extends { international: boolean }>(rows: T[]): Array<[string, T[]]> {
+  const international = rows.filter((r) => r.international);
+  const club = rows.filter((r) => !r.international);
+  // One group only: no headings, because there is nothing to tell apart.
+  if (!international.length || !club.length) return [['', rows]];
+  return [
+    ['International', international],
+    ['Domestic & franchise', club],
+  ];
+}
+
+/** Sum one column across every row. */
+function total<T>(rows: T[], pick: (row: T) => number): number {
+  return rows.reduce((sum, row) => sum + pick(row), 0);
+}
+
+/**
+ * The highest score, linked to the innings it was made in where crex still keys
+ * that match.
+ */
+function HighScore({ row }: { row: PlayerBattingCareer }) {
+  if (!row.highScore) return <>—</>;
+  if (!row.highScoreMatchId) return <>{row.highScore}</>;
+
+  return (
+    <Link href={`/matches/${row.highScoreMatchId}`} className={styles.cellLink}>
+      {row.highScore}
+    </Link>
+  );
+}
+
 function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
+  const groups = groupCareer(rows);
+
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table}>
@@ -161,32 +203,69 @@ function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
             <th scope="col">Ducks</th>
           </tr>
         </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.format}>
-              <th className={styles.left} scope="row">
-                {r.format}
-              </th>
-              <td>{r.matches}</td>
-              <td>{r.innings}</td>
-              <td className={styles.figure}>{r.runs}</td>
-              <td>{r.highScore || '—'}</td>
-              <td>{fmtRate(r.average)}</td>
-              <td>{fmtRate(r.strikeRate)}</td>
-              <td>{r.hundreds}</td>
-              <td>{r.fifties}</td>
-              <td>{r.fours}</td>
-              <td>{r.sixes}</td>
-              <td>{fmtCount(r.ducks)}</td>
-            </tr>
-          ))}
-        </tbody>
+        {groups.map(([label, group]) => (
+          <tbody key={label || 'all'}>
+            {label && (
+              <tr className={styles.groupRow}>
+                <th className={styles.left} colSpan={12} scope="colgroup">
+                  {label}
+                </th>
+              </tr>
+            )}
+            {group.map((r) => (
+              <tr key={r.format}>
+                <th className={styles.left} scope="row">
+                  {r.format}
+                </th>
+                <td>{r.matches}</td>
+                <td>{r.innings}</td>
+                <td className={styles.figure}>{r.runs}</td>
+                <td>
+                  <HighScore row={r} />
+                </td>
+                <td>{fmtRate(r.average)}</td>
+                <td>{fmtRate(r.strikeRate)}</td>
+                <td>{r.hundreds}</td>
+                <td>{r.fifties}</td>
+                <td>{r.fours}</td>
+                <td>{r.sixes}</td>
+                <td>{fmtCount(r.ducks)}</td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
+        {/* Career totals — only where there is more than one row to add up, and
+            only the columns that genuinely do: an average and a strike rate would
+            need dismissals and balls faced, which crex does not send per format,
+            so they are dashed rather than invented from the per-format figures. */}
+        {rows.length > 1 && (
+        <tfoot>
+          <tr className={styles.totalRow}>
+            <th className={styles.left} scope="row">
+              Career
+            </th>
+            <td>{total(rows, (r) => r.matches)}</td>
+            <td>{total(rows, (r) => r.innings)}</td>
+            <td className={styles.figure}>{total(rows, (r) => r.runs)}</td>
+            <td>{Math.max(...rows.map((r) => r.highScore)) || '—'}</td>
+            <td>—</td>
+            <td>—</td>
+            <td>{total(rows, (r) => r.hundreds)}</td>
+            <td>{total(rows, (r) => r.fifties)}</td>
+            <td>{total(rows, (r) => r.fours)}</td>
+            <td>{total(rows, (r) => r.sixes)}</td>
+            <td>—</td>
+          </tr>
+        </tfoot>
+        )}
       </table>
     </div>
   );
 }
 
 function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
+  const groups = groupCareer(rows);
+
   return (
     <div className={styles.tableWrap}>
       <table className={styles.table}>
@@ -206,24 +285,51 @@ function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
             <th scope="col">5W</th>
           </tr>
         </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.format}>
-              <th className={styles.left} scope="row">
-                {r.format}
-              </th>
-              <td>{r.matches}</td>
-              <td>{r.innings}</td>
-              <td className={styles.figure}>{r.wickets}</td>
-              <td>{r.best ?? '—'}</td>
-              <td>{fmtRate(r.average)}</td>
-              <td>{fmtRate(r.economy)}</td>
-              <td>{fmtRate(r.strikeRate)}</td>
-              <td>{r.threeWickets}</td>
-              <td>{r.fiveWickets}</td>
-            </tr>
-          ))}
-        </tbody>
+        {groups.map(([label, group]) => (
+          <tbody key={label || 'all'}>
+            {label && (
+              <tr className={styles.groupRow}>
+                <th className={styles.left} colSpan={10} scope="colgroup">
+                  {label}
+                </th>
+              </tr>
+            )}
+            {group.map((r) => (
+              <tr key={r.format}>
+                <th className={styles.left} scope="row">
+                  {r.format}
+                </th>
+                <td>{r.matches}</td>
+                <td>{r.innings}</td>
+                <td className={styles.figure}>{r.wickets}</td>
+                <td>{r.best ?? '—'}</td>
+                <td>{fmtRate(r.average)}</td>
+                <td>{fmtRate(r.economy)}</td>
+                <td>{fmtRate(r.strikeRate)}</td>
+                <td>{r.threeWickets}</td>
+                <td>{r.fiveWickets}</td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
+        {rows.length > 1 && (
+        <tfoot>
+          <tr className={styles.totalRow}>
+            <th className={styles.left} scope="row">
+              Career
+            </th>
+            <td>{total(rows, (r) => r.matches)}</td>
+            <td>{total(rows, (r) => r.innings)}</td>
+            <td className={styles.figure}>{total(rows, (r) => r.wickets)}</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td>{total(rows, (r) => r.threeWickets)}</td>
+            <td>{total(rows, (r) => r.fiveWickets)}</td>
+          </tr>
+        </tfoot>
+        )}
       </table>
     </div>
   );
@@ -387,7 +493,15 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             {player.debuts.map((d) => (
               <div key={d.format} className={styles.debutRow}>
                 <dt>{d.format}</dt>
-                <dd>{d.fixture}</dd>
+                <dd>
+                  {d.matchId ? (
+                    <Link href={`/matches/${d.matchId}`} className={styles.cellLink}>
+                      {d.fixture}
+                    </Link>
+                  ) : (
+                    d.fixture
+                  )}
+                </dd>
               </div>
             ))}
           </dl>
@@ -397,18 +511,12 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       {player.bio && (
         <section className={styles.block}>
           <h2 className={styles.blockTitle}>Profile</h2>
-          {/* A <details> rather than a toggle: the bios run to several thousand
-              words, and this keeps the page short without making the whole
-              section depend on client JavaScript. */}
-          <details className={styles.bio}>
-            <summary className={styles.bioSummary}>Read profile</summary>
-            {/* crex's HTML, stripped to a handful of structural tags with every
-                attribute dropped — see `sanitizeBio` in lib/crex. */}
-            <div
-              className={styles.bioBody}
-              dangerouslySetInnerHTML={{ __html: player.bio }}
-            />
-          </details>
+          {/* crex's HTML, stripped to a handful of structural tags with every
+              attribute dropped — see `sanitizeBio` in lib/crex. Printed in full:
+              the bio carries the domestic career and the story the tables
+              cannot, and hiding it behind a toggle was one click between the
+              reader and the only prose on the page. */}
+          <div className={styles.bioBody} dangerouslySetInnerHTML={{ __html: player.bio }} />
         </section>
       )}
     </div>

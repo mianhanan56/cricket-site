@@ -1,9 +1,15 @@
 @use 'component' as *;
 
-// Series detail: a quiet identity block (chips → name → dates/count) followed by
-// the schedule split into In progress / Upcoming / Results. The match cards are
-// the page's substance, so the header stays deliberately flat — no glass panel
-// competing with the row of cards directly beneath it.
+// Series detail: a quiet identity block (chips → name → schedule block) followed
+// by the live cards and the full schedule list. The match cards are the page's
+// substance, so the header stays deliberately flat — no glass panel competing
+// with the row of cards directly beneath it.
+//
+// The header carries the same schedule block as SeriesCard — tally, rail, and
+// the start/end dates sitting under the rail's ends as its axis — sized up for a
+// page. Clicking a card should land you on the construct you clicked.
+// `--tint` is the same per-status colour channel the cards use, set here on the
+// header and on each schedule row's status pill.
 
 .page {
   @include container;
@@ -32,7 +38,21 @@
 }
 
 .head {
+  --tint: var(--accent-blue);
   margin-block: $space-3 $space-6;
+
+  &[data-status='LIVE'] {
+    --tint: var(--live);
+  }
+
+  &[data-status='UPCOMING'] {
+    --tint: var(--accent-purple);
+  }
+
+  // A finished series is the one state that should recede.
+  &[data-status='COMPLETED'] {
+    --tint: var(--muted-foreground);
+  }
 }
 
 .chips {
@@ -47,16 +67,19 @@
 // they land on carry the same two markers.
 .format {
   flex-shrink: 0;
+  font-family: $font-mono;
   font-size: $text-2xs;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   padding: $space-1 $space-2;
-  border-radius: $radius-md;
+  border-radius: $radius-sm;
   background: $surface-elevated;
   border: 1px solid $card-border;
   color: $text-secondary;
 }
 
+// Drawn entirely from --tint, so one rule covers all three states — the same
+// pill the card the reader came from was wearing.
 .status {
   display: inline-flex;
   align-items: center;
@@ -64,22 +87,12 @@
   flex-shrink: 0;
   font-size: $text-2xs;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   padding: $space-1 $space-2;
-  border-radius: $radius-md;
-}
-
-.live {
-  color: $live-color;
-  background: color-mix(in oklab, var(--live) 15%, transparent);
-}
-.upcoming {
-  color: $accent-purple;
-  background: color-mix(in oklab, var(--accent-purple) 15%, transparent);
-}
-.completed {
-  color: $text-secondary;
-  background: $surface-elevated;
+  border-radius: $radius-sm;
+  color: color-mix(in oklab, var(--tint) 88%, var(--fg));
+  background: color-mix(in oklab, var(--tint) 13%, transparent);
+  border: 1px solid color-mix(in oklab, var(--tint) 24%, transparent);
 }
 
 .dot {
@@ -111,23 +124,13 @@
   overflow-wrap: anywhere; // long tour names must not widen the page
 }
 
-.meta {
-  margin-top: $space-2;
-  font-size: $text-sm;
-  color: $text-muted;
-}
-
-.sep {
-  margin-inline: $space-2;
-}
-
-// Progress rail — same component language as SeriesCard's footer, sized up for
-// the page header. Capped so it stays a meter, not a decorative full-bleed line.
+// Schedule block — the card's footer, sized up. Capped so the rail stays a
+// meter rather than a decorative full-bleed line across a 1280px page.
 .progress {
   display: flex;
   flex-direction: column;
   gap: $space-2;
-  max-width: 320px;
+  max-width: 360px;
   margin-top: $space-4;
 }
 
@@ -164,9 +167,10 @@
 .rail {
   position: relative;
   display: block;
-  height: 5px;
+  height: 6px;
   border-radius: 999px;
   background: $surface-elevated;
+  box-shadow: inset 0 0 0 1px $card-border;
   overflow: hidden;
 }
 
@@ -174,7 +178,11 @@
   position: absolute;
   inset: 0 auto 0 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, color-mix(in oklab, var(--accent-green) 55%, transparent), $accent);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--tint) 45%, transparent),
+    color-mix(in oklab, var(--tint) 95%, var(--fg))
+  );
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
   @for $i from 0 through 100 {
@@ -188,6 +196,26 @@
   .fill {
     transition: none;
   }
+}
+
+// The rail's endpoint labels — its axis, quiet by design.
+.span {
+  @include flex-between;
+  gap: $space-2;
+  font-family: $font-mono;
+  font-size: $text-xs;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: $text-muted;
+
+  time {
+    @include truncate(1);
+  }
+}
+
+// A single-day series has no span to draw: one centred date, no false endpoints.
+.single {
+  margin-inline: auto;
 }
 
 .section {
@@ -317,6 +345,7 @@
 }
 
 .rowStatus {
+  --tint: var(--accent-purple); // UPCOMING is the default state of a fixture
   display: inline-flex;
   align-items: center;
   gap: $space-1-5;
@@ -324,9 +353,16 @@
   justify-self: start;
   font-size: $text-2xs;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   padding: 2px $space-2;
-  border-radius: $radius-md;
+  border-radius: $radius-sm;
+  color: color-mix(in oklab, var(--tint) 88%, var(--fg));
+  background: color-mix(in oklab, var(--tint) 13%, transparent);
+  border: 1px solid color-mix(in oklab, var(--tint) 24%, transparent);
+
+  &[data-status='LIVE'] {
+    --tint: var(--live);
+  }
 
   @include tablet {
     grid-column: auto;

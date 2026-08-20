@@ -1134,18 +1134,51 @@ function ScorecardTab({
 
   return (
     <div className={styles.panel}>
-      {innings.length >= 2 && (
-        <div className={styles.inningsPicker} role="tablist" aria-label="Innings">
-          {innings.map((inn, i) => (
-            <button
-              key={inn.inning ?? `${inn.teamShortName}-${i}`}
-              type="button"
-              className={`${styles.inningsBtn} ${i === selected ? styles.active : ''}`}
-              onClick={() => setSelected(i)}
-            >
-              {inn.inning ?? `${inn.teamShortName} — Innings ${i + 1}`}
-            </button>
-          ))}
+      {/* The innings this card is showing, and what it came to.
+          
+          The score used to appear only as the `Total` row at the foot of the
+          batting table — the last thing on a Test card that is four screens
+          long, and the first thing a reader wants. It leads now, at the size the
+          match header prints a score, and the total row still closes the table
+          for anyone reading it as a table. */}
+      {current && (
+        <div className={styles.inningsHead}>
+          {innings.length >= 2 ? (
+            <div className={styles.inningsPicker} role="tablist" aria-label="Innings">
+              {innings.map((inn, i) => (
+                <button
+                  key={inn.inning ?? `${inn.teamShortName}-${i}`}
+                  type="button"
+                  className={`${styles.inningsBtn} ${i === selected ? styles.active : ''}`}
+                  onClick={() => setSelected(i)}
+                >
+                  {inn.inning ?? `${inn.teamShortName} — Innings ${i + 1}`}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <h2 className={styles.inningsName}>
+              {current.inning ?? `${current.teamShortName} — Innings 1`}
+            </h2>
+          )}
+
+          {/* A side that is listed but has not batted has no score to print —
+              its 0/0 is an absence, not a total. */}
+          {!current.notStarted && (
+            <p className={styles.inningsScore}>
+              {/* No "d" for a declaration, deliberately: the flag only exists on
+                  the feed's innings, and this tab reads the fetched card, which
+                  replaces them wholesale and carries no declaration marker of
+                  its own. Better absent than shown on some matches and not
+                  others. */}
+              <span className={styles.inningsRuns}>
+                {current.runs}/{current.wickets}
+              </span>
+              <span className={styles.inningsOvers}>
+                ({formatProgressShort(current.overs, perOver)})
+              </span>
+            </p>
+          )}
         </div>
       )}
 

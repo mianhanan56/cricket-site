@@ -2,13 +2,7 @@ import Link from 'next/link';
 import type { SeriesSummary } from '@/types';
 import styles from './SeriesCard.module.scss';
 
-const STATUS_CLASS: Record<SeriesSummary['status'], string> = {
-  LIVE: 'isLive',
-  UPCOMING: 'isUpcoming',
-  COMPLETED: 'isCompleted',
-};
-
-function fmtDate(iso: string, withYear = true): string {
+function fmtDate(iso: string, withYear = false): string {
   return new Date(iso).toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
@@ -16,95 +10,94 @@ function fmtDate(iso: string, withYear = true): string {
   });
 }
 
-/**
- * "21 Jul → 16 Aug 2026", collapsed to one date for a single-day series.
- *
- * The year is printed once. Real series spans run weeks — now that these are the
- * whole competition rather than the feed's window, repeating "2026" on both ends
- * is noise on every card.
- */
-function dateRange(start: string, end: string): string {
-  const sameYear = new Date(start).getFullYear() === new Date(end).getFullYear();
-  const s = fmtDate(start, !sameYear);
-  const e = fmtDate(end);
-  return fmtDate(start) === e ? e : `${s} → ${e}`;
-}
-
 export default function SeriesCard({ series }: { series: SeriesSummary }) {
   const isLive = series.status === 'LIVE';
-  const range = dateRange(series.startDate, series.endDate);
 
-  // Progress only means something part-way through — nothing played yet, or
-  // everything played, is already said by the status pill, so the rail stays off.
-  const played = series.playedCount;
-  const inProgress = played !== undefined && played > 0 && played < series.matchCount;
-  const pct = inProgress ? Math.round((played / series.matchCount) * 100) : 0;
+  // The rail's endpoints are the series' own start and end, so the year is
+  // printed once — on the end — and only where the span actually crosses one.
+  const crossesYear =
+    new Date(series.startDate).getFullYear() !== new Date(series.endDate).getFullYear();
+  const start = fmtDate(series.startDate, crossesYear);
+  const end = fmtDate(series.endDate, true);
+  const oneDay = fmtDate(series.startDate, true) === end;
+
+  // The fill is the share of the schedule already played. Unlike the old rail
+  // this is drawn at every stage — 0% for an upcoming series, full for a
+  // finished one — because the rail is now also what carries the date span, and
+  // a card that dropped it lost its bottom row entirely.
+  const played = series.playedCount ?? (series.status === 'COMPLETED' ? series.matchCount : 0);
+  const pct = series.matchCount > 0 ? Math.round((played / series.matchCount) * 100) : 0;
+  const showTally = played > 0;
 
   return (
-    <Link href={`/series/${series.id}`} className={styles.card}>
+    <Link href={`/series/${series.id}`} className={styles.card} data-status={series.status}>
       {/* header — format chip on the left, status on the right */}
       <div className={styles.header}>
         <span className={styles.format}>{series.format}</span>
-        <span className={`${styles.status} ${styles[STATUS_CLASS[series.status]]}`}>
+        <span className={styles.status}>
           {isLive && <span className={styles.dot} aria-hidden="true" />}
           {series.status}
         </span>
       </div>
 
-      {/* series name */}
+      {/* series name — the headline of the card */}
       <h3 className={styles.name}>{series.name}</h3>
 
-      {/* date range (collapsed to one date for single-day series) */}
-      <div className={styles.dates}>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="18" rx="2" />
-          <path d="M16 2v4M8 2v4M3 10h18" />
-        </svg>
-        <span>{range}</span>
-      </div>
-
-      {/* footer — the series' progress through its schedule, and the view link */}
-      <div className={styles.footer}>
+      {/* schedule block: how many are played, how far through, and over what dates */}
+      <div className={styles.schedule}>
         <div className={styles.tally}>
-          {inProgress ? (
-            <span className={styles.count}>
-              <span className={styles.done}>{played}</span>
-              <span className={styles.of} aria-hidden="true">
-                /
-              </span>
-              {series.matchCount}
-              <span className={styles.label}>played</span>
-            </span>
-          ) : (
-            <span className={styles.count}>
-              {series.matchCount}
-              <span className={styles.label}>
-                {series.matchCount === 1 ? 'match' : 'matches'}
-              </span>
-            </span>
-          )}
+          <span className={styles.count}>
+            {showTally ? (
+              <>
+                <span className={styles.done}>{played}</span>
+                <span className={styles.of} aria-hidden="true">
+                  /
+                </span>
+                {series.matchCount}
+                <span className={styles.label}>played</span>
+              </>
+            ) : (
+              <>
+                <span className={styles.done}>{series.matchCount}</span>
+                <span className={styles.label}>
+                  {series.matchCount === 1 ? 'match' : 'matches'}
+                </span>
+              </>
+            )}
+          </span>
 
-          <span className={styles.view}>
+          <span className={styles.view} aria-hidden="true">
             View
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </span>
         </div>
 
-        {/* The rail carries the "how far through" reading that a bare number can't. */}
-        {inProgress && (
-          <span
-            className={styles.rail}
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={series.matchCount}
-            aria-valuenow={played}
-            aria-label={`${played} of ${series.matchCount} matches played`}
-          >
-            <span className={styles.fill} data-pct={pct} />
-          </span>
-        )}
+        <span
+          className={styles.rail}
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={series.matchCount}
+          aria-valuenow={played}
+          aria-label={`${played} of ${series.matchCount} matches played`}
+        >
+          <span className={styles.fill} data-pct={pct} />
+        </span>
+
+        {/* the rail's endpoints are the span it covers */}
+        <div className={styles.span}>
+          {oneDay ? (
+            <time dateTime={series.startDate} className={styles.single}>
+              {end}
+            </time>
+          ) : (
+            <>
+              <time dateTime={series.startDate}>{start}</time>
+              <time dateTime={series.endDate}>{end}</time>
+            </>
+          )}
+        </div>
       </div>
     </Link>
   );

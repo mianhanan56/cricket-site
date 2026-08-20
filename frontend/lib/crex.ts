@@ -1096,20 +1096,28 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
 }
 
 /**
- * A single match by crex key, or null if crex no longer lists it.
+ * A single match by crex key, or null if nothing knows the key.
  *
- * Reads the same list endpoint rather than crex's per-match ones: those return
+ * The live list is tried first: it is one cache entry shared with the home page,
+ * and it carries everything this app renders — crex's per-match endpoints return
  * a heavily encoded live-state blob (`"l":"43:1.1.6.2.W.1"`) that we do not
- * decode, and the list already carries everything this app renders. It also
- * means the detail page shares the Worker's cache entry with the home page.
+ * decode.
+ *
+ * But that list is a *window* — what is on now, next, and just gone. Anything
+ * older has aged out of it, and every link into an older match (a player's
+ * recent form, a finished series' schedule, a fixture from last month) used to
+ * land on a 404 for that reason alone. `getCrexArchivedMatch` is the fallback
+ * for those.
  */
 export async function getCrexMatch(id: string, opts: FetchOpts = {}): Promise<Match | null> {
   const raw = await getCrexMatches(opts);
   const match = raw[id];
-  if (!match || !isRenderableMatch(match)) return null;
+  if (match && isRenderableMatch(match)) {
+    const names = await resolveNames([match], opts);
+    return toMatch(id, match, names);
+  }
 
-  const names = await resolveNames([match], opts);
-  return toMatch(id, match, names);
+  return getCrexArchivedMatch(id, opts).catch(() => null);
 }
 
 /**
@@ -1440,6 +1448,18 @@ interface CrexMatchInfo {
   x?: string;
   /** Team f_keys, in the order `tb` lists them: "S-U". */
   t?: string;
+  /**
+   * Series f_key. The one field that makes an aged-out match recoverable: the
+   * series' own schedule still lists it, with its result and its status, long
+   * after the live feed has dropped it. See `getCrexArchivedMatch`.
+   */
+  s?: string;
+  /** Venue f_key. */
+  v?: string;
+  /** Scheduled start, ISO. */
+  dt?: string;
+  /** Format label, crex's wording: "Test", "First Class", "One Day". */
+  fo?: string;
 }
 
 /** `tb`'s role field. Anything unrecognised falls back to batter. */
@@ -2021,6 +2041,107 @@ const SERIES_MATCH_FORMAT: Record<number, MatchFormat> = {
   5: 'T20',
 };
 
+/**
+ * A match the live feed has aged out, rebuilt from the endpoints keyed by match
+ * rather than by window.
+ *
+ * `/matches/live` is the only endpoint that carries a whole match in one object,
+ * and it is a rolling window: on now, next, just gone. Everything a reader might
+ * actually click through to — an innings from a player's recent form, a Test
+ * from a series that finished in May, a fixture from last month — is outside it,
+ * and used to 404 for no better reason than that.
+ *
+ * Three calls, in a chain, because none of them is sufficient alone:
+ *
+ *   1. `/match/info`  is keyed by match and answers for any age. It has the
+ *      squads and the venue but no teams-and-result summary — what it does have
+ *      is `s`, the series key.
+ *   2. `/series/matches` for that series lists every match in it with both
+ *      sides, the venue, the match number, the status and the result text. That
+ *      is the row this match's header is built from.
+ *   3. `/match/scorecard` for the innings, so the page server-renders with a
+ *      score rather than flashing an empty header until the client card lands.
+ *
+ * Every one is edge-cached for five minutes or more, and this only runs when the
+ * feed misses, so a live match still costs exactly one request.
+ *
+ * Two fields the feed has and this cannot: `note` (there is no in-play state to
+ * report on a finished match) and `playerOfMatch` (crex sends the award only on
+ * the feed object). Both come back null rather than guessed at.
+ */
+async function getCrexArchivedMatch(id: string, opts: FetchOpts = {}): Promise<Match | null> {
+  const key = cleanKey(id);
+  if (!key) return null;
+
+  // The caller's freshness window is the live one — /matches/[id] asks for five
+  // seconds, because a match in progress moves that fast. Nothing on this path
+  // does: it only runs for a match the feed has already let go of. So the
+  // caller's `revalidate` is dropped and each endpoint keeps its own, while the
+  // abort signal still passes through.
+  const archived: FetchOpts = { signal: opts.signal };
+
+  const info = await crexGet<CrexMatchInfo>(`/match/info?key=${encodeURIComponent(key)}`, {
+    ...archived,
+    revalidate: 3600,
+  }).catch(() => null);
+
+  const seriesKey = cleanKey(info?.s);
+  if (!seriesKey) return null;
+
+  const schedule = await getCrexSeriesMatches(seriesKey, archived).catch(() => null);
+  const row = Object.values(schedule ?? {})
+    .flat()
+    .find((m) => m?.mf === key);
+  if (!row) return null;
+
+  const names = await resolveKeys(
+    {
+      t: [row.t1f ?? '', row.t2f ?? ''],
+      v: [row.vf ?? '', info?.v ?? ''],
+      s: [seriesKey],
+    },
+    archived
+  );
+
+  const homeTeam = toTeam(row.t1f ?? '', names);
+  const awayTeam = toTeam(row.t2f ?? '', names);
+  const status = SERIES_MATCH_STATUS[row.s ?? 0] ?? 'UPCOMING';
+  const hundred = row.ft === HUNDRED_FORMAT;
+  const perOver = hundred ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER;
+
+  // A match that has not started has no card to fetch — crex does not open an
+  // innings slot until the first ball.
+  const innings =
+    status === 'UPCOMING'
+      ? []
+      : await getCrexScorecard(key, {
+          ...archived,
+          revalidate: 3600,
+          ballsPerOver: perOver,
+          status,
+        }).catch(() => []);
+
+  const startedAt = row.t ?? (info?.dt ? Date.parse(info.dt) : NaN);
+
+  return {
+    id: key,
+    homeTeam,
+    awayTeam,
+    series: { id: seriesKey, name: names.s.get(seriesKey)?.n ?? 'Cricket' },
+    format: SERIES_MATCH_FORMAT[row.ft ?? 0] ?? 'T20',
+    status,
+    venue: names.v.get(cleanKey(row.vf || info?.v))?.n ?? 'TBD',
+    startTime: new Date(Number.isFinite(startedAt) ? startedAt : Date.now()).toISOString(),
+    ballsPerOver: perOver,
+    ballsLimit: hundred ? HUNDRED_BALLS : null,
+    result: row.r || null,
+    note: null,
+    day: null,
+    playerOfMatch: null,
+    scorecard: innings.length ? { innings } : null,
+  };
+}
+
 /** One row of a series' schedule, with keys resolved to names. */
 export interface SeriesScheduleMatch {
   /**
@@ -2430,6 +2551,17 @@ interface CrexCareerRow<S> {
   s: S;
 }
 
+/**
+ * A match referenced from inside a career row — the innings a highest score was
+ * made in, or the debut. Only `mf` is read; crex sends a dozen more fields
+ * (team keys, the numeric match_id, the series) that duplicate what the match
+ * page fetches for itself.
+ */
+interface CrexCareerMatchRef {
+  /** Match f_key. */
+  mf?: string;
+}
+
 interface CrexBattingStats {
   m?: number;
   i?: number;
@@ -2452,8 +2584,12 @@ interface CrexBattingStats {
    */
   du?: number;
   dk?: number;
+  /** The innings the highest score was made in. */
+  hsm?: CrexCareerMatchRef | null;
   /** Batting debut, as prose. */
   btd?: string;
+  /** The debut match itself. Null on the leagues crex has not keyed. */
+  btdm?: CrexCareerMatchRef | null;
 }
 
 interface CrexBowlingStats {
@@ -2472,6 +2608,8 @@ interface CrexBowlingStats {
   bsr?: number;
   /** Bowling debut, as prose. */
   bod?: string;
+  /** The debut match itself. */
+  bodm?: CrexCareerMatchRef | null;
 }
 
 /** One of the last ten innings — crex's `c.btf` / `c.bof`. */
@@ -2520,6 +2658,17 @@ interface CrexPlayerOverview {
  * competition code with everything else international, and `18` is the Hundred
  * under its scoring name.
  */
+/**
+ * The competition codes that are senior international cricket.
+ *
+ * 1 is bilateral international — Test, ODI and T20I all share it — and 100 is
+ * the ODI World Cup, which crex files as its own competition. Everything else in
+ * `PLAYER_COMPETITIONS` is domestic or franchise: First class and List A, the
+ * IPL, the PSL, the Hundred, the Blast. Under-19 is left out deliberately: crex
+ * uses one code for age-group cricket at every level, so it cannot be called.
+ */
+const INTERNATIONAL_COMPETITIONS = new Set([1, 100]);
+
 const PLAYER_COMPETITIONS: Record<number, string> = {
   1: 'T20I',
   2: 'First class',
@@ -2745,13 +2894,14 @@ export async function getCrexPlayerProfile(
   const debuts: PlayerDebut[] = [];
   for (const row of [...batting, ...bowling]) {
     const format = playerFormatLabel(row.st, row.ft);
-    const fixture = (
-      (row.s as CrexBattingStats).btd ??
-      (row.s as CrexBowlingStats).bod ??
-      ''
-    ).trim();
+    const stats = row.s as CrexBattingStats & CrexBowlingStats;
+    const fixture = (stats.btd ?? stats.bod ?? '').trim();
     if (!format || !fixture || debuts.some((d) => d.format === format)) continue;
-    debuts.push({ format, fixture });
+    debuts.push({
+      format,
+      fixture,
+      matchId: cleanKey(stats.btdm?.mf ?? stats.bodm?.mf) || null,
+    });
   }
 
   return {
@@ -2795,6 +2945,7 @@ export async function getCrexPlayerProfile(
         const s = row.s ?? {};
         return {
           format,
+          international: INTERNATIONAL_COMPETITIONS.has(row.st),
           matches: s.m ?? 0,
           innings: s.i ?? 0,
           runs: s.r ?? 0,
@@ -2806,6 +2957,7 @@ export async function getCrexPlayerProfile(
           fours: s.fr ?? 0,
           sixes: s.sx ?? 0,
           ducks: s.du ?? s.dk ?? null,
+          highScoreMatchId: cleanKey(s.hsm?.mf) || null,
         } satisfies PlayerBattingCareer;
       })
       .filter((r): r is PlayerBattingCareer => r !== null),
@@ -2816,6 +2968,7 @@ export async function getCrexPlayerProfile(
         const s = row.s ?? {};
         return {
           format,
+          international: INTERNATIONAL_COMPETITIONS.has(row.st),
           matches: s.m ?? 0,
           innings: s.i ?? 0,
           wickets: s.w ?? 0,

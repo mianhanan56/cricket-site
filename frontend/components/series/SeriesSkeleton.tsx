@@ -10,7 +10,7 @@ const CARDS = [0, 1, 2, 3, 4, 5];
 
 /**
  * One series card's worth of placeholder — format chip, status pill, a two-line
- * name, the date range and the match count.
+ * name, and the schedule block (match count, rail, and its two date endpoints).
  *
  * Every container class is borrowed from the real SeriesCard, so the placeholder
  * occupies exactly the box the content will.
@@ -23,15 +23,20 @@ export function SeriesCardSkeleton() {
         <Skeleton className={s.statusPill} />
       </div>
 
-      <Skeleton variant="title" className={s.name} />
-      <Skeleton variant="title" className={s.name2} />
-
-      <div className={series.dates}>
-        <Skeleton variant="body" className={s.dates} />
+      <div className={s.nameBlock}>
+        <Skeleton variant="title" className={s.name} />
+        <Skeleton variant="title" className={s.name2} />
       </div>
 
-      <div className={series.footer}>
-        <Skeleton variant="body" className={s.count} />
+      <div className={series.schedule}>
+        <div className={series.tally}>
+          <Skeleton variant="body" className={s.count} />
+        </div>
+        <Skeleton className={s.rail} />
+        <div className={series.span}>
+          <Skeleton variant="body" className={s.date} />
+          <Skeleton variant="body" className={s.date} />
+        </div>
       </div>
     </div>
   );
