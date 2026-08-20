@@ -203,16 +203,14 @@ export default function FixturesFilter({
                     </>
                   );
 
-                  // A fixture weeks out has no match key yet and so no page to
-                  // open; linking it anyway would send every one to a 404.
-                  return m.matchKey ? (
-                    <Link key={m.id} href={`/matches/${m.matchKey}`} className={styles.card}>
+                  // A fixture weeks out has no match key yet, but it does have a
+                  // page: `m.id` falls back to the preview id built from its
+                  // series and row, which /matches/[id] resolves back to this
+                  // fixture. Every card opens.
+                  return (
+                    <Link key={m.id} href={`/matches/${m.id}`} className={styles.card}>
                       {body}
                     </Link>
-                  ) : (
-                    <div key={m.id} className={styles.cardStatic}>
-                      {body}
-                    </div>
                   );
                 })}
               </div>

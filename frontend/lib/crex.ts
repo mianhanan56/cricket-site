@@ -20,6 +20,7 @@ import type {
   BatsmanLine,
   BowlerLine,
   CommentaryBall,
+  ExtrasBreakdown,
   InningsPhase,
   InningsScore,
   Match,
@@ -28,6 +29,7 @@ import type {
   MatchFormat,
   MatchNote,
   MatchNoteKind,
+  MatchSquads,
   MatchStatus,
   PlayerBattingCareer,
   PlayerBowlingCareer,
@@ -38,10 +40,26 @@ import type {
   PlayerRanking,
   PlayerRole,
   PlayerRoleLabel,
+  PointsTableGroup,
+  PointsTableRow,
+  RankingFormat,
+  RankingGender,
   RetirementKind,
+  SeriesBattingTotals,
+  SeriesBowlingTotals,
+  SeriesLeader,
+  SeriesLeaderKind,
+  SeriesLeaders,
+  SeriesStatKind,
+  SeriesStatRow,
+  SeriesStatTable,
   SeriesSummary,
   SquadPlayer,
   Team,
+  TeamColors,
+  TeamProfile,
+  TeamRankingPosition,
+  HeadToHeadMatch,
 } from '@/types';
 import {
   DEFAULT_BALLS_PER_OVER,
@@ -194,6 +212,14 @@ interface CrexMapEntry {
   n: string;
   /** Short name — teams only. */
   sn?: string;
+  /**
+   * Club colours — teams only, and the reason a team page can look like that
+   * team. `cc` arrives as "0-#8F65E6": a mode flag, a dash, and the hex. `uc`
+   * and `dc` are plain hex. crex uses them for their own team crest chips.
+   */
+  cc?: string;
+  uc?: string;
+  dc?: string;
 }
 
 export interface CrexMapping {
@@ -1066,6 +1092,7 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
     format,
     status,
     venue: names.v.get(cleanKey(m.v))?.n ?? 'TBD',
+    venueId: cleanKey(m.v) || null,
     startTime: toStartTime(m.ti),
     // `hb` carries the balls-per-over on The Hundred and is absent elsewhere.
     ballsPerOver: perOver,
@@ -1189,6 +1216,31 @@ interface CrexScorecardInnings {
   e?: string;
   /** Partnerships — not surfaced in the UI. */
   p?: string[];
+}
+
+/**
+ * "byes.legByes.wides.noBalls.penalty" → the five lines, plus their sum.
+ *
+ * Missing or short strings degrade to zeroes rather than NaN: crex sends a bare
+ * "" for an innings that has not conceded an extra yet, and older cards stop
+ * before the penalty field.
+ */
+function decodeExtras(raw: string | undefined): { total: number; breakdown: ExtrasBreakdown } {
+  const [byes, legByes, wides, noBalls, penalty] = (raw ?? '')
+    .split('.')
+    .map((n) => Number(n) || 0);
+  const breakdown: ExtrasBreakdown = {
+    byes: byes ?? 0,
+    legByes: legByes ?? 0,
+    wides: wides ?? 0,
+    noBalls: noBalls ?? 0,
+    penalty: penalty ?? 0,
+  };
+
+  return {
+    total: Object.values(breakdown).reduce((sum, n) => sum + n, 0),
+    breakdown,
+  };
 }
 
 /** Index of the dismissal-type token; its presence means the innings ended. */
@@ -1376,6 +1428,8 @@ export async function getCrexScorecard(
     const inningsNumber = (seenPerTeam.get(teamKey) ?? 0) + 1;
     seenPerTeam.set(teamKey, inningsNumber);
 
+    const extras = decodeExtras(inn.e);
+
     return {
       teamId: teamKey,
       inningsNumber,
@@ -1386,7 +1440,8 @@ export async function getCrexScorecard(
       // An innings with an XI but no total has not begun. Callers use this to
       // keep a "0/0" out of the header while still listing the side.
       notStarted: !total,
-      extras: (inn.e ?? '').split('.').reduce((sum, n) => sum + (Number(n) || 0), 0),
+      extras: extras.total,
+      extrasBreakdown: extras.breakdown,
       batting: lines
         .map((line) => decodeBatsman(line, nameCache))
         .filter((x): x is BatsmanLine => x !== null),
@@ -1984,8 +2039,14 @@ export function seriesFromMatches(matches: Match[]): SeriesSummary[] {
 
 /** One match as the series endpoint sends it, keyed by date ("2026/7/21"). */
 export interface CrexSeriesMatch {
-  /** Match f_key — the id /matches/{id} takes. */
+  /** Match f_key — the id /matches/{id} takes. Empty until crex allocates one. */
   mf: string;
+  /**
+   * crex's own row id, present on every row whether or not it has a match key.
+   * It is what a still-unallocated fixture is addressed by — see
+   * `scheduledMatchId`.
+   */
+  id?: number;
   /** Team 1 / team 2 keys. Resolve via /mapping `t`. */
   t1f?: string;
   t2f?: string;
@@ -2131,6 +2192,7 @@ async function getCrexArchivedMatch(id: string, opts: FetchOpts = {}): Promise<M
     format: SERIES_MATCH_FORMAT[row.ft ?? 0] ?? 'T20',
     status,
     venue: names.v.get(cleanKey(row.vf || info?.v))?.n ?? 'TBD',
+    venueId: cleanKey(row.vf || info?.v) || null,
     startTime: new Date(Number.isFinite(startedAt) ? startedAt : Date.now()).toISOString(),
     ballsPerOver: perOver,
     ballsLimit: hundred ? HUNDRED_BALLS : null,
@@ -2142,14 +2204,118 @@ async function getCrexArchivedMatch(id: string, opts: FetchOpts = {}): Promise<M
   };
 }
 
+/**
+ * Ids for a scheduled match crex has not allocated a match key to yet.
+ *
+ * crex only mints a match key (`mf`) a day or two before the match; everything
+ * further out arrives with an empty one. Those rows used to render inert —
+ * present in a schedule, not openable — which is wrong on the reader's terms: an
+ * announced Test at Lord's three weeks out is exactly the fixture someone wants
+ * the page for, and the schedule row already carries the sides, the ground and
+ * the start time.
+ *
+ * So a fixture is addressed by the two things crex *does* give it: the series it
+ * belongs to and its row id inside that series' schedule. `/matches/fx-2BG-47478`
+ * is that pair, and `getCrexScheduledMatch` reads the row back out of
+ * /series/matches. The `fx-` prefix keeps these apart from real match keys, which
+ * are upper-case alphanumerics with no separator.
+ *
+ * The id is stable for as long as the fixture is unallocated, and the moment crex
+ * does allocate a key /matches/[id] redirects to it — see the route.
+ */
+const SCHEDULED_ID_PREFIX = 'fx-';
+
+/** The preview id for one row of a series schedule. */
+export function scheduledMatchId(
+  seriesKey: string | undefined,
+  rowId: string | number | null | undefined
+): string {
+  return `${SCHEDULED_ID_PREFIX}${cleanKey(seriesKey)}-${rowId ?? ''}`;
+}
+
+/** The series and row an `fx-` id names, or null if this is not one. */
+export function parseScheduledMatchId(
+  id: string
+): { seriesKey: string; rowId: string } | null {
+  if (!id.startsWith(SCHEDULED_ID_PREFIX)) return null;
+  const [seriesKey, rowId] = id.slice(SCHEDULED_ID_PREFIX.length).split('-');
+  if (!seriesKey || !rowId) return null;
+  return { seriesKey: cleanKey(seriesKey), rowId };
+}
+
+/**
+ * One unallocated fixture, rebuilt from its series' schedule.
+ *
+ * Everything a preview needs is on the row — both sides, the ground, the start
+ * time, the format, the match number — and nothing else can be had: there is no
+ * card, no feed and no squad list for a match crex has no key for. So this
+ * returns the header and lets the match page render its upcoming state around
+ * it, which is the same state it already renders for a keyed fixture.
+ *
+ * `id` comes back as the *real* match key when crex has allocated one since the
+ * link was rendered. The route reads that and redirects, so a preview link never
+ * outlives the preview.
+ */
+export async function getCrexScheduledMatch(
+  id: string,
+  opts: FetchOpts = {}
+): Promise<Match | null> {
+  const parsed = parseScheduledMatchId(id);
+  if (!parsed) return null;
+  const { seriesKey, rowId } = parsed;
+
+  // The caller's freshness window is the live one (five seconds — see the
+  // route). A fixture weeks out does not move at that rate, so the endpoint
+  // keeps its own window and only the abort signal passes through.
+  const scheduled: FetchOpts = { signal: opts.signal };
+
+  const schedule = await getCrexSeriesMatches(seriesKey, scheduled).catch(() => null);
+  const row = Object.values(schedule ?? {})
+    .flat()
+    .find((m) => m && String(m.id ?? '') === rowId);
+  if (!row?.t) return null;
+
+  const names = await resolveKeys(
+    { t: [row.t1f ?? '', row.t2f ?? ''], v: [row.vf ?? ''], s: [seriesKey] },
+    scheduled
+  );
+
+  const hundred = row.ft === HUNDRED_FORMAT;
+
+  return {
+    id: cleanKey(row.mf) || id,
+    homeTeam: toTeam(row.t1f ?? '', names),
+    awayTeam: toTeam(row.t2f ?? '', names),
+    series: { id: seriesKey, name: names.s.get(seriesKey)?.n ?? 'Cricket' },
+    format: SERIES_MATCH_FORMAT[row.ft ?? 0] ?? 'T20',
+    status: SERIES_MATCH_STATUS[row.s ?? 0] ?? 'UPCOMING',
+    venue: names.v.get(cleanKey(row.vf))?.n ?? 'TBD',
+    venueId: cleanKey(row.vf) || null,
+    startTime: new Date(row.t).toISOString(),
+    ballsPerOver: hundred ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER,
+    ballsLimit: hundred ? HUNDRED_BALLS : null,
+    result: row.r || null,
+    note: null,
+    day: null,
+    playerOfMatch: null,
+    scorecard: null,
+  };
+}
+
 /** One row of a series' schedule, with keys resolved to names. */
 export interface SeriesScheduleMatch {
   /**
-   * Match key, or null on a fixture crex has not allocated one to yet — the
-   * playoffs of a league in progress, typically. Those rows are still real
-   * scheduled matches and still count; they just have nothing to link to.
+   * What /matches/{id} takes for this row — the match key where crex has
+   * allocated one, and the `fx-` preview id where it has not. Always openable:
+   * an unallocated fixture is a preview, not a dead row.
    */
-  id: string | null;
+  id: string;
+  /**
+   * The real match key, or null on a fixture crex has not allocated one to yet.
+   * The flag for anything that needs the match's *own* endpoints — a scorecard,
+   * a feed, a squad list — none of which exist before the key does.
+   */
+  matchKey: string | null;
   /** Stable list key: the match key, or its slot in the schedule. */
   key: string;
   /** "1", "Final", or null when crex has not numbered it. */
@@ -2158,6 +2324,8 @@ export interface SeriesScheduleMatch {
   status: MatchStatus;
   startTime: string;
   venue: string;
+  /** Venue f_key, so a schedule row's ground is a link. Null on a "TBD". */
+  venueId: string | null;
   result: string | null;
   homeTeam: Team;
   awayTeam: Team;
@@ -2212,7 +2380,8 @@ export async function getCrexSeriesSchedule(
   );
 
   const matches: SeriesScheduleMatch[] = rows.map((m, i) => ({
-    id: m.mf || null,
+    id: m.mf || scheduledMatchId(id, m.id),
+    matchKey: m.mf || null,
     key: m.mf || `${id}-${i}`,
     // crex sometimes sends the number in its encoded form ("^0"), which is not a
     // number and not worth decoding for a list index.
@@ -2221,6 +2390,7 @@ export async function getCrexSeriesSchedule(
     status: SERIES_MATCH_STATUS[m.s ?? 0] ?? 'UPCOMING',
     startTime: new Date(m.t).toISOString(),
     venue: names.v.get(cleanKey(m.vf))?.n ?? 'TBD',
+    venueId: cleanKey(m.vf) || null,
     result: m.r || null,
     homeTeam: toTeam(m.t1f ?? '', names),
     awayTeam: toTeam(m.t2f ?? '', names),
@@ -2266,12 +2436,14 @@ export function seriesScheduleFromMatches(
     playedCount: playedCount(mine),
     matches: mine.map((m) => ({
       id: m.id,
+      matchKey: m.id,
       key: m.id,
       matchNo: null,
       format: m.format,
       status: m.status,
       startTime: m.startTime,
       venue: m.venue,
+      venueId: m.venueId ?? null,
       result: m.result ?? null,
       homeTeam: m.homeTeam,
       awayTeam: m.awayTeam,
@@ -2299,7 +2471,7 @@ export function withFeedStatuses(schedule: SeriesSchedule, feed: Match[]): Serie
 
   const matches = fresh.size
     ? schedule.matches.map((m) => {
-        const current = m.id ? fresh.get(m.id) : undefined;
+        const current = m.matchKey ? fresh.get(m.matchKey) : undefined;
         return current && current !== m.status ? { ...m, status: current } : m;
       })
     : schedule.matches;
@@ -2327,7 +2499,7 @@ export interface CrexFixtureRow {
   /**
    * Match f_key — the id /matches/{id} takes. Absent on most future fixtures:
    * crex allocates the key close to the match, so anything more than a few days
-   * out has no match page to link to yet.
+   * out is linked by its `fx-` preview id instead (see `scheduledMatchId`).
    */
   mf?: string;
   /** crex's own row id. Always present, so it is what keys the list. */
@@ -2363,9 +2535,10 @@ export interface CrexFixtureRow {
  * A scheduled match, in our vocabulary.
  *
  * A `Match` plus the one thing the schedule cannot promise: `matchKey` is the
- * crex id when crex has allocated one and null otherwise, so a card knows
- * whether it has anywhere to link. `id` stays populated either way (it falls
- * back to the row id) because everything downstream keys lists off it.
+ * crex id when crex has allocated one and null otherwise, so anything that needs
+ * the match's own endpoints — card, feed, squads — knows whether they exist. `id`
+ * is always a page: the match key, or the `fx-` preview id built from the series
+ * and the row (see `scheduledMatchId`).
  */
 export interface Fixture extends Match {
   matchKey: string | null;
@@ -2399,7 +2572,7 @@ function toFixture(row: CrexFixtureRow, names: typeof nameCache): Fixture {
   ].filter((i): i is InningsScore => i !== null);
 
   return {
-    id: matchKey ?? `fx-${row.id}`,
+    id: matchKey ?? scheduledMatchId(seriesKey, row.id),
     matchKey,
     homeTeam,
     awayTeam,
@@ -2407,6 +2580,7 @@ function toFixture(row: CrexFixtureRow, names: typeof nameCache): Fixture {
     format: SERIES_MATCH_FORMAT[row.ft ?? 0] ?? 'T20',
     status,
     venue: names.v.get(cleanKey(row.vf))?.n ?? 'TBD',
+    venueId: cleanKey(row.vf) || null,
     startTime: new Date(row.t ?? Date.now()).toISOString(),
     ballsPerOver: hundred ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER,
     ballsLimit: hundred ? HUNDRED_BALLS : null,
@@ -2423,12 +2597,67 @@ function toFixture(row: CrexFixtureRow, names: typeof nameCache): Fixture {
  * out — page boundaries fall mid-day, and crex repeats a day's tail on the next
  * page often enough to matter.
  */
-export async function getCrexFixtureList(
-  opts: FetchOpts & { pages?: number } = {}
-): Promise<Fixture[]> {
+export function getCrexFixtureList(opts: FetchOpts & { pages?: number } = {}): Promise<Fixture[]> {
   const pages = opts.pages ?? FIXTURE_PAGES;
+  return fixturesFromPages(
+    Array.from({ length: pages }, (_, page) => page),
+    opts
+  );
+}
+
+/**
+ * The schedule *behind* today as well as ahead of it — the corpus the derived
+ * pages (a venue's record, a side's form, a head-to-head) are read out of.
+ *
+ * crex publishes no endpoint for any of those. What it does publish is a
+ * schedule whose finished rows carry the scores and the result sentence, so the
+ * only way to answer "what has happened at this ground" is to hold a window of
+ * that schedule and filter it. This is that window.
+ *
+ * `back` and `forward` are page counts, not days: a page is 20 matches, which is
+ * a little over a day of listed cricket worldwide. The defaults are deliberately
+ * the *same* for every caller — every page share the same cache entries that
+ * way, so the second derived page in a session costs almost nothing.
+ */
+export function getCrexFixtureRange(
+  opts: FetchOpts & { back?: number; forward?: number } = {}
+): Promise<Fixture[]> {
+  const back = opts.back ?? CORPUS_BACK;
+  const forward = opts.forward ?? CORPUS_FORWARD;
+  const pages: number[] = [];
+  for (let p = -back; p <= forward; p++) pages.push(p);
+  return fixturesFromPages(pages, { revalidate: CORPUS_REVALIDATE, ...opts });
+}
+
+/**
+ * Pages behind today, and pages ahead, for the derived corpus.
+ *
+ * Sized by what the pages built on it need rather than by what is available: a
+ * ground hosts a handful of matches a month and two sides in the same league meet
+ * two or three times a season, so a record worth printing needs weeks. A page is
+ * a little over a day of listed cricket worldwide, which puts this at roughly
+ * seven weeks back — enough for a venue to have a dozen results and for two
+ * league sides to have met more than once.
+ *
+ * `back` stops short of the Worker's ±60 bound rather than reaching it: the pages
+ * are fetched in parallel, and the last ten cost the same as the first ten while
+ * adding matches old enough that a "recent form" strip built on them would be
+ * describing a different squad.
+ */
+const CORPUS_BACK = 45;
+const CORPUS_FORWARD = 12;
+
+/**
+ * Half an hour. Longer than the schedule's own 5-minute TTL on purpose — nothing
+ * read out of this corpus is live. A result from three weeks ago does not change,
+ * and the one match that might have finished in the last half hour changes a
+ * venue's chase/defend split by one.
+ */
+const CORPUS_REVALIDATE = 1800;
+
+async function fixturesFromPages(pages: number[], opts: FetchOpts = {}): Promise<Fixture[]> {
   const settled = await Promise.all(
-    Array.from({ length: pages }, (_, page) => getCrexFixtures(page, opts).catch(() => []))
+    pages.map((page) => getCrexFixtures(page, opts).catch(() => []))
   );
 
   // Both keys are needed: `id` is crex's row id and `mf` the match key, and a row
@@ -2985,5 +3214,1213 @@ export async function getCrexPlayerProfile(
     recentBatting: recentBatting.map((r) => toFormEntry(r, 'batting', names)),
     recentBowling: recentBowling.map((r) => toFormEntry(r, 'bowling', names)),
     debuts,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Standings
+// ---------------------------------------------------------------------------
+//
+// The one response in this file that is not obfuscated. `/series/table` sends
+// crex's own column headings — `P`, `W`, `L`, `NR`, `Pts`, `NRR` — as strings,
+// even the ones that are numbers, so the decode here is mostly parseInt and a
+// rename. What it is *not* is a table: see below.
+
+/** One row of a points table, in crex's own vocabulary. */
+interface CrexPointsRow {
+  team_fkey?: string;
+  team_name?: string;
+  P?: string;
+  W?: string;
+  L?: string;
+  /** Limited-overs tables only. A Test table sends `Draw` instead. */
+  NR?: string;
+  /** Test tables only. */
+  Draw?: string;
+  Pts?: string;
+  /** "0" on a Test table, where the figure does not exist. */
+  NRR?: string;
+  /** crex's own position. Not the order the rows arrive in. */
+  rank?: number;
+  /** Last five, oldest first: ["W","L","W","W","W"]. */
+  rf?: string[];
+  qualified?: number;
+  eliminated?: number;
+  is_winner?: number;
+}
+
+/** One group. A league sends a single entry; a group stage sends one per group. */
+interface CrexPointsGroup {
+  g_name?: string;
+  pt_info?: CrexPointsRow[];
+}
+
+/** Raw standings for one series. An array of groups — see `getCrexSeriesTable`. */
+function getCrexPointsTable(
+  seriesKey: string,
+  opts: FetchOpts = {}
+): Promise<CrexPointsGroup[]> {
+  return crexGet<CrexPointsGroup[]>(
+    `/series/table?key=${encodeURIComponent(cleanKey(seriesKey))}`,
+    { revalidate: 300, ...opts }
+  );
+}
+
+/** crex's `rf` letters. Anything else — an abandoned game — reads as a no-result. */
+function formLetter(raw: string): 'W' | 'L' | 'N' {
+  const c = (raw ?? '').trim().toUpperCase();
+  return c === 'W' ? 'W' : c === 'L' ? 'L' : 'N';
+}
+
+/** `"4"` → 4. Every count on this response is a string, and some are absent. */
+const asCount = (raw: string | undefined): number => {
+  const n = Number.parseInt(raw ?? '', 10);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/**
+ * A count that may not exist as a column at all.
+ *
+ * The distinction matters: a limited-overs table has an `NR` column that can
+ * legitimately read 0, and a Test table has no `NR` column whatsoever. Both
+ * would be `0` through `asCount`, and the table would then draw an empty NR
+ * column on every Test series.
+ */
+const asOptionalCount = (raw: string | undefined): number | null =>
+  raw === undefined ? null : asCount(raw);
+
+/**
+ * Sides a group needs before it is a tournament rather than a bilateral series.
+ *
+ * Two is a tour: England and Pakistan playing each other three times, where the
+ * table is a scoreline (won, lost, drawn) and there are no competition points to
+ * award. Three is the smallest field that awards them — a tri-series.
+ *
+ * crex sends `Pts` on both and fills it with zeros on the tour, which is what
+ * makes this a decision rather than a read: the column exists on the wire and
+ * means nothing there. See `PointsTableGroup.tournament`.
+ */
+const MIN_TABLE_ROWS = 3;
+
+/** NRR, or null where the format has none. See the `netRunRate` note on the type. */
+function nullableRate(raw: string | undefined): string | null {
+  const text = (raw ?? '').trim();
+  if (!text || text === '0' || text === '0.000' || text === '-') return null;
+  return text;
+}
+
+/**
+ * A series' standings, grouped.
+ *
+ * Groups, not one table, because that is what crex sends and what the
+ * competition is: the CPL answers with a single group, a World Cup group stage
+ * with one per group. Flattening them would produce a standing that describes no
+ * competition — Group A's third-placed side listed above Group B's leader.
+ *
+ * Rows arrive **unsorted**; `rank` is crex's own position and is what they are
+ * ordered by here. Sorting on points instead would disagree with crex on exactly
+ * the rows where it matters, because the tiebreaker below points is net run rate
+ * and below that it is head-to-head, which this response does not carry.
+ *
+ * Returns an empty array for a series with no table — a bilateral tour, which is
+ * most of them. That is a normal answer, not a failure: the caller renders
+ * nothing rather than an empty table.
+ */
+export async function getCrexSeriesTable(
+  seriesKey: string,
+  opts: FetchOpts = {}
+): Promise<PointsTableGroup[]> {
+  const raw = await getCrexPointsTable(seriesKey, opts);
+  // Any group with rows, whether or not anything has been played in it: a table
+  // of zeros still names the sides and says nobody has a point yet, which is a
+  // real answer and the state crex shows. Only an empty group is dropped.
+  const groups = (Array.isArray(raw) ? raw : []).filter((g) => g?.pt_info?.length);
+  if (!groups.length) return [];
+
+  const names = await resolveKeys(
+    { t: groups.flatMap((g) => (g.pt_info ?? []).map((r) => r.team_fkey ?? '')) },
+    opts
+  );
+
+  // A single-table competition puts the competition's own name in `g_name`,
+  // which above one table is the page heading again — so it is dropped there and
+  // kept only where it distinguishes one group from another.
+  const named = groups.length > 1;
+
+  return groups.map((g) => ({
+    name: named ? g.g_name?.trim() || null : null,
+    tournament: (g.pt_info?.length ?? 0) >= MIN_TABLE_ROWS,
+    rows: (g.pt_info ?? [])
+      .map((r) => {
+        const teamKey = cleanKey(r.team_fkey);
+        const team = toTeam(teamKey, names);
+
+        return {
+          teamKey,
+          // crex names the side on the row itself, which is the one place in this
+          // API where a name arrives without a mapping lookup. Preferred over the
+          // resolved name only as a fallback, so the whole app says "Guyana
+          // Amazon Warriors" the same way.
+          team: team.name === teamKey && r.team_name ? { ...team, name: r.team_name } : team,
+          rank: r.rank ?? 0,
+          played: asCount(r.P),
+          won: asCount(r.W),
+          lost: asCount(r.L),
+          noResult: asOptionalCount(r.NR),
+          drawn: asOptionalCount(r.Draw),
+          points: asCount(r.Pts),
+          // crex fills NRR with a bare "0" on a Test table, where net run rate
+          // is not a thing. Printed as-is that reads as a real rate of exactly
+          // zero, which is a figure no side has ever had.
+          netRunRate: nullableRate(r.NRR),
+          form: (r.rf ?? []).map(formLetter),
+          qualified: r.qualified === 1,
+          eliminated: r.eliminated === 1,
+          champion: r.is_winner === 1,
+        } satisfies PointsTableRow;
+      })
+      .sort((a, b) => a.rank - b.rank),
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Series leaders
+// ---------------------------------------------------------------------------
+//
+// The tournament's honours board, out of crex's series *overview* rather than
+// any stats endpoint — every `seriesInside/get*StatsForSeriesID` spelling 404s,
+// and the block is a corner of a payload that mostly carries things this app
+// gets elsewhere. Only `i4` is read here.
+//
+// Its shape is worth naming: `i4.i` is keyed by crex format id, and each entry
+// holds every category as a ONE-ENTRY ARRAY — `mr[0]` is the leading run scorer,
+// not the list of them. There is no "top five" on the wire; a single name per
+// category is all this answers, which is why the UI is an honours board and not
+// a leaderboard table.
+
+/** One category's leader as crex sends it. Players and teams are f_keys. */
+interface CrexLeader {
+  /** The category's own code, repeated inside the entry ("mr", "mw"). */
+  name?: string;
+  /** Team f_key. */
+  tf?: string;
+  /** Player f_key. */
+  pf?: string;
+  /**
+   * The headline figure. A string on the counting categories ("416", "17/5") and
+   * a number on the rates, because crex sends each as it stores it.
+   */
+  v?: string | number;
+  /** Innings batted or bowled in. */
+  bi?: string;
+  /** Strike rate, on the batting categories. */
+  sr?: number;
+  /** Economy, on `mw`. */
+  econ?: number;
+  /** Runs a best strike rate came off — `bsr` only. */
+  r?: string;
+  /** Wickets a best economy was taken at — `bec` only. */
+  w?: string;
+}
+
+/** The tournament's own tallies, sent beside the leaders. */
+interface CrexLeaderTotals {
+  t4?: string;
+  t6?: string;
+}
+
+type CrexLeaderBlock = Partial<Record<string, CrexLeader[]>> & { totals?: CrexLeaderTotals };
+
+/**
+ * crex's series overview. `i1`–`i9`, of which this app reads one: `i4`, the
+ * leaders. The rest duplicates the schedule, table and venues it already has.
+ */
+interface CrexSeriesOverview {
+  i4?: {
+    /** Active format — which key of `i` the series is currently playing. */
+    af?: number;
+    /** Leaders by format id. */
+    i?: Record<string, CrexLeaderBlock>;
+  };
+}
+
+export function getCrexSeriesOverview(
+  seriesKey: string,
+  opts: FetchOpts = {}
+): Promise<CrexSeriesOverview> {
+  return crexGet<CrexSeriesOverview>(
+    `/series/overview?key=${encodeURIComponent(cleanKey(seriesKey))}`,
+    { revalidate: 300, ...opts }
+  );
+}
+
+/** A rate as a printed figure: crex sends 169.7959, cricket prints 169.80. */
+const rate = (n: number | undefined): string | null =>
+  typeof n === 'number' && Number.isFinite(n) ? n.toFixed(2) : null;
+
+/** The headline figure, whichever way crex typed it. */
+function leaderValue(raw: CrexLeader['v']): string | null {
+  if (typeof raw === 'number') return Number.isInteger(raw) ? String(raw) : rate(raw);
+  const text = (raw ?? '').trim();
+  return text || null;
+}
+
+/**
+ * Best bowling figures, printed the way cricket writes them.
+ *
+ * crex sends "19/5" — runs first, wickets second — which read straight off the
+ * wire says nineteen wickets for five runs. Flipped here, with the one guard the
+ * ambiguity allows: a second number above ten cannot be a wicket count, so a
+ * payload that already arrives wickets-first is left alone.
+ */
+function bowlingFigures(raw: CrexLeader['v']): string | null {
+  const text = leaderValue(raw);
+  if (!text || !text.includes('/')) return text;
+
+  const [first, second] = text.split('/');
+  const wickets = Number.parseInt(second ?? '', 10);
+  if (!Number.isFinite(wickets) || wickets > 10) return text;
+  return `${second}/${first}`;
+}
+
+/** Category order, labels, and how each one's figure and footnote are built. */
+const LEADER_SPECS: Array<{
+  code: string;
+  kind: SeriesLeaderKind;
+  label: string;
+  value: (l: CrexLeader) => string | null;
+  support: (l: CrexLeader) => string | null;
+}> = [
+  {
+    code: 'mr',
+    kind: 'RUNS',
+    label: 'Most runs',
+    value: (l) => leaderValue(l.v),
+    support: (l) => (rate(l.sr) ? `SR ${rate(l.sr)}` : null),
+  },
+  {
+    code: 'mw',
+    kind: 'WICKETS',
+    label: 'Most wickets',
+    value: (l) => leaderValue(l.v),
+    support: (l) => (rate(l.econ) ? `Econ ${rate(l.econ)}` : null),
+  },
+  {
+    code: 'hs',
+    kind: 'HIGHEST_SCORE',
+    label: 'Highest score',
+    value: (l) => leaderValue(l.v),
+    support: (l) => (rate(l.sr) ? `SR ${rate(l.sr)}` : null),
+  },
+  {
+    code: 'bf',
+    kind: 'BEST_FIGURES',
+    label: 'Best figures',
+    value: (l) => bowlingFigures(l.v),
+    support: () => null,
+  },
+  { code: 'ms', kind: 'SIXES', label: 'Most sixes', value: (l) => leaderValue(l.v), support: () => null },
+  { code: 'mf', kind: 'FOURS', label: 'Most fours', value: (l) => leaderValue(l.v), support: () => null },
+  {
+    code: 'bsr',
+    kind: 'STRIKE_RATE',
+    label: 'Best strike rate',
+    value: (l) => leaderValue(l.v),
+    // The runs it came off, because a strike rate without them is a rate over an
+    // unknown number of balls — 200 off 10 is not the same claim as 200 off 300.
+    support: (l) => (l.r ? `${l.r} runs` : null),
+  },
+  {
+    code: 'bec',
+    kind: 'ECONOMY',
+    label: 'Best economy',
+    value: (l) => leaderValue(l.v),
+    support: (l) => (l.w ? `${l.w} wkts` : null),
+  },
+  { code: 'md', kind: 'DOTS', label: 'Most dots', value: (l) => leaderValue(l.v), support: () => null },
+  {
+    code: 'mfp',
+    kind: 'FANTASY',
+    label: 'Most fantasy points',
+    value: (l) => leaderValue(l.v),
+    support: () => null,
+  },
+];
+
+const asTotal = (raw: string | undefined): number | null => {
+  const n = Number.parseInt(raw ?? '', 10);
+  return Number.isFinite(n) ? n : null;
+};
+
+/**
+ * Who is leading this tournament, and in what.
+ *
+ * Returns null where crex has no leaders for the series — a tour that has not
+ * started, and every series whose overview carries no `i4` — so the caller can
+ * drop the section rather than render an empty board.
+ *
+ * A multi-format tour sends one block per format. The one crex marks active
+ * (`af`) is used, because that is the leg being played and the leg the page is
+ * about; falling back to the first key covers a finished tour where `af` no
+ * longer matches anything.
+ */
+export async function getCrexSeriesLeaders(
+  seriesKey: string,
+  opts: FetchOpts = {}
+): Promise<SeriesLeaders | null> {
+  const overview = await getCrexSeriesOverview(seriesKey, opts);
+  const blocks = overview.i4?.i ?? {};
+  const keys = Object.keys(blocks);
+  if (!keys.length) return null;
+
+  const active = String(overview.i4?.af ?? '');
+  const block = blocks[active] ?? blocks[keys[0]];
+  if (!block) return null;
+
+  const found = LEADER_SPECS.map((spec) => ({ spec, entry: block[spec.code]?.[0] })).filter(
+    (row): row is { spec: (typeof LEADER_SPECS)[number]; entry: CrexLeader } =>
+      Boolean(row.entry?.pf && row.spec.value(row.entry as CrexLeader))
+  );
+  if (!found.length) return null;
+
+  const names = await resolveKeys(
+    {
+      p: found.map((r) => r.entry.pf ?? ''),
+      t: found.map((r) => r.entry.tf ?? ''),
+    },
+    opts
+  );
+
+  const leaders: SeriesLeader[] = found.map(({ spec, entry }) => {
+    const playerKey = cleanKey(entry.pf);
+    const innings = Number.parseInt(entry.bi ?? '', 10);
+
+    return {
+      kind: spec.kind,
+      label: spec.label,
+      // Non-null: the filter above kept only the entries whose value resolved.
+      value: spec.value(entry) as string,
+      playerKey,
+      playerName: names.p.get(playerKey)?.n ?? playerKey,
+      playerImage: playerKey ? `${PLAYER_IMAGE_BASE}/${playerKey}.png` : null,
+      team: toTeam(cleanKey(entry.tf), names),
+      innings: Number.isFinite(innings) ? innings : null,
+      support: spec.support(entry),
+    };
+  });
+
+  return {
+    leaders,
+    fours: asTotal(block.totals?.t4),
+    sixes: asTotal(block.totals?.t6),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Series stat tables — the full ranking behind an honour
+// ---------------------------------------------------------------------------
+//
+// crex has no series-leaderboard endpoint. Their own "Most Runs in …" page is a
+// GraphQL call (`getFinalData` on crickapi.com/graphql) keyed by a numeric
+// tournament id and season string that nothing in the public payloads resolves —
+// probing it with every id this app can see returns empty rows.
+//
+// So the ranking is aggregated from the scorecards, which are public and carry
+// every column the table needs. That is more requests than an endpoint would be
+// (one per played match), so it is deliberately confined to the stat pages, is
+// fetched with a long revalidate, and runs at a bounded concurrency.
+//
+// One consequence worth naming: these figures are ours, from the cards, while
+// the headline on a Key stats card is crex's own. They agree in almost every
+// case; where a match was awarded without a completed card they can differ by a
+// row. The table is the honest one — it shows its working.
+
+/** Matches whose cards are read for one table. Two full seasons of a league. */
+const STAT_MATCH_CAP = 80;
+
+/** Cards fetched at once. Enough to be quick, few enough to be polite. */
+const STAT_FETCH_WIDTH = 8;
+
+/** Long, because a finished card never changes and a live one is not the point. */
+const STAT_REVALIDATE = 900;
+
+interface StatAccumulator {
+  playerKey: string;
+  name: string;
+  teamKey: string;
+  team: Team;
+  /** Matches the player appeared in, either discipline. */
+  matches: Set<string>;
+  bat: {
+    innings: number;
+    runs: number;
+    balls: number;
+    fours: number;
+    sixes: number;
+    notOuts: number;
+    fifties: number;
+    hundreds: number;
+    best: number;
+    bestNotOut: boolean;
+  };
+  bowl: {
+    innings: number;
+    balls: number;
+    runs: number;
+    wickets: number;
+    bestWickets: number;
+    bestRuns: number;
+    fiveFors: number;
+  };
+}
+
+function emptyAccumulator(playerKey: string, name: string, team: Team): StatAccumulator {
+  return {
+    playerKey,
+    name,
+    teamKey: team.id,
+    team,
+    matches: new Set(),
+    bat: {
+      innings: 0,
+      runs: 0,
+      balls: 0,
+      fours: 0,
+      sixes: 0,
+      notOuts: 0,
+      fifties: 0,
+      hundreds: 0,
+      best: -1,
+      bestNotOut: false,
+    },
+    bowl: { innings: 0, balls: 0, runs: 0, wickets: 0, bestWickets: -1, bestRuns: 0, fiveFors: 0 },
+  };
+}
+
+const ratio = (top: number, bottom: number): number | null =>
+  bottom > 0 ? Math.round((top / bottom) * 100) / 100 : null;
+
+/**
+ * Run the fetches a few at a time.
+ *
+ * A 43-match league fetched all at once is 43 simultaneous requests through the
+ * Worker for one page render; sequentially it is 43 round trips. Neither is
+ * right, so the list is walked in slices.
+ */
+async function inWidth<T, R>(items: T[], width: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = [];
+  for (let i = 0; i < items.length; i += width) {
+    out.push(...(await Promise.all(items.slice(i, i + width).map(fn))));
+  }
+  return out;
+}
+
+/** How each table is labelled, sorted, and what figure it prints. */
+const STAT_SPECS: Record<
+  SeriesStatKind,
+  {
+    label: string;
+    discipline: 'BATTING' | 'BOWLING';
+    /** Rows that do not clear this are not in the table at all. */
+    qualifies: (row: SeriesStatRow) => boolean;
+    /** The printed figure. */
+    value: (row: SeriesStatRow) => string;
+    /** Descending sort keys, most significant first. Ties fall to the next. */
+    keys: (row: SeriesStatRow) => number[];
+    qualifier: string | null;
+  }
+> = {
+  RUNS: {
+    label: 'Most runs',
+    discipline: 'BATTING',
+    qualifies: (r) => r.batting.innings > 0,
+    value: (r) => String(r.batting.runs),
+    keys: (r) => [r.batting.runs, r.batting.strikeRate ?? 0],
+    qualifier: null,
+  },
+  WICKETS: {
+    label: 'Most wickets',
+    discipline: 'BOWLING',
+    qualifies: (r) => r.bowling.innings > 0,
+    value: (r) => String(r.bowling.wickets),
+    keys: (r) => [r.bowling.wickets, -(r.bowling.economy ?? 99)],
+    qualifier: null,
+  },
+  HIGHEST_SCORE: {
+    label: 'Highest score',
+    discipline: 'BATTING',
+    qualifies: (r) => r.batting.innings > 0,
+    value: (r) => r.batting.highest,
+    // The `*` is stripped for sorting; an unbeaten score of the same size ranks
+    // above a dismissed one, which is how a scorecard reads it.
+    keys: (r) => [Number.parseInt(r.batting.highest, 10) || 0, r.batting.highest.includes('*') ? 1 : 0],
+    qualifier: null,
+  },
+  BEST_FIGURES: {
+    label: 'Best figures',
+    discipline: 'BOWLING',
+    qualifies: (r) => r.bowling.wickets > 0,
+    value: (r) => r.bowling.best,
+    keys: (r) => {
+      const [w, runs] = r.bowling.best.split('/');
+      return [Number.parseInt(w, 10) || 0, -(Number.parseInt(runs, 10) || 0)];
+    },
+    qualifier: null,
+  },
+  SIXES: {
+    label: 'Most sixes',
+    discipline: 'BATTING',
+    qualifies: (r) => r.batting.sixes > 0,
+    value: (r) => String(r.batting.sixes),
+    keys: (r) => [r.batting.sixes, r.batting.runs],
+    qualifier: null,
+  },
+  FOURS: {
+    label: 'Most fours',
+    discipline: 'BATTING',
+    qualifies: (r) => r.batting.fours > 0,
+    value: (r) => String(r.batting.fours),
+    keys: (r) => [r.batting.fours, r.batting.runs],
+    qualifier: null,
+  },
+  FIFTIES: {
+    label: 'Most fifties',
+    discipline: 'BATTING',
+    qualifies: (r) => r.batting.fifties > 0,
+    value: (r) => String(r.batting.fifties),
+    keys: (r) => [r.batting.fifties, r.batting.runs],
+    qualifier: null,
+  },
+  HUNDREDS: {
+    label: 'Most hundreds',
+    discipline: 'BATTING',
+    qualifies: (r) => r.batting.hundreds > 0,
+    value: (r) => String(r.batting.hundreds),
+    keys: (r) => [r.batting.hundreds, r.batting.runs],
+    qualifier: null,
+  },
+  // The two rate tables need a cut, or they are won by a tail-ender who hit one
+  // ball for six and a bowler who was taken off after an over.
+  STRIKE_RATE: {
+    label: 'Best strike rate',
+    discipline: 'BATTING',
+    qualifies: (r) => r.batting.balls >= 30 && r.batting.strikeRate !== null,
+    value: (r) => (r.batting.strikeRate ?? 0).toFixed(2),
+    keys: (r) => [r.batting.strikeRate ?? 0, r.batting.runs],
+    qualifier: '30 balls faced',
+  },
+  ECONOMY: {
+    label: 'Best economy',
+    discipline: 'BOWLING',
+    qualifies: (r) => r.bowling.overs >= 10 && r.bowling.economy !== null,
+    value: (r) => (r.bowling.economy ?? 0).toFixed(2),
+    // Ascending, so the key is negated — the whole sort is one direction.
+    keys: (r) => [-(r.bowling.economy ?? 99), r.bowling.wickets],
+    qualifier: '10 overs bowled',
+  },
+};
+
+export function seriesStatLabel(kind: SeriesStatKind): string {
+  return STAT_SPECS[kind].label;
+}
+
+export const SERIES_STAT_KINDS = Object.keys(STAT_SPECS) as SeriesStatKind[];
+
+/**
+ * One ranking for one series — the top `limit` players, with the batting or
+ * bowling totals behind the figure.
+ *
+ * Returns null where the series has no completed card to read, which is every
+ * series before its first result.
+ */
+export async function getCrexSeriesStatTable(
+  seriesKey: string,
+  kind: SeriesStatKind,
+  opts: FetchOpts & { limit?: number } = {}
+): Promise<SeriesStatTable | null> {
+  const limit = opts.limit ?? 10;
+  const schedule = await getCrexSeriesSchedule(seriesKey, {
+    revalidate: STAT_REVALIDATE,
+    ...opts,
+  }).catch(() => null);
+  if (!schedule) return null;
+
+  // Only matches that have produced a card. A live match counts: its innings so
+  // far are real runs, and crex's own tables include them.
+  const played = schedule.matches
+    .filter((m) => m.matchKey && m.status !== 'UPCOMING')
+    .slice(-STAT_MATCH_CAP);
+  if (!played.length) return null;
+
+  const cards = await inWidth(played, STAT_FETCH_WIDTH, async (match) => ({
+    match,
+    innings: await getCrexScorecard(match.matchKey as string, {
+      revalidate: STAT_REVALIDATE,
+      signal: opts.signal,
+    }).catch(() => [] as InningsScore[]),
+  }));
+
+  const players = new Map<string, StatAccumulator>();
+  let matchesCounted = 0;
+
+  const sideOf = (match: SeriesScheduleMatch, teamId: string | undefined): Team =>
+    teamId && match.awayTeam.id === cleanKey(teamId) ? match.awayTeam : match.homeTeam;
+  const opposite = (match: SeriesScheduleMatch, teamId: string | undefined): Team =>
+    sideOf(match, teamId).id === match.homeTeam.id ? match.awayTeam : match.homeTeam;
+
+  for (const { match, innings } of cards) {
+    if (!innings.length) continue;
+    matchesCounted += 1;
+
+    for (const inn of innings) {
+      const batted = sideOf(match, inn.teamId);
+      const bowled = opposite(match, inn.teamId);
+
+      for (const line of inn.batting ?? []) {
+        if (!line.playerId) continue;
+        const key = cleanKey(line.playerId);
+        const acc = players.get(key) ?? emptyAccumulator(key, line.name, batted);
+        players.set(key, acc);
+
+        acc.matches.add(match.key);
+        acc.bat.innings += 1;
+        acc.bat.runs += line.runs;
+        acc.bat.balls += line.balls;
+        acc.bat.fours += line.fours;
+        acc.bat.sixes += line.sixes;
+        // Retired hurt is not an innings ended by the bowler, but it is not a
+        // not-out for averaging either: crex counts it as one, so this does too.
+        if (!line.out) acc.bat.notOuts += 1;
+        if (line.runs >= 100) acc.bat.hundreds += 1;
+        else if (line.runs >= 50) acc.bat.fifties += 1;
+
+        if (line.runs > acc.bat.best) {
+          acc.bat.best = line.runs;
+          acc.bat.bestNotOut = !line.out;
+        } else if (line.runs === acc.bat.best && !line.out) {
+          acc.bat.bestNotOut = true;
+        }
+      }
+
+      for (const line of inn.bowling ?? []) {
+        if (!line.playerId) continue;
+        const key = cleanKey(line.playerId);
+        const acc = players.get(key) ?? emptyAccumulator(key, line.name, bowled);
+        players.set(key, acc);
+
+        acc.matches.add(match.key);
+        acc.bowl.innings += 1;
+        // `overs` is crex's printed figure — 4.3 is four overs and three balls,
+        // not four and a half — so it is converted before it is summed.
+        acc.bowl.balls += ballsFrom(line.overs, DEFAULT_BALLS_PER_OVER);
+        acc.bowl.runs += line.runs;
+        acc.bowl.wickets += line.wickets;
+        if (line.wickets >= 5) acc.bowl.fiveFors += 1;
+
+        if (
+          line.wickets > acc.bowl.bestWickets ||
+          (line.wickets === acc.bowl.bestWickets && line.runs < acc.bowl.bestRuns)
+        ) {
+          acc.bowl.bestWickets = line.wickets;
+          acc.bowl.bestRuns = line.runs;
+        }
+      }
+    }
+  }
+
+  if (!players.size) return null;
+
+  const spec = STAT_SPECS[kind];
+
+  const rows: SeriesStatRow[] = [...players.values()].map((acc) => {
+    const dismissals = acc.bat.innings - acc.bat.notOuts;
+
+    const batting: SeriesBattingTotals = {
+      matches: acc.matches.size,
+      innings: acc.bat.innings,
+      runs: acc.bat.runs,
+      balls: acc.bat.balls,
+      highest: acc.bat.best < 0 ? '—' : `${acc.bat.best}${acc.bat.bestNotOut ? '*' : ''}`,
+      notOuts: acc.bat.notOuts,
+      average: ratio(acc.bat.runs, dismissals),
+      strikeRate: acc.bat.balls > 0 ? Math.round((acc.bat.runs / acc.bat.balls) * 10000) / 100 : null,
+      fours: acc.bat.fours,
+      sixes: acc.bat.sixes,
+      fifties: acc.bat.fifties,
+      hundreds: acc.bat.hundreds,
+    };
+
+    const bowling: SeriesBowlingTotals = {
+      matches: acc.matches.size,
+      innings: acc.bowl.innings,
+      overs: oversFrom(acc.bowl.balls, DEFAULT_BALLS_PER_OVER),
+      runs: acc.bowl.runs,
+      wickets: acc.bowl.wickets,
+      best: acc.bowl.bestWickets < 0 ? '—' : `${acc.bowl.bestWickets}/${acc.bowl.bestRuns}`,
+      average: ratio(acc.bowl.runs, acc.bowl.wickets),
+      economy:
+        acc.bowl.balls > 0
+          ? Math.round((acc.bowl.runs / (acc.bowl.balls / DEFAULT_BALLS_PER_OVER)) * 100) / 100
+          : null,
+      strikeRate: ratio(acc.bowl.balls, acc.bowl.wickets),
+      fiveFors: acc.bowl.fiveFors,
+    };
+
+    return {
+      rank: 0,
+      playerKey: acc.playerKey,
+      playerName: acc.name,
+      playerImage: acc.playerKey ? `${PLAYER_IMAGE_BASE}/${acc.playerKey}.png` : null,
+      team: acc.team,
+      value: '',
+      batting,
+      bowling,
+    };
+  });
+
+  const ranked = rows
+    .filter(spec.qualifies)
+    .sort((a, b) => {
+      const ka = spec.keys(a);
+      const kb = spec.keys(b);
+      for (let i = 0; i < ka.length; i++) {
+        if (kb[i] !== ka[i]) return kb[i] - ka[i];
+      }
+      return a.playerName.localeCompare(b.playerName);
+    })
+    .slice(0, limit)
+    .map((row, i) => ({ ...row, rank: i + 1, value: spec.value(row) }));
+
+  if (!ranked.length) return null;
+
+  return {
+    kind,
+    label: spec.label,
+    discipline: spec.discipline,
+    rows: ranked,
+    matchesCounted,
+    qualifier: spec.qualifier,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Series squads
+// ---------------------------------------------------------------------------
+
+/** One side's squad for one series, as crex sends it. Players are f_keys. */
+interface CrexSeriesSquad {
+  /** Team f_key. */
+  tf?: string;
+  /** Format id, the same vocabulary as `ft` elsewhere. */
+  ft?: number;
+  /** The squad. */
+  pf?: string[];
+  /** Captain — an array, though it holds one key. */
+  c?: string[];
+  /** Vice captain. */
+  vc?: string[];
+  /** Overseas players. */
+  f?: string[];
+  /** Wicket-keeper. */
+  iw?: string[];
+}
+
+/** Every side's squad for a series. */
+export function getCrexSeriesSquads(
+  seriesKey: string,
+  opts: FetchOpts = {}
+): Promise<CrexSeriesSquad[]> {
+  return crexGet<CrexSeriesSquad[]>(
+    `/series/squads?key=${encodeURIComponent(cleanKey(seriesKey))}`,
+    { revalidate: 3600, ...opts }
+  );
+}
+
+/**
+ * One side's named squad for a series, or an empty list where crex has none.
+ *
+ * Roles come from the flags rather than from a role field — crex sends the keeper
+ * in `iw` and says nothing about anyone else's discipline here, so everyone else
+ * is `BATSMAN` by default. That is a real limitation, and the page prints the
+ * squad as a list of names rather than as a batting/bowling split because of it:
+ * grouping by a role we have not been told would be inventing the grouping.
+ */
+export async function getCrexTeamSquad(
+  seriesKey: string,
+  teamKey: string,
+  opts: FetchOpts = {}
+): Promise<SquadPlayer[]> {
+  const want = cleanKey(teamKey);
+  const all = await getCrexSeriesSquads(seriesKey, opts);
+
+  // A side can be listed once per format on a multi-format tour. The longest
+  // list is the one worth showing: a Test squad names more players than the T20
+  // squad drawn out of it.
+  const mine = (Array.isArray(all) ? all : [])
+    .filter((sq) => cleanKey(sq.tf) === want && sq.pf?.length)
+    .sort((a, b) => (b.pf?.length ?? 0) - (a.pf?.length ?? 0))[0];
+  if (!mine?.pf?.length) return [];
+
+  const captains = new Set((mine.c ?? []).map(cleanKey));
+  const keepers = new Set((mine.iw ?? []).map(cleanKey));
+  const names = await resolveKeys({ p: mine.pf }, opts);
+
+  return mine.pf
+    .map((raw) => {
+      const id = cleanKey(raw);
+      const name = names.p.get(id)?.n;
+      // A key the mapping cannot name is dropped rather than printed as a key —
+      // "5YW" in a squad list tells the reader nothing.
+      if (!id || !name) return null;
+      const player: SquadPlayer = {
+        id,
+        name,
+        role: keepers.has(id) ? 'WK' : 'BATSMAN',
+        isCaptain: captains.has(id) || undefined,
+      };
+      return player;
+    })
+    .filter((p): p is SquadPlayer => p !== null);
+}
+
+/**
+ * Both sides' squads for a match, taken from the series rather than the match.
+ *
+ * crex announces a match XI close to the start and serves it keyed by match, so
+ * an upcoming fixture — and every fixture with no match key at all — has nothing
+ * on that endpoint. What it does have is the tour party: /series/squads names
+ * every side in the competition from the day it is announced, which is weeks
+ * earlier.
+ *
+ * So this is the squad a preview shows. It is the wider list, not the XI, and the
+ * match page labels it as the series squad for exactly that reason. Where crex
+ * has announced an XI the match page still prefers it — see MatchDetail, which
+ * lets the per-match squads win over these.
+ *
+ * Null when crex names neither side, which is most bilateral tours.
+ */
+export async function getCrexMatchSeriesSquads(
+  match: Pick<Match, 'series' | 'homeTeam' | 'awayTeam'>,
+  opts: FetchOpts = {}
+): Promise<MatchSquads | null> {
+  const seriesKey = cleanKey(match.series?.id);
+  if (!seriesKey) return null;
+
+  const [home, away] = await Promise.all([
+    getCrexTeamSquad(seriesKey, match.homeTeam.id, opts).catch(() => [] as SquadPlayer[]),
+    getCrexTeamSquad(seriesKey, match.awayTeam.id, opts).catch(() => [] as SquadPlayer[]),
+  ]);
+
+  return home.length || away.length ? { home, away } : null;
+}
+
+// ---------------------------------------------------------------------------
+// Result attribution
+// ---------------------------------------------------------------------------
+//
+// crex reports a result as a sentence, and the sentence is the only place two
+// facts live: which side won, and whether they batted first. Both are needed by
+// everything derived — a head-to-head record, a side's form strip, a ground's
+// chase/defend split — and neither is a field anywhere on the wire.
+//
+// The wording is not consistent across endpoints, which is the catch. The
+// schedule says "Guyana Amazon Warriors won by 6 wickets" (full name, lowercase
+// verb); the live feed and /fixtures say "GAW Won by 7 wickets" (short name,
+// capital). So the match is against both of a side's names, case-insensitively,
+// and a sentence that fits neither is reported as unattributed rather than
+// guessed at.
+
+/** Split on the verb: everything before it is the winner's name. */
+const WON_BY = /\s+won\s+by\s+/i;
+
+/** A win "by N wickets" was chased; "by N runs" or "by an innings" was defended. */
+export type ResultMethod = 'CHASED' | 'DEFENDED' | null;
+
+export interface AttributedResult {
+  /** f_key of the winner, or null when the sentence names no side we know. */
+  winnerKey: string | null;
+  method: ResultMethod;
+}
+
+/** Does this result sentence's subject name this side? */
+function namesTeam(subject: string, team: Team): boolean {
+  const want = subject.trim().toLowerCase();
+  if (!want) return false;
+  return want === team.name.trim().toLowerCase() || want === team.shortName.trim().toLowerCase();
+}
+
+/**
+ * Read a result sentence against the two sides that played.
+ *
+ * Returns a null `winnerKey` for a draw, a tie, a no-result — and for a win this
+ * cannot attribute, which is the case worth being strict about. Matching loosely
+ * (a substring, say) would file "St Kitts & Nevis Patriots won by 5 wickets" as a
+ * win for St Lucia often enough to poison a head-to-head record, and a record
+ * that is quietly wrong is worse than one that says "8 meetings, 3-2, 3 unread".
+ */
+export function attributeResult(
+  result: string | null | undefined,
+  home: Team,
+  away: Team
+): AttributedResult {
+  const text = (result ?? '').trim();
+  if (!text || !WON_BY.test(text)) return { winnerKey: null, method: null };
+
+  const [subject, rest = ''] = text.split(WON_BY, 2);
+  const winner = namesTeam(subject, home) ? home : namesTeam(subject, away) ? away : null;
+
+  // "by 4 wickets" — they were chasing. "by 34 runs", "by an innings and 20
+  // runs" — they batted first. Read off the margin's unit, which is the only
+  // thing in the sentence that says which.
+  const method: ResultMethod = /wicket/i.test(rest)
+    ? 'CHASED'
+    : /run|innings/i.test(rest)
+      ? 'DEFENDED'
+      : null;
+
+  return { winnerKey: winner?.id ?? null, method };
+}
+
+// ---------------------------------------------------------------------------
+// Teams
+// ---------------------------------------------------------------------------
+//
+// Team keys are on every scorecard line, every schedule row and every ranking
+// row, so the app has been full of sides that were named and never openable.
+// Four sources make a page out of one:
+//
+//   /mapping            the name, the short name and the club colours
+//   /team/matches       what they have scheduled — but only that, see below
+//   /fixtures (corpus)  what they have actually played, with the results
+//   /rankings           where they sit, when they are a side the ICC ranks
+//
+// Squads are a fifth, and indirect: crex names a squad per *series*, not per
+// team, so the side's nearest competition has to be found first.
+
+/** One row of /team/matches. The /series/matches shape plus a printed date. */
+interface CrexTeamMatchRow extends CrexSeriesMatch {
+  /** crex's own row id, the fallback list key on a fixture with no match key. */
+  id?: number;
+  /** "2026/8/23". Redundant with `t`, and not read — `t` is the sortable one. */
+  dt?: string;
+}
+
+/** Grouped by series f_key, which is how the squad lookup finds a competition. */
+type CrexTeamMatchesResponse = Record<string, CrexTeamMatchRow[]>;
+
+/** A team's scheduled matches, grouped by series. */
+export function getCrexTeamMatches(
+  teamKey: string,
+  opts: FetchOpts = {}
+): Promise<CrexTeamMatchesResponse> {
+  return crexGet<CrexTeamMatchesResponse>(
+    `/team/matches?key=${encodeURIComponent(cleanKey(teamKey))}`,
+    { revalidate: 300, ...opts }
+  );
+}
+
+/**
+ * Split crex's "0-#8F65E6" into the hex it is hiding.
+ *
+ * The leading digit is a mode flag for their own gradient renderer. Kept out of
+ * the returned value because a CSS colour cannot use it, and dropped rather than
+ * interpreted because nothing here draws crex's gradients.
+ */
+function parseTeamColor(raw: string | undefined): string | null {
+  const hex = /#[0-9a-f]{3,8}/i.exec(raw ?? '')?.[0];
+  return hex ?? null;
+}
+
+function teamColors(entry: CrexMapEntry | undefined): TeamColors {
+  return {
+    primary: parseTeamColor(entry?.cc),
+    secondary: parseTeamColor(entry?.uc),
+    dark: parseTeamColor(entry?.dc),
+  };
+}
+
+/** Every format's team-ranking list, both genders, as one flat lookup. */
+async function teamRankingPositions(
+  teamKey: string,
+  opts: FetchOpts = {}
+): Promise<TeamRankingPosition[]> {
+  const genders: RankingGender[] = ['MEN', 'WOMEN'];
+  const lists = await Promise.all([
+    getCrexTeamRankings('men', opts).catch(() => ({}) as CrexTeamRankingsResponse),
+    getCrexTeamRankings('women', opts).catch(() => ({}) as CrexTeamRankingsResponse),
+  ]);
+
+  const FORMATS: Array<['test' | 'odi' | 't20', RankingFormat]> = [
+    ['test', 'TEST'],
+    ['odi', 'ODI'],
+    ['t20', 'T20I'],
+  ];
+
+  const out: TeamRankingPosition[] = [];
+  lists.forEach((byFormat, i) => {
+    for (const [wire, format] of FORMATS) {
+      const rows = byFormat[wire] ?? [];
+      // Position is the row's place in the list: crex sends these already
+      // ordered by rating and carries no `pos` field on the team response.
+      const at = rows.findIndex((r) => cleanKey(r.tf) === teamKey);
+      if (at < 0) continue;
+      out.push({ format, gender: genders[i], position: at + 1, rating: rows[at].r ?? 0 });
+    }
+  });
+
+  return out;
+}
+
+/** A finished match, with the winner read off the result sentence. */
+function toHeadToHeadMatch(m: Fixture | Match, key: string): HeadToHeadMatch {
+  return {
+    id: 'matchKey' in m ? m.matchKey : m.id,
+    key,
+    startTime: m.startTime,
+    venue: m.venue,
+    format: m.format,
+    series: m.series.name,
+    result: m.result ?? '',
+    winnerKey: attributeResult(m.result, m.homeTeam, m.awayTeam).winnerKey,
+  };
+}
+
+/** Newest first. The order every "recent" list on the site is read in. */
+const byNewest = (a: { startTime: string }, b: { startTime: string }) =>
+  +new Date(b.startTime) - +new Date(a.startTime);
+
+/** Soonest first. */
+const bySoonest = (a: { startTime: string }, b: { startTime: string }) =>
+  +new Date(a.startTime) - +new Date(b.startTime);
+
+/** Results a form strip shows. Five is what crex shows and what fits a row. */
+const FORM_LENGTH = 5;
+
+/**
+ * Everything a team page renders, or null when the key names no side.
+ *
+ * Two things are worth knowing about the shape of this:
+ *
+ * **`/team/matches` is not a fixture list.** It returns the side's *scheduled*
+ * matches, which for a team between tournaments is nothing at all and for a team
+ * mid-league is only that league. So upcoming fixtures are the union of it and
+ * the schedule corpus, deduped — the endpoint reaches further ahead than the
+ * corpus does, and the corpus covers sides the endpoint answers empty for.
+ *
+ * **Form is derived, not fetched.** A W/L strip needs a winner per match, and
+ * that only exists as a sentence; see `attributeResult`. A match this cannot
+ * attribute is left out of the strip rather than counted as a loss.
+ */
+export async function getCrexTeamProfile(
+  teamKey: string,
+  opts: FetchOpts = {}
+): Promise<TeamProfile | null> {
+  const key = cleanKey(teamKey);
+  if (!key) return null;
+
+  const [names, scheduled, corpus, rankings] = await Promise.all([
+    resolveKeys({ t: [key] }, opts),
+    getCrexTeamMatches(key, opts).catch(() => ({} as CrexTeamMatchesResponse)),
+    getCrexFixtureRange(opts).catch(() => [] as Fixture[]),
+    teamRankingPositions(key, opts),
+  ]);
+
+  const entry = names.t.get(key);
+  // No name and no cricket: nothing here would render, so this is a 404 rather
+  // than an empty page. A side crex names but has no fixtures for is still a
+  // page — plenty of national sides are between tours.
+  const mine = corpus.filter((m) => m.homeTeam.id === key || m.awayTeam.id === key);
+  if (!entry && !mine.length && !Object.keys(scheduled).length) return null;
+
+  const team = toTeam(key, names);
+
+  // --- Upcoming: the endpoint's rows, then anything the corpus adds ----------
+  const scheduledRows = Object.entries(scheduled ?? {}).flatMap(([seriesKey, rows]) =>
+    (rows ?? [])
+      .filter((r) => r?.t && (r.s ?? 0) !== 2)
+      .map((r) => ({ seriesKey: cleanKey(seriesKey), row: r }))
+  );
+
+  const rowNames = await resolveKeys(
+    {
+      t: scheduledRows.flatMap(({ row }) => [row.t1f ?? '', row.t2f ?? '']),
+      v: scheduledRows.map(({ row }) => row.vf ?? ''),
+      s: scheduledRows.map(({ seriesKey }) => seriesKey),
+    },
+    opts
+  );
+
+  const fromEndpoint: Match[] = scheduledRows.map(({ seriesKey, row }) => ({
+    id: cleanKey(row.mf) || scheduledMatchId(seriesKey, row.id),
+    homeTeam: toTeam(row.t1f ?? '', rowNames),
+    awayTeam: toTeam(row.t2f ?? '', rowNames),
+    series: { id: seriesKey, name: rowNames.s.get(seriesKey)?.n ?? 'Cricket' },
+    format: SERIES_MATCH_FORMAT[row.ft ?? 0] ?? 'T20',
+    status: SERIES_MATCH_STATUS[row.s ?? 0] ?? 'UPCOMING',
+    venue: rowNames.v.get(cleanKey(row.vf))?.n ?? 'TBD',
+    venueId: cleanKey(row.vf) || null,
+    startTime: new Date(row.t as number).toISOString(),
+    result: null,
+  }));
+
+  const upcoming: Match[] = [];
+  const seenUpcoming = new Set<string>();
+  for (const m of [...fromEndpoint, ...mine.filter((f) => f.status !== 'COMPLETED')].sort(
+    bySoonest
+  )) {
+    // Keyed on the match where crex has allocated one and on the fixture's shape
+    // where it has not — the same match arrives from both sources with a key
+    // from one of them and a preview id from the other. The two preview ids agree
+    // (same series, same row id), but only where both sources list the fixture;
+    // the shape is what catches the rest.
+    const dedupe = parseScheduledMatchId(m.id)
+      ? `${m.homeTeam.id}-${m.awayTeam.id}-${m.startTime.slice(0, 10)}`
+      : m.id;
+    if (seenUpcoming.has(dedupe)) continue;
+    seenUpcoming.add(dedupe);
+    upcoming.push(m);
+  }
+
+  // --- Recent: finished matches out of the corpus ----------------------------
+  const recent = mine
+    .filter((m) => m.status === 'COMPLETED' && m.result)
+    .sort(byNewest)
+    .map((m) => toHeadToHeadMatch(m, m.id));
+
+  const form = recent
+    .filter((m) => m.winnerKey || /draw|tie|no result|abandon/i.test(m.result))
+    .slice(0, FORM_LENGTH)
+    .map<'W' | 'L' | 'N'>((m) =>
+      !m.winnerKey ? 'N' : m.winnerKey === key ? 'W' : 'L'
+    );
+
+  // --- Squad: named per series, so the nearest competition wins --------------
+  // The side's next match names it; failing that, their last one. A squad from
+  // the tournament they are actually in is the only one worth showing.
+  const squadSeriesKey =
+    upcoming.find((m) => m.series.id)?.series.id ?? mine.sort(byNewest)[0]?.series.id ?? null;
+
+  const squad = squadSeriesKey
+    ? await getCrexTeamSquad(squadSeriesKey, key, opts).catch(() => [])
+    : [];
+
+  const squadSeriesName = squadSeriesKey
+    ? (upcoming.find((m) => m.series.id === squadSeriesKey)?.series.name ??
+       mine.find((m) => m.series.id === squadSeriesKey)?.series.name ??
+       null)
+    : null;
+
+  return {
+    team,
+    colors: teamColors(entry),
+    rankings,
+    upcoming,
+    recent,
+    form,
+    squad,
+    squadSeries:
+      squad.length && squadSeriesKey
+        ? { id: squadSeriesKey, name: squadSeriesName ?? 'Current series' }
+        : null,
   };
 }

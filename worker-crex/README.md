@@ -59,6 +59,11 @@ cacheable and the frontend stays simple.
 | `/rankings/players` | `POST oc /ranking/getRanking` | 1h | `category`, `play`, `type`, `gender`, `page` — **strings**, see below |
 | `/match/info` | `GET php /getIV4` | 5m | `key` — match f_key. Pre-match squads, captain/keeper, broadcast, weather |
 | `/player/overview` | `POST stats /player/getPlayerOverview` | 1h | `key` — player f_key. Profile, career stats, recent form — see below |
+| `/series/matches` | `POST oc /seriesInside/getMatchForSeriesID` | 5m | `key` — series f_key. Every match in the series, by date |
+| `/series/table` | `POST oc /seriesInside/getPTableForSeriesID` | 5m | `key` — series f_key. Standings, one entry per group — see below |
+| `/series/squads` | `POST oc /seriesInside/getSqaudForSeriesID` | 1h | `key` — series f_key. Squads by team, players as f_keys |
+| `/series/overview` | `POST stats /series/getSeriesOverview` | 5m | `key` — series f_key. Series overview; `i4` holds the tournament leaders — see below |
+| `/team/matches` | `POST oc /teamInside/getMatchForTeamID` | 5m | `key` — team f_key. The team's fixtures, grouped by series |
 
 Params are typed and enum-bounded. Unknown params (`utm_source` and friends) are
 dropped rather than rejected, so a decorated URL still hits the same cache
@@ -192,6 +197,69 @@ inherits our own typography rather than arriving with crex's.
 curl 'localhost:8788/player/overview?key=1IG'
 ```
 
+## Standings, squads and team fixtures
+
+Three routes that all live on crex's `*Inside` services, and all take the same
+`{fkey}` body — so once one of them was working the other two were a single
+probe each. Worth recording, because the four `/series/*` and `/team/*` paths in
+crex's bundle that look like they should serve this all 404.
+
+`/series/table` is the odd one out in this whole Worker: its response is
+**named**, not single-lettered. `P W L NR Pts NRR` are crex's own column
+headings — sent as strings even where they are numbers.
+
+It is also an **array of groups**, not a table. A league sends one entry; a World
+Cup group stage sends one per group, each with its own `g_name` and `pt_info`.
+Reading `[0].pt_info` and stopping there is what would quietly merge Group A into
+Group B.
+
+| Field | Holds |
+|---|---|
+| `rank` | crex's own ordering — **not** the array order, which arrives unsorted |
+| `rf` | last five results, oldest first: `["W","L","W","W","W"]` |
+| `qualified` / `eliminated` | through to the knockouts, or out of it |
+| `is_winner` | lifted the trophy |
+| `cuprate` | crex's qualification-chance figure; `"--"` where it has none |
+| `team_fkey` | resolves through `/mapping` like every other team key |
+
+`/series/squads` keeps crex's typo — `getSqaudForSeriesID`. The correctly-spelled
+path 404s, so the misspelling is part of the contract. Players arrive as f_keys:
+`pf` the squad, `c` captain, `vc` vice-captain, `f` overseas, `iw` keeper.
+
+`/series/overview` is the only endpoint that answers "who has the most runs in
+this tournament". It is on `stats`, not `oc` — every `oc`
+`seriesInside/get*StatsForSeriesID` spelling 404s — and its body key is `sf`, not
+the `fkey` the rest of the series family takes; `fkey` reaches the payload
+validator and 400s with `Request Payload Error!`.
+
+The response is the whole series overview, `i1`–`i9`. `i4.i` is the part worth
+having: keyed by format id, each entry holding the leaders as **one-entry
+arrays**.
+
+| Field | Holds |
+|---|---|
+| `mr` / `mw` | most runs, most wickets — the orange and purple caps |
+| `hs` / `bf` | highest individual score, best bowling figures (`"17/5"`) |
+| `ms` / `mf` / `md` | most sixes, fours, dot balls |
+| `bsr` / `bec` | best strike rate (`r` = the runs it came off), best economy (`w` = wickets) |
+| `mfp` | most fantasy points |
+| `totals` | the tournament's own `t4` / `t6` — fours and sixes hit in it |
+| `pf` / `tf` | player and team f_keys, resolving through `/mapping` |
+| `bi` | innings the leader has batted or bowled in |
+
+`/team/matches` is narrower than its name: it returns a team's *scheduled*
+matches grouped by series key, so a side between tournaments can answer with
+almost nothing, and a side mid-league answers with only that league. Past results
+come from `/fixtures`' negative pages instead, which carry `result`, `s1`/`s2`
+and `o1`/`o2` — enough to reconstruct who batted first from the result wording.
+
+```bash
+curl 'localhost:8788/series/table?key=2E2'
+curl 'localhost:8788/series/squads?key=2E2'
+curl 'localhost:8788/series/overview?key=2AW'
+curl 'localhost:8788/team/matches?key=2Y'
+```
+
 ## Local development
 
 ```bash
@@ -251,14 +319,16 @@ unless noted:
 
 ```
 /fixture/getIV4ForUpcomingMatch  /player/getPlayerMatches
-/series/getSeriesOverview        /player/searchPlayerInningsEntities
-/series/getMatchesForSeriesID    /team/getTeamOverview
-/seriesInside/getPTableForSeriesID   /team/getMatchesForTeam
-/seriesInside/getSqaudForSeriesID    /teamInside/getMatchForTeamID
-/live/getMatchMetaData               /oc/getTopRecords
-/live/getPreLiveStats
+/live/getMatchMetaData           /player/searchPlayerInningsEntities
+/live/getPreLiveStats            /oc/getTopRecords
 /getSV3  (php)
 ```
+
+Confirmed **dead** — in the bundle, 404 on the live host. Do not spend time on
+them again: `/series/getSeriesOverview`, `/series/getMatchesForSeriesID`,
+`/team/getTeamOverview`, `/team/getMatchesForTeam`. The working versions of the
+last two are on `teamInside`/`seriesInside`, which is the pattern: crex's
+"inside" services are the ones a detail page actually calls.
 
 `/player/getPlayerInfo` on `oc` is a dead end, and an expensive one: it answers
 `{"err":"Not A Valid Request"}` to every payload rather than 404-ing, which reads

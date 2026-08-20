@@ -278,6 +278,112 @@ export const ROUTES: RouteDef[] = [
     note: 'All matches in a series, grouped by date: /series/matches?key=2AW',
   },
   {
+    // The standings — the one thing a league page could not show. Same family as
+    // /series/matches (`seriesInside`, body key `fkey`, a series f_key), and it
+    // answered on the first probe once the family was known.
+    //
+    // Unlike everything else here the response is *named*, not single-lettered:
+    // `P` `W` `L` `NR` `Pts` `NRR` are crex's own column headings, sent as
+    // strings even where they are numbers. It is an ARRAY of groups, not a table:
+    // a league sends one entry, a World Cup group stage one per group, each with
+    // its own `g_name` and `pt_info` rows. Treating it as a single table is what
+    // would silently merge Group A and Group B into one standing.
+    //
+    // Fields worth naming, because the useful ones are not the obvious ones:
+    //   rank        crex's own ordering, which is NOT the array order
+    //   rf          last five results, oldest first — ["W","L","W","W","W"]
+    //   qualified   through to the knockouts; `eliminated` is the other end
+    //   is_winner   lifted the trophy
+    //   cuprate     crex's qualification-chance figure; "--" when it has none
+    //   team_fkey   resolves through /mapping like every other team key
+    match: '/series/table',
+    base: 'oc',
+    path: '/seriesInside/getPTableForSeriesID',
+    method: 'POST',
+    // A table only moves when a match finishes, and NRR moves with it — the same
+    // cadence as the schedule it sits beside.
+    ttl: 300,
+    params: {
+      key: { type: 'string', required: true },
+    },
+    buildBody: (p) => ({ fkey: p.key }),
+    note: 'Points table, one entry per group: /series/table?key=2E2',
+  },
+  {
+    // Tournament leaders — the "who has the most runs" block a league page needs,
+    // and the only endpoint here that answers it. Lives on `stats`, not `oc`:
+    // crex's series service builds it from `baseNewUrl`, and every `oc`
+    // `seriesInside/get*StatsForSeriesID` spelling 404s. Body key is `sf` (a
+    // series f_key) — `fkey` reaches the payload validator and 400s with
+    // "Request Payload Error!", which is how the name was found.
+    //
+    // The response is crex's whole series overview, `i1`–`i9`, and only `i4`
+    // matters here: `i4.i` keyed by format id, each holding the leaders as
+    // one-entry arrays — `mr` most runs, `mw` most wickets, `hs` highest score,
+    // `bf` best figures, `ms`/`mf` sixes and fours, `bsr`/`bec` best strike rate
+    // and economy, `md` most dots, `mfp` most fantasy points, plus `totals` for
+    // the tournament's own fours and sixes. Players and teams are f_keys (`pf`,
+    // `tf`) that resolve through /mapping like everywhere else.
+    match: '/series/overview',
+    base: 'stats',
+    path: '/series/getSeriesOverview',
+    method: 'POST',
+    // Leaders move when a match finishes, the same cadence as the table and the
+    // schedule this sits beside.
+    ttl: 300,
+    params: {
+      key: { type: 'string', required: true },
+    },
+    buildBody: (p) => ({ sf: p.key }),
+    note: 'Series overview; i4 carries the tournament leaders: /series/overview?key=2AW',
+  },
+  {
+    // Squads for every side in a series. Note the upstream path: crex spells it
+    // `getSqaudForSeriesID`, and the correctly-spelled version 404s. Their typo
+    // is part of the contract.
+    //
+    // One entry per team per format (`ft`), each carrying the squad as player
+    // f_keys rather than names — `pf` the squad, `c` the captain, `vc` the vice
+    // captain, `f` the overseas players, `iw` the keeper. All of them resolve
+    // through /mapping `p`.
+    match: '/series/squads',
+    base: 'oc',
+    path: '/seriesInside/getSqaudForSeriesID',
+    method: 'POST',
+    // Squads are announced, not scored: they move once before a tournament and
+    // then only for injuries.
+    ttl: 3600,
+    params: {
+      key: { type: 'string', required: true },
+    },
+    buildBody: (p) => ({ fkey: p.key }),
+    note: 'Series squads by team, players as f_keys: /series/squads?key=2E2',
+  },
+  {
+    // One team's fixtures, grouped by series f_key. `teamInside`, not `team`:
+    // both /team/getTeamOverview and /team/getMatchesForTeam are in crex's
+    // bundle and both 404 on the live host, which is a reminder that a name in
+    // the bundle is not a live endpoint.
+    //
+    // Body key is `fkey` (a team f_key); `tf` — the name the mapping and
+    // rankings responses use for the same key — comes back "Not A Valid
+    // Request". Rows are the /series/matches shape plus `dt` ("2026/8/23").
+    //
+    // Scope is narrower than the name suggests: it returns the team's *scheduled*
+    // matches, so a side between tournaments can legitimately answer with almost
+    // nothing. Results come from /fixtures' negative pages instead.
+    match: '/team/matches',
+    base: 'oc',
+    path: '/teamInside/getMatchForTeamID',
+    method: 'POST',
+    ttl: 300,
+    params: {
+      key: { type: 'string', required: true },
+    },
+    buildBody: (p) => ({ fkey: p.key }),
+    note: "One team's fixtures, grouped by series: /team/matches?key=2Y",
+  },
+  {
     // A player's whole profile in one payload — the thing that blocked player
     // pages for so long. Two reasons it looked unreachable:
     //

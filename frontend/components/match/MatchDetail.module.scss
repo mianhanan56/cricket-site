@@ -592,6 +592,31 @@
   font-family: $font-mono;
 }
 
+// The way out to the full series page, above the standings. Right-aligned and
+// sized like a hint: the table is the content, this is the exit.
+.tableLink {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: $space-3;
+}
+
+.blockLink {
+  font-size: 11px;
+  font-weight: 500;
+  color: $text-muted;
+  text-decoration: none;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: $accent;
+  }
+}
+
 .empty {
   color: $text-muted;
   font-size: $text-sm;
@@ -704,6 +729,26 @@
 
   @include sm {
     grid-template-columns: 96px minmax(0, 1fr);
+  }
+}
+
+// The venue and the series in the details table are pages. Underlined on the
+// offset rather than coloured at rest: this table is a list of facts and four
+// mint rows in it would read as four calls to action.
+.detailLink {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, var(--fg) 28%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition:
+    color 0.15s ease,
+    text-decoration-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: $accent-green;
+    text-decoration-color: $accent-green;
   }
 }
 
@@ -875,6 +920,34 @@
   border-color: color-mix(in srgb, currentColor 30%, transparent);
 }
 
+// --- Squad placeholders ----------------------------------------------------
+// Geometry borrowed from the rows above, so the panel the reader waits at is the
+// panel that arrives: same padding, same hairlines, same count chip and role
+// chip boxes. Only the names are unknown, and those get ragged widths.
+
+// Stands in for the count chip in the header band — matched to its box, not to a
+// text variant, so the band's height does not move when the number lands.
+.squadCountSk {
+  flex-shrink: 0;
+  width: 26px;
+  height: 22px;
+  border-radius: $radius-sm;
+}
+
+// The name cell is content-sized in the real row; here it has to span the row so
+// the ragged percentage widths have something definite to measure against.
+.squadNameCellSk {
+  flex: 1;
+  min-width: 0;
+}
+
+.squadRoleSk {
+  flex-shrink: 0;
+  width: 72px;
+  height: 18px;
+  border-radius: $radius-sm;
+}
+
 // ---------------------------------------------------------------- Scorecard
 
 // Innings picker on the left, the innings' score on the right — which is the
@@ -1027,6 +1100,19 @@
 .extrasRow td {
   color: $text-secondary;
   border-top: 1px solid $card-border;
+}
+
+// The b/lb/w/nb split, immediately right of the total it explains. Mono so the
+// numbers line up with the R column above them, muted and small because it is a
+// gloss on the total rather than a figure of its own. Left-aligned with a little
+// air so it reads as an aside, not as a value in the B column.
+.extrasDetail {
+  padding-left: $space-3;
+  font-family: $font-mono;
+  font-size: $text-xs;
+  color: $text-muted;
+  white-space: nowrap;
+  text-align: left;
 }
 
 .totalRow td {

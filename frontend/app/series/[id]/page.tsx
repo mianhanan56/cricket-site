@@ -3,13 +3,18 @@ import { notFound } from 'next/navigation';
 import type { Match } from '@/types';
 import {
   getCrexMatchList,
+  getCrexSeriesLeaders,
   getCrexSeriesSchedule,
+  getCrexSeriesTable,
   seriesScheduleFromMatches,
   withFeedStatuses,
   type SeriesSchedule,
   type SeriesScheduleMatch,
 } from '../../../lib/crex';
-import MatchCard from '../../../components/home/MatchCard';
+import { pickParam } from '../../../lib/queryParams';
+import PointsTable from '../../../components/series/PointsTable';
+import { SeriesKeyStats } from '../../../components/series/SeriesLeaders';
+import SeriesTabs, { type SeriesTab } from '../../../components/series/SeriesTabs';
 import styles from './seriesDetail.module.scss';
 
 // Ids here are crex series keys ("2AW", "2E2") — the same ones SeriesCard links
@@ -17,8 +22,9 @@ import styles from './seriesDetail.module.scss';
 //
 //   /series/matches  the whole competition — every fixture, its date, its result.
 //                    This is what the header's span and total are built from.
-//   /matches/live    scores, but only for the handful of matches inside the
-//                    feed's window. Used for the cards at the top.
+//   /matches/live    which of those matches is on right now. Only used to
+//                    correct the schedule's statuses — the live scores
+//                    themselves belong on the match page.
 //
 // Freshness is set per-fetch rather than with a page-level `revalidate`: making
 // the route ISR-cached would also cache the notFound() path, turning an unknown
@@ -27,6 +33,13 @@ import styles from './seriesDetail.module.scss';
 const REVALIDATE = 300;
 /** The live feed moves in seconds, so it is not cached to the schedule's window. */
 const LIVE_REVALIDATE = 15;
+
+// The page's two sections, read off `?tab=`. Server-rendered rather than
+// switched in the client so the standings stay in the HTML — same reasoning as
+// the filters on /series and /fixtures. The stat rankings are not a third tab:
+// each one is a page of its own under /series/[id]/stats, opened from the rail.
+const TAB_KEYS = ['matches', 'table'] as const;
+type TabKey = (typeof TAB_KEYS)[number];
 
 async function loadSchedule(id: string): Promise<SeriesSchedule | null> {
   return getCrexSeriesSchedule(id, { revalidate: REVALIDATE }).catch(() => null);
@@ -62,7 +75,6 @@ function fmtDayTime(iso: string): string {
   });
 }
 
-
 /**
  * One row of the schedule. Deliberately not a MatchCard: the schedule endpoint
  * carries no scores, so a card shaped like a scorecard would sit permanently
@@ -95,21 +107,32 @@ function ScheduleRow({ match }: { match: SeriesScheduleMatch }) {
     </>
   );
 
-  // Unallocated fixtures (a league's playoffs, before the table decides them)
-  // have no match page to open, so they render as a row rather than a link.
-  return match.id ? (
+  // Every row opens, including a fixture crex has not allocated a match key to
+  // yet: `match.id` is that key where there is one and the fixture's preview id
+  // where there is not (see scheduledMatchId), and /matches/[id] takes both.
+  return (
     <Link href={`/matches/${match.id}`} className={styles.row}>
       {body}
     </Link>
-  ) : (
-    <div className={`${styles.row} ${styles.rowInert}`}>{body}</div>
   );
 }
 
-export default async function SeriesDetailPage({ params }: { params: { id: string } }) {
-  const [schedule, feed] = await Promise.all([
+export default async function SeriesDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  const [schedule, feed, table, leaders] = await Promise.all([
     loadSchedule(params.id),
     getCrexMatchList({ revalidate: LIVE_REVALIDATE }).catch(() => [] as Match[]),
+    // Empty for a bilateral tour, which is most series — the standings section
+    // is simply absent there rather than rendering an empty table.
+    getCrexSeriesTable(params.id, { revalidate: REVALIDATE }).catch(() => []),
+    // Null before a ball is bowled, and on any series crex has no leaders for.
+    // The stats tab is absent there rather than empty.
+    getCrexSeriesLeaders(params.id, { revalidate: REVALIDATE }).catch(() => null),
   ]);
 
   // With the schedule endpoint unreachable, fall back to the feed's narrower view
@@ -120,23 +143,35 @@ export default async function SeriesDetailPage({ params }: { params: { id: strin
 
   const series = withFeedStatuses(base, feed);
 
-  // Anything in progress, with its live score — the one thing the schedule
-  // endpoint cannot supply.
-  const liveNow = feed.filter((m) => m.series.id === series.id && m.status === 'LIVE');
-
-  // Same rail as the series cards, and drawn at every stage for the same reason:
-  // it is what carries the date span, so a card or header that dropped it lost
-  // its bottom row. Empty before a ball is bowled, full once it is over.
-  const pct =
-    series.matchCount > 0 ? Math.round((series.playedCount / series.matchCount) * 100) : 0;
-
-  // The rail's endpoints. The year prints on the end, and on the start only when
-  // the span actually crosses one.
+  // The two ends of the span. The year prints on the end, and on the start only
+  // when the span actually crosses one.
   const crossesYear =
     new Date(series.startDate).getFullYear() !== new Date(series.endDate).getFullYear();
-  const start = fmtDate(series.startDate, crossesYear);
-  const end = fmtDate(series.endDate);
-  const oneDay = fmtDate(series.startDate) === end;
+  const start0 = fmtDate(series.startDate, crossesYear);
+  const end0 = fmtDate(series.endDate);
+  const oneDay = fmtDate(series.startDate) === end0;
+
+  // Only the sections that have something in them. Matches is always first and
+  // is therefore the default — a series always has a schedule, and a tour with
+  // neither table nor leaders shows no rail at all.
+  const tabs: SeriesTab[] = [
+    { key: 'matches', label: 'Matches', count: series.matchCount },
+    ...(table.length > 0
+      ? [
+          {
+            key: 'table',
+            label: 'Points table',
+            count: table.length > 1 ? table.length : null,
+          },
+        ]
+      : []),
+  ];
+
+  // A tab named in the URL that this series has no section for falls back rather
+  // than 404-ing: ?tab=stats is a perfectly good link that stops meaning
+  // anything when a tour ends and crex drops its leaders.
+  const requested = pickParam<TabKey>(searchParams?.tab, TAB_KEYS, 'matches');
+  const tab = tabs.some((t) => t.key === requested) ? requested : 'matches';
 
   return (
     <div className={styles.page}>
@@ -147,92 +182,76 @@ export default async function SeriesDetailPage({ params }: { params: { id: strin
         All series
       </Link>
 
-      <header className={styles.head} data-status={series.status}>
-        <div className={styles.chips}>
-          <span className={styles.format}>{series.format}</span>
-          <span className={styles.status}>
-            {series.status === 'LIVE' && <span className={styles.dot} aria-hidden="true" />}
-            {series.status}
-          </span>
-        </div>
-
+      <header className={styles.head}>
         <h1 className={styles.heading}>{series.name}</h1>
 
-        {/* The same schedule block the series cards carry, sized up for a page
-            header: how many are played, how far through, over what dates. The
-            reader clicked that construct on /series and lands on it here. */}
-        <div className={styles.progress}>
-          <span className={styles.progressCount}>
-            {series.playedCount > 0 ? (
-              <>
-                <span className={styles.progressDone}>{series.playedCount}</span>
-                <span className={styles.progressOf} aria-hidden="true">
-                  /
-                </span>
-                {series.matchCount}
-                <span className={styles.progressLabel}>played</span>
-              </>
-            ) : (
-              <>
-                <span className={styles.progressDone}>{series.matchCount}</span>
-                <span className={styles.progressLabel}>
-                  {series.matchCount === 1 ? 'match' : 'matches'}
-                </span>
-              </>
-            )}
-          </span>
-
-          <span
-            className={styles.rail}
-            role="progressbar"
-            aria-valuemin={0}
-            aria-valuemax={series.matchCount}
-            aria-valuenow={series.playedCount}
-            aria-label={`${series.playedCount} of ${series.matchCount} matches played`}
-          >
-            <span className={styles.fill} data-pct={pct} />
-          </span>
-
-          <div className={styles.span}>
-            {oneDay ? (
-              <time dateTime={series.startDate} className={styles.single}>
-                {end}
-              </time>
-            ) : (
-              <>
-                <time dateTime={series.startDate}>{start}</time>
-                <time dateTime={series.endDate}>{end}</time>
-              </>
-            )}
+        {/* When it runs, and nothing else. The played-count went with the live
+            strip: the tab rail already says how many matches there are, and the
+            schedule under it says which of them have been played and how. */}
+        <dl className={styles.facts}>
+          <div className={styles.fact}>
+            <dt className={styles.factLabel}>Schedule</dt>
+            <dd className={`${styles.factValue} ${styles.factDates}`}>
+              {oneDay ? (
+                <time dateTime={series.startDate}>{end0}</time>
+              ) : (
+                <>
+                  <time dateTime={series.startDate}>{start0}</time>
+                  <span className={styles.factArrow} aria-hidden="true">
+                    →
+                  </span>
+                  <time dateTime={series.endDate}>{end0}</time>
+                </>
+              )}
+            </dd>
           </div>
-        </div>
+
+        </dl>
       </header>
 
-      {liveNow.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            In progress
-            <span className={styles.sectionCount}>{liveNow.length}</span>
-          </h2>
-          <div className={styles.grid}>
-            {liveNow.map((m) => (
-              <MatchCard match={m} key={m.id} />
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Two columns from the laptop band up: the sections on the left, the
+          tournament's key stats in the right rail. Each rail card opens the full
+          ranking behind it — the top ten, with the figures that produced it. */}
+      <div className={styles.body} data-rail={leaders ? 'true' : undefined}>
+        <div className={styles.main}>
+          <SeriesTabs base={`/series/${series.id}`} tabs={tabs} active={tab} />
 
-      <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>
-          Full schedule
-          <span className={styles.sectionCount}>{series.matchCount}</span>
-        </h2>
-        <div className={styles.schedule}>
-          {series.matches.map((m) => (
-            <ScheduleRow match={m} key={m.key} />
-          ))}
+          {tab === 'matches' && (
+            <section className={styles.section}>
+              <h2 className={styles.sectionTitle}>
+                Full schedule
+                <span className={styles.sectionCount}>{series.matchCount}</span>
+              </h2>
+              <div className={styles.schedule}>
+                {series.matches.map((m) => (
+                  <ScheduleRow match={m} key={m.key} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {tab === 'table' && (
+            <section className={styles.section}>
+              {/* "Standings", not "Points table" again: the tab above it already
+              says that, and a heading that repeats its own tab is furniture. */}
+              <h2 className={styles.sectionTitle}>
+                Standings
+                {table.length > 1 && (
+                  <span className={styles.sectionCount}>{table.length} groups</span>
+                )}
+              </h2>
+              <PointsTable groups={table} />
+            </section>
+          )}
+
         </div>
-      </section>
+
+        {leaders && (
+          <aside className={styles.aside}>
+            <SeriesKeyStats leaders={leaders} seriesId={series.id} />
+          </aside>
+        )}
+      </div>
     </div>
   );
 }

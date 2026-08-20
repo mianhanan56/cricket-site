@@ -67,6 +67,37 @@ function fmtCount(value: number | null): string {
 }
 
 /**
+ * One collapsible block.
+ *
+ * Every reference section on this page is a `<details>`: the reader who came for
+ * recent form can fold the career tables away, and the one who came for the
+ * tables can fold the rest — without a line of client JS, and with keyboard and
+ * screen-reader behaviour that comes free with the element. Sections open by
+ * default, so nothing is hidden from a first-time reader (or a crawler) until
+ * they choose to hide it.
+ */
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className={styles.block} open>
+      <summary className={styles.blockTitle}>
+        {title}
+        {/* Plus when shut, minus when open — the vertical stroke collapses into
+            the horizontal one. Two states that differ in shape, not just in
+            angle: a rotated chevron is the same glyph twice and reads as
+            decoration on a page of five stacked blocks. */}
+        <span className={styles.toggle} aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round">
+            <path d="M5 12h14" />
+            <path className={styles.stroke} d="M12 5v14" />
+          </svg>
+        </span>
+      </summary>
+      <div className={styles.blockBody}>{children}</div>
+    </details>
+  );
+}
+
+/**
  * One innings from the last ten, as a tile.
  *
  * The tile is the page's one bold element, so the milestone tiers are carried
@@ -358,6 +389,8 @@ export default async function PlayerPage({ params }: { params: { id: string } })
   // ("Keighley, Yorkshire", "6 ft 1 in"). Capitalising the block wholesale is
   // what turns a height into "6 Ft 1 In", so only the traits are marked.
   const about: Array<[string, string, boolean?]> = [
+    ['Name', player.name],
+    ['Gender', player.gender],
     ['Role', player.role],
     player.bats && ['Bats', player.bats, true],
     player.bowls && ['Bowls', player.bowls, true],
@@ -410,8 +443,7 @@ export default async function PlayerPage({ params }: { params: { id: string } })
       </header>
 
       {(player.recentBatting.length > 0 || (bowling.length > 0 && player.recentBowling.length > 0)) && (
-        <section className={styles.block}>
-          <h2 className={styles.blockTitle}>Recent form</h2>
+        <Section title="Recent form">
           <FormRail title="Batting" entries={player.recentBatting} discipline="batting" />
           {/* Same rule as the career table below: a batter who has bowled two
               overs all season has a bowling rail full of 0-somethings, which is
@@ -419,11 +451,10 @@ export default async function PlayerPage({ params }: { params: { id: string } })
           {bowling.length > 0 && (
             <FormRail title="Bowling" entries={player.recentBowling} discipline="bowling" />
           )}
-        </section>
+        </Section>
       )}
 
-      <section className={styles.block}>
-        <h2 className={styles.blockTitle}>About</h2>
+      <Section title="About">
         <dl className={styles.about}>
           {about.map(([label, value, capitalize]) => (
             <div key={label} className={styles.aboutRow}>
@@ -470,25 +501,22 @@ export default async function PlayerPage({ params }: { params: { id: string } })
             )}
           </ul>
         )}
-      </section>
+      </Section>
 
       {batting.length > 0 && (
-        <section className={styles.block}>
-          <h2 className={styles.blockTitle}>Career batting</h2>
+        <Section title="Career batting">
           <BattingCareer rows={batting} />
-        </section>
+        </Section>
       )}
 
       {bowling.length > 0 && (
-        <section className={styles.block}>
-          <h2 className={styles.blockTitle}>Career bowling</h2>
+        <Section title="Career bowling">
           <BowlingCareer rows={bowling} />
-        </section>
+        </Section>
       )}
 
       {player.debuts.length > 0 && (
-        <section className={styles.block}>
-          <h2 className={styles.blockTitle}>Career debuts</h2>
+        <Section title="Career debuts">
           <dl className={styles.debuts}>
             {player.debuts.map((d) => (
               <div key={d.format} className={styles.debutRow}>
@@ -505,20 +533,9 @@ export default async function PlayerPage({ params }: { params: { id: string } })
               </div>
             ))}
           </dl>
-        </section>
+        </Section>
       )}
 
-      {player.bio && (
-        <section className={styles.block}>
-          <h2 className={styles.blockTitle}>Profile</h2>
-          {/* crex's HTML, stripped to a handful of structural tags with every
-              attribute dropped — see `sanitizeBio` in lib/crex. Printed in full:
-              the bio carries the domestic career and the story the tables
-              cannot, and hiding it behind a toggle was one click between the
-              reader and the only prose on the page. */}
-          <div className={styles.bioBody} dangerouslySetInnerHTML={{ __html: player.bio }} />
-        </section>
-      )}
     </div>
   );
 }

@@ -1,12 +1,12 @@
 @use 'component' as *;
 
 // Player profile: portrait + identity, then the form rail, then the reference
-// material (about, career tables, debuts, bio).
+// material (about, career tables, debuts) — each of those a collapsible block.
 //
 // The reading order is deliberate and it is not crex's. Their page opens with a
 // biography and buries the last ten innings below it; the question a reader
 // actually arrives with is "how is this player going right now", so the form
-// rail sits directly under the name and the prose goes last, folded away.
+// rail sits directly under the name and everything else folds out of the way.
 //
 // Signature element: the form rail. Ten glass tiles, monospaced figures, and a
 // mint tier that fills on a hundred or a five-for — a player's shape reads off
@@ -133,8 +133,14 @@
 }
 
 // The same mint rule the match page marks its sections with, so a reader
-// arriving from a scorecard is looking at one system.
+// arriving from a scorecard is looking at one system — here it doubles as the
+// accordion's handle: the whole row is the hit target, and the rule is what the
+// eye tracks down the page whether the block is open or shut.
 .blockTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
   font-family: $font-display;
   font-size: $text-base;
   font-weight: 700;
@@ -142,7 +148,78 @@
   color: $text-primary;
   padding-left: $space-2-5;
   border-left: 3px solid $accent;
-  margin-bottom: $space-4;
+  cursor: pointer;
+  list-style: none;
+  transition: color 0.15s ease;
+
+  // Safari still draws its own disclosure triangle without this.
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+}
+
+// The only moving part on the page. A bordered token so the row reads as
+// pressable before it is pressed, tinted mint while its block is open — which
+// makes the open/shut state legible from the icon's colour as well as its shape.
+.toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: $radius-sm;
+  border: 1px solid $card-border;
+  background: $surface-elevated;
+  color: $text-muted;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+
+  svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .blockTitle:hover & {
+    color: $accent;
+    border-color: var(--card-hover-border);
+  }
+
+  [open] > .blockTitle & {
+    background: $accent-light;
+    border-color: $accent;
+    color: $accent;
+  }
+}
+
+// The plus's upright, scaled away to leave a minus.
+.stroke {
+  transform-origin: 12px 12px;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+
+  [open] > .blockTitle & {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The gap under the title belongs to the body, not the title: a closed block
+// must sit as tight as a single row.
+.blockBody {
+  padding-top: $space-4;
 }
 
 // ── Recent form (signature) ─────────────────────────────────────────────────
@@ -519,56 +596,5 @@
     @include fluid-text;
     font-size: $text-sm;
     color: $text-secondary;
-  }
-}
-
-// ── Bio ─────────────────────────────────────────────────────────────────────
-
-.bioBody {
-  max-width: 68ch;
-  font-size: $text-sm;
-  line-height: $leading-relaxed;
-  color: $text-secondary;
-
-  p {
-    margin-bottom: $space-3;
-  }
-
-  h2,
-  h3,
-  h4 {
-    font-family: $font-display;
-    font-size: $text-base;
-    font-weight: 700;
-    color: $text-primary;
-    margin-block: $space-5 $space-2;
-  }
-
-  ul,
-  ol {
-    margin-bottom: $space-3;
-    padding-left: $space-5;
-    list-style: disc;
-  }
-
-  li {
-    margin-bottom: $space-1;
-  }
-
-  blockquote {
-    margin-bottom: $space-3;
-    padding-left: $space-3;
-    border-left: 2px solid $card-border;
-    color: $text-muted;
-  }
-
-  strong,
-  b {
-    font-weight: 600;
-    color: $text-primary;
-  }
-
-  > *:last-child {
-    margin-bottom: 0;
   }
 }

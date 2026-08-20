@@ -37,6 +37,31 @@
   }
 }
 
+// The rail variant: one size at every band, because it sits in a 300px column
+// beside a name and a figure rather than at the head of a profile.
+.sm {
+  width: 44px;
+  height: 44px;
+
+  @include sm {
+    width: 44px;
+    height: 44px;
+  }
+
+  @include tablet {
+    width: 44px;
+    height: 44px;
+  }
+
+  &.fallback {
+    font-size: $text-sm;
+
+    @include tablet {
+      font-size: $text-sm;
+    }
+  }
+}
+
 .fallback {
   place-items: center;
   font-family: $font-display;

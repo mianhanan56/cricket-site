@@ -24,22 +24,26 @@ function initialsOf(name: string): string {
 export default function PlayerPortrait({
   name,
   src,
+  size = 'lg',
 }: {
   name: string;
   src?: string | null;
+  /** `lg` at the head of a profile, `sm` in a card rail. */
+  size?: 'sm' | 'lg';
 }) {
   const [failed, setFailed] = useState(false);
+  const box = size === 'sm' ? styles.sm : '';
 
   if (!src || failed) {
     return (
-      <span className={`${styles.portrait} ${styles.fallback}`} aria-hidden="true">
+      <span className={`${styles.portrait} ${styles.fallback} ${box}`} aria-hidden="true">
         {initialsOf(name)}
       </span>
     );
   }
 
   return (
-    <span className={styles.portrait}>
+    <span className={`${styles.portrait} ${box}`}>
       {/* eslint-disable-next-line @next/next/no-img-element -- crex's portraits
           are small PNGs already on Akamai; next/image would add a proxy hop and
           is not used anywhere in this app. */}

@@ -1,0 +1,221 @@
+@use 'component' as *;
+
+// ===========================================================================
+// HeadToHead — the record between the two sides in a match.
+//
+// No new identity: this borrows WinProbability's split bar on purpose. That
+// widget sits a few hundred pixels above this one on the same page, and the two
+// answer the same question at two timescales — who wins this, and who has been
+// winning these. Making them look like siblings is the point.
+//
+// Mint is the first side and violet the second, matching the win-probability
+// split, so the colours mean the same thing in both places.
+// ===========================================================================
+
+.h2h {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  min-width: 0;
+}
+
+// ── Record line ────────────────────────────────────────────────────────
+.record {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: $space-2;
+}
+
+.side {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+  border-radius: $radius-sm;
+  transition: color 0.15s ease;
+
+  &[data-align='right'] {
+    justify-content: flex-end;
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: $accent-green;
+  }
+}
+
+.wins {
+  @include score-number;
+  font-size: $text-2xl;
+  line-height: 1;
+}
+
+.side:first-of-type .wins {
+  color: $accent-green;
+}
+
+.side[data-align='right'] .wins {
+  color: $accent-purple;
+}
+
+.sideName {
+  @include truncate(1);
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $text-secondary;
+}
+
+// The total sits between the two figures rather than above them: it is the
+// denominator of both, and putting it in the middle says so without a label.
+.played {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-inline: $space-2;
+  border-inline: 1px solid $card-border;
+}
+
+.playedNum {
+  @include score-number;
+  font-size: $text-base;
+  color: $text-secondary;
+}
+
+.playedLabel {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: $text-muted;
+}
+
+// ── Split bar ──────────────────────────────────────────────────────────
+.bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--fg) 8%, transparent);
+}
+
+.barHome {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--accent-green) 70%, transparent),
+    var(--accent-green)
+  );
+}
+
+.barAway {
+  background: linear-gradient(
+    90deg,
+    var(--accent-purple),
+    color-mix(in oklab, var(--accent-purple) 70%, transparent)
+  );
+}
+
+.aside {
+  font-size: $text-2xs;
+  color: $text-muted;
+  text-align: center;
+}
+
+// ── Meetings ───────────────────────────────────────────────────────────
+.meetings {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+}
+
+.meeting {
+  display: flex;
+  align-items: center;
+  gap: $space-2-5;
+  padding: $space-2-5 $space-1;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  border-radius: $radius-sm;
+  transition: background-color 0.18s ease;
+
+  &:hover,
+  &:focus-visible {
+    background: $card-hover;
+  }
+}
+
+.meetingInert {
+  cursor: default;
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+.meetings li + li .meeting {
+  border-top: 1px solid color-mix(in oklab, var(--border) 45%, transparent);
+  border-radius: 0;
+}
+
+// The winner's own short name rather than a W or an L: on a head-to-head list
+// "W" is ambiguous — whose? — and three letters answers it.
+.mark {
+  @include flex-center;
+  flex-shrink: 0;
+  min-width: 38px;
+  padding: 3px $space-1-5;
+  border-radius: 7px;
+  font-family: $font-display;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+
+  &[data-side='H'] {
+    background: color-mix(in oklab, var(--accent-green) 20%, transparent);
+    color: color-mix(in oklab, var(--accent-green) 88%, var(--fg));
+  }
+
+  &[data-side='A'] {
+    background: color-mix(in oklab, var(--accent-purple) 20%, transparent);
+    color: color-mix(in oklab, var(--accent-purple) 90%, var(--fg));
+  }
+
+  &[data-side='N'] {
+    background: color-mix(in oklab, var(--fg) 7%, transparent);
+    color: $text-muted;
+  }
+}
+
+.meetingMain {
+  @include fluid-text;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.meetingResult {
+  font-size: $text-xs;
+  font-weight: 600;
+  @include truncate(1);
+}
+
+.meetingMeta {
+  font-size: $text-2xs;
+  color: $text-muted;
+  @include truncate(1);
+}
+
+.meetingFormat {
+  flex-shrink: 0;
+  font-family: $font-display;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: $text-muted;
+}

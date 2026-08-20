@@ -246,6 +246,16 @@
   font-weight: 700;
   letter-spacing: -0.01em;
   line-height: $leading-tight;
+  // Set for the team podium, where the name is a link into the team page. Inert
+  // on a player card, which renders a span.
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: $accent-green;
+  }
 
   @include sm {
     font-size: $text-lg;
@@ -436,6 +446,23 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+}
+
+// A team row's name, which is now a page. Inherits the plain colour and picks
+// the accent up on the offset — the same treatment the match details table uses,
+// and for the same reason: a ten-row list of mint names reads as ten buttons.
+.nameLink {
+  @include truncate(1);
+  font-size: $text-sm;
+  font-weight: 600;
+  color: $text-primary;
+  text-decoration: none;
+  transition: color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: $accent-green;
+  }
 }
 
 .name {

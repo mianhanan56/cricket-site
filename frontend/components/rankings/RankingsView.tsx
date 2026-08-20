@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { RankingEntry, TeamRankingEntry } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import type {
@@ -57,6 +58,12 @@ interface Row {
   crest?: { logo: string | null; shortName: string };
   matches?: number;
   points?: number;
+  /**
+   * Where the row's subject has a page. Teams do; players do too, but their
+   * `id` here is a synthetic list key rather than a crex f_key, so only teams
+   * carry one for now.
+   */
+  href?: string;
 }
 
 const toPlayerRow = (e: RankingEntry): Row => ({
@@ -78,6 +85,7 @@ const toTeamRow = (e: TeamRankingEntry): Row => ({
   crest: { logo: e.logo, shortName: e.shortName },
   matches: e.matches,
   points: e.points,
+  href: e.teamKey ? `/teams/${e.teamKey}` : undefined,
 });
 
 /**
@@ -237,7 +245,13 @@ export default function RankingsView({ data, teams, asOf, initial }: RankingsVie
 
                 <div className={styles.stepBody}>
                   <span className={styles.stepEyebrow}>Rank {row.position}</span>
-                  <span className={styles.stepName}>{row.title}</span>
+                  {row.href ? (
+                    <Link href={row.href} className={styles.stepName}>
+                      {row.title}
+                    </Link>
+                  ) : (
+                    <span className={styles.stepName}>{row.title}</span>
+                  )}
                   <span className={styles.stepSub}>{row.subtitle}</span>
                 </div>
 
@@ -298,7 +312,13 @@ export default function RankingsView({ data, teams, asOf, initial }: RankingsVie
                             />
                           )}
                           <span className={styles.nameStack}>
-                            <span className={styles.name}>{row.title}</span>
+                            {row.href ? (
+                              <Link href={row.href} className={styles.nameLink}>
+                                {row.title}
+                              </Link>
+                            ) : (
+                              <span className={styles.name}>{row.title}</span>
+                            )}
                             {/* The columns the table drops on a phone reappear
                                 here, so nothing is lost to the narrow band. */}
                             <span className={styles.nameMeta}>{row.subtitle}</span>

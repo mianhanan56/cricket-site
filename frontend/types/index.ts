@@ -53,6 +53,12 @@ export interface IMatch {
   format: MatchFormat;
   status: MatchStatus;
   venue: string;
+  /**
+   * crex venue f_key, so the ground is a link and not just a caption. Null on a
+   * fixture crex has not allocated a venue to yet ("TBD"), which is most of a
+   * league's playoff stage.
+   */
+  venueId?: string | null;
   startTime: string; // ISO string
   /** 6 everywhere except The Hundred, which crex scores in sets of 5. */
   ballsPerOver?: number;
@@ -221,6 +227,8 @@ export interface InningsScore {
   batting?: BatsmanLine[];
   bowling?: BowlerLine[];
   extras?: number;
+  /** The same number split into byes / leg-byes / wides / no-balls / penalty. */
+  extrasBreakdown?: ExtrasBreakdown;
   /** XI members who have not batted yet, in card order. */
   yetToBat?: YetToBat[];
   /** The side is listed but has not batted — treat the 0/0 total as no score. */
@@ -237,6 +245,19 @@ export interface InningsScore {
    * innings at once without the reader having to work out which is live.
    */
   phase?: InningsPhase;
+}
+
+/**
+ * The five extras lines, as crex publishes them. Kept alongside the total so
+ * the card can say *which* extras made up the number — a nine made of wides
+ * reads very differently to one made of byes.
+ */
+export interface ExtrasBreakdown {
+  byes: number;
+  legByes: number;
+  wides: number;
+  noBalls: number;
+  penalty: number;
 }
 
 export interface YetToBat {
@@ -285,6 +306,7 @@ export interface IScorecard {
   batting?: BatsmanLine[];
   bowling?: BowlerLine[];
   extras?: number;
+  extrasBreakdown?: ExtrasBreakdown;
   commentary?: CommentaryBall[];
   /** Non-delivery events from the ball feed, newest first. */
   events?: MatchEvent[];
@@ -363,11 +385,12 @@ export interface TeamRankingEntry {
   position: number;
 }
 
-// Also gone from here, all of them shapes only the old backend ever produced:
-// the news article (there is no news source), the points table (crex serves no
-// standings), the win-probability record (the widget computes its own from the
-// card — see components/match/WinProbability), and the API-envelope and
-// Socket.io payload types. Nothing speaks that protocol now: every source is the
+// Also gone from here, shapes only the old backend ever produced: the news
+// article (there is no news source), the win-probability record (the widget
+// computes its own from the card — see components/match/WinProbability), and the
+// API-envelope and Socket.io payload types. The points table was in this list
+// too, on the belief that crex served no standings. It does —
+// `seriesInside/getPTableForSeriesID` — so the real shape is below. Nothing speaks that protocol now: every source is the
 // crex Worker, which returns plain JSON over HTTP.
 
 // ---------------------------------------------------------------------------
@@ -505,4 +528,350 @@ export interface PlayerProfile {
   recentBatting: PlayerFormEntry[];
   recentBowling: PlayerFormEntry[];
   debuts: PlayerDebut[];
+}
+
+// ---------------------------------------------------------------------------
+// Standings
+// ---------------------------------------------------------------------------
+//
+// A league page without a table is a list of results the reader has to add up
+// themselves, which is the one thing standings exist to stop.
+//
+// Modelled as *groups*, not as a table, because crex sends groups: a league
+// answers with one, a World Cup group stage with one per group. A single flat
+// table would silently merge Group A and Group B into a standing that describes
+// no competition at all.
+
+/** One side's line in a points table. */
+export interface PointsTableRow {
+  /** crex team f_key — what the crest and the team page are keyed by. */
+  teamKey: string;
+  team: ITeam;
+  /** crex's own position, which is not the order the rows arrive in. */
+  rank: number;
+  played: number;
+  won: number;
+  lost: number;
+  /**
+   * Abandoned or washed out — a point each, and the reason W+L ≠ P. Null on a
+   * table that has no such column: crex sends `NR` on a limited-overs table and
+   * `Draw` on a Test one, never both, so the two are carried separately and the
+   * table draws whichever column it was actually given.
+   */
+  noResult: number | null;
+  /** Drawn — Test tables only. Null on a limited-overs table. */
+  drawn: number | null;
+  points: number;
+  /**
+   * Net run rate, kept as crex's own signed string ("+1.805", "-0.119") rather
+   * than a number. It is a printed figure with a mandatory sign and exactly
+   * three decimals; re-deriving that from a float only loses the "+".
+   *
+   * Null where the format has no such figure — a Test table, where crex fills
+   * the field with a bare "0" that would otherwise print as a real run rate of
+   * zero.
+   */
+  netRunRate: string | null;
+  /** Last five results, oldest first. `N` is a no-result. */
+  form: Array<'W' | 'L' | 'N'>;
+  /** Through to the knockouts. */
+  qualified: boolean;
+  eliminated: boolean;
+  /** Won the thing. Drawn as a mark on the row, not as a status. */
+  champion: boolean;
+}
+
+export interface PointsTableGroup {
+  /**
+   * Group name, or null on a single-table league. crex sends the competition's
+   * own name there, which as a heading above one table is just the page title
+   * again — so it is dropped rather than printed twice.
+   */
+  name: string | null;
+  /**
+   * Three or more sides — a competition that awards points, so the Pts column
+   * means something.
+   *
+   * False on a bilateral series, where the table is a scoreline: England and
+   * Pakistan playing three Tests have wins, losses and draws but no competition
+   * points, and crex's `Pts` field is a column of zeros there. The table still
+   * renders; the points column does not.
+   */
+  tournament: boolean;
+  rows: PointsTableRow[];
+}
+
+// ---------------------------------------------------------------------------
+// Series leaders
+// ---------------------------------------------------------------------------
+//
+// The tournament's own honours board — who has the most runs, the most wickets,
+// the highest score. crex answers this from one block of its series overview
+// (`i4`), one leader per category, and a series page needs it for the reason a
+// reader opens one mid-tournament: the table says which side is winning, this
+// says who is.
+
+/** Which honour a leader holds. The order here is the order they are shown in. */
+export type SeriesLeaderKind =
+  | 'RUNS'
+  | 'WICKETS'
+  | 'HIGHEST_SCORE'
+  | 'BEST_FIGURES'
+  | 'SIXES'
+  | 'FOURS'
+  | 'STRIKE_RATE'
+  | 'ECONOMY'
+  | 'DOTS'
+  | 'FANTASY';
+
+/** One player at the top of one category. */
+export interface SeriesLeader {
+  kind: SeriesLeaderKind;
+  /** Printed heading — "Most runs", "Best figures". */
+  label: string;
+  /**
+   * The headline figure, kept as a string: crex sends "17/5" for figures and
+   * "169.79" for a rate, and both are printed as given rather than re-derived.
+   */
+  value: string;
+  /** crex player f_key — the link to the profile and the key the portrait uses. */
+  playerKey: string;
+  playerName: string;
+  /** crex's illustrated portrait, or null where the player has none. */
+  playerImage: string | null;
+  team: ITeam;
+  /** Innings batted or bowled in, where crex says. */
+  innings: number | null;
+  /**
+   * The second figure that qualifies the first — a strike rate under a run
+   * tally, the runs a strike rate came off, the wickets an economy was taken at.
+   * Null where the category has none.
+   */
+  support: string | null;
+}
+
+/** A tournament's honours board, plus the two totals crex sends with it. */
+export interface SeriesLeaders {
+  leaders: SeriesLeader[];
+  /** Fours hit in the whole tournament. Null where crex sends no total. */
+  fours: number | null;
+  sixes: number | null;
+}
+
+// ---------------------------------------------------------------------------
+// Series stat tables
+// ---------------------------------------------------------------------------
+//
+// The full ranking behind each honour — the top ten run scorers in a
+// tournament, with the innings, average and strike rate that produced them.
+//
+// Derived, not fetched: crex has no series-leaderboard endpoint (their own page
+// builds it from a GraphQL id space that nothing in the public payloads
+// resolves). Every scorecard in the series is public, though, and a scorecard
+// carries every column this table needs, so the ranking is aggregated from them.
+
+/** Which ranking a table holds. */
+export type SeriesStatKind =
+  | 'RUNS'
+  | 'WICKETS'
+  | 'HIGHEST_SCORE'
+  | 'BEST_FIGURES'
+  | 'SIXES'
+  | 'FOURS'
+  | 'STRIKE_RATE'
+  | 'ECONOMY'
+  | 'FIFTIES'
+  | 'HUNDREDS';
+
+/** A player's batting across the whole series. */
+export interface SeriesBattingTotals {
+  matches: number;
+  innings: number;
+  runs: number;
+  balls: number;
+  /** Highest score, with a `*` where it was unbeaten. */
+  highest: string;
+  notOuts: number;
+  /** Null for a batter never dismissed — an average of ∞, not of zero. */
+  average: number | null;
+  strikeRate: number | null;
+  fours: number;
+  sixes: number;
+  fifties: number;
+  hundreds: number;
+}
+
+/** A player's bowling across the whole series. */
+export interface SeriesBowlingTotals {
+  matches: number;
+  innings: number;
+  overs: number;
+  runs: number;
+  wickets: number;
+  /** Best innings figures, wickets first — "5/19". */
+  best: string;
+  average: number | null;
+  economy: number | null;
+  /** Balls per wicket. Null where nobody was dismissed. */
+  strikeRate: number | null;
+  fiveFors: number;
+}
+
+export interface SeriesStatRow {
+  rank: number;
+  playerKey: string;
+  playerName: string;
+  playerImage: string | null;
+  team: ITeam;
+  /** The figure the table is ranked by, printed as it should read. */
+  value: string;
+  batting: SeriesBattingTotals;
+  bowling: SeriesBowlingTotals;
+}
+
+export interface SeriesStatTable {
+  kind: SeriesStatKind;
+  /** "Most runs", "Best figures". */
+  label: string;
+  /** Which set of columns the table draws. */
+  discipline: 'BATTING' | 'BOWLING';
+  rows: SeriesStatRow[];
+  /** How many matches the figures were read off — the table's own footnote. */
+  matchesCounted: number;
+  /**
+   * The minimum that had to be met to appear, on the rate tables. Null on the
+   * counting tables, which have no cut.
+   */
+  qualifier: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Head to head
+// ---------------------------------------------------------------------------
+//
+// Derived, not fetched: crex has no h2h endpoint, but its schedule rows carry a
+// result *sentence*, and a sentence is enough. "won by 6 wickets" means the
+// winner batted second; "won by 34 runs" means they batted first. So a record
+// and a chased/defended split both fall out of text already on the wire.
+
+/** One previous meeting between two sides. */
+export interface HeadToHeadMatch {
+  /** Match key, or null where crex never allocated one. */
+  id: string | null;
+  /** Stable list key — the match key or the fixture's slot. */
+  key: string;
+  startTime: string;
+  venue: string;
+  format: MatchFormat;
+  series: string;
+  /** crex's own sentence: "Guyana Amazon Warriors won by 5 wickets". */
+  result: string;
+  /**
+   * f_key of the side that won, when the result names one. Null on a draw, a
+   * tie, a no-result — and on a win crex worded in a way this cannot attribute,
+   * which is why the record below counts `unresolved` separately rather than
+   * quietly filing those as draws.
+   */
+  winnerKey: string | null;
+}
+
+export interface HeadToHead {
+  /** The two sides, in the order the caller asked for them. */
+  home: ITeam;
+  away: ITeam;
+  played: number;
+  homeWins: number;
+  awayWins: number;
+  /** Drawn, tied or abandoned. */
+  drawn: number;
+  /**
+   * Meetings whose result text names no side this could match. Surfaced rather
+   * than absorbed: a record of 3–2 out of 8 meetings is honest, and 3–2 out of 5
+   * would not be.
+   */
+  unresolved: number;
+  /** Most recent first. */
+  matches: HeadToHeadMatch[];
+}
+
+// ---------------------------------------------------------------------------
+// Venues
+// ---------------------------------------------------------------------------
+
+/**
+ * What a ground has done lately.
+ *
+ * Every figure here comes from schedule rows — team keys, scores and the result
+ * sentence — so the page can only ever describe the window those rows cover, and
+ * says so. Deliberately absent: an average first-innings score. The rows carry
+ * `s1`/`s2` by *team*, not by innings, so which of the two batted first is only
+ * knowable from the result wording, and only on the matches that were won rather
+ * than drawn. A "venue average" built on that subset would be a number with a
+ * silent asterisk.
+ */
+export interface VenueProfile {
+  /** crex venue f_key. */
+  id: string;
+  name: string;
+  /**
+   * The most recent finished matches, newest first — a **slice** for display,
+   * not the whole set. Use `playedCount` for the figure: the chase/defend split
+   * below is counted over every finished match in the window, so a header built
+   * on `played.length` disagrees with it the moment the window holds more
+   * matches than the list shows.
+   */
+  played: HeadToHeadMatch[];
+  /** Finished matches in the window — the real total, not the slice's length. */
+  playedCount: number;
+  upcoming: IMatch[];
+  /** Scheduled matches in the window. `upcoming` is a slice of these. */
+  upcomingCount: number;
+  /** Won by the side batting second. */
+  chased: number;
+  /** Won by the side batting first. */
+  defended: number;
+  /** Neither — drawn, tied, abandoned, or a result this cannot attribute. */
+  inconclusive: number;
+  /** Sides that have played here most in the window, busiest first. */
+  regulars: Array<{ team: ITeam; matches: number }>;
+}
+
+// ---------------------------------------------------------------------------
+// Teams
+// ---------------------------------------------------------------------------
+
+/**
+ * crex's own colours for a side, off the mapping response. Three values, and the
+ * useful one is not the first: `cc` arrives as "0-#8F65E6" — a leading mode flag
+ * and a hex — while `uc` and `dc` are plain hex. They are what makes a team page
+ * look like that team rather than like the site's accent again.
+ */
+export interface TeamColors {
+  primary: string | null;
+  secondary: string | null;
+  dark: string | null;
+}
+
+export interface TeamRankingPosition {
+  format: RankingFormat;
+  gender: RankingGender;
+  position: number;
+  rating: number;
+}
+
+export interface TeamProfile {
+  team: ITeam;
+  colors: TeamColors;
+  /** ICC position per format, where the side is ranked at all. */
+  rankings: TeamRankingPosition[];
+  /** Scheduled matches, soonest first. */
+  upcoming: IMatch[];
+  /** Finished matches, most recent first, with the outcome attributed. */
+  recent: HeadToHeadMatch[];
+  /** Last five results, most recent first. */
+  form: Array<'W' | 'L' | 'N'>;
+  /** Named squad, from the current competition. Empty when none is announced. */
+  squad: SquadPlayer[];
+  /** The competition that squad was named for. */
+  squadSeries: { id: string; name: string } | null;
 }

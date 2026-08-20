@@ -18,13 +18,6 @@
   font-size: clamp(#{$text-2xl}, 6vw, #{$text-3xl});
 }
 
-.sub {
-  margin-top: $space-1-5;
-  max-width: 52ch;
-  font-size: $text-sm;
-  color: $text-muted;
-}
-
 .empty {
   @include card;
   padding: $space-5;

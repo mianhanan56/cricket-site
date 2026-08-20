@@ -1,15 +1,17 @@
 @use 'component' as *;
 
-// Series detail: a quiet identity block (chips → name → schedule block) followed
-// by the live cards and the full schedule list. The match cards are the page's
-// substance, so the header stays deliberately flat — no glass panel competing
-// with the row of cards directly beneath it.
+// Series detail: an identity block (chips → name) above a fact strip, then the
+// live cards, the section rail and whichever section is open. The match cards
+// and tables are the page's substance, so the header stays flat — no glass panel
+// competing with the cards directly beneath it.
 //
-// The header carries the same schedule block as SeriesCard — tally, rail, and
-// the start/end dates sitting under the rail's ends as its axis — sized up for a
-// page. Clicking a card should land you on the construct you clicked.
-// `--tint` is the same per-status colour channel the cards use, set here on the
-// header and on each schedule row's status pill.
+// The header's four facts — schedule, progress, sides, leading run scorer — sit
+// as one divided strip across the band rather than stacked at its left edge. A
+// 1280px header with a column of 14px type down one side is two thirds empty and
+// reads as four unrelated lines; in a row they read as one summary.
+//
+// `--tint` is the same per-status colour channel the series cards use, set here
+// on the header and on each schedule row's status pill.
 
 .page {
   @include container;
@@ -39,7 +41,11 @@
 
 .head {
   --tint: var(--accent-blue);
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
   margin-block: $space-3 $space-6;
+  min-width: 0;
 
   &[data-status='LIVE'] {
     --tint: var(--live);
@@ -53,6 +59,10 @@
   &[data-status='COMPLETED'] {
     --tint: var(--muted-foreground);
   }
+}
+
+.identity {
+  min-width: 0;
 }
 
 .chips {
@@ -124,14 +134,90 @@
   overflow-wrap: anywhere; // long tour names must not widen the page
 }
 
-// Schedule block — the card's footer, sized up. Capped so the rail stays a
-// meter rather than a decorative full-bleed line across a 1280px page.
-.progress {
+// ── the fact strip ─────────────────────────────────────────────────────
+// The header's four facts as one divided band across the page: schedule,
+// progress, sides, and who is leading it. They were a column of small type at
+// the left edge, which left two thirds of a 1280px header empty and read as four
+// unrelated lines rather than one summary. As a strip they share a baseline, the
+// band has a shape, and the eye gets a single row to scan.
+//
+// A definition list because that is what it is — label above figure, four times.
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-3 $space-4;
+  min-width: 0;
+
+  @include tablet {
+    // Equal columns that never squeeze their content, divided by hairlines. The
+    // cap keeps a two-fact strip (a tour with no table and no leaders) from
+    // stretching one label across the whole page.
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    grid-auto-columns: minmax(max-content, 1fr);
+    gap: 0;
+    // Two facts, so the columns are capped rather than stretched: "Schedule"
+    // spread over half a 1280px page is a label looking for a job.
+    max-width: 520px;
+  }
+}
+
+// One cell. The divider is a left border from the second cell on, drawn only in
+// the band where the cells actually sit in a row.
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+  min-width: 0;
+
+  @include tablet {
+    padding-inline: $space-5;
+
+    &:first-child {
+      padding-inline-start: 0;
+    }
+
+    & + & {
+      border-inline-start: 1px solid $card-border;
+    }
+  }
+}
+
+.factLabel {
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: $text-muted;
+}
+
+.factValue {
   display: flex;
   flex-direction: column;
   gap: $space-2;
-  max-width: 360px;
-  margin-top: $space-4;
+  min-width: 0;
+  margin: 0;
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
+  font-size: $text-sm;
+  color: $text-secondary;
+}
+
+// Dates sit on one line with their arrow; every other cell stacks.
+.factDates {
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-2;
+
+  time {
+    white-space: nowrap;
+  }
+}
+
+.factArrow {
+  color: $text-muted;
 }
 
 .progressCount {
@@ -146,8 +232,8 @@
 }
 
 .progressDone {
-  font-size: $text-lg;
-  font-weight: 700;
+  @include score-number;
+  font-size: $text-xl;
   color: $text-primary;
 }
 
@@ -167,7 +253,9 @@
 .rail {
   position: relative;
   display: block;
-  height: 6px;
+  width: 100%;
+  max-width: 200px;
+  height: 5px;
   border-radius: 999px;
   background: $surface-elevated;
   box-shadow: inset 0 0 0 1px $card-border;
@@ -198,24 +286,48 @@
   }
 }
 
-// The rail's endpoint labels — its axis, quiet by design.
-.span {
-  @include flex-between;
-  gap: $space-2;
-  font-family: $font-mono;
-  font-size: $text-xs;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  color: $text-muted;
+// ── page body ──────────────────────────────────────────────────────────
+// One column on a phone, two from the laptop band: sections on the left, the
+// key-stats rail on the right. The rail is the answer to a real problem rather
+// than decoration — the page's content is a 400px match card and a ten-row
+// table, which left a third of every laptop screen empty.
 
-  time {
-    @include truncate(1);
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: $space-8;
+  min-width: 0;
+
+  // Two columns only when there is a rail to put in the second one. A series
+  // crex has no leaders for — every one that has not started — would otherwise
+  // squeeze its schedule into two thirds of the page beside nothing.
+  &[data-rail] {
+    @include desktop {
+      display: grid;
+      // A fixed rail rather than a fraction: these are cards with a portrait and
+      // a figure in them, and they have one right size.
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: $space-6;
+      align-items: start;
+    }
   }
 }
 
-// A single-day series has no span to draw: one centred date, no false endpoints.
-.single {
-  margin-inline: auto;
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.aside {
+  min-width: 0;
+
+  @include desktop {
+    // Sticky under the navbar, so the leaders stay on screen while a 43-row
+    // schedule scrolls past them. Clears the tab rail's own sticky offset.
+    position: sticky;
+    top: calc(#{$navbar-height} + #{$space-4});
+  }
 }
 
 .section {
@@ -272,12 +384,6 @@
   &:focus-visible {
     outline: 2px solid $accent;
     outline-offset: -2px;
-  }
-
-  // A fixture with no match page yet: no hover affordance, because there is
-  // nothing to click.
-  &.rowInert:hover {
-    background: none;
   }
 
   // From tablet the status/result moves onto the same line, right-aligned.

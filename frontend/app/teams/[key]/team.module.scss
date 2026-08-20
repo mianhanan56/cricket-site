@@ -1,0 +1,483 @@
+@use 'component' as *;
+
+// ===========================================================================
+// /teams/[key] — one side: fixtures, results, form, squad, ranking.
+//
+// Identity is the app's Aurora system. The one thing this page adds, and the
+// only place it spends boldness:
+//
+//   THE CLUB TINT. crex publishes each side's own colours on the mapping
+//   response, and the hero is washed in them — so Guyana's page is green and
+//   gold and Trinbago's is violet and red, rather than both being the site's
+//   mint for the fifth screen in a row. It is a page about an identity, so the
+//   identity is the design.
+//
+//   Everything below the hero stays strictly on the app's palette. A whole page
+//   tinted per team would make eight different-looking sites, and the tint would
+//   stop meaning "this is that side" the moment it also meant "this is a row".
+//
+// The colours arrive as `--team-primary` / `--team-secondary` custom properties
+// set on the hero. Both fall back to the app's accents here, so a side with no
+// published colours renders as a normal Aurora header rather than as a hole.
+// ===========================================================================
+
+.page {
+  @include container;
+  padding-block: $space-5 $space-10;
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+  min-width: 0;
+
+  @include tablet {
+    padding-block: $space-6 $space-16;
+    gap: $space-6;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+// ── Hero ───────────────────────────────────────────────────────────────
+.hero {
+  // Declared here, not in the markup: the fallbacks are a design decision and
+  // belong in the stylesheet. The JSX only ever supplies the two values crex
+  // knows and SCSS cannot.
+  --team-primary: #{$accent-green};
+  --team-secondary: #{$accent-purple};
+
+  @include card;
+  position: relative;
+  overflow: hidden;
+  padding: $space-5 $space-4;
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+
+  @include tablet {
+    padding: $space-6;
+    gap: $space-5;
+  }
+}
+
+// The wash itself. A pair of soft radials in the club's colours, laid over the
+// glass rather than replacing it — the surface stays the app's, the colour on it
+// is the team's. Sits under the content on its own layer so the text keeps the
+// theme's contrast rather than fighting a tint.
+.heroWash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 70% 90% at 8% 0%,
+      color-mix(in oklab, var(--team-primary) 32%, transparent),
+      transparent 68%
+    ),
+    radial-gradient(
+      ellipse 60% 80% at 95% 100%,
+      color-mix(in oklab, var(--team-secondary) 26%, transparent),
+      transparent 66%
+    );
+}
+
+.heroMain {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  min-width: 0;
+
+  @include sm {
+    gap: $space-4;
+  }
+}
+
+// A plate behind the crest, so a dark crest on a dark tint (and the reverse)
+// stays legible without knowing which the club's colours are.
+.crestBox {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 62px;
+  height: 62px;
+  border-radius: $radius-xl;
+  background: color-mix(in oklab, var(--card) 78%, transparent);
+  border: 1px solid color-mix(in oklab, var(--team-primary) 40%, transparent);
+  box-shadow: 0 6px 20px -10px color-mix(in oklab, var(--team-primary) 70%, transparent);
+
+  @include tablet {
+    width: 76px;
+    height: 76px;
+  }
+}
+
+.heroText {
+  @include fluid-text;
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.eyebrow {
+  font-family: $font-display;
+  font-size: $text-2xs;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: color-mix(in oklab, var(--team-primary) 62%, var(--fg));
+}
+
+.heading {
+  font-family: $font-display;
+  font-size: clamp(#{$text-xl}, 6vw, #{$text-3xl});
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: $leading-tight;
+  overflow-wrap: anywhere;
+}
+
+.heroForm {
+  display: flex;
+  align-items: center;
+  gap: $space-2-5;
+  flex-wrap: wrap;
+  margin-top: $space-1;
+}
+
+.heroRecord {
+  font-size: $text-2xs;
+  color: $text-muted;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Ranking chips ──────────────────────────────────────────────────────
+// A rail rather than a grid: a men's side ranked in three formats and a women's
+// side in two would leave a grid with a hole in it, and the count varies by side.
+.rankStrip {
+  @include scroll-x;
+  position: relative;
+  display: flex;
+  gap: $space-2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rankChip {
+  display: flex;
+  align-items: baseline;
+  gap: $space-1-5;
+  flex-shrink: 0;
+  padding: $space-1-5 $space-2-5;
+  border-radius: $radius-md;
+  background: color-mix(in oklab, var(--card) 70%, transparent);
+  border: 1px solid $card-border;
+}
+
+.rankPos {
+  @include score-number;
+  font-size: $text-base;
+  color: color-mix(in oklab, var(--team-primary) 70%, var(--fg));
+}
+
+.rankLabel {
+  font-size: $text-2xs;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $text-secondary;
+}
+
+// Marks a women's list. The formats are the same three words in both, so without
+// this a side ranked in both prints "T20I" twice and means two different lists.
+.rankGender {
+  margin-left: 2px;
+  color: $accent-purple;
+}
+
+.rankRating {
+  font-size: $text-2xs;
+  color: $text-muted;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Sections ───────────────────────────────────────────────────────────
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2-5;
+  min-width: 0;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-family: $font-display;
+  font-size: $text-lg;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sectionCount {
+  font-family: $font-primary;
+  font-size: $text-2xs;
+  font-weight: 600;
+  color: $text-muted;
+  padding: 2px $space-2;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--fg) 7%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.sectionLink {
+  font-family: $font-primary;
+  font-size: $text-2xs;
+  font-weight: 600;
+  color: $text-muted;
+  text-decoration: none;
+  @include truncate(1);
+
+  &:hover,
+  &:focus-visible {
+    color: $accent-green;
+  }
+}
+
+// ── Rows ───────────────────────────────────────────────────────────────
+.list {
+  @include card;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  transition: background-color 0.18s ease;
+
+  & + & {
+    border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: $card-hover;
+  }
+
+  @include sm {
+    padding: $space-3 $space-4;
+  }
+}
+
+// A fixture with no match key yet. Not a link, and it should not pretend.
+.rowInert {
+  cursor: default;
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+.rowMain {
+  @include fluid-text;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.rowTop {
+  font-size: $text-sm;
+  font-weight: 600;
+  @include truncate(1);
+}
+
+.rowMeta {
+  font-size: $text-2xs;
+  color: $text-muted;
+  @include truncate(1);
+}
+
+.rowFormat {
+  flex-shrink: 0;
+  font-family: $font-display;
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: $text-muted;
+}
+
+.vs {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  font-size: $text-2xs;
+  font-weight: 700;
+  color: $text-muted;
+  background: color-mix(in oklab, var(--fg) 6%, transparent);
+}
+
+// W / L / · — the third state is a real one: a match whose result sentence names
+// no side this can attribute. Drawn as a neutral dot rather than guessed at.
+.resultMark {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  font-family: $font-display;
+  font-size: $text-xs;
+  font-weight: 700;
+
+  &[data-result='W'] {
+    background: color-mix(in oklab, var(--accent-green) 20%, transparent);
+    color: color-mix(in oklab, var(--accent-green) 88%, var(--fg));
+  }
+
+  &[data-result='L'] {
+    background: color-mix(in oklab, var(--live) 15%, transparent);
+    color: color-mix(in oklab, var(--live) 82%, var(--fg));
+  }
+
+  &[data-result='N'] {
+    background: color-mix(in oklab, var(--fg) 7%, transparent);
+    color: $text-muted;
+  }
+}
+
+// ── Form strip ─────────────────────────────────────────────────────────
+// Letters, not bare colour — same reasoning as the points table's strip, and
+// deliberately the same shape so the two read as one vocabulary.
+.form {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.formDot {
+  @include flex-center;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  font-family: $font-display;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+
+  &[data-result='W'] {
+    background: color-mix(in oklab, var(--accent-green) 24%, transparent);
+    color: color-mix(in oklab, var(--accent-green) 90%, var(--fg));
+  }
+
+  &[data-result='L'] {
+    background: color-mix(in oklab, var(--live) 18%, transparent);
+    color: color-mix(in oklab, var(--live) 84%, var(--fg));
+  }
+
+  &[data-result='N'] {
+    background: color-mix(in oklab, var(--fg) 9%, transparent);
+    color: $text-muted;
+  }
+}
+
+// ── Squad ──────────────────────────────────────────────────────────────
+// A plain list of names, not a batting/bowling split. crex's squad response says
+// who keeps wicket and who captains and nothing else about anyone's discipline,
+// so grouping by role would mean inventing the grouping.
+.squad {
+  @include card;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+
+  @include sm {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @include desktop {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.squadItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+  padding: $space-2-5 $space-3;
+  border-top: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+  min-width: 0;
+
+  &:first-child {
+    border-top: 0;
+  }
+
+  // With two or three columns the first cell of each row is the one that should
+  // lose its rule, not just the first cell overall.
+  @include sm {
+    &:nth-child(-n + 2) {
+      border-top: 0;
+    }
+  }
+
+  @include desktop {
+    &:nth-child(-n + 3) {
+      border-top: 0;
+    }
+  }
+}
+
+.squadName {
+  @include truncate(1);
+  font-size: $text-sm;
+  color: $text-primary;
+  text-decoration: none;
+  transition: color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: $accent-green;
+  }
+}
+
+.squadRole {
+  flex-shrink: 0;
+  font-size: $text-2xs;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  // The app's accent, not the club tint: the tint is declared on the hero and
+  // stays there by design — one bold element, and everything below it disciplined
+  // around the app's own palette.
+  color: color-mix(in oklab, var(--accent-green) 70%, var(--fg));
+}
+
+.empty {
+  @include card;
+  padding: $space-8;
+  text-align: center;
+  color: $text-muted;
+  font-size: $text-sm;
+}

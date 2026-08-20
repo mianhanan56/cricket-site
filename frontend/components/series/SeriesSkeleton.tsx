@@ -53,9 +53,6 @@ export default function SeriesSkeleton() {
     <div className={page.page} role="status" aria-busy="true" aria-label="Loading series">
       <header className={page.head}>
         <h1 className={page.heading}>Series</h1>
-        <p className={page.sub}>
-          Every competition currently in the feed, grouped from its matches.
-        </p>
       </header>
 
       <div className={sf.tabs}>

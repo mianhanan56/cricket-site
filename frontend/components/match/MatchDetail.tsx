@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   BallExtra,
+  HeadToHead,
   Match,
   MatchEvent,
   Team,
+  ExtrasBreakdown,
   InningsScore,
   BatsmanLine,
   BowlerLine,
@@ -14,6 +16,7 @@ import type {
   TeamFormEntry,
   MatchSquads,
   PlayerOfMatch,
+  PointsTableGroup,
   PlayerRole,
   SquadPlayer,
 } from '@/types';
@@ -33,20 +36,32 @@ import { battedInnings, formatTeamScore, inningsFor } from '@/lib/innings';
 import { isStaleStoppage } from '@/lib/crex';
 import { PlayerSituations, pausedWord } from './MatchState';
 import MatchEvents from './MatchEvents';
+import HeadToHeadBlock from './HeadToHead';
+import PointsTable from '../series/PointsTable';
 import WinProbability from './WinProbability';
 import {
   BowlingSkeleton,
   CommentarySkeleton,
   ScorecardSkeleton,
 } from './MatchDetailSkeleton';
+import Skeleton, { staggerRows } from '../ui/Skeleton';
 import styles from './MatchDetail.module.scss';
 
-type TabKey = 'info' | 'scorecard' | 'commentary';
+type TabKey = 'info' | 'scorecard' | 'commentary' | 'table';
 
+/**
+ * The tab row. `table` is conditional — it is only drawn for a competition that
+ * has standings, so a bilateral tour keeps the three tabs it has always had.
+ *
+ * It sits last rather than beside Match Info because it is the only tab that is
+ * not about *this match*: the first three are the match at three levels of
+ * detail, and the standings are the competition around it.
+ */
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'info', label: 'Match Info' },
   { key: 'scorecard', label: 'Scorecard' },
   { key: 'commentary', label: 'Commentary' },
+  { key: 'table', label: 'Points Table' },
 ];
 
 /**
@@ -134,6 +149,20 @@ function fmtTime(iso: string) {
 function dismissalOf(b: BatsmanLine): string {
   if (b.dismissal) return b.dismissal;
   return b.out ? 'out' : 'not out';
+}
+
+// "(b 0, lb 4, w 0, nb 0)" — the four standing extras lines, always all four so
+// the row reads as a fixed shape from innings to innings, plus the penalty only
+// when one was actually awarded (it is otherwise a column of zeroes nobody is
+// looking for). Null when the source did not send a breakdown, which leaves the
+// bare total rather than a row of invented zeroes.
+function formatExtras(e: ExtrasBreakdown | undefined): string | null {
+  if (!e) return null;
+
+  const parts = [`b ${e.byes}`, `lb ${e.legByes}`, `w ${e.wides}`, `nb ${e.noBalls}`];
+  if (e.penalty) parts.push(`p ${e.penalty}`);
+
+  return `(${parts.join(', ')})`;
 }
 
 // The `*` means "unbeaten at the crease". A retired batsman is also not out,
@@ -335,12 +364,37 @@ function computeRates(match: Match, innings: InningsScore[]): Rates | null {
 export default function MatchDetail({
   matchId,
   initial,
+  preview = false,
+  headToHead,
+  seriesTable,
 }: {
   matchId: string;
   initial: Match;
+  /**
+   * This is a fixture crex has not allocated a match key to yet, addressed by its
+   * slot in the series schedule. Nothing keyed by match exists upstream — no
+   * card, no feed, no announced squads — so every client fetch here is off, and
+   * the page is the header, the countdown and the context around it.
+   */
+  preview?: boolean;
+  /**
+   * The record between the two sides, derived server-side from the schedule.
+   * Static for the life of the page — a head-to-head does not move while a match
+   * is on — so it is a prop rather than another poll. Null when they have not met
+   * inside the schedule window, which is the normal case for a first meeting.
+   */
+  headToHead?: HeadToHead | null;
+  /**
+   * The competition's standings, where it has any. Empty on a bilateral tour and
+   * on a league that has not started, which is most matches.
+   */
+  seriesTable?: PointsTableGroup[];
 }) {
   const [match, setMatch] = useState<Match>(initial);
   const [tab, setTab] = useState<TabKey>('info');
+
+  const hasTable = Boolean(seriesTable?.length);
+  const tabs = hasTable ? TABS : TABS.filter((t) => t.key !== 'table');
 
   // Seed commentary + ball dots from the initial server-fetched scorecard. Both
   // initialisers are lazy: the seed only matters on the first render, and the
@@ -360,12 +414,12 @@ export default function MatchDetail({
   // connecting to nothing.
   const { match: polled, lastUpdated } = useCrexMatch(matchId, {
     initial,
-    enabled: match.status === 'LIVE',
+    enabled: !preview && match.status === 'LIVE',
   });
 
   // Scorecard + ball-by-ball, but only while the match is live or recently
   // finished — an upcoming fixture has neither.
-  const extrasEnabled = match.status !== 'UPCOMING';
+  const extrasEnabled = !preview && match.status !== 'UPCOMING';
   const crexExtras = useCrexMatchExtras(matchId, {
     enabled: extrasEnabled,
     ballsPerOver: match.ballsPerOver,
@@ -389,14 +443,21 @@ export default function MatchDetail({
   // the only place crex's squad field can be trusted: once play is on it holds a
   // pruned list rather than the XI (see `getCrexMatchSquads`), and from the
   // first ball the scorecard names everyone anyway.
-  const { squads: squadsByTeam } = useCrexMatchSquads(matchId, {
-    enabled: match.status === 'UPCOMING',
+  const squadsEnabled = !preview && match.status === 'UPCOMING';
+  const { squads: squadsByTeam, loaded: squadsLoaded } = useCrexMatchSquads(matchId, {
+    enabled: squadsEnabled,
   });
   const squads = useMemo(() => {
     const home = squadsByTeam[match.homeTeam.id] ?? match.squads?.home ?? [];
     const away = squadsByTeam[match.awayTeam.id] ?? match.squads?.away ?? [];
     return home.length || away.length ? { home, away } : null;
   }, [squadsByTeam, match.homeTeam.id, match.awayTeam.id, match.squads]);
+
+  // The squad fetch is a round trip of its own, and on an upcoming match the
+  // list is the tallest thing on the tab — so the section is held open with
+  // placeholders rather than appearing two seconds in and shoving the details
+  // table down the page.
+  const squadsPending = squadsEnabled && !squadsLoaded && !squads;
 
   // Fold each poll into local state. The crex scorecard replaces the innings
   // wholesale — it is a complete card each time, not a delta.
@@ -771,7 +832,7 @@ export default function MatchDetail({
 
       {/* ------------------------------------------------ Sticky tabs */}
       <nav className={styles.tabs} aria-label="Match sections">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
@@ -790,6 +851,8 @@ export default function MatchDetail({
           events={crexExtras.events}
           innings={crexExtras.innings}
           squads={squads}
+          squadsPending={squadsPending}
+          headToHead={headToHead}
           pending={extrasPending}
         />
       )}
@@ -804,6 +867,13 @@ export default function MatchDetail({
       )}
       {tab === 'commentary' && (
         <CommentaryTab overs={overs} pending={extrasPending} />
+      )}
+      {tab === 'table' && seriesTable && (
+        <TableTab
+          groups={seriesTable}
+          series={match.series}
+          sides={[match.homeTeam.id, match.awayTeam.id]}
+        />
       )}
     </div>
   );
@@ -951,6 +1021,47 @@ const ROLE_CLASS: Record<PlayerRole, string> = {
   WK: 'roleKeeper',
 };
 
+/**
+ * Ragged name widths for the squad placeholder — a real list is Powell, Athanaze,
+ * Hetmyer, not eleven bars of one length.
+ */
+const SQUAD_SK_WIDTHS = ['60', '80', '50', '70', '60', '90', '70', '50', '80', '60', '70'] as const;
+
+/**
+ * A squad panel's placeholder, in the real panel's geometry.
+ *
+ * The team name is already known from the header, so the band is rendered for
+ * real and only the list is placeholder — the reader sees which side is being
+ * filled in, not two anonymous grey boxes. Eleven rows: the shortest list crex
+ * ever announces, so the section can only grow when the names land, never
+ * collapse.
+ */
+function SquadColumnSkeleton({ team }: { team: Team }) {
+  return (
+    <div
+      className={styles.squadCol}
+      role="status"
+      aria-busy="true"
+      aria-label={`Loading ${team.name} squad`}
+    >
+      <header className={styles.squadTeam}>
+        <h3 className={styles.squadTeamName}>{team.name}</h3>
+        <Skeleton className={styles.squadCountSk} />
+      </header>
+      <ul className={`${styles.squadList} ${staggerRows}`}>
+        {SQUAD_SK_WIDTHS.map((width, i) => (
+          <li key={i} className={styles.squadPlayer}>
+            <span className={`${styles.squadNameCell} ${styles.squadNameCellSk}`}>
+              <Skeleton variant="body" width={width} />
+            </span>
+            <Skeleton className={styles.squadRoleSk} />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function SquadColumn({ team, players }: { team: Team; players: SquadPlayer[] }) {
   if (!players.length) return null;
 
@@ -989,6 +1100,8 @@ function InfoTab({
   events,
   innings,
   squads,
+  squadsPending,
+  headToHead,
   pending,
 }: {
   match: Match;
@@ -997,14 +1110,39 @@ function InfoTab({
   innings: InningsScore[];
   /** Announced squads, or null while crex has none. */
   squads: MatchSquads | null;
+  /** The squad fetch is still in flight, and there is nothing to show yet. */
+  squadsPending?: boolean;
+  /** The sides' record, or null when they have not met inside the window. */
+  headToHead?: HeadToHead | null;
   pending?: boolean;
 }) {
-  const details: Array<[string, string]> = [
+  // Values, not strings: the venue and the series are pages now, and this table
+  // is where a reader who wants either of them looks. Both degrade to plain text
+  // — a fixture with no allocated venue has nowhere to go.
+  const details: Array<[string, React.ReactNode]> = [
     ['Date', fmtDate(match.startTime)],
     ['Time', fmtTime(match.startTime)],
-    ['Venue', match.venue],
+    [
+      'Venue',
+      match.venueId ? (
+        <Link href={`/venues/${match.venueId}`} className={styles.detailLink}>
+          {match.venue}
+        </Link>
+      ) : (
+        match.venue
+      ),
+    ],
     ['Format', match.format],
-    ['Series', match.series.name],
+    [
+      'Series',
+      match.series.id ? (
+        <Link href={`/series/${match.series.id}`} className={styles.detailLink}>
+          {match.series.name}
+        </Link>
+      ) : (
+        match.series.name
+      ),
+    ],
   ];
 
   // Events lead the tab while there is a match to have them: they are the most
@@ -1037,6 +1175,22 @@ function InfoTab({
         </section>
       )}
 
+      {/* Placed above the squads and below the events: a reader on a live match
+          wants what just happened first, and a reader on an upcoming one — where
+          there are no events — lands on this, which is the right thing to open a
+          preview with. */}
+      {headToHead && (
+        <section className={styles.block}>
+          <h2 className={styles.blockTitle}>
+            Head to Head
+            <span className={styles.blockHint}>
+              {headToHead.played} {headToHead.played === 1 ? 'meeting' : 'meetings'}
+            </span>
+          </h2>
+          <HeadToHeadBlock record={headToHead} />
+        </section>
+      )}
+
       {match.teamForm && (
         <section className={styles.block}>
           <h2 className={styles.blockTitle}>Team Form <span className={styles.blockHint}>last 5</span></h2>
@@ -1045,12 +1199,21 @@ function InfoTab({
         </section>
       )}
 
-      {squads && (
+      {(squads || squadsPending) && (
         <section className={styles.block}>
           <h2 className={styles.squadsTitle}>Squads</h2>
           <div className={styles.squads}>
-            <SquadColumn team={match.homeTeam} players={squads.home} />
-            <SquadColumn team={match.awayTeam} players={squads.away} />
+            {squads ? (
+              <>
+                <SquadColumn team={match.homeTeam} players={squads.home} />
+                <SquadColumn team={match.awayTeam} players={squads.away} />
+              </>
+            ) : (
+              <>
+                <SquadColumnSkeleton team={match.homeTeam} />
+                <SquadColumnSkeleton team={match.awayTeam} />
+              </>
+            )}
           </div>
         </section>
       )}
@@ -1065,6 +1228,50 @@ function InfoTab({
             </div>
           ))}
         </dl>
+      </section>
+    </div>
+  );
+}
+
+// -------------------------------------------------------------- Points table
+
+/**
+ * The competition's standings, as a tab of its own.
+ *
+ * A tab rather than a block inside Match Info because of what it is: the other
+ * three tabs are this match at three levels of detail, and this is the table the
+ * match sits in. Buried under the events and the squads it was something a
+ * reader had to scroll past the whole preview to find.
+ *
+ * Rendered even before a ball is bowled, when every column reads zero. That IS
+ * the standings of a competition that has not started — it names the sides and
+ * says nobody has a point — and it is the state crex shows too.
+ *
+ * The two sides playing are marked, which is the whole reason this is worth
+ * having here rather than only on the series page.
+ */
+function TableTab({
+  groups,
+  series,
+  sides,
+}: {
+  groups: PointsTableGroup[];
+  series: Match['series'];
+  /** The two team keys to mark. */
+  sides: string[];
+}) {
+  return (
+    <div className={styles.panel}>
+      <section className={styles.block}>
+        {series.id && (
+          <p className={styles.tableLink}>
+            <Link href={`/series/${series.id}`} className={styles.blockLink}>
+              Full schedule
+            </Link>
+          </p>
+        )}
+
+        <PointsTable groups={groups} highlight={sides} />
       </section>
     </div>
   );
@@ -1102,6 +1309,8 @@ function ScorecardTab({
   const bowling: BowlerLine[] =
     current?.bowling ?? (isLatest ? match.scorecard?.bowling ?? [] : []);
   const extras = current?.extras ?? (isLatest ? match.scorecard?.extras : undefined);
+  const extrasBreakdown =
+    current?.extrasBreakdown ?? (isLatest ? match.scorecard?.extrasBreakdown : undefined);
   const yetToBat = current?.yetToBat ?? [];
 
   // Before a ball is bowled there is no card at all — crex does not open an
@@ -1222,7 +1431,9 @@ function ScorecardTab({
                       Extras
                     </td>
                     <td className={styles.num}>{extras}</td>
-                    <td colSpan={4} />
+                    <td className={styles.extrasDetail} colSpan={4}>
+                      {formatExtras(extrasBreakdown)}
+                    </td>
                   </tr>
                 )}
                 {current && (

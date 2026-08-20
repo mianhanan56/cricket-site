@@ -1,0 +1,318 @@
+@use 'component' as *;
+
+// ===========================================================================
+// /venues/[key] — one ground.
+//
+// Identity is the app's Aurora system, unchanged. The one bold element:
+//
+//   THE CHASE SPLIT. A single two-tone bar showing how this ground's decided
+//   matches divided between the side chasing and the side batting first. It is
+//   the only thing a venue page can tell a reader that no other page in the app
+//   can, so it gets the width, the weight and the colour, and everything else on
+//   the page stays a quiet list around it.
+//
+// Mint is the chase and violet the defence — the app's two accents, used as a
+// pair rather than as a new colour, so the bar belongs to the same system as the
+// win-probability split it visually rhymes with.
+// ===========================================================================
+
+.page {
+  @include container;
+  padding-block: $space-5 $space-10;
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+  min-width: 0;
+
+  @include tablet {
+    padding-block: $space-6 $space-16;
+    gap: $space-6;
+  }
+}
+
+// ── Header ─────────────────────────────────────────────────────────────
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.eyebrow {
+  font-family: $font-display;
+  font-size: $text-2xs;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: $text-muted;
+}
+
+.heading {
+  font-family: $font-display;
+  font-size: clamp(#{$text-xl}, 6vw, #{$text-3xl});
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: $leading-tight;
+  overflow-wrap: anywhere;
+}
+
+.caption {
+  font-size: $text-sm;
+  color: $text-muted;
+  font-variant-numeric: tabular-nums;
+}
+
+// ── The chase split — the signature element ────────────────────────────
+.split {
+  @include card;
+  padding: $space-4;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+
+  @include tablet {
+    padding: $space-5 $space-6;
+  }
+}
+
+.splitHead {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.splitTitle {
+  font-family: $font-display;
+  font-size: $text-base;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.splitLede {
+  font-size: $text-sm;
+  color: $text-secondary;
+
+  strong {
+    color: $text-primary;
+    font-weight: 700;
+  }
+}
+
+// The sample size, printed with the claim rather than in a footnote. A split
+// drawn from four results and one drawn from forty look identical otherwise.
+.splitBasis {
+  display: block;
+  font-size: $text-2xs;
+  color: $text-muted;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--fg) 8%, transparent);
+}
+
+.barChase {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--accent-green) 70%, transparent),
+    var(--accent-green)
+  );
+  transition: width 0.4s ease;
+}
+
+.barDefend {
+  background: linear-gradient(
+    90deg,
+    var(--accent-purple),
+    color-mix(in oklab, var(--accent-purple) 70%, transparent)
+  );
+  transition: width 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barChase,
+  .barDefend {
+    transition: none;
+  }
+}
+
+.splitLegend {
+  display: flex;
+  justify-content: space-between;
+  gap: $space-3;
+  font-size: $text-2xs;
+  color: $text-muted;
+}
+
+.legendFigure {
+  @include score-number;
+  font-size: $text-sm;
+  margin-right: 3px;
+}
+
+.legendChase .legendFigure {
+  color: $accent-green;
+}
+
+.legendDefend .legendFigure {
+  color: $accent-purple;
+}
+
+.legendDefend {
+  text-align: right;
+}
+
+// ── Sections ───────────────────────────────────────────────────────────
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2-5;
+  min-width: 0;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-family: $font-display;
+  font-size: $text-lg;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sectionCount {
+  font-family: $font-primary;
+  font-size: $text-2xs;
+  font-weight: 600;
+  color: $text-muted;
+  padding: 2px $space-2;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--fg) 7%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+// ── Regulars ───────────────────────────────────────────────────────────
+// A scrolling rail of crests: the number of sides that use a ground varies from
+// two (a bilateral venue) to eight (a franchise league), which a grid handles
+// badly at both ends.
+.regulars {
+  @include scroll-x;
+  display: flex;
+  gap: $space-2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.regular {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  flex-shrink: 0;
+  padding: $space-2 $space-3;
+  border-radius: $radius-lg;
+  background: color-mix(in oklab, var(--card) 70%, transparent);
+  border: 1px solid $card-border;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--card-hover-border);
+    background: $card-hover;
+  }
+}
+
+.regularName {
+  font-size: $text-sm;
+  font-weight: 600;
+}
+
+.regularCount {
+  @include score-number;
+  font-size: $text-xs;
+  color: $text-muted;
+  padding-left: $space-1;
+  border-left: 1px solid $card-border;
+}
+
+// ── Rows ───────────────────────────────────────────────────────────────
+.list {
+  @include card;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3;
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  transition: background-color 0.18s ease;
+
+  & + & {
+    border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: $card-hover;
+  }
+
+  @include sm {
+    padding: $space-3 $space-4;
+  }
+}
+
+.rowInert {
+  cursor: default;
+
+  &:hover {
+    background: transparent;
+  }
+}
+
+.rowMain {
+  @include fluid-text;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.rowTop {
+  font-size: $text-sm;
+  font-weight: 600;
+  @include truncate(1);
+}
+
+.rowMeta {
+  font-size: $text-2xs;
+  color: $text-muted;
+  @include truncate(1);
+}
+
+.rowFormat {
+  flex-shrink: 0;
+  font-family: $font-display;
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: $text-muted;
+}
+
+.vs {
+  color: $text-muted;
+  font-weight: 400;
+}

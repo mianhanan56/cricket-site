@@ -1,0 +1,357 @@
+@use 'component' as *;
+
+// ===========================================================================
+// One ranking in one series — "Most runs in Assam Premier League 2026".
+//
+// The page has one job, so it is built as one statement: a podium of three at
+// portrait scale, then the ten as a table. Nothing else competes.
+//
+// Signature element is the PODIUM — gold, silver and bronze rings on the three
+// portraits, the only place colour is spent. A leaderboard's first fact is who
+// is top, and that should be readable before a single number is.
+// ===========================================================================
+
+.page {
+  @include container;
+  padding-block: $space-5 $space-8;
+  min-width: 0;
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  font-size: $text-sm;
+  color: $text-muted;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: $accent;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+    border-radius: $radius-sm;
+  }
+}
+
+.head {
+  margin-block: $space-3 $space-5;
+  min-width: 0;
+}
+
+.eyebrow {
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: $text-muted;
+}
+
+.heading {
+  margin-top: $space-2;
+  font-size: clamp(#{$text-2xl}, 6vw, #{$text-3xl});
+  line-height: $leading-tight;
+  overflow-wrap: anywhere;
+}
+
+// --- ranking switcher ------------------------------------------------------
+// Ten sibling rankings as one scrollable row of pills. A reader who wanted
+// wickets rather than runs changes their mind here rather than going back.
+
+.switcher {
+  @include scroll-x;
+  display: flex;
+  gap: $space-2;
+  margin-bottom: $space-5;
+  padding-bottom: $space-1;
+}
+
+.switch {
+  flex-shrink: 0;
+  padding: $space-2 $space-3;
+  border-radius: 999px;
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $text-secondary;
+  background: $card-bg;
+  border: 1px solid $card-border;
+  white-space: nowrap;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  &:hover {
+    color: $text-primary;
+    border-color: color-mix(in oklab, var(--accent-green) 35%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+}
+
+.switchOn {
+  color: $accent-green-ink;
+  background: $accent;
+  border-color: transparent;
+}
+
+// --- podium ---------------------------------------------------------------
+
+// Three across at every width. Stacked on a phone the three cards were a
+// screen and a half of portraits before the table began, and the podium's whole
+// point is that the top three are read together.
+.podium {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: $space-2;
+  margin-bottom: $space-4;
+
+  @include sm {
+    gap: $space-3;
+    margin-bottom: $space-5;
+  }
+}
+
+.podiumCard {
+  @include card;
+  --tint: var(--muted-foreground);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-1-5;
+  padding: $space-3 $space-2;
+  text-align: center;
+  min-width: 0;
+
+  @include sm {
+    gap: $space-2;
+    padding: $space-4;
+  }
+
+  // Gold, silver, bronze — the one place this page spends colour.
+  &[data-rank='1'] {
+    --tint: var(--amber);
+  }
+
+  &[data-rank='2'] {
+    --tint: var(--text-secondary);
+  }
+
+  &[data-rank='3'] {
+    --tint: var(--accent-purple);
+  }
+
+  &:hover {
+    border-color: color-mix(in oklab, var(--tint) 45%, transparent);
+    transform: translateY(-2px);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+}
+
+.podiumRank {
+  @include flex-center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-family: $font-mono;
+  font-size: $text-2xs;
+  font-weight: 700;
+  color: color-mix(in oklab, var(--tint) 88%, var(--fg));
+  background: color-mix(in oklab, var(--tint) 15%, transparent);
+  border: 1px solid color-mix(in oklab, var(--tint) 30%, transparent);
+}
+
+.podiumHalo {
+  position: relative;
+  display: flex;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 2px solid color-mix(in oklab, var(--tint) 60%, transparent);
+  }
+}
+
+.podiumFigure {
+  @include score-number;
+  font-size: $text-2xl;
+  line-height: 1;
+  color: $text-primary;
+
+  @include sm {
+    font-size: $text-3xl;
+  }
+}
+
+.podiumName {
+  @include fluid-text;
+  font-family: $font-display;
+  font-size: $text-sm;
+  font-weight: 700;
+  color: $text-primary;
+
+  @include sm {
+    font-size: $text-base;
+  }
+
+  .podiumCard:hover & {
+    color: $accent;
+  }
+}
+
+.podiumTeam {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-1-5;
+  min-width: 0;
+  max-width: 100%;
+  font-size: $text-2xs;
+  color: $text-muted;
+
+  // The name wraps rather than truncating: a third of a phone is not wide
+  // enough for "Manchesters Super Giants" on one line, and a clipped club name
+  // is worse than a two-line one.
+  span:last-child {
+    overflow-wrap: anywhere;
+  }
+
+  @include sm {
+    font-size: $text-xs;
+  }
+}
+
+// --- the table ------------------------------------------------------------
+// Thirteen columns on a phone cannot be helped by folding: this is a stat
+// sheet, and every column is a figure someone came for. So it scrolls inside
+// its own panel, with the player column pinned.
+
+.tableWrap {
+  @include card;
+  @include scroll-x;
+  padding: 0;
+}
+
+.table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+
+  th,
+  td {
+    padding: $space-3 $space-2;
+    text-align: right;
+    white-space: nowrap;
+    font-family: $font-mono;
+    font-size: $text-xs;
+    color: $text-secondary;
+
+    &:last-child {
+      padding-inline-end: $space-4;
+    }
+  }
+
+  th {
+    font-family: $font-primary;
+    font-size: $text-2xs;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: $text-muted;
+    border-bottom: 1px solid $card-border;
+  }
+
+  tbody tr {
+    border-bottom: 1px solid $card-border;
+    transition: background 0.15s ease;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background: $card-hover;
+    }
+  }
+}
+
+// Screen-reader caption: the table's provenance, which sighted readers get from
+// the heading and the footnote row.
+.caption {
+  padding: $space-3 $space-4;
+  text-align: left;
+  font-size: $text-xs;
+  color: $text-muted;
+  border-bottom: 1px solid $card-border;
+}
+
+.numCol {
+  width: 44px;
+  text-align: center !important;
+  padding-inline-start: $space-4 !important;
+  color: $text-muted !important;
+}
+
+// The player cell is the only text column, so it is the only left-aligned one.
+.playerCol {
+  text-align: left !important;
+  min-width: 180px;
+}
+
+.player {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+
+  &:hover .playerName {
+    color: $accent;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+    border-radius: $radius-sm;
+  }
+}
+
+.playerName {
+  @include truncate(1);
+  min-width: 0;
+  font-family: $font-primary;
+  font-size: $text-sm;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.playerTeam {
+  flex-shrink: 0;
+  font-size: $text-2xs;
+  letter-spacing: 0.06em;
+  color: $text-muted;
+}
+
+// The ranked-by column, carried in the accent down the whole table so the eye
+// knows which of eleven figures the order came from.
+.leadCol {
+  color: $accent !important;
+  font-weight: 700;
+}
+
+.empty {
+  @include card;
+  padding: $space-5;
+  font-size: $text-sm;
+  color: $text-muted;
+}

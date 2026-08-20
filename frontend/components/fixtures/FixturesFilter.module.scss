@@ -127,12 +127,9 @@
   }
 }
 
-// Two variants because not every fixture is linkable: crex allocates a match key
-// close to the match, so anything further out is a card with nowhere to go. It
-// still gets the card, just not the affordance that says it can be opened.
-.card,
-.cardStatic {
+.card {
   @include card;
+  @include card-hover;
   display: flex;
   flex-direction: column;
   gap: $space-3;
@@ -142,10 +139,6 @@
   @include sm {
     padding: $space-4;
   }
-}
-
-.card {
-  @include card-hover;
 }
 
 .cardTop {
