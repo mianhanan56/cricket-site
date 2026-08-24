@@ -1,13 +1,13 @@
 import Link from 'next/link';
 import type { SeriesSummary } from '@/types';
+import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
 import styles from './SeriesCard.module.scss';
 
+// A span, not an instant — the two ends are compared with === to spot a one-day
+// series, so both have to read the same on the server and in the browser. See
+// lib/datetime.
 function fmtDate(iso: string, withYear = false): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    ...(withYear ? { year: 'numeric' } : {}),
-  });
+  return formatInZone(iso, withYear ? 'date' : 'dateShort', SERVER_ZONE);
 }
 
 export default function SeriesCard({ series }: { series: SeriesSummary }) {

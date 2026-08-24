@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import '../scss/main.scss';
 import Navbar from '../components/layout/Navbar';
+import NavigationTracker from '../components/layout/NavigationTracker';
 import Footer from '../components/layout/Footer';
 import { Analytics } from '@vercel/analytics/next';
 
@@ -93,8 +94,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         )}
       </head>
-      <Analytics />
       <body>
+        <NavigationTracker />
         <div className="app-shell">
           <Navbar />
           <main className="main-content">{children}</main>

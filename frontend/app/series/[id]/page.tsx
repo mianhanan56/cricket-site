@@ -15,6 +15,9 @@ import { pickParam } from '../../../lib/queryParams';
 import PointsTable from '../../../components/series/PointsTable';
 import { SeriesKeyStats } from '../../../components/series/SeriesLeaders';
 import SeriesTabs, { type SeriesTab } from '../../../components/series/SeriesTabs';
+import LocalTime from '../../../components/ui/LocalTime';
+import { SERVER_ZONE, formatInZone } from '../../../lib/datetime';
+import BackButton from '../../../components/ui/BackButton';
 import styles from './seriesDetail.module.scss';
 
 // Ids here are crex series keys ("2AW", "2E2") — the same ones SeriesCard links
@@ -57,22 +60,12 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   };
 }
 
+// A series' span is a calendar range, not an instant — it is compared with ===
+// to decide whether the two ends are the same day, and it must read identically
+// on both sides of a render. So it is formatted in SERVER_ZONE rather than
+// through <LocalTime>; a start *time*, which the reader plans around, is not.
 function fmtDate(iso: string, withYear = true): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    ...(withYear ? { year: 'numeric' } : {}),
-  });
-}
-
-function fmtDayTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return formatInZone(iso, withYear ? 'date' : 'dateShort', SERVER_ZONE);
 }
 
 /**
@@ -91,7 +84,7 @@ function ScheduleRow({ match }: { match: SeriesScheduleMatch }) {
           {match.awayTeam.shortName}
         </span>
         <span className={styles.rowMeta}>
-          {fmtDayTime(match.startTime)} · {match.venue}
+          <LocalTime iso={match.startTime} format="dayTime" /> · {match.venue}
         </span>
       </span>
 
@@ -175,12 +168,7 @@ export default async function SeriesDetailPage({
 
   return (
     <div className={styles.page}>
-      <Link href="/series" className={styles.back}>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M19 12H5M11 18l-6-6 6-6" />
-        </svg>
-        All series
-      </Link>
+      <BackButton fallback="/series" />
 
       <header className={styles.head}>
         <h1 className={styles.heading}>{series.name}</h1>

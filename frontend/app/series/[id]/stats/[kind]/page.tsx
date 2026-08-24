@@ -9,6 +9,7 @@ import {
 } from '../../../../../lib/crex';
 import PlayerPortrait from '../../../../../components/player/PlayerPortrait';
 import RankingCrest from '../../../../../components/rankings/RankingCrest';
+import BackButton from '../../../../../components/ui/BackButton';
 import styles from './seriesStat.module.scss';
 
 // The tables are read off every card in the series, so they are cached hard: a
@@ -117,12 +118,7 @@ export default async function SeriesStatPage({
 
   return (
     <div className={styles.page}>
-      <Link href={`/series/${params.id}`} className={styles.back}>
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M19 12H5M11 18l-6-6 6-6" />
-        </svg>
-        {series.name}
-      </Link>
+      <BackButton fallback={`/series/${params.id}`} />
 
       <header className={styles.head}>
         <p className={styles.eyebrow}>{series.name}</p>

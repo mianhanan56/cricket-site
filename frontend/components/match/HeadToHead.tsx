@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { HeadToHead as H2H } from '@/types';
+import LocalTime from '../ui/LocalTime';
 import styles from './HeadToHead.module.scss';
 
 /**
@@ -12,9 +13,9 @@ import styles from './HeadToHead.module.scss';
  * page, deliberately: one is the probability of this match, the other the record
  * behind it, and a reader should recognise the shape.
  *
- * The honesty is in `unresolved`. A meeting whose result names no side we can
- * match is counted separately and printed, rather than being folded into the
- * draws — so "3–2 from 8 meetings" never silently claims to be all eight.
+ * The honesty is in `unresolved`. A match whose result names no side we can
+ * identify is counted separately and printed, rather than being folded into the
+ * draws — so "3–2 from 8 matches" never silently claims to be all eight.
  */
 export default function HeadToHead({ record }: { record: H2H }) {
   const { home, away, played, homeWins, awayWins, drawn, unresolved, matches } = record;
@@ -31,7 +32,7 @@ export default function HeadToHead({ record }: { record: H2H }) {
         <span className={styles.played}>
           <span className={styles.playedNum}>{played}</span>
           <span className={styles.playedLabel}>
-            {played === 1 ? 'meeting' : 'meetings'}
+            {played === 1 ? 'match' : 'matches'}
           </span>
         </span>
         <TeamScore team={away} wins={awayWins} align="right" />
@@ -69,11 +70,7 @@ export default function HeadToHead({ record }: { record: H2H }) {
               <span className={styles.meetingMain}>
                 <span className={styles.meetingResult}>{m.result}</span>
                 <span className={styles.meetingMeta}>
-                  {new Date(m.startTime).toLocaleDateString(undefined, {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                  <LocalTime iso={m.startTime} format="date" />
                   {m.venue !== 'TBD' && ` · ${m.venue}`}
                 </span>
               </span>

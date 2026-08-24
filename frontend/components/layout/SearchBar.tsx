@@ -30,27 +30,54 @@ export default function SearchBar() {
       return;
     }
     setLoading(true);
+
+    // Only the newest query may write. Clearing the debounce timer does nothing
+    // to a request already in flight, so a slow "ind" could land after a fast
+    // "india" and replace the newer results with the older ones.
+    let current = true;
+
     const t = setTimeout(async () => {
+      let next: FlatItem[] = [];
       try {
         // Six, not twelve: this is a dropdown, and the full list is one Enter
         // away on /search.
         const found = await searchMatches(q.trim(), 6);
-        setItems(
-          found.map((m) => ({
-            label: matchLabel(m),
-            href: `/matches/${m.id}`,
-            group: m.status === 'LIVE' ? 'Live' : m.status === 'UPCOMING' ? 'Upcoming' : 'Result',
-          }))
-        );
-        setActive(-1);
+        next = found.map((m) => ({
+          label: matchLabel(m),
+          href: `/matches/${m.id}`,
+          group: m.status === 'LIVE' ? 'Live' : m.status === 'UPCOMING' ? 'Upcoming' : 'Result',
+        }));
       } catch {
-        setItems([]);
-      } finally {
-        setLoading(false);
+        next = [];
       }
+      if (!current) return;
+      setItems(next);
+      setActive(-1);
+      setLoading(false);
     }, 300);
-    return () => clearTimeout(t);
+
+    return () => {
+      current = false;
+      clearTimeout(t);
+    };
   }, [q]);
+
+  // ⌘K / Ctrl-K, which the pill on the trigger has been advertising. It was
+  // only ever painted on — there was no handler anywhere — so the shortcut the
+  // button promised did nothing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'k' || !(e.metaKey || e.ctrlKey)) return;
+      e.preventDefault();
+      setOpen(true);
+      // Focus after the panel is visible: it is `visibility: hidden` while
+      // closed, and a hidden input cannot take focus.
+      requestAnimationFrame(() => inputRef.current?.focus());
+    };
+
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   // Close on outside click.
   useEffect(() => {
@@ -112,7 +139,7 @@ export default function SearchBar() {
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={onKeyDown}
           role="combobox"
-          aria-expanded={items.length > 0}
+          aria-expanded={open && items.length > 0}
           aria-controls="search-results"
         />
 

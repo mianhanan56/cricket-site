@@ -13,10 +13,10 @@ import styles from './PointsTable.module.scss';
  * with one, a World Cup group stage with one per group — and a flat table would
  * put Group A's third-placed side above Group B's leader.
  *
- * Signature element is the **status rail**: the 3px edge on each row, mint for a
- * side that is through, amber for the champion, dim for the eliminated. A table
- * exists to say who is still alive, so that is carried as structure rather than
- * as another badge competing with the numbers.
+ * Signature element is the **status tag**: a solid Q / C / E badge riding in the
+ * position column. A table exists to say who is still alive, so that answer is
+ * given a filled chip on a fixed column — legible at a glance and aligned down
+ * the table, where a mark trailing a team name of any length is neither.
  */
 export default function PointsTable({
   groups,
@@ -136,8 +136,8 @@ function Group({ group, marked }: { group: PointsTableGroup; marked: Set<string>
   );
 }
 
-/** Which of the three rail states a side is in, if any. */
-function railState(row: PointsTableRow): 'champion' | 'qualified' | 'eliminated' | undefined {
+/** Which of the three status states a side is in, if any. */
+function tagState(row: PointsTableRow): 'champion' | 'qualified' | 'eliminated' | undefined {
   if (row.champion) return 'champion';
   if (row.qualified) return 'qualified';
   if (row.eliminated) return 'eliminated';
@@ -161,11 +161,14 @@ function Row({
   hasNoResult: boolean;
   hasRate: boolean;
 }) {
-  const state = railState(row);
+  const state = tagState(row);
 
   return (
     <tr className={styles.row} data-state={state} data-marked={marked ? '' : undefined}>
-      <td className={styles.rank}>{row.rank || '—'}</td>
+      <td className={styles.rank}>
+        <span className={styles.pos}>{row.rank || '—'}</span>
+        {state && <StatusTag state={state} />}
+      </td>
 
       <td className={styles.left}>
         <div className={styles.teamCell}>
@@ -177,13 +180,6 @@ function Row({
                 make openable. */}
             <Link href={`/teams/${row.teamKey}`} className={styles.teamName}>
               {row.team.name}
-              {row.champion && (
-                <span className={styles.trophy} title="Champions" aria-label="Champions">
-                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true">
-                    <path d="M6 3h12v2h3v3a4 4 0 0 1-4 4h-.35A6 6 0 0 1 13 15.9V19h3v2H8v-2h3v-3.1A6 6 0 0 1 7.35 12H7a4 4 0 0 1-4-4V5h3V3Zm0 4H5v1a2 2 0 0 0 1 1.73V7Zm12 0v2.73A2 2 0 0 0 19 8V7h-1Z" />
-                  </svg>
-                </span>
-              )}
             </Link>
 
             {/* The columns the table drops on a phone, reappearing under the
@@ -222,6 +218,24 @@ function Row({
   );
 }
 
+/** The letter beside a team's name: Q through, C champion, E eliminated. */
+const TAG = {
+  champion: ['C', 'Champions'],
+  qualified: ['Q', 'Qualified'],
+  eliminated: ['E', 'Eliminated'],
+} as const;
+
+function StatusTag({ state }: { state: keyof typeof TAG }) {
+  const [letter, label] = TAG[state];
+
+  return (
+    <span className={styles.tag} data-state={state} title={label}>
+      <span aria-hidden="true">{letter}</span>
+      <span className={styles.srOnly}>{label}</span>
+    </span>
+  );
+}
+
 const FORM_WORD = { W: 'won', L: 'lost', N: 'no result' } as const;
 
 /**
@@ -253,7 +267,7 @@ function Legend({ groups }: { groups: PointsTableGroup[] }) {
     rows.some((r) => r.champion) && (['champion', 'Champions'] as const),
     rows.some((r) => r.qualified && !r.champion) && (['qualified', 'Qualified'] as const),
     rows.some((r) => r.eliminated) && (['eliminated', 'Eliminated'] as const),
-  ].filter(Boolean) as Array<readonly [string, string]>;
+  ].filter(Boolean) as Array<readonly [keyof typeof TAG, string]>;
 
   if (!keys.length) return null;
 
@@ -261,7 +275,9 @@ function Legend({ groups }: { groups: PointsTableGroup[] }) {
     <ul className={styles.legend}>
       {keys.map(([state, label]) => (
         <li key={state}>
-          <span className={styles.legendRail} data-state={state} aria-hidden="true" />
+          <span className={styles.legendTag} data-state={state} aria-hidden="true">
+            {TAG[state][0]}
+          </span>
           {label}
         </li>
       ))}

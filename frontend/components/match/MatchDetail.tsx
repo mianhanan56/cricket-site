@@ -21,6 +21,7 @@ import type {
   SquadPlayer,
 } from '@/types';
 import {
+  IDLE_INTERVAL_MS,
   useCrexMatch,
   useCrexMatchExtras,
   useCrexMatchSquads,
@@ -45,6 +46,8 @@ import {
   ScorecardSkeleton,
 } from './MatchDetailSkeleton';
 import Skeleton, { staggerRows } from '../ui/Skeleton';
+import BackButton from '../ui/BackButton';
+import LocalTime from '../ui/LocalTime';
 import styles from './MatchDetail.module.scss';
 
 type TabKey = 'info' | 'scorecard' | 'commentary' | 'table';
@@ -133,18 +136,7 @@ function scoreParts(
   };
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
-function fmtTime(iso: string) {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-}
 
 function dismissalOf(b: BatsmanLine): string {
   if (b.dismissal) return b.dismissal;
@@ -412,9 +404,24 @@ export default function MatchDetail({
   // polled instead. There used to be a socket path here for backend-sourced
   // matches; the socket server was dropped in the move to Workers, so it was
   // connecting to nothing.
+  //
+  // Polling is NOT gated on the match being live. Gating on
+  // `match.status === 'LIVE'` deadlocked the page: `match` is local state seeded
+  // from the server render, so a page opened before the toss never polled,
+  // therefore never learned the match had started, therefore never started
+  // polling. The reader sat on "UPCOMING" for the whole session unless they
+  // reloaded by hand.
+  //
+  // What the status decides is the cadence, and whether there is any point at
+  // all. A live match is asked every couple of seconds. One yet to start is
+  // asked at `IDLE_INTERVAL_MS` — fast enough to catch the toss, cheap enough to
+  // leave open. A finished one is not asked again: that state is terminal, and
+  // this is the only place the poll can be stopped without the deadlock coming
+  // back with it.
   const { match: polled, lastUpdated } = useCrexMatch(matchId, {
     initial,
-    enabled: !preview && match.status === 'LIVE',
+    enabled: !preview && match.status !== 'COMPLETED',
+    intervalMs: isLive ? undefined : IDLE_INTERVAL_MS,
   });
 
   // Scorecard + ball-by-ball, but only while the match is live or recently
@@ -422,6 +429,9 @@ export default function MatchDetail({
   const extrasEnabled = !preview && match.status !== 'UPCOMING';
   const crexExtras = useCrexMatchExtras(matchId, {
     enabled: extrasEnabled,
+    // A finished match's card and feed are final: fetch them, then stop. Only a
+    // live one is worth asking again.
+    repeat: isLive,
     ballsPerOver: match.ballsPerOver,
     // Lets the fetched card mark which innings is being played, which is what
     // the innings ledger and the scorecard's phase labels read.
@@ -641,6 +651,8 @@ export default function MatchDetail({
 
   return (
     <div className={styles.page}>
+      <BackButton />
+
       {/* The wicket-alert banner lived here. It was driven by the socket's
           `wicket:fall` event; crex's feed has no equivalent push, and inferring
           a wicket from a poll would fire it late and sometimes twice. Dropped
@@ -871,7 +883,6 @@ export default function MatchDetail({
       {tab === 'table' && seriesTable && (
         <TableTab
           groups={seriesTable}
-          series={match.series}
           sides={[match.homeTeam.id, match.awayTeam.id]}
         />
       )}
@@ -1120,8 +1131,8 @@ function InfoTab({
   // is where a reader who wants either of them looks. Both degrade to plain text
   // — a fixture with no allocated venue has nowhere to go.
   const details: Array<[string, React.ReactNode]> = [
-    ['Date', fmtDate(match.startTime)],
-    ['Time', fmtTime(match.startTime)],
+    ['Date', <LocalTime key="date" iso={match.startTime} format="dayDate" />],
+    ['Time', <LocalTime key="time" iso={match.startTime} format="time" />],
     [
       'Venue',
       match.venueId ? (
@@ -1181,12 +1192,7 @@ function InfoTab({
           preview with. */}
       {headToHead && (
         <section className={styles.block}>
-          <h2 className={styles.blockTitle}>
-            Head to Head
-            <span className={styles.blockHint}>
-              {headToHead.played} {headToHead.played === 1 ? 'meeting' : 'meetings'}
-            </span>
-          </h2>
+          <h2 className={styles.blockTitle}>Head to Head</h2>
           <HeadToHeadBlock record={headToHead} />
         </section>
       )}
@@ -1252,25 +1258,15 @@ function InfoTab({
  */
 function TableTab({
   groups,
-  series,
   sides,
 }: {
   groups: PointsTableGroup[];
-  series: Match['series'];
   /** The two team keys to mark. */
   sides: string[];
 }) {
   return (
     <div className={styles.panel}>
       <section className={styles.block}>
-        {series.id && (
-          <p className={styles.tableLink}>
-            <Link href={`/series/${series.id}`} className={styles.blockLink}>
-              Full schedule
-            </Link>
-          </p>
-        )}
-
         <PointsTable groups={groups} highlight={sides} />
       </section>
     </div>

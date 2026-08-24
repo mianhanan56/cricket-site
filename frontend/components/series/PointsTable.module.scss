@@ -6,11 +6,11 @@
 // Nothing new is invented here: the Aurora glass card, the mint accent and the
 // Sora/Manrope pairing are the app's. What this component adds:
 //
-//   * the STATUS RAIL — a 3px left edge per row, mint for a side that is
-//     through, amber for the champion, dim for the eliminated. The signature
-//     element, and the only place boldness is spent, because "who is still
-//     alive" is the question a table answers and it should be readable without
-//     reading any of the numbers,
+//   * the STATUS TAG — a filled Q / C / E chip in the position column, mint for
+//     a side that is through, amber for the champion, dim for the eliminated.
+//     The signature element and the only place boldness is spent, because "who
+//     is still alive" is the question a table answers; riding the position
+//     column keeps the marks on one axis down the whole table,
 //   * a form strip of five letters rather than five colour-only dots — colour
 //     alone would carry W/L for nobody with a colour-vision deficiency,
 //   * the phone treatment the rankings table established: NRR and form fold onto
@@ -137,10 +137,7 @@
   color: $text-secondary;
 }
 
-// ── The row, and its rail ──────────────────────────────────────────────
-// The rail is a pseudo-element on the first cell rather than a border on the row
-// (a collapsed table drops row borders) and rounded, so it reads as an inset
-// marker rather than a table rule.
+// ── The row ────────────────────────────────────────────────────────────
 .row {
   position: relative;
   transition: background-color 0.18s ease;
@@ -154,41 +151,18 @@
   }
 
   td:first-child {
-    position: relative;
     padding-left: $space-3;
-
-    &::before {
-      content: '';
-      position: absolute;
-      inset-block: 22%;
-      left: 0;
-      width: 3px;
-      border-radius: 2px;
-      background: transparent;
-    }
 
     @include sm {
       padding-left: $space-4;
     }
   }
 
-  &[data-state='qualified'] td:first-child::before {
-    background: $accent-green;
-  }
-
-  &[data-state='champion'] td:first-child::before {
-    background: $accent-amber;
-  }
-
-  // Eliminated is drawn as absence, not as red: red is the live colour
-  // everywhere else in the app, and a knocked-out side is not an alert.
+  // A knocked-out side is dimmed rather than flagged in red: red is the live
+  // colour everywhere else in the app, and elimination is not an alert.
   &[data-state='eliminated'] {
-    td:first-child::before {
-      background: color-mix(in oklab, var(--fg) 22%, transparent);
-    }
-
     .teamName,
-    .rank {
+    .pos {
       color: $text-muted;
     }
   }
@@ -199,7 +173,7 @@
 
   // The sides the surrounding page is about — set on a match page for the two
   // teams playing. A weight change and a faint wash rather than a colour: the
-  // rail already owns colour on this row, and a second coloured signal would
+  // tag already owns colour on this row, and a second coloured signal would
   // make "in this match" and "qualified" compete for the same read.
   &[data-marked] {
     background: color-mix(in oklab, var(--fg) 5%, transparent);
@@ -208,17 +182,26 @@
       font-weight: 700;
     }
 
-    .rank {
+    .pos {
       color: $text-primary;
     }
   }
 }
 
 .rank {
-  @include score-number;
-  color: $text-secondary;
   width: 1%;
+  white-space: nowrap;
+}
+
+// The position and its status chip share a cell, so the chips line up down the
+// table instead of trailing team names of six different lengths.
+.rank .pos {
+  @include score-number;
+  display: inline-block;
+  min-width: 1ch;
+  color: $text-secondary;
   font-size: $text-sm;
+  text-align: right;
 }
 
 // ── Team cell ──────────────────────────────────────────────────────────
@@ -253,10 +236,46 @@
   }
 }
 
-.trophy {
-  color: $accent-amber;
-  display: inline-flex;
+// ── Status tag ─────────────────────────────────────────────────────────
+// A letter on a solid fill, not a tint: this is the table's one loud element and
+// it has to read from across the row. A letter and not colour alone, so the
+// state survives greyscale and a colour-vision deficiency the way the form
+// strip's W/L does.
+.tag {
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: $space-2;
+  border-radius: 7px;
+  font-family: $font-display;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  vertical-align: middle;
+
+  // Eliminated is drawn as an outline, not as red: red is the live colour
+  // everywhere else in the app, and a knocked-out side is not an alert.
+  color: $text-muted;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--fg) 20%, transparent);
+
+  &[data-state='qualified'] {
+    color: $accent-green-ink;
+    background: $accent-green;
+    box-shadow: 0 1px 4px color-mix(in oklab, var(--accent-green) 40%, transparent);
+  }
+
+  &[data-state='champion'] {
+    // A deep amber ink rather than white: white on amber clears no contrast bar
+    // in either theme.
+    color: oklch(0.28 0.06 75);
+    background: $accent-amber;
+    box-shadow: 0 1px 4px color-mix(in oklab, var(--amber) 40%, transparent);
+  }
 }
 
 // The dropped columns, folded under the name on a phone and gone above it.
@@ -377,17 +396,7 @@
   }
 }
 
-.legendRail {
-  width: 3px;
-  height: 12px;
-  border-radius: 2px;
-  background: color-mix(in oklab, var(--fg) 22%, transparent);
-
-  &[data-state='qualified'] {
-    background: $accent-green;
-  }
-
-  &[data-state='champion'] {
-    background: $accent-amber;
-  }
+.legendTag {
+  @extend .tag;
+  margin-left: 0;
 }

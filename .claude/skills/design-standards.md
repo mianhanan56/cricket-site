@@ -31,6 +31,8 @@ Do NOT give me beginner-level or generic design. Treat me as a senior who will i
 - Numbered markers (01/02/03) unless content is literally a real sequence
 - Decorations that serve no purpose — every element must earn its place
 - Scattered animations — if motion is used, it must be orchestrated and meaningful
+- **Small accent bar beside a heading** (a 2–4px vertical stripe via `border-left` or `::before`) — a heading is carried by type, not by a decorative tick
+- **Tiny muted corner links** ("Full schedule", "View all", "See more", "More →" at 10–12px in $text-muted) — either the link is worth real size and real placement, or it does not exist
 
 ---
 

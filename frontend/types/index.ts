@@ -342,6 +342,12 @@ export type RankingFormat = 'TEST' | 'ODI' | 'T20I';
 
 export interface RankingEntry {
   id: string;
+  /**
+   * crex player f_key, when the row came from a live list. Absent on the
+   * bundled snapshot, which stores names only — so a row links to a profile
+   * exactly when there is a key to link with.
+   */
+  playerKey?: string;
   playerName: string;
   country: string;
   format: RankingFormat;

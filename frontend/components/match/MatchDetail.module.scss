@@ -554,8 +554,6 @@
   gap: $space-1 $space-2;
   font-size: $text-base;
   margin-bottom: $space-3;
-  padding-left: $space-2;
-  border-left: 3px solid $accent;
 }
 
 // A player's name, wherever this page prints one, links to their profile.
@@ -590,31 +588,6 @@
   font-weight: 400;
   color: $text-muted;
   font-family: $font-mono;
-}
-
-// The way out to the full series page, above the standings. Right-aligned and
-// sized like a hint: the table is the content, this is the exit.
-.tableLink {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: $space-3;
-}
-
-.blockLink {
-  font-size: 11px;
-  font-weight: 500;
-  color: $text-muted;
-  text-decoration: none;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color 0.15s ease;
-
-  &:hover,
-  &:focus-visible {
-    color: $accent;
-  }
 }
 
 .empty {

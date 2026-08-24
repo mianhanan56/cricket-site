@@ -59,9 +59,9 @@ interface Row {
   matches?: number;
   points?: number;
   /**
-   * Where the row's subject has a page. Teams do; players do too, but their
-   * `id` here is a synthetic list key rather than a crex f_key, so only teams
-   * carry one for now.
+   * Where the row's subject has a page. Both groups do — a team by its key, a
+   * player by the crex f_key the live lists carry. The bundled snapshot has no
+   * player keys, so those rows render as plain names rather than dead links.
    */
   href?: string;
 }
@@ -74,6 +74,7 @@ const toPlayerRow = (e: RankingEntry): Row => ({
   rating: e.rating,
   movement:
     typeof e.previousPosition === 'number' ? e.previousPosition - e.position : undefined,
+  href: e.playerKey ? `/players/${e.playerKey}` : undefined,
 });
 
 const toTeamRow = (e: TeamRankingEntry): Row => ({

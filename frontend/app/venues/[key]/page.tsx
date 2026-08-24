@@ -4,6 +4,8 @@ import type { HeadToHeadMatch, Match, VenueProfile } from '@/types';
 import { getCrexFixtureRange } from '../../../lib/crex';
 import { venueProfile } from '../../../lib/venues';
 import RankingCrest from '../../../components/rankings/RankingCrest';
+import LocalTime from '../../../components/ui/LocalTime';
+import BackButton from '../../../components/ui/BackButton';
 import styles from './venue.module.scss';
 
 // Keys here are crex venue f_keys ("3E", "GY") — carried on every match, fixture
@@ -50,23 +52,7 @@ export async function generateMetadata({ params }: { params: { key: string } }) 
   };
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
-function fmtDayTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
 /**
  * The ground's character in one bar: how its decided matches split between the
@@ -133,7 +119,7 @@ function ResultRow({ match }: { match: HeadToHeadMatch }) {
       <span className={styles.rowMain}>
         <span className={styles.rowTop}>{match.result}</span>
         <span className={styles.rowMeta}>
-          {fmtDate(match.startTime)} · {match.series}
+          <LocalTime iso={match.startTime} format="date" /> · {match.series}
         </span>
       </span>
       <span className={styles.rowFormat}>{match.format}</span>
@@ -158,7 +144,7 @@ function FixtureRow({ match }: { match: Match }) {
           {match.awayTeam.shortName}
         </span>
         <span className={styles.rowMeta}>
-          {fmtDayTime(match.startTime)} · {match.series.name}
+          <LocalTime iso={match.startTime} format="dayTime" /> · {match.series.name}
         </span>
       </span>
       <span className={styles.rowFormat}>{match.format}</span>
@@ -182,6 +168,8 @@ export default async function VenuePage({ params }: { params: { key: string } })
 
   return (
     <div className={styles.page}>
+      <BackButton />
+
       <header className={styles.head}>
         <p className={styles.eyebrow}>Ground</p>
         <h1 className={styles.heading}>{venue.name}</h1>

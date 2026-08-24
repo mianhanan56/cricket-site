@@ -19,26 +19,6 @@
   min-width: 0;
 }
 
-// Back to the list — a text link, not a button: it is a wayfinder, not an action.
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-1-5;
-  font-size: $text-sm;
-  color: $text-muted;
-  transition: color 0.15s ease;
-
-  &:hover {
-    color: $accent;
-  }
-
-  &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 2px;
-    border-radius: $radius-sm;
-  }
-}
-
 .head {
   --tint: var(--accent-blue);
   display: flex;

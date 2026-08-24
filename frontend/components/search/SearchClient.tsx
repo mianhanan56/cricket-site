@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { Match } from '@/types';
 import { matchLabel, matchSublabel, searchMatches } from '../../lib/search';
 import { SearchResultsSkeleton } from './SearchSkeleton';
@@ -18,32 +18,70 @@ const GROUPS: { status: Match['status']; title: string }[] = [
 ];
 
 export default function SearchClient() {
+  const router = useRouter();
   const params = useSearchParams();
-  const initial = params.get('q') ?? '';
-  const [q, setQ] = useState(initial);
+  const urlQuery = params.get('q') ?? '';
+
+  const [q, setQ] = useState(urlQuery);
   const [results, setResults] = useState<Match[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
+  // `?q=` used to be read once into state and never looked at again, which made
+  // the URL a dead seed: results were not shareable, Back and Forward did
+  // nothing, and following a navbar search while already on /search left the
+  // previous query in the box. Adopting it whenever it changes underneath makes
+  // history work — and typing writes it back below, so the two stay in step.
+  //
+  // Typing is NOT routed per keystroke, though. The box keeps its own state so
+  // input never waits on a navigation; the URL catches up on the same debounce
+  // as the search itself.
+  useEffect(() => setQ(urlQuery), [urlQuery]);
+
   useEffect(() => {
-    if (q.trim().length < 2) {
+    const term = q.trim();
+
+    if (term.length < 2) {
       setResults([]);
       setSearched(false);
+      // A cleared box clears the URL too, so a shared link never carries a
+      // query the page is no longer showing.
+      if (!term && urlQuery) router.replace('/search', { scroll: false });
       return;
     }
     setLoading(true);
+
+    // Guards an out-of-order landing. Clearing the debounce timer does nothing
+    // to a request already in flight, so a slow "ind" could resolve after a
+    // fast "india" and overwrite the newer results with the older ones. The
+    // flag is flipped by this effect's own cleanup, so only the newest query
+    // is ever allowed to write.
+    let current = true;
+
     const t = setTimeout(async () => {
-      try {
-        setResults(await searchMatches(q.trim()));
-      } catch {
-        setResults([]);
-      } finally {
-        setLoading(false);
-        setSearched(true);
+      // `replace`, not `push`: Back should leave the search page, not walk
+      // letter by letter through everything typed to get here.
+      if (term !== urlQuery) {
+        router.replace(`/search?q=${encodeURIComponent(term)}`, { scroll: false });
       }
+
+      let found: Match[] = [];
+      try {
+        found = await searchMatches(term);
+      } catch {
+        found = [];
+      }
+      if (!current) return;
+      setResults(found);
+      setLoading(false);
+      setSearched(true);
     }, 300);
-    return () => clearTimeout(t);
-  }, [q]);
+
+    return () => {
+      current = false;
+      clearTimeout(t);
+    };
+  }, [q, urlQuery, router]);
 
   return (
     <div className={styles.page}>

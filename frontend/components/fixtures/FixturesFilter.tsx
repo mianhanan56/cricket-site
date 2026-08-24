@@ -20,12 +20,9 @@ import {
 } from '@/lib/matchType';
 import { FIXTURE_FORMAT_TABS, type FixtureFormatKey } from '@/lib/tabs';
 import FilterSelect from '../ui/FilterSelect';
+import LocalTime from '../ui/LocalTime';
 import FixtureCalendar from './FixtureCalendar';
 import styles from './FixturesFilter.module.scss';
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
 
 /** Days revealed per step in the default view. */
 const DAYS_PER_PAGE = 4;
@@ -191,7 +188,7 @@ export default function FixturesFilter({
                     <>
                       <div className={styles.cardTop}>
                         <span className={styles.format}>{m.format}</span>
-                        <span className={styles.date}>{formatTime(m.startTime)}</span>
+                        <LocalTime iso={m.startTime} format="time" lower className={styles.date} />
                       </div>
                       <div className={styles.teams}>
                         <span>{m.homeTeam.shortName}</span>

@@ -381,6 +381,64 @@ const nameCache: Record<CrexMapKind, Map<string, CrexMapEntry>> = {
   p: new Map(),
 };
 
+/**
+ * Ceiling on each bucket.
+ *
+ * This cache is process-global and, on a server, lives as long as the process
+ * does — so "names are immutable, keep them all" was a slow leak rather than an
+ * optimisation. Teams, venues and series are naturally bounded (crex has a few
+ * thousand of each, and a deployment sees a fraction). Players are not: every
+ * scorecard, every ranking list and every squad names more of them, and nothing
+ * ever released one.
+ *
+ * The limits are set well above a realistic working set, so eviction should be
+ * a backstop rather than something the app runs into.
+ */
+const CACHE_LIMIT: Record<CrexMapKind, number> = {
+  t: 4_000,
+  v: 4_000,
+  s: 4_000,
+  p: 20_000,
+};
+
+/**
+ * Write a resolved name, evicting the oldest if the bucket is full.
+ *
+ * A Map iterates in insertion order, so re-inserting on write puts the freshest
+ * key at the back and makes the front the least recently *written*. Not true
+ * LRU — a key read a thousand times and never rewritten still ages out — which
+ * is the right trade here: entries are cheap to re-fetch and the limit is high
+ * enough that eviction is rare.
+ */
+function remember(kind: CrexMapKind, entry: CrexMapEntry): void {
+  const bucket = nameCache[kind];
+  bucket.delete(entry.f_key);
+  bucket.set(entry.f_key, entry);
+
+  const excess = bucket.size - CACHE_LIMIT[kind];
+  if (excess <= 0) return;
+
+  const oldest = bucket.keys();
+  for (let i = 0; i < excess; i++) {
+    const key = oldest.next();
+    if (key.done) break;
+    bucket.delete(key.value);
+  }
+}
+
+/**
+ * Keys with a /mapping request already open, so concurrent callers share it.
+ *
+ * Without this, the cache only collapsed requests that had already *landed*.
+ * A home page and a match page rendering in the same tick — or several server
+ * requests arriving together — each saw an empty cache, and each asked for the
+ * same few hundred keys. The promise is registered before it is awaited, so the
+ * second caller finds it and waits rather than issuing its own.
+ */
+const inFlight = new Map<string, Promise<void>>();
+
+const flightKey = (kind: CrexMapKind, key: string): string => `${kind}:${key}`;
+
 /** crex prefixes some keys with "^" on the match object but not in the map. */
 const cleanKey = (key: string | undefined): string => (key ?? '').replace(/^\^/, '');
 
@@ -399,36 +457,72 @@ export async function resolveKeys(
   opts: FetchOpts = {}
 ): Promise<typeof nameCache> {
   const missing: Partial<Record<CrexMapKind, string[]>> = {};
+  // Requests someone else already has open for keys we also want.
+  const shared = new Set<Promise<void>>();
   let batches = 0;
 
   for (const [kind, keys] of Object.entries(wanted) as Array<[CrexMapKind, Iterable<string>]>) {
-    const list = [...new Set([...(keys ?? [])].map(cleanKey))].filter(
-      (k) => k && !nameCache[kind].has(k)
-    );
+    const list: string[] = [];
+
+    for (const key of new Set([...(keys ?? [])].map(cleanKey))) {
+      if (!key || nameCache[kind].has(key)) continue;
+
+      const open = inFlight.get(flightKey(kind, key));
+      if (open) shared.add(open);
+      else list.push(key);
+    }
+
     if (list.length) {
       missing[kind] = list;
       batches = Math.max(batches, Math.ceil(list.length / MAPPING_BATCH));
     }
   }
-  if (!batches) return nameCache;
+
+  if (!batches) {
+    // Nothing left to ask for, but another caller may still be fetching some of
+    // what we need — returning now would hand back a cache with holes in it.
+    if (shared.size) await Promise.all(shared);
+    return nameCache;
+  }
 
   // One request per slice across all buckets at once, rather than per bucket:
   // teams and venues for the same payload arrive together.
-  const requests: Promise<CrexMapping>[] = [];
+  const requests: Promise<unknown>[] = [];
   for (let i = 0; i < batches; i++) {
     const slice = Object.fromEntries(
       Object.entries(missing)
         .map(([kind, list]) => [kind, list.slice(i * MAPPING_BATCH, (i + 1) * MAPPING_BATCH)])
         .filter(([, list]) => list.length)
     ) as Partial<Record<CrexMapKind, string[]>>;
-    requests.push(getCrexMapping(slice, opts));
+
+    const entries = Object.entries(slice) as Array<[CrexMapKind, string[]]>;
+    if (!entries.length) continue;
+
+    const request = getCrexMapping(slice, opts).then((mapping) => {
+      for (const kind of ['t', 'v', 's', 'p'] as const) {
+        for (const entry of mapping[kind] ?? []) remember(kind, entry);
+      }
+    });
+
+    // What other callers wait on. Deliberately cannot reject: a failed mapping
+    // call is this caller's error to handle, and poisoning an unrelated caller
+    // that merely wanted an overlapping key would turn one failure into two.
+    // The registry is cleared either way, so a failure is retried next time
+    // rather than leaving the keys permanently "in flight".
+    const settled = request.catch(() => undefined).finally(() => {
+      for (const [kind, list] of entries) {
+        for (const key of list) inFlight.delete(flightKey(kind, key));
+      }
+    });
+
+    for (const [kind, list] of entries) {
+      for (const key of list) inFlight.set(flightKey(kind, key), settled);
+    }
+
+    requests.push(request);
   }
 
-  for (const mapping of await Promise.all(requests)) {
-    for (const kind of ['t', 'v', 's', 'p'] as const) {
-      for (const entry of mapping[kind] ?? []) nameCache[kind].set(entry.f_key, entry);
-    }
-  }
+  await Promise.all([...requests, ...shared]);
 
   return nameCache;
 }
@@ -1960,13 +2054,22 @@ export async function getCrexMatchFeed(
 // ---------------------------------------------------------------------------
 
 /**
- * A series' status from the statuses of its matches: live if anything is live,
- * else upcoming if anything is still to come. Only when neither holds is it done.
+ * A series' status from the statuses of its matches.
+ *
+ * "Live" here means the competition is under way, not that a ball is being
+ * bowled right now. A league 35 matches into 44 sat under Upcoming on every
+ * rest day, which is the wrong answer to the question the tab asks — so a
+ * series that has played something and has something left is live. Upcoming is
+ * reserved for one that has not started, and completed for one with nothing to
+ * come.
  */
 function seriesStatus(matches: Array<{ status: MatchStatus }>): MatchStatus {
   if (matches.some((m) => m.status === 'LIVE')) return 'LIVE';
-  if (matches.some((m) => m.status === 'UPCOMING')) return 'UPCOMING';
-  return 'COMPLETED';
+
+  const toCome = matches.some((m) => m.status === 'UPCOMING');
+  if (!toCome) return 'COMPLETED';
+
+  return matches.some((m) => m.status === 'COMPLETED') ? 'LIVE' : 'UPCOMING';
 }
 
 /**
@@ -2655,9 +2758,21 @@ const CORPUS_FORWARD = 12;
  */
 const CORPUS_REVALIDATE = 1800;
 
+/**
+ * How many schedule pages may be in flight at once.
+ *
+ * The corpus is 58 pages wide, and firing all 58 the moment a match, team or
+ * venue page renders put a 58-request burst on the Worker for every cold read —
+ * from a single visitor. Cached reads are free either way, so the only thing
+ * the unbounded version bought was a slightly faster cache miss, at the cost of
+ * being the app's own worst traffic spike. Same width the series stat tables
+ * use for the same reason.
+ */
+const FIXTURE_FETCH_WIDTH = 8;
+
 async function fixturesFromPages(pages: number[], opts: FetchOpts = {}): Promise<Fixture[]> {
-  const settled = await Promise.all(
-    pages.map((page) => getCrexFixtures(page, opts).catch(() => []))
+  const settled = await inWidth(pages, FIXTURE_FETCH_WIDTH, (page) =>
+    getCrexFixtures(page, opts).catch(() => [] as CrexFixtureRow[])
   );
 
   // Both keys are needed: `id` is crex's row id and `mf` the match key, and a row
@@ -3240,7 +3355,14 @@ interface CrexPointsRow {
   Pts?: string;
   /** "0" on a Test table, where the figure does not exist. */
   NRR?: string;
-  /** crex's own position. Not the order the rows arrive in. */
+  /**
+   * crex's own position — and not to be trusted. It goes stale against the rest
+   * of the row: TNPL 2026 sent Tiruppur (8 pts, −0.013) as rank 5 and Nellai
+   * (8 pts, −0.146) as rank 4, while the *array* had them the right way round,
+   * and it is the array order the `qualified` flags follow. Sorting by this
+   * field put the qualification marks on the wrong sides. Position is taken
+   * from the array instead; see `getCrexSeriesTable`.
+   */
   rank?: number;
   /** Last five, oldest first: ["W","L","W","W","W"]. */
   rf?: string[];
@@ -3350,8 +3472,11 @@ export async function getCrexSeriesTable(
   return groups.map((g) => ({
     name: named ? g.g_name?.trim() || null : null,
     tournament: (g.pt_info?.length ?? 0) >= MIN_TABLE_ROWS,
+    // crex sends the rows already in standings order — points, then net run
+    // rate — and its per-row `rank` disagrees with that order often enough to
+    // be useless. Position is the row's place in the list.
     rows: (g.pt_info ?? [])
-      .map((r) => {
+      .map((r, i) => {
         const teamKey = cleanKey(r.team_fkey);
         const team = toTeam(teamKey, names);
 
@@ -3362,7 +3487,7 @@ export async function getCrexSeriesTable(
           // resolved name only as a fallback, so the whole app says "Guyana
           // Amazon Warriors" the same way.
           team: team.name === teamKey && r.team_name ? { ...team, name: r.team_name } : team,
-          rank: r.rank ?? 0,
+          rank: i + 1,
           played: asCount(r.P),
           won: asCount(r.W),
           lost: asCount(r.L),
@@ -3378,8 +3503,7 @@ export async function getCrexSeriesTable(
           eliminated: r.eliminated === 1,
           champion: r.is_winner === 1,
         } satisfies PointsTableRow;
-      })
-      .sort((a, b) => a.rank - b.rank),
+      }),
   }));
 }
 

@@ -286,6 +286,7 @@ export async function getRankings(): Promise<Rankings> {
 
       data[c.format][c.gender][c.category] = rows.map((row: CrexRankingRow, idx) => ({
         id: `${c.format}-${c.gender}-${c.category}-${row.pf || idx}`,
+        playerKey: row.pf || undefined,
         // An unresolved key is better shown as itself than as a blank row —
         // it makes a /mapping gap visible instead of silently truncating.
         playerName: players.get(row.pf) ?? row.pf,

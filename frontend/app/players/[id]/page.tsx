@@ -8,6 +8,8 @@ import type {
 } from '@/types';
 import { getCrexPlayerProfile, teamLogoUrl } from '../../../lib/crex';
 import PlayerPortrait from '../../../components/player/PlayerPortrait';
+import { SERVER_ZONE, formatInZone } from '../../../lib/datetime';
+import BackButton from '../../../components/ui/BackButton';
 import styles from './player.module.scss';
 
 // Ids here are crex player f_keys ("1IG", "FW") — the same ones every scorecard
@@ -49,12 +51,11 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   };
 }
 
+// A date of birth is a calendar date, not a moment: it is the same day in every
+// timezone, so it is formatted in a fixed zone rather than shifted into the
+// reader's — which would move a midnight birthday to the day before.
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+  return formatInZone(iso, 'date', SERVER_ZONE);
 }
 
 /** Two decimals, but never "0.00" for a figure the player has not earned. */
@@ -406,6 +407,8 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
   return (
     <div className={styles.page}>
+      <BackButton />
+
       <header className={styles.head}>
         <PlayerPortrait name={player.name} src={player.image} />
 

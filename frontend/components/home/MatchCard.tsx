@@ -4,6 +4,7 @@ import { formatProgress } from '@/lib/overs';
 import { battedInnings, formatInnings, inningsFor, isClosed } from '@/lib/innings';
 import { pausedWord } from '../match/MatchState';
 import TeamBadge from './TeamBadge';
+import LocalTime from '../ui/LocalTime';
 import styles from './MatchCard.module.scss';
 
 /**
@@ -15,16 +16,6 @@ import styles from './MatchCard.module.scss';
  */
 function rowInnings(match: Match, team: Team): InningsScore[] {
   return battedInnings(inningsFor(match, team));
-}
-
-function formatStart(iso: string) {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
 }
 
 const STATUS_CLASS: Record<Match['status'], string> = {
@@ -159,7 +150,8 @@ export default function MatchCard({ match }: { match: Match }) {
       <div className={styles.footer}>
         {isUpcoming ? (
           <div className={styles.footNote}>
-            Starts <span className={styles.strong}>{formatStart(match.startTime)}</span>
+            Starts{' '}
+            <LocalTime iso={match.startTime} format="dayTime" className={styles.strong} />
           </div>
         ) : match.result ? (
           <div className={`${styles.footNote} ${isLive ? styles.footLive : styles.footResult}`}>

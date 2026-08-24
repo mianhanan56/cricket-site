@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import Skeleton, { stagger, staggerRows } from '../ui/Skeleton';
 import md from './MatchDetail.module.scss';
 import s from './MatchDetailSkeleton.module.scss';
@@ -94,10 +93,8 @@ export function CommentarySkeleton({ balls = 6 }: { balls?: number }) {
 }
 
 /**
- * Route-level skeleton for /matches/[id].
- *
- * The back link is real — a reader who lands on a slow match page can leave
- * without waiting for it to resolve. Everything below it is placeholder.
+ * Route-level skeleton for /matches/[id]. Placeholder throughout: the header's
+ * back control belongs to the resolved page, not to the loading state.
  */
 export default function MatchDetailSkeleton() {
   return (
@@ -107,10 +104,6 @@ export default function MatchDetailSkeleton() {
       aria-busy="true"
       aria-label="Loading match centre"
     >
-      <Link href="/" className={md.back}>
-        ← All matches
-      </Link>
-
       {/* Header — status, both sides with scores, series/venue line */}
       <header className={`${md.header} ${s.inert}`}>
         <div className={md.statusRow}>

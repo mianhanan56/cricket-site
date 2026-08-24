@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import type { HeadToHeadMatch, Match, TeamProfile } from '@/types';
 import { getCrexTeamProfile } from '../../../lib/crex';
 import RankingCrest from '../../../components/rankings/RankingCrest';
+import LocalTime from '../../../components/ui/LocalTime';
+import BackButton from '../../../components/ui/BackButton';
 import styles from './team.module.scss';
 
 // Keys here are crex team f_keys ("2Y", "1GK") — the same ones on every
@@ -39,23 +41,7 @@ export async function generateMetadata({ params }: { params: { key: string } }) 
   };
 }
 
-function fmtDayTime(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 const FORM_WORD = { W: 'won', L: 'lost', N: 'no result' } as const;
 
@@ -93,7 +79,7 @@ function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string
       <span className={styles.rowMain}>
         <span className={styles.rowTop}>{match.result}</span>
         <span className={styles.rowMeta}>
-          {fmtDate(match.startTime)} · {match.series}
+          <LocalTime iso={match.startTime} format="date" /> · {match.series}
           {match.venue !== 'TBD' && ` · ${match.venue}`}
         </span>
       </span>
@@ -120,7 +106,7 @@ function FixtureRow({ match, teamKey }: { match: Match; teamKey: string }) {
       <span className={styles.rowMain}>
         <span className={styles.rowTop}>{opponent.name}</span>
         <span className={styles.rowMeta}>
-          {fmtDayTime(match.startTime)} · {match.series.name}
+          <LocalTime iso={match.startTime} format="dayTime" /> · {match.series.name}
           {match.venue !== 'TBD' && ` · ${match.venue}`}
         </span>
       </span>
@@ -176,6 +162,8 @@ export default async function TeamPage({ params }: { params: { key: string } }) 
 
   return (
     <div className={styles.page}>
+      <BackButton />
+
       {/* The signature element: the hero carries the side's OWN colours, so a
           CPL franchise's page looks like that franchise rather than like the
           site's mint accent for the fifth time. Everything below the hero stays

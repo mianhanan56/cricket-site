@@ -73,7 +73,6 @@ export function SeriesKeyStats({
     <div className={styles.rail}>
       <div className={styles.railHead}>
         <h2 className={styles.railTitle}>Key stats</h2>
-        <span className={styles.railHint}>Tap for the top 10</span>
       </div>
 
       {shown.map((leader) => (

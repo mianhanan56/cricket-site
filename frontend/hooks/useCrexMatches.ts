@@ -28,6 +28,16 @@ import type { StoppageWatch } from '@/lib/crex';
 // cap freshness no matter how often we ask.
 const DEFAULT_INTERVAL_MS = 2_000;
 
+/**
+ * The cadence for a match that is not being played.
+ *
+ * A page still has to poll when the match on it is upcoming — that is how it
+ * finds out the match has started — but nothing about a fixture two hours out
+ * changes second to second, so it asks at a rate suited to noticing a toss
+ * rather than a delivery.
+ */
+export const IDLE_INTERVAL_MS = 30_000;
+
 // After a failure, back off rather than hammering a struggling upstream. Each
 // consecutive error doubles the wait, up to this ceiling.
 const MAX_BACKOFF_MS = 5 * 60_000;
@@ -233,12 +243,28 @@ export function useCrexMatchExtras(
   options: {
     enabled?: boolean;
     intervalMs?: number;
+    /**
+     * Keep polling, rather than fetching once and stopping.
+     *
+     * False on a finished match, which is the whole point: a result's card and
+     * feed are final, and the page used to go on asking for them twice every
+     * two seconds for as long as the tab stayed open. Flipping this to false as
+     * a match ends still costs one last fetch — the effect re-runs — which is
+     * exactly the one that picks up the closing card.
+     */
+    repeat?: boolean;
     ballsPerOver?: number;
     /** Lets the card mark the innings in progress — see `getCrexScorecard`. */
     status?: MatchStatus;
   } = {}
 ): UseCrexMatchExtrasResult {
-  const { enabled = true, intervalMs = DEFAULT_INTERVAL_MS, ballsPerOver, status } = options;
+  const {
+    enabled = true,
+    intervalMs = DEFAULT_INTERVAL_MS,
+    repeat = true,
+    ballsPerOver,
+    status,
+  } = options;
 
   const [innings, setInnings] = useState<InningsScore[]>([]);
   const [commentary, setCommentary] = useState<CommentaryBall[]>([]);
@@ -252,6 +278,7 @@ export function useCrexMatchExtras(
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let failures = 0;
     const controller = new AbortController();
 
     async function run(): Promise<void> {
@@ -282,7 +309,16 @@ export function useCrexMatchExtras(
       }
       if (card || feed) setLoaded(true);
 
-      timer = setTimeout(run, intervalMs);
+      // Both halves failing is the signal to slow down — the same exponential
+      // back-off `useCrexMatches` uses, and for the same reason: a struggling
+      // Worker should not be asked twice a second while it recovers.
+      failures = card || feed ? 0 : failures + 1;
+
+      if (!repeat) return;
+      timer = setTimeout(
+        run,
+        failures ? Math.min(intervalMs * 2 ** failures, MAX_BACKOFF_MS) : intervalMs
+      );
     }
 
     void run();
@@ -292,7 +328,7 @@ export function useCrexMatchExtras(
       controller.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [active, matchKey, intervalMs, ballsPerOver, status]);
+  }, [active, matchKey, intervalMs, repeat, ballsPerOver, status]);
 
   return { innings, commentary, events, loaded };
 }
