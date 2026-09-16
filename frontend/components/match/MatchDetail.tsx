@@ -2141,6 +2141,27 @@ function CommentaryTab({
     onLoadMore();
   }, [autoFilling, loadingMore, onLoadMore]);
 
+  // The tail of the feed asks for the next window as it comes into view. The
+  // margin is generous so a fast scroll does not stall at the bottom waiting on
+  // the request.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const canScrollLoad =
+    Boolean(onLoadMore) && !exhausted && !autoFilling && (balls.length > 0 || loadingMore);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || !canScrollLoad || loadingMore || !onLoadMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) onLoadMore();
+      },
+      { rootMargin: '400px 0px' }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [canScrollLoad, loadingMore, onLoadMore, rows.length]);
+
   // The window the feed actually covers, which is what makes an empty filter
   // honest: "no wickets" is a claim about the whole innings, "no wickets in the
   // 12 overs loaded" is what we know.
@@ -2265,24 +2286,18 @@ function CommentaryTab({
         )}
 
         {/* crex serves the feed ten rows at a time, so the innings arrives in
-            windows rather than whole. A real button, because loading the rest of
-            a session is the main thing a reader does on this tab. Hidden while a
-            search fills itself; it comes back when the budget is spent. */}
-        {onLoadMore && !exhausted && !autoFilling && (balls.length > 0 || loadingMore) && (
-          <div className={styles.loadMoreRow}>
-            <button
-              type="button"
-              className={styles.loadMore}
-              onClick={onLoadMore}
-              disabled={loadingMore}
-            >
-              {loadingMore
-                ? 'Loading older overs…'
-                : covered
-                  ? `Load overs before ${covered.from}`
-                  : 'Load older overs'}
-            </button>
-          </div>
+            windows rather than whole. The tail pages itself in as the reader
+            reaches it; the sentinel sits below the placeholder so the observer
+            still has something to watch while a walk is in flight. */}
+        {canScrollLoad && (
+          <>
+            {loadingMore && (
+              <div role="status" aria-label="Loading older overs">
+                <CommentarySkeleton balls={2} card={false} />
+              </div>
+            )}
+            <div ref={sentinelRef} className={styles.loadSentinel} aria-hidden="true" />
+          </>
         )}
       </section>
     </div>
