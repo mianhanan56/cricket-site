@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { dayDate, formatDayLong } from '@/lib/fixtureDays';
+import { LOCALE } from '@/lib/datetime';
 import styles from './FixtureCalendar.module.scss';
 
 /** Monday-first, matching the en-GB dates the rest of the page prints. */
@@ -146,7 +147,7 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
               <ChevronIcon back />
             </button>
             <span className={styles.month}>
-              {dayDate(`${month}-01`).toLocaleDateString('en-GB', {
+              {dayDate(`${month}-01`).toLocaleDateString(LOCALE, {
                 month: 'long',
                 year: 'numeric',
               })}

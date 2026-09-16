@@ -425,7 +425,11 @@ export const ROUTES: RouteDef[] = [
     method: 'GET',
     ttl: 900,
     params: {
-      page: { type: 'int', default: 1 },
+      // Bounded for the same reason /fixtures is: an unbounded page number is an
+      // unbounded number of cache entries, and one caller walking it is enough
+      // to fill the edge with pages nobody will read again. Articles are read
+      // from the front; sixty pages is far past where anyone stops.
+      page: { type: 'int', default: 1, min: 1, max: 60 },
     },
   },
 ];

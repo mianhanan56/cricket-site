@@ -64,30 +64,48 @@ export function BowlingSkeleton({ rows = 4 }: { rows?: number }) {
 }
 
 /**
- * Ball-by-ball placeholder — one over group of six deliveries.
+ * Ball-by-ball placeholder — an over's card and the deliveries under it, in the
+ * geometry the real feed loads into.
  *
- * Also used by the Commentary tab while a crex feed is still loading.
+ * Used twice: for a feed that has not arrived at all, and — with `card` off — as
+ * the tail of a list that is being walked further back, where an over card would
+ * promise an over the walk has not reached yet.
  */
-export function CommentarySkeleton({ balls = 6 }: { balls?: number }) {
+export function CommentarySkeleton({
+  balls = 6,
+  card = true,
+}: {
+  balls?: number;
+  /** Lead with an over-card placeholder. Off for a tail loader. */
+  card?: boolean;
+}) {
   return (
     <div className={`${md.commentary} ${s.inert}`}>
-      <div>
-        <div className={md.overHeader}>
-          <Skeleton variant="body" className={s.overHeader} />
+      {card && (
+        <div className={md.overCard}>
+          <div className={md.overCardHead}>
+            <Skeleton variant="body" className={s.overHeader} />
+            <Skeleton variant="text" className={s.ballRuns} />
+          </div>
+          <div className={md.overCardBalls}>
+            {Array.from({ length: 6 }, (_, i) => (
+              <Skeleton className={s.overCardBall} key={i} />
+            ))}
+          </div>
         </div>
-        <ul className={staggerRows}>
-          {Array.from({ length: balls }, (_, i) => (
-            <li className={md.ballRow} key={i}>
-              <Skeleton className={s.ballMarker} />
-              <span className={s.ballText}>
-                <Skeleton variant="body" width="100" />
-                <Skeleton variant="body" width={i % 2 === 0 ? '60' : '80'} />
-              </span>
-              <Skeleton variant="text" className={s.ballRuns} />
-            </li>
-          ))}
-        </ul>
-      </div>
+      )}
+      <ul className={staggerRows}>
+        {Array.from({ length: balls }, (_, i) => (
+          <li className={md.ballRow} key={i}>
+            <Skeleton className={s.ballMarker} />
+            <span className={s.ballText}>
+              <Skeleton variant="body" width="100" />
+              <Skeleton variant="body" width={i % 2 === 0 ? '60' : '80'} />
+            </span>
+            <Skeleton variant="text" className={s.ballRuns} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -32,6 +32,14 @@
   transition: width 0.5s ease;
 }
 
+// The draw's band sits between the two sides, which is also where the outcome
+// sits: neither end of the bar. Set as a hatch-free flat neutral so it reads as
+// the absence of a win rather than as a third team.
+.draw {
+  background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
+  transition: width 0.5s ease;
+}
+
 .away {
   background: $surface-elevated;
   transition: width 0.5s ease;
@@ -59,4 +67,12 @@
 
 .awayLabel strong {
   color: $text-secondary;
+}
+
+.drawLabel {
+  color: $text-muted;
+
+  strong {
+    color: $text-secondary;
+  }
 }

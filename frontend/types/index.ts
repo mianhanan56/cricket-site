@@ -75,6 +75,11 @@ export interface IMatch {
    */
   note?: MatchNote | null;
   /**
+   * Which match of the series this is, 1-based. Null where crex does not number
+   * it — a one-off fixture, or a tour game outside the numbered rubber.
+   */
+  matchNumber?: number | null;
+  /**
    * Day of play, 1-based, on a format that has more than one. Null on ODIs and
    * T20s, which are always day 1 and where showing it would be noise.
    */
@@ -176,6 +181,16 @@ export interface MatchNote {
    * keeps a Test at stumps from reading as finished.
    */
   paused: boolean;
+  /**
+   * The break is the gap *between innings* — as opposed to an interval taken
+   * inside one, which shares the `BREAK` kind.
+   *
+   * Carried as a flag rather than read back off the label because it is the one
+   * break a scorecard can contradict on its own: an innings break asserts that an
+   * innings has just ended, so a side 13 overs into one that is neither complete
+   * nor unstarted means the code is a latch. See `isStaleStoppage`.
+   */
+  betweenInnings?: boolean;
 }
 
 /** Where an innings sits in the match. Tests are the only format with four. */
@@ -231,6 +246,17 @@ export interface InningsScore {
   extrasBreakdown?: ExtrasBreakdown;
   /** XI members who have not batted yet, in card order. */
   yetToBat?: YetToBat[];
+  /**
+   * Every stand of the innings, in order, as crex's card publishes them. The
+   * last one of an innings in progress is the partnership at the crease.
+   */
+  partnerships?: Partnership[];
+  /**
+   * The score at each wicket, in order. Derived rather than fetched: crex writes
+   * the team's runs and balls at the moment of the dismissal onto the batsman's
+   * own line, so the ledger is read off the card that already came down.
+   */
+  fallOfWickets?: FallOfWicket[];
   /** The side is listed but has not batted — treat the 0/0 total as no score. */
   notStarted?: boolean;
   /**
@@ -263,6 +289,43 @@ export interface ExtrasBreakdown {
 export interface YetToBat {
   playerId: string;
   name: string;
+}
+
+/** One half of a stand: who batted, and what they made in it. */
+export interface PartnershipBatsman {
+  playerId: string;
+  name: string;
+  runs: number;
+  balls: number;
+}
+
+/**
+ * One stand, both halves and the total. Runs and balls are crex's own figures
+ * rather than the sum of the two batsmen: extras charged during a stand belong
+ * to the partnership and to neither batsman, so the two do not always agree.
+ */
+export interface Partnership {
+  a: PartnershipBatsman;
+  b: PartnershipBatsman;
+  runs: number;
+  balls: number;
+  /** Still going — the last stand of an innings that is in progress. */
+  unbroken?: boolean;
+}
+
+/** One wicket in the ledger: which one it was, and where the innings stood. */
+export interface FallOfWicket {
+  /** 1-based — the first wicket to fall is 1. */
+  wicket: number;
+  /** Team runs when the batsman was dismissed. */
+  runs: number;
+  /** Overs bowled at the same moment, in over.ball notation. */
+  overs: number;
+  playerId: string;
+  name: string;
+  /** What the departing batsman made. */
+  playerRuns: number;
+  playerBalls: number;
 }
 
 export interface BatsmanLine {
@@ -319,6 +382,31 @@ export interface IScorecard {
  */
 export type BallExtra = 'wide' | 'noball' | 'bye' | 'legbye';
 
+/**
+ * An over, as the ball feed's own summary row reports it — crex's numbers, not a
+ * roll-up of the deliveries we happen to have paged back for. It carries the two
+ * batters and the bowler as they stood at the end of the over, which is what
+ * makes it readable months later when nothing else on the page is live.
+ */
+export interface OverSummary {
+  id: string;
+  /** The over just completed, 1-based. */
+  over: number;
+  /** Innings index, 0-based, as the feed numbers them. */
+  inning: number;
+  runs: number;
+  wickets: number;
+  /** Each delivery's outcome in order, crex's own tokens: "1.0.0.W.4.0". */
+  balls: string[];
+  /** Team score at the end of the over, "205/7". */
+  score: string | null;
+  battingTeam: string | null;
+  /** The two batters at the end of the over, with their figures. */
+  batsmen: Array<{ playerId: string | null; name: string; figures: string | null }>;
+  bowler: { playerId: string | null; name: string; figures: string | null } | null;
+  timestamp?: string;
+}
+
 export interface CommentaryBall {
   id: string;
   over: number;
@@ -333,6 +421,10 @@ export interface CommentaryBall {
   isWicket: boolean;
   isBoundary?: boolean;
   text: string;
+  /** Team score after the delivery, "205/7". Absent where the feed omits it. */
+  scoreAfter?: string | null;
+  /** Innings index, 0-based, as the feed numbers them. */
+  inning?: number;
   timestamp?: string;
 }
 
@@ -534,6 +626,69 @@ export interface PlayerProfile {
   recentBatting: PlayerFormEntry[];
   recentBowling: PlayerFormEntry[];
   debuts: PlayerDebut[];
+}
+
+// ---------------------------------------------------------------------------
+// Match conditions
+// ---------------------------------------------------------------------------
+//
+// The pre-match half of crex's own Match Info tab: the forecast, who is
+// standing, who is broadcasting, and what the ground has done historically. All
+// of it comes from the same `/match/info` response the squads do, so none of it
+// costs an extra call.
+
+/** The forecast at the ground, as crex publishes it. */
+export interface MatchWeather {
+  /** "29.2˚C" — crex's own string, degree symbol included. */
+  temperature: string | null;
+  min: string | null;
+  max: string | null;
+  /** "Mostly cloudy". */
+  condition: string | null;
+  /** Humidity, as a percentage figure without the sign: "75". */
+  humidity: string | null;
+  /** Chance of rain — "96 %", crex's spacing. */
+  rainChance: string | null;
+  /** "Windspeed: 13 km/h". */
+  wind: string | null;
+}
+
+/** Who is standing. Names, resolved from crex's umpire key space. */
+export interface MatchOfficials {
+  /** The two on-field umpires, in crex's order. */
+  onField: string[];
+  thirdUmpire: string | null;
+  referee: string | null;
+}
+
+/**
+ * What the ground has done before — crex's own venue block for this format.
+ *
+ * The averages are per innings of a match at this venue, which is why there are
+ * four of them and why the later two are null outside multi-day cricket.
+ */
+export interface VenueStats {
+  /** Format the figures are for: "Men's TEST". */
+  label: string | null;
+  /** Matches the averages are drawn from. */
+  matches: number | null;
+  /** Average first, second, third and fourth innings totals. */
+  averages: Array<number | null>;
+  /** Highest total recorded here: "756-5 (185.1 Ov) by RSA vs SL". */
+  highest: string | null;
+  lowest: string | null;
+  /** Matches won batting first, and won bowling first. */
+  wonBattingFirst: number | null;
+  wonBowlingFirst: number | null;
+}
+
+/** Everything `/match/info` carries besides the squads. */
+export interface MatchConditions {
+  weather: MatchWeather | null;
+  officials: MatchOfficials | null;
+  /** Broadcasters, split out of crex's single comma-separated string. */
+  broadcast: string[];
+  venue: VenueStats | null;
 }
 
 // ---------------------------------------------------------------------------

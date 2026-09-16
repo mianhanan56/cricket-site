@@ -21,6 +21,13 @@ import type {
   BowlerLine,
   CommentaryBall,
   ExtrasBreakdown,
+  FallOfWicket,
+  MatchConditions,
+  MatchOfficials,
+  MatchWeather,
+  OverSummary,
+  VenueStats,
+  Partnership,
   InningsPhase,
   InningsScore,
   Match,
@@ -111,7 +118,10 @@ export interface CrexRawMatch {
   b: string;
   /** Team 2 key. */
   c: string;
-  /** Match number within the series, e.g. "126". */
+  /**
+   * Match number within the series, e.g. "126". A string on the wire, and "0"
+   * or absent on a fixture crex does not number.
+   */
   e?: string;
   /** Format label: "ODI" | "Test" | "T20" | "List A" | "One Day". */
   fo?: string;
@@ -230,7 +240,7 @@ export interface CrexMapping {
   u?: CrexMapEntry[]; // umpires
 }
 
-export type CrexMapKind = 't' | 'v' | 's' | 'p';
+export type CrexMapKind = 't' | 'v' | 's' | 'p' | 'u';
 
 // ---------------------------------------------------------------------------
 // Transport
@@ -379,6 +389,7 @@ const nameCache: Record<CrexMapKind, Map<string, CrexMapEntry>> = {
   v: new Map(),
   s: new Map(),
   p: new Map(),
+  u: new Map(),
 };
 
 /**
@@ -399,6 +410,9 @@ const CACHE_LIMIT: Record<CrexMapKind, number> = {
   v: 4_000,
   s: 4_000,
   p: 20_000,
+  // Two on-field umpires, a TV umpire and a referee per match, drawn from a
+  // panel of a few dozen. Nothing like the player space.
+  u: 1_000,
 };
 
 /**
@@ -499,7 +513,7 @@ export async function resolveKeys(
     if (!entries.length) continue;
 
     const request = getCrexMapping(slice, opts).then((mapping) => {
-      for (const kind of ['t', 'v', 's', 'p'] as const) {
+      for (const kind of ['t', 'v', 's', 'p', 'u'] as const) {
         for (const entry of mapping[kind] ?? []) remember(kind, entry);
       }
     });
@@ -694,6 +708,8 @@ interface NoteSpec {
   kind: MatchNoteKind;
   /** Play is stopped but the match lives on. */
   paused: boolean;
+  /** The gap between two innings, rather than an interval inside one. */
+  betweenInnings?: boolean;
 }
 
 /**
@@ -704,7 +720,7 @@ interface NoteSpec {
  * play is not resuming, so the UI must not promise that it will.
  */
 const NOTE_CODES: Record<string, NoteSpec> = {
-  a: { label: 'Innings Break', kind: 'BREAK', paused: true },
+  a: { label: 'Innings Break', kind: 'BREAK', paused: true, betweenInnings: true },
   b: { label: 'Drinks Break', kind: 'BREAK', paused: true },
   c: { label: 'Lunch Break', kind: 'BREAK', paused: true },
   d: { label: 'Tea Break', kind: 'BREAK', paused: true },
@@ -799,14 +815,31 @@ export function decodeMatchNote(
   if (raw && !raw.startsWith('&')) {
     const letter = raw.startsWith('$') ? raw.slice(1) : raw;
     const spec = letter.length === 1 ? NOTE_CODES[letter.toLowerCase()] : undefined;
-    if (spec) return { label: spec.label, kind: spec.kind, detail, paused: spec.paused };
+    if (spec) {
+      return {
+        label: spec.label,
+        kind: spec.kind,
+        detail,
+        paused: spec.paused,
+        ...(spec.betweenInnings ? { betweenInnings: true } : null),
+      };
+    }
   }
 
   const text = m.res?.trim();
   if (!text || looksLikeResult(text)) return null;
 
   const kind = NOTE_TEXT_KINDS.find(([pattern]) => pattern.test(text))?.[1] ?? 'INFO';
-  return { label: text, kind, detail, paused: !TERMINAL_KINDS.has(kind) };
+  return {
+    label: text,
+    kind,
+    detail,
+    paused: !TERMINAL_KINDS.has(kind),
+    // The plain-text path carries the same flag as the code table, and has to:
+    // crex sends the innings break it latches longest as `res` text with no code
+    // beside it, which is the exact shape the contradiction test is for.
+    ...(/innings\s*break/i.test(text) ? { betweenInnings: true } : null),
+  };
 }
 
 /**
@@ -943,17 +976,14 @@ function inningsBreakNote(
   if (played.length >= TOTAL_INNINGS[format]) return null;
   if (!played.every((inn) => inningsOver(inn, format, perOver))) return null;
 
-  return { label: 'Innings Break', kind: 'BREAK', detail: null, paused: true };
+  return { label: 'Innings Break', kind: 'BREAK', detail: null, paused: true, betweenInnings: true };
 }
 
 /**
- * Stoppages that cricket only ever takes between overs.
- *
- * An interval is called at the end of an over, a day's play closes at the end of
- * an over, and an innings ends on the ball that ends it. Rain and bad light are
- * deliberately not here: those stop play wherever the over happens to be.
+ * The stoppages crex is known to leave latched on: an interval, and a day's
+ * close. Both are judged against whether play is going on under them.
  */
-const OVER_BOUNDARY_KINDS: ReadonlySet<MatchNoteKind> = new Set(['BREAK', 'STUMPS']);
+const LATCH_PRONE_KINDS: ReadonlySet<MatchNoteKind> = new Set(['BREAK', 'STUMPS']);
 
 /**
  * How long after a delivery play is still, beyond argument, going on.
@@ -992,42 +1022,62 @@ export interface StoppageCheck {
  *
  * Two things can contradict it, and neither is invented data:
  *
- *   - A part-bowled over. A break is called between overs, so balls going into an
- *     open innings mean the players are out there. An innings that *ended* mid-over
- *     is the exception — all out on the third ball is a real innings break — so an
- *     innings already closed keeps its note.
- *   - A delivery bowled seconds ago, where the caller has the ball feed. This is
- *     the stronger of the two and the one that catches a latch left on at an over
- *     boundary, which the score alone cannot.
+ *   - A delivery bowled seconds ago, where the caller has the ball feed. Observed
+ *     play, and the signal that catches any latch, whatever it claims.
+ *   - An innings break standing over an innings in progress. Not a convention but
+ *     a contradiction: the note says an innings has just ended, and a side 13
+ *     overs into one that is neither complete nor unstarted says none has. An
+ *     innings that *ended* mid-over is untouched — it is complete, so there is
+ *     nothing to contradict.
  *
- * Only over-boundary stoppages are judged. Rain interrupts a half-bowled over all
- * the time, and nothing here would tell us it had stopped.
+ * What is deliberately NOT judged is where in the over a stoppage was called.
+ * Cricket's conventions are not guarantees: a full day closes at the end of an
+ * over, but a day cut short by rain or bad light is called wherever the over
+ * stands, and lunch is taken early mid-over for the same reasons. Sri Lanka were
+ * 265/8 in 83.4 overs at stumps in Colombo — crex said "Day 3 : Stumps", the
+ * over-boundary rule called it a latch, and the card claimed a match that had
+ * finished for the day was live. Contradict crex on observed play, never on an
+ * assumption about how cricket is usually run.
+ *
+ * Only the latch-prone stoppages are judged at all, and the part-bowled-over
+ * argument applies to a narrower set still — an interval, not a day's close. Rain
+ * interrupts a half-bowled over all the time, and so does the bad light that ends
+ * a day early; nothing here would tell us either had stopped.
  */
 export function isStaleStoppage(note: MatchNote, check: StoppageCheck): boolean {
-  if (!note.paused || !OVER_BOUNDARY_KINDS.has(note.kind)) return false;
+  if (!note.paused || !LATCH_PRONE_KINDS.has(note.kind)) return false;
 
   const perOver = check.perOver || DEFAULT_BALLS_PER_OVER;
 
+  // 1. A delivery seconds ago. Observed play, and it beats any label.
   if (check.lastBallAt && check.now) {
     const bowled = Date.parse(check.lastBallAt);
     if (Number.isFinite(bowled) && check.now - bowled < PLAY_RESUMED_MS) return true;
   }
 
+  // 2. An innings break with no innings break in the card. The note asserts that
+  //    an innings has just ended; a side part-way through one — balls faced, not
+  //    complete — says none has. An innings that ended mid-over is not caught by
+  //    this: it is complete, so there is nothing to contradict.
+  if (!note.betweenInnings) return false;
+
   const batted = check.innings.filter((inn) => !inn.notStarted);
   const batting = batted.find((inn) => inn.phase === 'CURRENT') ?? batted[batted.length - 1];
   if (!batting || inningsOver(batting, check.format, perOver)) return false;
 
-  return ballsFrom(batting.overs, perOver) % perOver !== 0;
+  return ballsFrom(batting.overs, perOver) > 0;
 }
 
 /**
- * Does this note claim a stoppage that only happens between overs?
+ * Does this note claim a stoppage crex might have left latched on?
  *
- * The kinds that can be checked against play — see `isStaleStoppage` for why rain
- * and bad light are not among them.
+ * The kinds worth checking against play — see `isStaleStoppage` for why rain and
+ * bad light are not among them. Stumps IS: a score that moves while it stands
+ * means the next day has started, which is a sound signal, unlike the over
+ * boundary one.
  */
-function isOverBoundaryStoppage(note: MatchNote | null | undefined): boolean {
-  return Boolean(note?.paused && OVER_BOUNDARY_KINDS.has(note.kind));
+function isLatchProneStoppage(note: MatchNote | null | undefined): boolean {
+  return Boolean(note?.paused && LATCH_PRONE_KINDS.has(note.kind));
 }
 
 /** One watched match: the stoppage it is reporting, and whether play went on under it. */
@@ -1075,7 +1125,7 @@ export function clearResumedStoppages(
   }
 
   return matches.map((match) => {
-    if (!isOverBoundaryStoppage(match.note)) {
+    if (!isLatchProneStoppage(match.note)) {
       watch.delete(match.id);
       return match;
     }
@@ -1206,6 +1256,9 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
       inningsBreakNote(innings, status, format, perOver),
       { innings, format, perOver }
     ),
+    // "2nd Test", "126th match" — crex's own number for the fixture inside its
+    // series. Zero and blank both mean unnumbered, and neither is a match 0.
+    matchNumber: Number(m.e) > 0 ? Number(m.e) : null,
     // Only meaningful where a match spans days; `n` reports 1 for the rest.
     day: state && state.format === 'TEST' ? state.day : null,
     // crex sets `mm` only on a finished match, so this needs no status guard of
@@ -1270,8 +1323,13 @@ export async function getCrexMatchList(opts: FetchOpts = {}): Promise<Match[]> {
 //   |   |  |  | | |   |   | |   `- fielder key (catcher, keeper, run-out thrower)
 //   |   |  |  | | |   |   | `----- bowler key
 //   |   |  |  | | |   |   `------- dismissal type code (see DISMISSALS)
-//   |   |  |  | | |   `----------- team runs when out
-//   |   |  |  | | `--------------- team balls when out
+//   |   |  |  | | |   `----------- team RUNS when out
+//   |   |  |  | | `--------------- team BALLS when out
+//
+// The two team figures are balls first, then runs — checked against three
+// innings of a live Test, where the ball count runs ahead of the run count all
+// the way down the card and the last entry lands on the innings' own total. The
+// other order reads a 66-run first wicket as a 102-run one.
 //   |   |  |  | `----------------- sixes
 //   |   |  |  `------------------- fours
 //   |   |  `---------------------- balls
@@ -1308,7 +1366,23 @@ interface CrexScorecardInnings {
   d?: string;
   /** Extras, "byes.legByes.wides.noBalls.penalty". */
   e?: string;
-  /** Partnerships — not surfaced in the UI. */
+  /**
+   * Partnerships, in order, one per stand:
+   *
+   *   15K.19.31.AK.18.33.37.64
+   *   |   |  |  |  |  |  |  `- balls faced by the stand
+   *   |   |  |  |  |  |  `---- runs the stand made
+   *   |   |  |  |  |  `------- second batsman's balls in it
+   *   |   |  |  |  `---------- second batsman's runs in it
+   *   |   |  |  `------------- second batsman's key
+   *   |   |  `---------------- first batsman's balls
+   *   |   `------------------- first batsman's runs
+   *   `----------------------- first batsman's key
+   *
+   * The stand's own runs and balls are not always the sum of the two batsmen's:
+   * extras conceded during a stand count towards it and towards neither batter,
+   * so crex's totals are carried as sent rather than re-added here.
+   */
   p?: string[];
 }
 
@@ -1448,6 +1522,93 @@ function decodeBatsman(line: string, names: typeof nameCache): BatsmanLine | nul
   };
 }
 
+/**
+ * The innings' partnerships, in order.
+ *
+ * `unbroken` is decided by the caller's wicket count rather than by anything in
+ * the row: crex marks nothing, and the last stand of an innings is the one at
+ * the crease exactly when fewer than all ten wickets have gone.
+ */
+function decodePartnerships(
+  raw: string[] | undefined,
+  names: typeof nameCache
+): Partnership[] {
+  return (raw ?? [])
+    .map((line) => {
+      const [aKey, aRuns, aBalls, bKey, bRuns, bBalls, runs, balls] = line.split('.');
+      if (!aKey || !bKey) return null;
+
+      return {
+        a: {
+          playerId: aKey,
+          name: names.p.get(aKey)?.n ?? aKey,
+          runs: Number(aRuns) || 0,
+          balls: Number(aBalls) || 0,
+        },
+        b: {
+          playerId: bKey,
+          name: names.p.get(bKey)?.n ?? bKey,
+          runs: Number(bRuns) || 0,
+          balls: Number(bBalls) || 0,
+        },
+        runs: Number(runs) || 0,
+        balls: Number(balls) || 0,
+      } satisfies Partnership;
+    })
+    .filter((x): x is Partnership => x !== null);
+}
+
+/**
+ * The team's position at the moment of the dismissal, on a batting line: balls
+ * first, then runs. See the layout note at the head of this section — the two
+ * are easy to read the wrong way round, and doing so puts a fall-of-wickets
+ * ledger above the innings' own total.
+ */
+const TEAM_BALLS_INDEX = 5;
+const TEAM_RUNS_INDEX = 6;
+
+/**
+ * The fall of wickets, from the batting card.
+ *
+ * Not a separate payload: crex stamps the team's runs and balls at the moment of
+ * each dismissal onto the departing batsman's own line, so the ledger is already
+ * in hand — it only has to be pulled out and sorted, because the card lists
+ * batsmen in batting order and wickets do not fall in it.
+ *
+ * A retirement is skipped: no wicket was credited, so numbering it would push
+ * every real wicket after it up by one.
+ */
+function decodeFallOfWickets(
+  lines: string[],
+  names: typeof nameCache,
+  perOver: number
+): FallOfWicket[] {
+  return lines
+    .map((line) => line.split('/')[0].split('.'))
+    .filter(
+      (head) =>
+        head.length > DISMISSAL_TYPE_INDEX && !RETIRED_CODES.has(head[DISMISSAL_TYPE_INDEX])
+    )
+    .map((head) => ({
+      runs: Number(head[TEAM_RUNS_INDEX]) || 0,
+      balls: Number(head[TEAM_BALLS_INDEX]) || 0,
+      playerId: head[0],
+      name: names.p.get(head[0])?.n ?? head[0],
+      playerRuns: Number(head[1]) || 0,
+      playerBalls: Number(head[2]) || 0,
+    }))
+    .sort((x, y) => x.balls - y.balls || x.runs - y.runs)
+    .map((w, i) => ({
+      wicket: i + 1,
+      runs: w.runs,
+      overs: oversFrom(w.balls, perOver),
+      playerId: w.playerId,
+      name: w.name,
+      playerRuns: w.playerRuns,
+      playerBalls: w.playerBalls,
+    }));
+}
+
 function decodeBowler(
   line: string,
   names: typeof nameCache,
@@ -1550,6 +1711,8 @@ export async function getCrexScorecard(
       bowling: (inn.a ?? [])
         .map((line) => decodeBowler(line, nameCache, perOver))
         .filter((x): x is BowlerLine => x !== null),
+      partnerships: decodePartnerships(inn.p, nameCache),
+      fallOfWickets: decodeFallOfWickets(lines, nameCache, perOver),
     };
   });
 
@@ -1560,6 +1723,12 @@ export async function getCrexScorecard(
 
   return cards.map((inn, i) => ({
     ...inn,
+    // The stand at the crease: the last one listed, while wickets remain.
+    partnerships: inn.partnerships.map((p, j) =>
+      j === inn.partnerships.length - 1 && inn.wickets < 10 && !inn.notStarted
+        ? { ...p, unbroken: true }
+        : p
+    ),
     phase: (inn.notStarted
       ? 'UPCOMING'
       : i === lastBatted && opts.status === 'LIVE'
@@ -1578,6 +1747,55 @@ export async function getCrexScorecard(
  * the head-to-head, none of which this app renders yet.
  */
 interface CrexMatchInfo {
+  /**
+   * The confirmed XIs, same packing as `tb` and eleven a side.
+   *
+   * Preferred over `tb` wherever it is longer, which is what fixes a live
+   * match's squad list: once play starts crex prunes `tb` to the bench and the
+   * batters still to come, while `tp` keeps the eleven that took the field.
+   */
+  tp?: string;
+  /** Broadcasters, comma-separated: "Sony Sports TEN Network, Sony LIV". */
+  b?: string;
+  /**
+   * Officials, "/"-separated umpire keys in crex's own order: the two on-field
+   * umpires, the third umpire, then the match referee. Resolved through
+   * /mapping's `u` bucket.
+   */
+  u?: string;
+  /** The forecast at the ground. */
+  wU?: {
+    /** Current temperature, "29.2˚C" — crex's own degree glyph. */
+    crT?: string;
+    mnT?: string;
+    mxT?: string;
+    /** Condition in words: "Mostly cloudy". */
+    wC?: string;
+    /** Humidity, unsigned: "75". */
+    hum?: string;
+    /** Chance of rain, "96 %". */
+    rP?: string;
+    /** "Windspeed: 13 km/h". */
+    wS?: string;
+  };
+  /**
+   * The venue's record in this format. `a1`-`a4` are the average first through
+   * fourth innings totals, `h`/`l` the highest and lowest totals in crex's own
+   * prose, `tm` the matches they are drawn from, `x` and `y` the matches won
+   * batting and bowling first, and `t` the format label the block describes.
+   */
+  vsp?: {
+    a1?: string;
+    a2?: string;
+    a3?: string;
+    a4?: string;
+    h?: string;
+    l?: string;
+    t?: string;
+    tm?: string;
+    x?: string;
+    y?: string;
+  };
   /**
    * Both squads. Sides are split on "/" in the order `t` gives, players within
    * a side on "-", and a player's own fields on ".":
@@ -1645,15 +1863,123 @@ export async function getCrexMatchSquads(
   matchKey: string,
   opts: FetchOpts = {}
 ): Promise<Record<string, SquadPlayer[]>> {
+  return (await getCrexMatchInfo(matchKey, opts)).squads;
+}
+
+/** Number in a string field, or null on the blanks crex uses for "no figure". */
+function infoNumber(raw: string | undefined): number | null {
+  if (raw === undefined || raw.trim() === '') return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** A non-empty string, or null — crex sends "" for a field it has nothing for. */
+const infoText = (raw: string | undefined): string | null => (raw?.trim() ? raw.trim() : null);
+
+/**
+ * The forecast, the officials, the broadcasters and the ground's record — the
+ * rest of crex's own Match Info tab, decoded from the same response the squads
+ * come out of.
+ *
+ * Everything here is optional on the wire and null-degrading: a domestic fixture
+ * has no forecast and no named third umpire, and the UI drops the block rather
+ * than printing a row of dashes.
+ */
+async function decodeConditions(
+  info: CrexMatchInfo | null,
+  opts: FetchOpts
+): Promise<MatchConditions> {
+  const w = info?.wU;
+  const weather: MatchWeather | null = w
+    ? {
+        temperature: infoText(w.crT),
+        min: infoText(w.mnT),
+        max: infoText(w.mxT),
+        condition: infoText(w.wC),
+        humidity: infoText(w.hum),
+        rainChance: infoText(w.rP),
+        wind: infoText(w.wS),
+      }
+    : null;
+
+  const umpireKeys = (info?.u ?? '').split('/').map(cleanKey).filter(Boolean);
+  if (umpireKeys.length) await resolveKeys({ u: umpireKeys }, opts);
+  const named = umpireKeys.map((key) => nameCache.u.get(key)?.n ?? null);
+
+  // crex's order is fixed: two on-field, the TV umpire, then the referee. A
+  // shorter list is a match where they have not been announced, not a reordered
+  // one, so the slots are read positionally and the missing ones stay null.
+  const officials: MatchOfficials | null = named.some(Boolean)
+    ? {
+        onField: named.slice(0, 2).filter((n): n is string => Boolean(n)),
+        thirdUmpire: named[2] ?? null,
+        referee: named[3] ?? null,
+      }
+    : null;
+
+  const v = info?.vsp;
+  const venue: VenueStats | null = v
+    ? {
+        label: infoText(v.t),
+        matches: infoNumber(v.tm),
+        averages: [v.a1, v.a2, v.a3, v.a4].map(infoNumber),
+        highest: infoText(v.h),
+        lowest: infoText(v.l),
+        wonBattingFirst: infoNumber(v.x),
+        wonBowlingFirst: infoNumber(v.y),
+      }
+    : null;
+
+  return {
+    weather,
+    officials,
+    broadcast: (info?.b ?? '')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean),
+    venue,
+  };
+}
+
+/** Squads and conditions from one `/match/info` call. */
+export interface CrexMatchInfoResult {
+  squads: Record<string, SquadPlayer[]>;
+  conditions: MatchConditions;
+}
+
+/**
+ * Everything `/match/info` carries, in one request.
+ *
+ * The squads and the conditions come out of the same response, so they are
+ * decoded together rather than fetched twice — the match page needs both and
+ * neither changes once play starts.
+ */
+export async function getCrexMatchInfo(
+  matchKey: string,
+  opts: FetchOpts = {}
+): Promise<CrexMatchInfoResult> {
   const info = await crexGet<CrexMatchInfo>(
     `/match/info?key=${encodeURIComponent(matchKey)}`,
     { revalidate: 300, ...opts }
   );
 
-  // An id crex does not know answers with a bare `null`, not a 404.
-  const sides = (info?.tb ?? '').split('/').filter(Boolean);
+  const conditions = await decodeConditions(info, opts);
+
+  // `tp` is the XI and `tb` the wider squad, but crex prunes `tb` from the first
+  // ball while `tp` keeps the eleven — so whichever names more players is the
+  // better list, whatever stage the match is at.
+  const named = (raw: string | undefined) =>
+    (raw ?? '').split('/').filter(Boolean);
+  const fromXI = named(info?.tp);
+  const fromSquad = named(info?.tb);
+  const sides =
+    fromXI.reduce((n, side) => n + side.split('-').length, 0) >=
+    fromSquad.reduce((n, side) => n + side.split('-').length, 0)
+      ? fromXI
+      : fromSquad;
   const teamKeys = (info?.t ?? '').split('-').map(cleanKey);
-  if (!sides.length || !teamKeys.length) return {};
+  // An id crex does not know answers with a bare `null`, not a 404.
+  if (!sides.length || !teamKeys.length) return { squads: {}, conditions };
 
   // Captain and keeper come in pairs, one pair per side, in `tb`'s order.
   const roleMarks = (info?.x ?? '').split('/').map(cleanKey);
@@ -1692,7 +2018,7 @@ export async function getCrexMatchSquads(
     });
   });
 
-  return out;
+  return { squads: out, conditions };
 }
 
 // ---------------------------------------------------------------------------
@@ -1741,12 +2067,37 @@ interface CrexBallFeed {
   r?: number;
   /** Innings index, 0-based. */
   inning?: number;
+  /** Team score at this point, "205/7" — on deliveries and over summaries. */
+  s?: string;
+  /**
+   * Over-summary rows only. crex builds its own end-of-over card from these:
+   * `rb` is the over's deliveries in order ("1.0.0.0.0.0"), `s1`/`s2` the two
+   * batters' figures ("13(52)") against the names in `p1`/`p2` and the keys in
+   * `pf1`/`pf2`, and `bd` the bowler's spell ("2-61(14.0)") against `bowler`
+   * and `bf`. `team` is the batting side.
+   */
+  rb?: string;
+  p1?: string;
+  p2?: string;
+  s1?: string;
+  s2?: string;
+  pf1?: string;
+  pf2?: string;
+  bd?: string;
+  bowler?: string;
+  bf?: string;
+  team?: string;
 }
 
 /**
- * How many deliveries to page back for. Three overs — the recent-balls strip in
- * the match header is sized to that, and one page of the feed is barely two
- * once over summaries and milestone markers are filtered out.
+ * How many deliveries the live poll pages back for. Three overs — the
+ * recent-balls strip in the match header is sized to that, and one page of the
+ * feed is barely two once over summaries and milestone markers are filtered out.
+ *
+ * Deliberately small: this walk runs on every tick of a live match, and each
+ * page is an upstream request. The commentary tab wants far more than three
+ * overs, and asks for it with `minBalls` — once, off the poll. See
+ * `getCrexMatchFeed`.
  */
 const MIN_BALLS = 18;
 
@@ -1952,7 +2303,7 @@ function toMatchEvent(f: CrexBallFeed): MatchEvent | null {
  * English, so nothing here is decoded — it is passed through.
  *
  * crex serves ~10 events per call, so this pages backwards with `lastDocId`
- * until it has MIN_BALLS deliveries. A page that adds nothing new ends the
+ * until it holds `minBalls` deliveries. A page that adds nothing new ends the
  * walk, which is also what happens against a Worker too old to know the cursor
  * — it degrades to a single page rather than looping on it.
  */
@@ -1963,10 +2314,74 @@ export async function getCrexCommentary(
   return (await getCrexMatchFeed(matchKey, opts)).balls;
 }
 
-/** Deliveries and events from one walk of the feed, newest first. */
+/** Deliveries, over summaries and events from one walk of the feed, newest first. */
 export interface CrexMatchFeed {
   balls: CommentaryBall[];
   events: MatchEvent[];
+  /** End-of-over cards, newest first. */
+  overs: OverSummary[];
+  /**
+   * The oldest feed id this walk reached, to be passed back as `before` to
+   * continue further into the innings. Null when the walk found nothing.
+   */
+  oldest: string | null;
+  /**
+   * crex handed back no rows it had not already sent, so this walk reached the
+   * start of what the feed holds. Lets a caller stop offering "older" rather
+   * than asking again for an empty page.
+   */
+  exhausted: boolean;
+}
+
+/** How far to walk the ball feed, and from where. */
+export interface FeedWalkOpts extends FetchOpts {
+  /**
+   * Stop once this many deliveries are held. Defaults to the three overs the
+   * header strip needs; the commentary tab asks for a session's worth.
+   */
+  minBalls?: number;
+  /** Hard page cap for one walk, so a feed that keeps answering cannot spin. */
+  maxPages?: number;
+  /**
+   * Continue from an earlier walk: pass its `oldest`, and this one starts from
+   * the row after it rather than from the live tail.
+   */
+  before?: string;
+}
+
+/**
+ * An over-summary row as a card of its own.
+ *
+ * Kept apart from `toMatchEvent`, which flattens the same row into one sentence
+ * for the events strip. This is the whole over as crex prints it above its
+ * commentary — the deliveries, the score, who was in and who was bowling — and
+ * none of that survives being turned into "6 runs, 1 wicket".
+ */
+function toOverSummary(f: CrexBallFeed): OverSummary | null {
+  if (f.type !== 'o' || f.on === undefined || f.on < 0) return null;
+
+  const batsmen = [
+    { playerId: cleanKey(f.pf1) || null, name: f.p1 ?? '', figures: f.s1 ?? null },
+    { playerId: cleanKey(f.pf2) || null, name: f.p2 ?? '', figures: f.s2 ?? null },
+  ].filter((b) => b.name);
+
+  return {
+    id: String(f.id ?? `o-${f.on}`),
+    // `on` is the 0-based index of the over that just finished, so the over
+    // number a reader knows it by is one more.
+    over: f.on + 1,
+    inning: f.inning ?? 0,
+    runs: f.runs ?? 0,
+    wickets: f.ow ?? 0,
+    balls: (f.rb ?? '').split('.').filter((b) => b !== ''),
+    score: f.s ?? null,
+    battingTeam: f.team ?? null,
+    batsmen,
+    bowler: f.bowler
+      ? { playerId: cleanKey(f.bf) || null, name: f.bowler, figures: f.bd ?? null }
+      : null,
+    timestamp: f.id ? new Date(f.id).toISOString() : undefined,
+  };
 }
 
 /**
@@ -1979,13 +2394,17 @@ export interface CrexMatchFeed {
  */
 export async function getCrexMatchFeed(
   matchKey: string,
-  opts: FetchOpts = {}
+  opts: FeedWalkOpts = {}
 ): Promise<CrexMatchFeed> {
+  const { minBalls = MIN_BALLS, maxPages = MAX_COMMENTARY_PAGES, before } = opts;
+
   const feed: CrexBallFeed[] = [];
   const seen = new Set<number>();
-  let cursor = '';
+  let cursor = before ?? '';
+  let exhausted = false;
+  let oldest: number | null = null;
 
-  for (let page = 0; page < MAX_COMMENTARY_PAGES; page++) {
+  for (let page = 0; page < maxPages; page++) {
     const qs = new URLSearchParams({ matchKey });
     if (cursor) qs.set('lastDocId', cursor);
 
@@ -1993,23 +2412,34 @@ export async function getCrexMatchFeed(
       revalidate: 5,
       ...opts,
     });
-    if (!batch?.length) break;
+    if (!batch?.length) {
+      exhausted = true;
+      break;
+    }
 
     // `id` is the cursor as well as the identity, so a page with no unseen ids
     // means there is nothing further back to ask for.
     const fresh = batch.filter((f) => f.id !== undefined && !seen.has(f.id));
-    if (!fresh.length) break;
+    if (!fresh.length) {
+      exhausted = true;
+      break;
+    }
 
     for (const f of fresh) {
       seen.add(f.id as number);
       feed.push(f);
+      const id = f.id as number;
+      if (oldest === null || id < oldest) oldest = id;
     }
 
     const balls = feed.filter(isDelivery).length;
-    if (balls >= MIN_BALLS) break;
+    if (balls >= minBalls) break;
 
     cursor = String(batch[batch.length - 1].id ?? '');
-    if (!cursor) break;
+    if (!cursor) {
+      exhausted = true;
+      break;
+    }
   }
 
   const balls = feed
@@ -2037,6 +2467,8 @@ export async function getCrexMatchFeed(
         isWicket: outcome.isWicket,
         isBoundary: outcome.batRuns === 4 || outcome.batRuns === 6,
         text,
+        scoreAfter: f.s ?? null,
+        inning: f.inning,
         timestamp: f.id ? new Date(f.id).toISOString() : undefined,
       } satisfies CommentaryBall;
     })
@@ -2046,7 +2478,17 @@ export async function getCrexMatchFeed(
     .map(toMatchEvent)
     .filter((e): e is MatchEvent => e !== null);
 
-  return { balls, events };
+  const overs = feed
+    .map(toOverSummary)
+    .filter((o): o is OverSummary => o !== null);
+
+  return {
+    balls,
+    events,
+    overs,
+    oldest: oldest === null ? null : String(oldest),
+    exhausted,
+  };
 }
 
 // ---------------------------------------------------------------------------

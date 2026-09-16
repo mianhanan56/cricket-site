@@ -9,6 +9,14 @@
 // Shared by the server page (which validates ?date= and stamps its own today)
 // and the client filter (which corrects today to the reader's timezone).
 
+import { LOCALE } from './datetime';
+
+// These format a LOCAL-midnight Date and are deliberately not routed through
+// `formatInZone`: a day key is already the reader's own day by construction, so
+// the host's zone is the right one to render it in and the label comes out the
+// same on both sides of a render. Only the locale is shared, so the whole app
+// writes a date one way.
+
 /** ?date= must look exactly like this, or it is ignored. */
 export const DAY_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -43,7 +51,7 @@ export function formatDayLabel(key: string, todayKey: string): string {
     if (key === todayKey) return 'Today';
     if (key === addDays(todayKey, 1)) return 'Tomorrow';
   }
-  return dayDate(key).toLocaleDateString('en-GB', {
+  return dayDate(key).toLocaleDateString(LOCALE, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -56,7 +64,7 @@ export const isRelativeDay = (key: string, todayKey: string): boolean =>
 
 /** "Monday 17 August" — the long form, for the heading of a single chosen day. */
 export const formatDayLong = (key: string): string =>
-  dayDate(key).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+  dayDate(key).toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
 
 /** A ?date= value, or '' for the unfiltered view. */
 export function pickDayParam(raw: string | string[] | undefined | null): string {

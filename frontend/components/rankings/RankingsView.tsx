@@ -12,6 +12,7 @@ import type {
 import type { RankingsData, TeamRankingsData } from '@/lib/rankings';
 import FilterSelect, { type FilterOption } from '../ui/FilterSelect';
 import RankingCrest from './RankingCrest';
+import TableScroll from '../ui/TableScroll';
 import styles from './RankingsView.module.scss';
 
 const GROUPS: readonly FilterOption<Group>[] = [
@@ -265,7 +266,10 @@ export default function RankingsView({ data, teams, asOf, initial }: RankingsVie
           </ol>
 
           {rest.length > 0 && (
-            <div className={styles.tableWrap}>
+            <TableScroll
+              className={styles.tableWrap}
+              label={`${isTeams ? 'Team' : 'Player'} rankings, ${formatLabel}`}
+            >
               <table className={styles.table}>
                 <caption className={styles.srOnly}>
                   {isTeams ? 'Team' : 'Player'} rankings, {formatLabel}, positions{' '}
@@ -346,7 +350,7 @@ export default function RankingsView({ data, teams, asOf, initial }: RankingsVie
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableScroll>
           )}
         </>
       ) : (

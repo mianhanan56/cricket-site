@@ -8,6 +8,7 @@ import {
   seriesStatLabel,
 } from '../../../../../lib/crex';
 import PlayerPortrait from '../../../../../components/player/PlayerPortrait';
+import TableScroll from '../../../../../components/ui/TableScroll';
 import RankingCrest from '../../../../../components/rankings/RankingCrest';
 import BackButton from '../../../../../components/ui/BackButton';
 import styles from './seriesStat.module.scss';
@@ -174,7 +175,10 @@ export default async function SeriesStatPage({
             ))}
           </div>
 
-          <div className={styles.tableWrap}>
+          <TableScroll
+            className={styles.tableWrap}
+            label={`${seriesStatLabel(kind)} in ${series.name}`}
+          >
             <table className={styles.table}>
               <caption className={styles.caption}>
                 {seriesStatLabel(kind)} in {series.name} — top {table.rows.length}, from{' '}
@@ -231,7 +235,7 @@ export default async function SeriesStatPage({
                 })}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         </>
       )}
     </div>

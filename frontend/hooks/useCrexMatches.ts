@@ -5,15 +5,17 @@ import type {
   CommentaryBall,
   InningsScore,
   Match,
+  MatchConditions,
   MatchEvent,
   MatchStatus,
+  OverSummary,
   SquadPlayer,
 } from '@/types';
 import {
   clearResumedStoppages,
   getCrexMatchFeed,
+  getCrexMatchInfo,
   getCrexMatchList,
-  getCrexMatchSquads,
   getCrexScorecard,
 } from '@/lib/crex';
 import type { StoppageWatch } from '@/lib/crex';
@@ -124,10 +126,12 @@ export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatc
     };
 
     async function run(): Promise<void> {
-      // Don't poll into a hidden tab — the visibility listener below restarts
-      // us the moment it comes back.
+      // Don't poll into a hidden tab, and don't re-arm a timer either: a
+      // background tab's setTimeout is throttled to about once a minute, so a
+      // re-armed chain comes back minutes late. Drop it and let the visibility
+      // listener below restart us the moment the tab returns.
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        schedule(intervalMs);
+        clear();
         return;
       }
 
@@ -166,6 +170,7 @@ export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatc
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
         failures.current = 0;
+        clear();
         void run();
       }
     };
@@ -224,6 +229,8 @@ export interface UseCrexMatchExtrasResult {
    * milestones — newest first.
    */
   events: MatchEvent[];
+  /** End-of-over cards from the same feed, newest first. */
+  overs: OverSummary[];
   loaded: boolean;
 }
 
@@ -269,6 +276,7 @@ export function useCrexMatchExtras(
   const [innings, setInnings] = useState<InningsScore[]>([]);
   const [commentary, setCommentary] = useState<CommentaryBall[]>([]);
   const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [overs, setOvers] = useState<OverSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   const active = enabled && Boolean(matchKey);
@@ -281,9 +289,16 @@ export function useCrexMatchExtras(
     let failures = 0;
     const controller = new AbortController();
 
+    const clear = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    };
+
     async function run(): Promise<void> {
+      // Same as the list poll: park the chain rather than re-arm a throttled
+      // timer, and let the visibility listener below resume it.
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        timer = setTimeout(run, intervalMs);
+        clear();
         return;
       }
 
@@ -306,6 +321,7 @@ export function useCrexMatchExtras(
       if (feed) {
         setCommentary(feed.balls);
         setEvents(feed.events);
+        setOvers(feed.overs);
       }
       if (card || feed) setLoaded(true);
 
@@ -323,14 +339,123 @@ export function useCrexMatchExtras(
 
     void run();
 
+    const onVisible = () => {
+      if (repeat && document.visibilityState === 'visible') {
+        clear();
+        void run();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     return () => {
       cancelled = true;
       controller.abort();
-      if (timer) clearTimeout(timer);
+      clear();
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [active, matchKey, intervalMs, repeat, ballsPerOver, status]);
 
-  return { innings, commentary, events, loaded };
+  return { innings, commentary, events, overs, loaded };
+}
+
+/**
+ * Deliveries the live poll never reaches.
+ *
+ * The poll's walk stops at three overs, because it runs every couple of seconds
+ * and every page of it is an upstream request (see MIN_BALLS in lib/crex). That
+ * is the right window for the header's ball strip and far too small for a
+ * commentary tab: with three overs held, a "wickets" filter is empty on almost
+ * every match, and a reader who steps away for a session cannot catch up.
+ *
+ * So this walks the same feed deeper, once, when the tab is opened, and again
+ * when the reader asks for more — never on the poll. The live tail keeps
+ * arriving on its own and the caller merges the two by id.
+ */
+export interface UseCrexCommentaryHistoryResult {
+  balls: CommentaryBall[];
+  overs: OverSummary[];
+  /** A walk is in flight — the first one, or a "load older". */
+  loading: boolean;
+  /** The feed has nothing older left to hand back. */
+  exhausted: boolean;
+  /** Walk further back. No-op while one is already running, or once exhausted. */
+  loadMore: () => void;
+}
+
+/** Roughly ten overs on the first walk, and five more per "load older". */
+const HISTORY_BALLS = 60;
+const HISTORY_PAGES = 14;
+const MORE_BALLS = 30;
+const MORE_PAGES = 8;
+
+export function useCrexCommentaryHistory(
+  matchKey: string,
+  options: { enabled?: boolean } = {}
+): UseCrexCommentaryHistoryResult {
+  const { enabled = true } = options;
+
+  const [balls, setBalls] = useState<CommentaryBall[]>([]);
+  const [overs, setOvers] = useState<OverSummary[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [exhausted, setExhausted] = useState(false);
+  // The oldest id reached so far, and the cursor the next walk continues from.
+  const cursor = useRef<string | null>(null);
+  // Guards the first walk against an effect that re-runs, and both walks against
+  // a second one starting while the first is still out.
+  const inFlight = useRef(false);
+  const started = useRef('');
+
+  const walk = useCallback(
+    async (from: string | null) => {
+      if (inFlight.current) return;
+      inFlight.current = true;
+      setLoading(true);
+
+      try {
+        const feed = await getCrexMatchFeed(matchKey, {
+          minBalls: from ? MORE_BALLS : HISTORY_BALLS,
+          maxPages: from ? MORE_PAGES : HISTORY_PAGES,
+          ...(from ? { before: from } : null),
+        });
+
+        // Merged by id rather than replaced: a "load older" walk returns only
+        // the older window, and the overs already on screen must stay.
+        setBalls((prev) => mergeById(prev, feed.balls, (b) => b.id));
+        setOvers((prev) => mergeById(prev, feed.overs, (o) => o.id));
+        cursor.current = feed.oldest ?? cursor.current;
+        if (feed.exhausted || !feed.oldest) setExhausted(true);
+      } catch {
+        // A failed walk leaves what is already held; the reader can ask again.
+      } finally {
+        inFlight.current = false;
+        setLoading(false);
+      }
+    },
+    [matchKey]
+  );
+
+  useEffect(() => {
+    if (!enabled || !matchKey || started.current === matchKey) return;
+    started.current = matchKey;
+    void walk(null);
+  }, [enabled, matchKey, walk]);
+
+  const loadMore = useCallback(() => {
+    if (exhausted || inFlight.current) return;
+    void walk(cursor.current);
+  }, [exhausted, walk]);
+
+  return { balls, overs, loading, exhausted, loadMore };
+}
+
+/** Two feeds as one, newest first, keyed on the feed's own ids. */
+function mergeById<T>(a: T[], b: T[], key: (item: T) => string): T[] {
+  const byId = new Map<string, T>();
+  for (const item of [...a, ...b]) byId.set(key(item), item);
+  // The feed's id is an epoch, and its string form sorts the same way for the
+  // 13-digit window this app will ever see — but the numeric compare is what is
+  // actually meant, so it is what is written.
+  return [...byId.values()].sort((x, y) => Number(key(y)) - Number(key(x)));
 }
 
 /**
@@ -348,10 +473,16 @@ export function useCrexMatchExtras(
 export function useCrexMatchSquads(
   matchKey: string,
   options: { enabled?: boolean } = {}
-): { squads: Record<string, SquadPlayer[]>; loaded: boolean } {
+): {
+  squads: Record<string, SquadPlayer[]>;
+  /** The forecast, the officials, the broadcasters and the ground's record. */
+  conditions: MatchConditions | null;
+  loaded: boolean;
+} {
   const { enabled = true } = options;
 
   const [squads, setSquads] = useState<Record<string, SquadPlayer[]>>({});
+  const [conditions, setConditions] = useState<MatchConditions | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -360,10 +491,11 @@ export function useCrexMatchSquads(
     let cancelled = false;
     const controller = new AbortController();
 
-    getCrexMatchSquads(matchKey, { signal: controller.signal })
+    getCrexMatchInfo(matchKey, { signal: controller.signal })
       .then((next) => {
         if (cancelled || controller.signal.aborted) return;
-        setSquads(next);
+        setSquads(next.squads);
+        setConditions(next.conditions);
         setLoaded(true);
       })
       .catch(() => {
@@ -376,5 +508,5 @@ export function useCrexMatchSquads(
     };
   }, [enabled, matchKey]);
 
-  return { squads, loaded };
+  return { squads, conditions, loaded };
 }

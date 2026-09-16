@@ -8,6 +8,7 @@ import type {
 } from '@/types';
 import { getCrexPlayerProfile, teamLogoUrl } from '../../../lib/crex';
 import PlayerPortrait from '../../../components/player/PlayerPortrait';
+import TableScroll from '../../../components/ui/TableScroll';
 import { SERVER_ZONE, formatInZone } from '../../../lib/datetime';
 import BackButton from '../../../components/ui/BackButton';
 import styles from './player.module.scss';
@@ -215,7 +216,7 @@ function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
   const groups = groupCareer(rows);
 
   return (
-    <div className={styles.tableWrap}>
+    <TableScroll className={styles.tableWrap} label="Batting career by format">
       <table className={styles.table}>
         <thead>
           <tr>
@@ -291,7 +292,7 @@ function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
         </tfoot>
         )}
       </table>
-    </div>
+    </TableScroll>
   );
 }
 
@@ -299,7 +300,7 @@ function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
   const groups = groupCareer(rows);
 
   return (
-    <div className={styles.tableWrap}>
+    <TableScroll className={styles.tableWrap} label="Bowling career by format">
       <table className={styles.table}>
         <thead>
           <tr>
@@ -363,7 +364,7 @@ function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
         </tfoot>
         )}
       </table>
-    </div>
+    </TableScroll>
   );
 }
 

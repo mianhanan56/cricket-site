@@ -34,6 +34,33 @@ export interface Env {
 // Stale scores beat a broken page.
 const STALE_GRACE_SECONDS = 300;
 
+/**
+ * Upstream calls this isolate currently has open, keyed by the cache key.
+ *
+ * Without it, the cache collapses traffic only once a body has LANDED — and the
+ * moment an entry goes stale, every request arriving in that window starts its
+ * own refresh. On /matches/live, whose TTL is two seconds, that is the whole
+ * readership fanning out to crex at once, which is the exact thing the edge
+ * cache exists to prevent. The first request through starts the call; the rest
+ * join it.
+ *
+ * Isolate-local, so a colo with several isolates makes a few calls rather than
+ * one. That is the practical bound on a Worker and still orders of magnitude
+ * below one per reader.
+ */
+const inFlight = new Map<string, Promise<FetchOutcome>>();
+
+/** A fetched body, held as bytes so every joining caller can build its own Response. */
+interface StoredBody {
+  body: ArrayBuffer;
+  contentType: string;
+}
+
+/** What one upstream attempt produced. `status: 0` means the call never landed. */
+type FetchOutcome =
+  | { ok: true; stored: StoredBody }
+  | { ok: false; status: number; detail: string };
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -99,33 +126,36 @@ export default {
       }
 
       // Past TTL: serve it now, refresh behind the request, so a cache expiry
-      // never makes a user wait on the upstream round-trip.
-      ctx.waitUntil(refresh(cacheKey, route, params, cache));
+      // never makes a user wait on the upstream round-trip. Single-flighted, so
+      // the whole readership arriving inside one expired window costs one
+      // upstream call rather than one each.
+      ctx.waitUntil(fetchAndStore(cacheKey, route, params, cache, ctx));
       return withHeaders(cached, cors, 'STALE', route.ttl);
     }
 
-    try {
-      const fresh = await fetchUpstream(route, params);
+    // A cold miss is single-flighted too, and for the same reason: without it,
+    // every reader arriving before the first body lands goes upstream
+    // separately. Joining callers get the same outcome — including the same
+    // upstream error, so a failure still reports what actually went wrong
+    // rather than a generic 502.
+    const outcome = await fetchAndStore(cacheKey, route, params, cache, ctx);
 
-      if (!fresh.ok) {
-        const body = await fresh.text();
-        return json(
-          {
-            error: 'Upstream error',
-            status: fresh.status,
-            upstream: `${route.method} ${UPSTREAMS[route.base]}${route.path}`,
-            detail: body.slice(0, 500),
-          },
-          fresh.status === 429 ? 429 : 502,
-          cors
-        );
-      }
-
-      const stored = await store(cacheKey, fresh, route.ttl, cache, ctx);
-      return withHeaders(stored, cors, 'MISS', route.ttl);
-    } catch (err) {
-      return json({ error: 'Upstream unreachable', detail: String(err) }, 502, cors);
+    if (!outcome.ok) {
+      return outcome.status === 0
+        ? json({ error: 'Upstream unreachable', detail: outcome.detail }, 502, cors)
+        : json(
+            {
+              error: 'Upstream error',
+              status: outcome.status,
+              upstream: `${route.method} ${UPSTREAMS[route.base]}${route.path}`,
+              detail: outcome.detail,
+            },
+            outcome.status === 429 ? 429 : 502,
+            cors
+          );
     }
+
+    return withHeaders(responseFrom(outcome.stored), cors, 'MISS', route.ttl);
   },
 } satisfies ExportedHandler<Env>;
 
@@ -159,8 +189,58 @@ function fetchUpstream(route: RouteDef, params: Record<string, ParamValue>): Pro
   });
 }
 
+/** A caller's own Response over a shared, already-read body. */
+function responseFrom(stored: StoredBody): Response {
+  return new Response(stored.body, {
+    status: 200,
+    headers: { 'Content-Type': stored.contentType },
+  });
+}
+
 /**
- * Store a response under `cacheKey`, stamping the time it was fetched so TTL is
+ * Fetch upstream and write the result to the cache — at most once at a time per
+ * cache key, however many requests want it.
+ *
+ * The result is held as bytes rather than as a Response because a Response body
+ * can only be read once: joining callers each need their own, so what is shared
+ * is the ArrayBuffer they build it from.
+ *
+ * Never rejects. An upstream failure resolves to a described outcome so every
+ * joined caller can report it identically, and so a failure clears the in-flight
+ * slot rather than wedging the key.
+ */
+function fetchAndStore(
+  cacheKey: Request,
+  route: RouteDef,
+  params: Record<string, ParamValue>,
+  cache: Cache,
+  ctx: ExecutionContext
+): Promise<FetchOutcome> {
+  const open = inFlight.get(cacheKey.url);
+  if (open) return open;
+
+  const run = (async (): Promise<FetchOutcome> => {
+    try {
+      const fresh = await fetchUpstream(route, params);
+
+      if (!fresh.ok) {
+        const detail = await fresh.text().catch(() => '');
+        return { ok: false, status: fresh.status, detail: detail.slice(0, 500) };
+      }
+
+      return { ok: true, stored: await store(cacheKey, fresh, route.ttl, cache, ctx) };
+    } catch (err) {
+      // status 0 is "never got a reply", which is a 502 rather than a passthrough.
+      return { ok: false, status: 0, detail: String(err) };
+    }
+  })().finally(() => inFlight.delete(cacheKey.url));
+
+  inFlight.set(cacheKey.url, run);
+  return run;
+}
+
+/**
+ * Store a body under `cacheKey`, stamping the time it was fetched so TTL is
  * computed from our own clock rather than upstream's Cache-Control.
  */
 async function store(
@@ -168,39 +248,22 @@ async function store(
   response: Response,
   ttl: number,
   cache: Cache,
-  ctx?: ExecutionContext
-): Promise<Response> {
+  ctx: ExecutionContext
+): Promise<StoredBody> {
   const body = await response.arrayBuffer();
+  const contentType = response.headers.get('Content-Type') ?? 'application/json';
 
   const headers = new Headers({
-    'Content-Type': response.headers.get('Content-Type') ?? 'application/json',
+    'Content-Type': contentType,
     'x-worker-age-basis': String(Date.now()),
     // Keep the entry alive past its TTL so the stale-on-error path has
     // something to fall back to.
     'Cache-Control': `public, max-age=${ttl + STALE_GRACE_SECONDS}`,
   });
 
-  const toCache = new Response(body, { status: 200, headers });
-  const write = cache.put(cacheKey, toCache.clone());
-  if (ctx) ctx.waitUntil(write);
-  else await write;
+  ctx.waitUntil(cache.put(cacheKey, new Response(body, { status: 200, headers })));
 
-  return toCache;
-}
-
-/** Background revalidation. Failures are swallowed — the stale entry stands. */
-async function refresh(
-  cacheKey: Request,
-  route: RouteDef,
-  params: Record<string, ParamValue>,
-  cache: Cache
-): Promise<void> {
-  try {
-    const fresh = await fetchUpstream(route, params);
-    if (fresh.ok) await store(cacheKey, fresh, route.ttl, cache);
-  } catch {
-    // Ignore: the caller already got a usable stale response.
-  }
+  return { body, contentType };
 }
 
 function withHeaders(response: Response, cors: Headers, status: string, ttl: number): Response {

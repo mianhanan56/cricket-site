@@ -144,3 +144,10 @@
 .ballRuns {
   width: 46px;
 }
+
+// One pill of an over's ball strip, at the size the real one is drawn.
+.overCardBall {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+}

@@ -3,6 +3,17 @@ import { getCrexMatchList, seriesFromMatches } from '../lib/crex';
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 
+/**
+ * Rebuild the sitemap hourly.
+ *
+ * Without this the route is fully static: it is generated once at build time
+ * and then frozen, so every match, series, team and venue that appeared after
+ * the deploy was missing from it until the next one — which for a site whose
+ * entire URL space turns over weekly is most of the sitemap, most of the time.
+ * An hour matches the window the underlying match list is fetched with.
+ */
+export const revalidate = 3600;
+
 /** Distinct, non-empty keys, in first-seen order. */
 const uniq = (keys: string[]): string[] => [...new Set(keys.filter(Boolean))];
 

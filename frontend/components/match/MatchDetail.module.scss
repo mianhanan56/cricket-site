@@ -263,6 +263,87 @@
   text-align: center;
 }
 
+// --- Where the match stands ------------------------------------------------
+// Three sentences at most, centred under the rates. The trail is a fact and is
+// set as one; the follow-on is a deadline, and takes the amber the rest of the
+// page reserves for a figure under pressure.
+
+.situation {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: $space-2;
+}
+
+.margin {
+  @include fluid-text;
+  margin: 0;
+  font-size: $text-sm;
+  font-weight: 600;
+  color: $text-primary;
+  text-align: center;
+}
+
+.followOn {
+  @include fluid-text;
+  margin: 0;
+  font-size: 13px;
+  color: $accent-amber;
+  text-align: center;
+}
+
+// --- The stand at the crease ----------------------------------------------
+// Partnership and last wicket, side by side under the two batters. A scoreboard
+// pairing: the stand says how the innings is going, the wicket says what it is
+// recovering from, and neither reads properly without the other.
+
+.standRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: $space-2 $space-5;
+  margin: $space-3 0 0;
+  padding-top: $space-3;
+  border-top: 1px solid $card-border;
+}
+
+.stand {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.standLabel {
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: $text-muted;
+}
+
+.standValue {
+  @include fluid-text;
+  display: flex;
+  align-items: baseline;
+  gap: $space-1-5;
+  margin: 0;
+  font-size: 13px;
+  color: $text-primary;
+}
+
+.standBalls {
+  @include score-number;
+  font-size: $text-xs;
+  color: $text-muted;
+}
+
+.standAt {
+  font-size: $text-xs;
+  color: $text-secondary;
+}
+
 // --- At the crease ---------------------------------------------------------
 // Batters one side, bowler the other, mirroring the two team columns above so
 // the eye already knows which end of the header belongs to which side. Stacks
@@ -361,6 +442,16 @@
 }
 
 .creaseBalls {
+  color: $text-muted;
+}
+
+// The rate beside the figures — a batter's strike rate, a bowler's economy. Set
+// quieter and one step down: it qualifies the runs, it is not the runs.
+.creaseRate {
+  margin-left: $space-2;
+  font-size: $text-2xs;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   color: $text-muted;
 }
 
@@ -1144,6 +1235,317 @@
   color: $text-muted;
 }
 
+// ------------------------------------------------- Fall of wickets
+
+// A ledger, not a table: four short facts per wicket, and the score is the one
+// the eye is scanning for — so it leads each row, set as a score, with the name
+// and the over trailing it.
+
+.fow {
+  display: grid;
+  gap: $space-1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  @include sm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-1 $space-4;
+  }
+
+  @include desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.fowItem {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  min-width: 0;
+  padding: $space-1-5 0;
+  border-bottom: 1px solid $card-border;
+}
+
+.fowScore {
+  @include score-number;
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: $text-primary;
+}
+
+.fowWicket {
+  color: $live-color;
+}
+
+.fowName {
+  @include fluid-text;
+  flex: 1;
+  font-size: $text-xs;
+  color: $text-secondary;
+}
+
+.fowFigures {
+  @include score-number;
+  flex-shrink: 0;
+  font-size: $text-2xs;
+  color: $text-muted;
+}
+
+.fowOvers {
+  @include score-number;
+  flex-shrink: 0;
+  min-width: 42px;
+  font-size: $text-2xs;
+  color: $text-muted;
+  text-align: right;
+}
+
+// ------------------------------------------------- Partnerships
+
+// The split bar is the point of this block. A stand of 112 tells you nothing
+// about whether one batter carried it; two shares of one bar tell you at a
+// glance, and the runs either side name the halves.
+
+.stands {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.standCard {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  padding: $space-2-5 $space-3;
+  border: 1px solid $card-border;
+  border-radius: $radius-md;
+  background: $secondary;
+
+  @include sm {
+    flex-direction: row;
+    align-items: center;
+    gap: $space-4;
+  }
+}
+
+.standTotal {
+  display: flex;
+  align-items: baseline;
+  gap: $space-1-5;
+  flex-shrink: 0;
+
+  @include sm {
+    min-width: 96px;
+  }
+}
+
+.standRuns {
+  @include score-number;
+  font-size: $text-lg;
+  font-weight: 700;
+  color: $text-primary;
+}
+
+.standOff {
+  @include score-number;
+  font-size: $text-xs;
+  color: $text-muted;
+}
+
+.standLive {
+  padding: 2px $space-1-5;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--accent-green) 18%, transparent);
+  color: $accent;
+  font-size: $text-2xs;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.standPair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: $space-2;
+  flex: 1;
+  min-width: 0;
+}
+
+.standSide {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  font-size: $text-xs;
+}
+
+.standSideRight {
+  text-align: right;
+}
+
+.standShare {
+  @include score-number;
+  font-size: $text-2xs;
+  color: $text-muted;
+}
+
+// Two segments, sized by each batter's runs. Ordered green then violet — the
+// same two accents the header uses for batting and bowling, reused here for the
+// two ends of a stand rather than introducing a third colour.
+.standBar {
+  display: flex;
+  width: 56px;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: $card-hover;
+
+  @include sm {
+    width: 96px;
+  }
+}
+
+.standBarA {
+  background: $accent-green;
+}
+
+.standBarB {
+  background: $accent-purple;
+}
+
+// ------------------------------------------------- Conditions
+
+// The forecast reads as one reading, not as six rows: the temperature and the
+// word for the sky lead at size, and the four qualifiers sit under them in a
+// grid that wraps to two columns on a phone.
+
+.weather {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.weatherNow {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-2 $space-3;
+  margin: 0;
+}
+
+.weatherTemp {
+  @include score-number;
+  font-size: $text-2xl;
+  font-weight: 700;
+  color: $text-primary;
+}
+
+.weatherWord {
+  font-size: $text-sm;
+  color: $text-secondary;
+}
+
+.weatherGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-2 $space-4;
+  margin: 0;
+
+  @include sm {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.weatherCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  dt {
+    font-size: $text-2xs;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: $text-muted;
+  }
+
+  dd {
+    @include fluid-text;
+    margin: 0;
+    font-size: 13px;
+    color: $text-primary;
+  }
+}
+
+.venueStats {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+// Average total per innings, in innings order — the shape of the row is the
+// fact, so they sit in one strip rather than in the label/value table below.
+.venueAvgs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-2;
+  margin: 0;
+
+  @include sm {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.venueAvg {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: $space-2 $space-2-5;
+  border: 1px solid $card-border;
+  border-radius: $radius-sm;
+  background: $secondary;
+
+  dt {
+    font-size: $text-2xs;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $text-muted;
+  }
+
+  dd {
+    @include score-number;
+    margin: 0;
+    font-size: $text-lg;
+    font-weight: 700;
+    color: $text-primary;
+  }
+}
+
+.broadcast {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.broadcaster {
+  padding: $space-1-5 $space-3;
+  border: 1px solid $card-border;
+  border-radius: 999px;
+  background: $secondary;
+  font-size: $text-xs;
+  color: $text-secondary;
+}
+
 // ---------------------------------------------------------------- Commentary
 
 .commentary {
@@ -1152,18 +1554,228 @@
   gap: $space-4;
 }
 
-// One over of the ball-by-ball list: a heading and its deliveries, stacked.
-.overGroup {
-  min-width: 0;
+// --- Filters ---------------------------------------------------------------
+// One scrolling row of chips. Scrolls rather than wraps: six filters plus an
+// innings row wrap to three lines on a phone and push the first delivery off
+// the screen, and the set is short enough to swipe.
+
+.filters {
+  @include scroll-x;
+  display: flex;
+  gap: $space-2;
+  margin-bottom: $space-3;
+  padding-bottom: 2px;
+
+  @include sm {
+    flex-wrap: wrap;
+  }
 }
 
-.overHeader {
+.filterChip {
+  flex: 0 0 auto;
+  padding: $space-1-5 $space-3;
+  border: 1px solid $card-border;
+  border-radius: 999px;
+  background: transparent;
+  color: $text-secondary;
+  font-family: inherit;
+  font-size: $text-xs;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+
+  &:hover {
+    color: $text-primary;
+    border-color: color-mix(in oklab, var(--accent-green) 40%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+}
+
+.filterOn {
+  background: color-mix(in oklab, var(--accent-green) 18%, transparent);
+  border-color: color-mix(in oklab, var(--accent-green) 45%, transparent);
+  color: $accent;
+}
+
+// The control that walks the feed further back. Sized and coloured as a real
+// button: it is the primary action of this tab, not a footnote to it.
+.loadMoreRow {
+  display: flex;
+  justify-content: center;
+  margin-top: $space-4;
+}
+
+.loadMore {
+  padding: $space-2-5 $space-5;
+  border: 1px solid color-mix(in oklab, var(--accent-green) 35%, transparent);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--accent-green) 10%, transparent);
+  color: $accent;
+  font-family: inherit;
+  font-size: $text-sm;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--accent-green) 18%, transparent);
+    border-color: color-mix(in oklab, var(--accent-green) 55%, transparent);
+  }
+
+  &:active:not(:disabled) {
+    background: color-mix(in oklab, var(--accent-green) 24%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $accent;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: progress;
+  }
+}
+
+// --- The over card ---------------------------------------------------------
+// What crex prints above each over's deliveries, and the row that makes a feed
+// readable after the fact: the over, what it cost, the score it left, and the
+// three players it happened to. Set as a surface so the eye can find the over
+// boundaries in a long scroll without a heading rule to do it.
+
+.overCard {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  padding: $space-2-5 $space-3;
+  border: 1px solid $card-border;
+  border-radius: $radius-md;
+  background: $secondary;
+}
+
+.overCardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: $space-2 $space-3;
+}
+
+.overCardTitle {
+  margin: 0;
   font-size: $text-sm;
   font-weight: 700;
-  padding: $space-1 $space-2;
-  margin-bottom: $space-2;
-  background: $secondary;
-  border-radius: $radius-sm;
+  color: $text-primary;
+}
+
+.overCardRuns {
+  font-size: $text-xs;
+  font-weight: 600;
+  color: $accent;
+}
+
+.overCardWickets {
+  color: $live-color;
+}
+
+// Pushed to the end of the row: it is the state the over left behind, and it
+// lines up with the figures column of the players below it.
+.overCardScore {
+  @include score-number;
+  margin-left: auto;
+  font-size: $text-xs;
+  color: $text-secondary;
+}
+
+.overCardBalls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-1-5;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.overCardBall {
+  @include score-number;
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding-inline: 5px;
+  border-radius: 999px;
+  background: $card-hover;
+  font-size: $text-2xs;
+  color: $text-secondary;
+}
+
+.overBallDot {
+  color: $text-muted;
+}
+
+.overBallFour {
+  background: color-mix(in oklab, var(--accent-green) 24%, transparent);
+  color: $accent;
+}
+
+.overBallSix {
+  background: color-mix(in oklab, var(--amber) 24%, transparent);
+  color: $accent-amber;
+}
+
+.overBallWicket {
+  background: $live-bg;
+  color: $live-color;
+}
+
+.overBallExtra {
+  background: color-mix(in oklab, var(--accent-blue) 20%, transparent);
+  color: $accent-blue;
+}
+
+.overCardPlayers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-1 $space-4;
+  margin: 0;
+}
+
+.overCardPlayer {
+  display: flex;
+  align-items: baseline;
+  gap: $space-1-5;
+  min-width: 0;
+  font-size: $text-xs;
+
+  dt {
+    @include fluid-text;
+    color: $text-secondary;
+  }
+
+  dd {
+    @include score-number;
+    margin: 0;
+    color: $text-primary;
+  }
+}
+
+// The bowler ends the row, mirroring the header above: batters left, bowling
+// right, the same split the match header uses.
+.overCardBowler {
+  margin-left: auto;
+
+  dt {
+    color: $accent-purple;
+  }
 }
 
 .ballRow {
@@ -1216,6 +1828,22 @@
   flex: 1;
   font-size: $text-sm;
   color: $text-secondary;
+}
+
+// Score and outcome, stacked at the end of a delivery so a wrapped commentary
+// line cannot push the two apart.
+.ballTail {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.ballScore {
+  @include score-number;
+  font-size: $text-2xs;
+  color: $text-muted;
 }
 
 .ballRuns {
