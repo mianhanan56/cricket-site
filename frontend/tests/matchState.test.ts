@@ -59,6 +59,12 @@ const inningsBreak: MatchNote = {
   betweenInnings: true,
 };
 const rain: MatchNote = { label: 'Rain Delay', kind: 'DELAY', paused: true };
+const tossDelayed: MatchNote = {
+  label: 'Toss Delayed',
+  kind: 'DELAY',
+  paused: true,
+  preToss: true,
+};
 
 const TEST_CHECK = { format: 'TEST' as const, perOver: 6 };
 const T20_CHECK = { format: 'T20' as const, perOver: 6 };
@@ -170,6 +176,18 @@ describe('an innings break', () => {
 
     assert.equal(isStaleStoppage(inningsBreak, check), false);
   });
+
+  // An 11-over-a-side game: the chase is complete at 11 overs, not at the
+  // format's 20, so there is nothing left for the note to contradict. Read off
+  // the first innings, the same way the required rate is.
+  it('is kept over a completed chase in a shortened match', () => {
+    const check = {
+      ...T20_CHECK,
+      innings: [innings('THA-W', 91, 4, 11), innings('PAK-W', 95, 3, 11, { phase: 'CURRENT' })],
+    };
+
+    assert.equal(isStaleStoppage(inningsBreak, check), false);
+  });
 });
 
 describe('weather', () => {
@@ -185,6 +203,39 @@ describe('weather', () => {
     };
 
     assert.equal(isStaleStoppage(rain, check), false);
+  });
+});
+
+describe('a toss crex still calls delayed', () => {
+  // THA-W v PAK-W, Women's Asian Games T20 2026: crex sent "Toss Delayed" with
+  // the chase 4.3 overs deep, and it stood all match. The match page lost the
+  // last ball, the striker mark and the whole bowling panel with it, because all
+  // three hang off there being no stoppage.
+  it('is dropped once a ball has been bowled', () => {
+    const check = {
+      ...T20_CHECK,
+      innings: [innings('THA-W', 91, 4, 11), innings('PAK-W', 37, 2, 4.3, { phase: 'CURRENT' })],
+    };
+
+    assert.equal(isStaleStoppage(tossDelayed, check), true);
+  });
+
+  // The toss is a one-time gate, so unlike an interval this needs no ball feed
+  // and no timing window — the first innings alone settles it.
+  it('is dropped in a first innings, with no ball feed to ask', () => {
+    const check = { ...T20_CHECK, innings: [innings('THA-W', 12, 0, 2.1, { phase: 'CURRENT' })] };
+
+    assert.equal(isStaleStoppage(tossDelayed, check), true);
+  });
+
+  it('is kept while no cricket has been played', () => {
+    assert.equal(isStaleStoppage(tossDelayed, { ...T20_CHECK, innings: [] }), false);
+  });
+
+  it('is kept over an innings opened but not started', () => {
+    const check = { ...T20_CHECK, innings: [innings('THA-W', 0, 0, 0, { phase: 'CURRENT' })] };
+
+    assert.equal(isStaleStoppage(tossDelayed, check), false);
   });
 });
 
@@ -287,5 +338,32 @@ describe('the raw feed', () => {
 
     assert.equal(note?.kind, 'BREAK');
     assert.equal(note?.betweenInnings, true);
+  });
+
+  it('flags "$s" as a toss that has not been made', () => {
+    const note = decodeMatchNote({ ...atStumps, a: '$s' }, { first: 'IND', second: 'SL' });
+
+    assert.equal(note?.kind, 'DELAY');
+    assert.equal(note?.preToss, true);
+  });
+
+  // crex sends this one as prose as often as as a code — the wording in the feed
+  // that started all this was "Toss Delayed", with no "$s" beside it.
+  it('flags the same status sent as text', () => {
+    const note = decodeMatchNote(
+      { ...atStumps, a: '', res: 'Toss Delayed' },
+      { first: 'IND', second: 'SL' }
+    );
+
+    assert.equal(note?.label, 'Toss Delayed');
+    assert.equal(note?.preToss, true);
+  });
+
+  // The toss having happened is the opposite claim, and contradicts nothing.
+  it('does not flag the toss result', () => {
+    const note = decodeMatchNote({ ...atStumps, a: '^1' }, { first: 'IND', second: 'SL' });
+
+    assert.equal(note?.kind, 'TOSS');
+    assert.notEqual(note?.preToss, true);
   });
 });

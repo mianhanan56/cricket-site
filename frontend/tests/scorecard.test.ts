@@ -203,6 +203,21 @@ describe('the crease context', () => {
     assert.equal(lastWicket?.wicket, 4);
     assert.equal(lastWicket?.runs, 171);
   });
+
+  // PAK-W read 37/2 with one wicket on the card: crex moves the total the moment
+  // a wicket falls and fills the batting lines a tick later. Both readings come
+  // off those lines, so both are a wicket behind — the page showed the *first*
+  // wicket labelled "Last wicket", beside a stand it had already broken.
+  it('says nothing while the card is a wicket behind the score', async (t) => {
+    t.after(() => mock.restoreAll());
+    stubFetch([IND_INNINGS, { ...SL_INNINGS, d: '205/5(360' }]);
+
+    const innings = await getCrexScorecard('12WY');
+    const { partnership, lastWicket } = creaseContext(innings);
+
+    assert.equal(lastWicket, null);
+    assert.equal(partnership, null);
+  });
 });
 
 // --- the readings -----------------------------------------------------------

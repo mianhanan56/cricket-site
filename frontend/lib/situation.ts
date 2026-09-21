@@ -164,8 +164,16 @@ export function creaseContext(innings: InningsScore[]): CreaseContext {
   const last = stands[stands.length - 1];
   const wickets = current.fallOfWickets ?? [];
 
+  // crex moves the innings total the moment a wicket falls and fills the batting
+  // lines a tick later, so a card can read 37/2 with one wicket on file. Both
+  // readings below come off those lines, and both are then one wicket behind: the
+  // ledger's last entry is not the last wicket, and the stand crex still has open
+  // is one it has already broken. The count is what says to wait — retirements are
+  // left out of the ledger too, so it matches the total exactly.
+  const caughtUp = wickets.length === current.wickets;
+
   return {
-    partnership: last?.unbroken ? last : null,
-    lastWicket: wickets[wickets.length - 1] ?? null,
+    partnership: caughtUp && last?.unbroken ? last : null,
+    lastWicket: (caughtUp && wickets[wickets.length - 1]) || null,
   };
 }

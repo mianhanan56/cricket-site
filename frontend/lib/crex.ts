@@ -73,6 +73,7 @@ import {
   HUNDRED_BALLS_PER_OVER,
   SCHEDULED_OVERS,
   ballsFrom,
+  inningsBallLimit,
   oversFrom,
 } from './overs';
 
@@ -710,6 +711,8 @@ interface NoteSpec {
   paused: boolean;
   /** The gap between two innings, rather than an interval inside one. */
   betweenInnings?: boolean;
+  /** The status says the toss has not been made yet. */
+  preToss?: boolean;
 }
 
 /**
@@ -738,11 +741,11 @@ const NOTE_CODES: Record<string, NoteSpec> = {
   p: { label: 'Match Tied', kind: 'RESULT', paused: false },
   q: { label: 'Abandoned', kind: 'SUSPENDED', paused: false },
   r: { label: 'Rescheduled', kind: 'SUSPENDED', paused: false },
-  s: { label: 'Toss delayed', kind: 'DELAY', paused: true },
-  t: { label: 'Toss delayed due to rain', kind: 'DELAY', paused: true },
-  u: { label: 'Toss delayed due to bad weather', kind: 'DELAY', paused: true },
-  v: { label: 'Toss delayed due to low light', kind: 'DELAY', paused: true },
-  w: { label: 'Toss delayed due to wet outfield', kind: 'DELAY', paused: true },
+  s: { label: 'Toss delayed', kind: 'DELAY', paused: true, preToss: true },
+  t: { label: 'Toss delayed due to rain', kind: 'DELAY', paused: true, preToss: true },
+  u: { label: 'Toss delayed due to bad weather', kind: 'DELAY', paused: true, preToss: true },
+  v: { label: 'Toss delayed due to low light', kind: 'DELAY', paused: true, preToss: true },
+  w: { label: 'Toss delayed due to wet outfield', kind: 'DELAY', paused: true, preToss: true },
   x: { label: 'No Result', kind: 'RESULT', paused: false },
 };
 
@@ -822,6 +825,7 @@ export function decodeMatchNote(
         detail,
         paused: spec.paused,
         ...(spec.betweenInnings ? { betweenInnings: true } : null),
+        ...(spec.preToss ? { preToss: true } : null),
       };
     }
   }
@@ -839,6 +843,9 @@ export function decodeMatchNote(
     // crex sends the innings break it latches longest as `res` text with no code
     // beside it, which is the exact shape the contradiction test is for.
     ...(/innings\s*break/i.test(text) ? { betweenInnings: true } : null),
+    // "Toss Delayed" arrives as text as often as as a code. Only on a DELAY: the
+    // TOSS kind is the toss having *happened*, which contradicts nothing.
+    ...(kind === 'DELAY' && /toss/i.test(text) ? { preToss: true } : null),
   };
 }
 
@@ -935,14 +942,23 @@ function toTeam(key: string, names: typeof nameCache): Team {
 const TOTAL_INNINGS: Record<MatchFormat, number> = { TEST: 4, ODI: 2, T20: 2 };
 
 /**
- * Has this innings finished? Ten down, declared, or the full quota of overs bowled.
+ * Has this innings finished? Ten down, declared, or the full quota of balls bowled.
+ *
+ * `ballsLimit` is the quota where the caller could derive one — a rain-shortened
+ * innings is complete at 11 overs and the format's 20 never says so.
  */
-function inningsOver(inn: InningsScore, format: MatchFormat, perOver: number): boolean {
+function inningsOver(
+  inn: InningsScore,
+  format: MatchFormat,
+  perOver: number,
+  ballsLimit?: number | null
+): boolean {
   if (inn.wickets >= 10 || inn.declared) return true;
 
   const scheduled = SCHEDULED_OVERS[format];
+  const limit = ballsLimit ?? (scheduled !== null ? scheduled * perOver : null);
   // A Test innings has no over quota, so wickets and declarations are all there is.
-  return scheduled !== null && oversFrom(Math.round(inn.overs * perOver), perOver) >= scheduled;
+  return limit !== null && ballsFrom(inn.overs, perOver) >= limit;
 }
 
 /**
@@ -1020,7 +1036,11 @@ export interface StoppageCheck {
  * climbed, and the match page headed a strip of deliveries from the over in
  * progress with "Lunch Break".
  *
- * Two things can contradict it, and neither is invented data:
+ * Three things can contradict it, and none is invented data:
+ *
+ *   - A ball bowled under a toss that crex still says has not happened. The toss
+ *     is a one-time gate, so this one needs no ball feed and no timing window —
+ *     it is the "Toss Delayed" latch that outlived a whole first innings.
  *
  *   - A delivery bowled seconds ago, where the caller has the ball feed. Observed
  *     play, and the signal that catches any latch, whatever it claims.
@@ -1045,9 +1065,16 @@ export interface StoppageCheck {
  * a day early; nothing here would tell us either had stopped.
  */
 export function isStaleStoppage(note: MatchNote, check: StoppageCheck): boolean {
-  if (!note.paused || !LATCH_PRONE_KINDS.has(note.kind)) return false;
+  if (!note.paused) return false;
 
   const perOver = check.perOver || DEFAULT_BALLS_PER_OVER;
+
+  // 0. A toss that has not happened, over a match that has been played. The toss
+  //    is a one-time gate, not a condition that can come back, so a single ball
+  //    settles it — no waiting on the ball feed, and no argument from convention.
+  if (note.preToss) return check.innings.some(hasPlay);
+
+  if (!LATCH_PRONE_KINDS.has(note.kind)) return false;
 
   // 1. A delivery seconds ago. Observed play, and it beats any label.
   if (check.lastBallAt && check.now) {
@@ -1063,9 +1090,22 @@ export function isStaleStoppage(note: MatchNote, check: StoppageCheck): boolean 
 
   const batted = check.innings.filter((inn) => !inn.notStarted);
   const batting = batted.find((inn) => inn.phase === 'CURRENT') ?? batted[batted.length - 1];
-  if (!batting || inningsOver(batting, check.format, perOver)) return false;
+  if (!batting) return false;
+
+  // The quota the side batting is actually working to, where one can be derived —
+  // a chase of a rain-shortened innings is complete well short of the format's.
+  const limit =
+    batting === batted[0]
+      ? null
+      : inningsBallLimit(batted[0], { format: check.format, ballsLimit: null }, perOver);
+  if (inningsOver(batting, check.format, perOver, limit)) return false;
 
   return ballsFrom(batting.overs, perOver) > 0;
+}
+
+/** Has anything happened in this innings at all? */
+function hasPlay(inn: InningsScore): boolean {
+  return !inn.notStarted && (inn.overs > 0 || inn.runs > 0 || inn.wickets > 0);
 }
 
 /**

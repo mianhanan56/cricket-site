@@ -75,7 +75,9 @@ export const SCHEDULED_OVERS: Record<MatchFormat, number | null> = {
  */
 export function inningsBallLimit(
   first: InningsScore,
-  match: Match,
+  // Not a whole `Match`, so the decoder can ask this too while it is still
+  // building one. A `Match` satisfies it as-is.
+  match: Pick<Match, 'format' | 'ballsLimit'>,
   perOver: number = DEFAULT_BALLS_PER_OVER
 ): number | null {
   // The Hundred fixes the innings in balls, so no derivation is needed or wanted.

@@ -191,6 +191,11 @@ export interface MatchNote {
    * nor unstarted means the code is a latch. See `isStaleStoppage`.
    */
   betweenInnings?: boolean;
+  /**
+   * The note asserts the toss has not happened yet. A one-time gate, so any ball
+   * bowled contradicts it outright — see `isStaleStoppage`.
+   */
+  preToss?: boolean;
 }
 
 /** Where an innings sits in the match. Tests are the only format with four. */

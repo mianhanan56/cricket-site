@@ -18,6 +18,11 @@ const TEST_PROJECTION_OVERS = 90;
  * Balls in the innings being batted. The Hundred carries its own limit (100) —
  * taking the format's 20 overs at six a piece would hand a chase 20 balls it does
  * not have, and flatter every required rate accordingly.
+ *
+ * Known gap, and deliberately not guessed at: a rain-shortened *first* innings
+ * still projects to the format's length, because nothing in the feed says it was
+ * cut and there is no earlier innings to read the allocation off. It corrects
+ * itself at the chase, which goes through `inningsBallLimit`.
  */
 function inningsBalls(match: Match, perOver: number): number {
   if (match.ballsLimit) return match.ballsLimit;
