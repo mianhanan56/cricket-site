@@ -113,12 +113,12 @@
   display: flex;
   align-items: baseline;
   gap: $space-2;
-  font-size: clamp(40px, 9vw, 56px);
+  font-size: clamp(26px, 4vw, 32px);
   color: $text;
 
   .card[data-featured] & {
     @include desktop {
-      font-size: 72px;
+      font-size: 40px;
     }
   }
 }

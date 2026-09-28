@@ -13,7 +13,7 @@
 
 .code {
   @include display-num;
-  font-size: clamp(72px, 16vw, 140px);
+  font-size: clamp(64px, 12vw, 96px);
   text-align: center;
   color: transparent;
   -webkit-text-stroke: 1px var(--line-3);

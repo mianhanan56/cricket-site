@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import type { InningsScore, Match, MatchEvent, OverSummary, PlayerOfMatch, Team } from '@/types';
-import type { MatchStateView } from '@/lib/matchState';
+import { inningsUnderway, type MatchStateView } from '@/lib/matchState';
 import type { Crease } from '@/lib/crease';
 import type { BallEntry, BallGroup } from '@/lib/balls';
 import { PULSE_WINDOW, matchPulse, pulseTrace, recentInningsBalls } from '@/lib/pulse';
@@ -16,6 +16,7 @@ import { PlayerSituations } from './MatchState';
 import WinProbability from './WinProbability';
 import MomentumGraph from './MomentumGraph';
 import PlayerLink from './PlayerLink';
+import PreStart from './PreStart';
 import { fmtOvers } from './ScorecardPanel';
 import mc from './matchCenter.module.scss';
 import styles from './LivePanel.module.scss';
@@ -87,7 +88,8 @@ export default function LivePanel({
 }) {
   const live = match.status === 'LIVE';
   const window = useMemo(() => recentInningsBalls(balls), [balls]);
-  const readings = useMemo(() => (state.alive ? matchPulse(window, match.format, perOver) : null), [state.alive, window, match.format, perOver]);
+  const pulseOn = inningsUnderway(state);
+  const readings = useMemo(() => (pulseOn ? matchPulse(window, match.format, perOver) : null), [pulseOn, window, match.format, perOver]);
   const trace = useMemo(() => pulseTrace(window), [window]);
   const worms = useMemo(() => inningsWorms(innings, overs, balls, perOver), [innings, overs, balls, perOver]);
   const moments = useMemo(() => axisMoments(events), [events]);
@@ -117,6 +119,11 @@ export default function LivePanel({
   }, [shouldWalk, history]);
 
   const showLive = live && state.family !== 'upcoming';
+  // Nothing on the board and nothing in the feed: the grid would be two empty panels.
+  const preStart =
+    (match.status === 'UPCOMING' || live) &&
+    !balls.length &&
+    !batted.some((i) => i.overs > 0 || i.runs > 0 || i.wickets > 0);
 
   return (
     <div className={mc.panel}>
@@ -126,7 +133,9 @@ export default function LivePanel({
         </section>
       )}
 
-      {showLive && (
+      {preStart && !pending && <PreStart match={match} state={state} />}
+
+      {showLive && !(preStart && !pending) && (
         <div className={styles.liveGrid}>
           <section className={`${mc.block} ${styles.cellOver}`}>
             <div className={mc.blockHead}>
@@ -148,7 +157,7 @@ export default function LivePanel({
             <div className={mc.surface}>
               {readings ? (
                 <>
-                  <PulseTrace points={trace} label={`Last ${window.length} deliveries`} />
+                  <PulseTrace points={trace} label={`Last ${window.length} deliveries`} still={!state.alive} />
                   <MatchPulse readings={readings} window={Math.min(window.length, PULSE_WINDOW)} />
                 </>
               ) : (

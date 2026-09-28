@@ -26,7 +26,7 @@ function Tip({ point, edge }: { point: TracePoint; edge: string }) {
  * boundaries spike it, a wicket drops below the crease. Drawn in real pixels
  * so markers stay round at any width.
  */
-export default function PulseTrace({ points, label }: { points: TracePoint[]; label?: string }) {
+export default function PulseTrace({ points, label, still }: { points: TracePoint[]; label?: string; still?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
   const [active, setActive] = useState<number | null>(null);
@@ -97,7 +97,7 @@ export default function PulseTrace({ points, label }: { points: TracePoint[]; la
           {marks.map((m) => (
             <circle key={m.id} className={`${styles.mark} ${styles[m.kind]}`} cx={m.x} cy={m.y} r="3.5" />
           ))}
-          <circle key={`now-${last.id}`} className={styles.now} cx={xAt(lastIndex)} cy={yAt(lastIndex)} r="4" />
+          <circle key={`now-${last.id}`} className={`${styles.now} ${still ? styles.held : ''}`} cx={xAt(lastIndex)} cy={yAt(lastIndex)} r="4" />
           {shown !== null && (
             <circle className={`${styles.focus} ${styles[points[shown].kind] ?? ''}`} cx={xAt(shown)} cy={yAt(shown)} r="4.5" />
           )}

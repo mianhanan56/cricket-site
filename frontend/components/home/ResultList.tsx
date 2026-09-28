@@ -15,7 +15,7 @@ function Side({ match, team, winner }: { match: Match; team: Team; winner: strin
     <span className={`${styles.side} ${won ? styles.won : winner ? styles.lost : ''}`}>
       <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="xs" />
       <span className={styles.code}>{team.shortName}</span>
-      <span className={styles.score}>{score || '—'}</span>
+      <span className={styles.score}>{score}</span>
       <span className={styles.mark}>{won && <Icon name="check" size={14} strokeWidth={2.6} className={styles.check} />}</span>
     </span>
   );

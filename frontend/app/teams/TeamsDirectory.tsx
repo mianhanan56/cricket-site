@@ -10,6 +10,9 @@ import Icon from '@/components/ui/Icon';
 import FollowButton from '@/components/follow/FollowButton';
 import styles from './teams.module.scss';
 
+const FORMAT_ORDER = ['TEST', 'ODI', 'T20I'] as const;
+const FORMAT_LABEL = { TEST: 'Test', ODI: 'ODI', T20I: 'T20I' } as const;
+
 function TeamTile({ team }: { team: DirectoryTeam }) {
   return (
     <li className={styles.tile}>
@@ -17,12 +20,19 @@ function TeamTile({ team }: { team: DirectoryTeam }) {
         <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="md" />
         <span className={styles.tileText}>
           <span className={styles.name}>{team.name}</span>
-          <span className={styles.short}>{team.shortName}</span>
-        </span>
-        <span className={styles.best}>
-          <span className={styles.srOnly}>Best ICC ranking: </span>
-          <span className={styles.bestPos}>#{team.best.position}</span>
-          <span className={styles.bestFmt}>{team.best.format}</span>
+          <span className={styles.ranks}>
+            <span className={styles.srOnly}>ICC rankings: </span>
+            {FORMAT_ORDER.map((f) => {
+              const rank = team.ranks.find((r) => r.format === f);
+              return (
+                rank && (
+                  <span key={f} className={`${styles.rank} ${rank.position === team.best.position ? styles.top : ''}`}>
+                    {FORMAT_LABEL[f]} <b>#{rank.position}</b>
+                  </span>
+                )
+              );
+            })}
+          </span>
         </span>
       </Link>
       <FollowButton

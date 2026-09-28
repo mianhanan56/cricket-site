@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { InningsScore, Match, MatchNote, OverSummary, Team } from '../types';
 import { liveEquation, inningsProgress } from '../lib/telemetry';
-import { matchStateOf } from '../lib/matchState';
+import { inningsUnderway, matchStateOf } from '../lib/matchState';
 import { matchPulse, pulseTrace, recentInningsBalls, type PulseBall } from '../lib/pulse';
 import { inningsWorms } from '../lib/momentum';
 import { listFirings, feedFirings, describeAutomation } from '../lib/automations';
@@ -107,6 +107,15 @@ describe('matchStateOf', () => {
 });
 
 describe('pulse', () => {
+  it('keeps the innings underway through a break but not between innings', () => {
+    const note = (label: string, kind: MatchNote['kind'], extra: Partial<MatchNote> = {}): MatchNote => ({ label, kind, paused: true, ...extra });
+    const at = (n: MatchNote) => inningsUnderway(matchStateOf(match({ status: 'LIVE', note: n })));
+    assert.equal(at(note('Tea Break', 'BREAK')), true);
+    assert.equal(at(note('Stumps', 'STUMPS')), true);
+    assert.equal(at(note('Innings Break', 'BREAK', { betweenInnings: true })), false);
+    assert.equal(inningsUnderway(matchStateOf(match({ status: 'COMPLETED', result: 'PAK won by 5 runs' }))), false);
+  });
+
   it('stays silent on fewer than six legal balls', () => {
     assert.equal(matchPulse([ball(0, 4), ball(1, 0)], 'T20', 6), null);
   });

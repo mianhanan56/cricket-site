@@ -24,6 +24,11 @@ export interface LiveEquation {
   phase: MatchPhase | null;
 }
 
+/** Anything on the board yet — an innings opened at 0/0 in 0 overs has not started. */
+export function inningsStarted(eq: LiveEquation | null | undefined): eq is LiveEquation {
+  return Boolean(eq && (eq.ballsBowled > 0 || eq.innings.runs > 0 || eq.innings.wickets > 0));
+}
+
 /**
  * The innings being batted. Prefers the feed's own CURRENT marker; falls back to
  * the last batted innings, which is only right on a card in innings order.

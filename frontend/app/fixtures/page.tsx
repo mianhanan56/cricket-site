@@ -37,7 +37,7 @@ export default async function FixturesPage({
 
   return (
     <div className={styles.page}>
-      <PageHeader eyebrow="Schedule" title="Fixtures" />
+      <PageHeader eyebrow="Every match" title="Fixtures" />
       {failed ? (
         <EmptyState
           icon="calendar"

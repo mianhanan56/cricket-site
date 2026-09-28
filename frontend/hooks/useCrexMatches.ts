@@ -288,6 +288,8 @@ export interface UseCrexMatchExtrasResult {
   /** End-of-over cards from the same feed, newest first. */
   overs: OverSummary[];
   loaded: boolean;
+  /** When the ball feed last arrived — the clock a stale-stoppage check reads. */
+  fetchedAt: number | null;
 }
 
 /**
@@ -334,6 +336,7 @@ export function useCrexMatchExtras(
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [overs, setOvers] = useState<OverSummary[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
 
   const active = enabled && Boolean(matchKey);
 
@@ -378,6 +381,7 @@ export function useCrexMatchExtras(
         setCommentary(feed.balls);
         setEvents(feed.events);
         setOvers(feed.overs);
+        setFetchedAt(Date.now());
       }
       if (card || feed) setLoaded(true);
 
@@ -411,7 +415,7 @@ export function useCrexMatchExtras(
     };
   }, [active, matchKey, intervalMs, repeat, ballsPerOver, status]);
 
-  return { innings, commentary, events, overs, loaded };
+  return { innings, commentary, events, overs, loaded, fetchedAt };
 }
 
 /**

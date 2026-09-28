@@ -12,7 +12,8 @@ import MatchTile from '@/components/match/MatchTile';
 import TeamBadge from '@/components/ui/TeamBadge';
 import FollowButton from '@/components/follow/FollowButton';
 import EmptyState from '@/components/ui/EmptyState';
-import SyncIndicator from '@/components/ui/SyncIndicator';
+import Skeleton from '@/components/ui/Skeleton';
+import { BoardSkeleton } from '@/components/home/HomeSkeleton';
 import Icon from '@/components/ui/Icon';
 import styles from './my.module.scss';
 
@@ -88,7 +89,7 @@ export default function MyCricketView() {
         <section className={styles.section}>
           <SectionHead title="Your matches" count={mine.length} />
           {isLoading && !matches.length ? (
-            <SyncIndicator />
+            <BoardSkeleton />
           ) : mine.length ? (
             <div className={styles.grid}>
               {mine.slice(0, 9).map((m) => (
@@ -96,7 +97,7 @@ export default function MyCricketView() {
               ))}
             </div>
           ) : (
-            <EmptyState compact icon="calendar" title="Nothing from your teams in the feed right now" action={{ label: 'Full schedule', href: '/fixtures' }} />
+            <EmptyState compact icon="calendar" title="Nothing from your teams in the feed right now" action={{ label: 'All fixtures', href: '/fixtures' }} />
           )}
         </section>
       )}
@@ -162,7 +163,7 @@ export default function MyCricketView() {
 
       {total > 0 && missingAlerts.length > 0 && (
         <section className={styles.section}>
-          <SectionHead title="Alerts for your teams" level={3} action={{ href: '/automations', label: 'Automations' }} />
+          <SectionHead title="Alerts for your teams" level={3} action={{ href: '/automations', label: 'All alerts' }} />
           <ul className={styles.alerts}>
             {missingAlerts.map((t) => (
               <li key={t.trigger}>
@@ -191,8 +192,16 @@ export default function MyCricketView() {
               </li>
             ))}
           </ul>
+        ) : isLoading && !matches.length ? (
+          <ul className={styles.picker} aria-busy="true" aria-label="Loading teams">
+            {Array.from({ length: 8 }, (_, i) => (
+              <li key={i}>
+                <Skeleton className={styles.pick} />
+              </li>
+            ))}
+          </ul>
         ) : (
-          <SyncIndicator label="Loading teams" />
+          <p className={styles.quiet}>You follow every team playing right now.</p>
         )}
       </section>
     </div>

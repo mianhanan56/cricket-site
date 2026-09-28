@@ -2,7 +2,7 @@ import Skeleton, { stagger } from '@/components/ui/Skeleton';
 import dir from '@/components/player/PlayersDirectory.module.scss';
 import styles from './players.module.scss';
 
-const ROWS = [0, 1, 2, 3, 4, 5, 6, 7];
+const ROWS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
 export default function Loading() {
   return (
@@ -13,25 +13,27 @@ export default function Loading() {
       </div>
       <div className={dir.root}>
         <div className={dir.controls}>
-          <Skeleton className={styles.skControl} />
+          <div className={dir.filters}>
+            <Skeleton className={styles.skGender} />
+            <Skeleton className={styles.skRole} />
+            <Skeleton className={styles.skFormat} />
+          </div>
           <Skeleton className={styles.skSearch} />
         </div>
-        <div className={dir.columns}>
-          {[0, 1, 2].map((c) => (
-            <div key={c} className={dir.column}>
-              <Skeleton variant="title" className={styles.skColTitle} />
-              <div className={`${dir.panel} ${stagger}`}>
-                {ROWS.map((i) => (
-                  <div key={i} className={dir.row}>
-                    <Skeleton className={styles.skPos} />
-                    <Skeleton variant="circle" size="26" />
-                    <Skeleton variant="body" width="70" />
-                    <Skeleton variant="body" className={styles.skRating} />
-                  </div>
-                ))}
-              </div>
+        <div className={dir.sections}>
+          <div>
+            <Skeleton variant="title" className={styles.skSectionTitle} />
+            <div className={`${dir.panel} ${stagger}`}>
+              {ROWS.map((i) => (
+                <div key={i} className={dir.row}>
+                  <Skeleton className={styles.skRank} />
+                  <Skeleton variant="circle" size="26" className={dir.crest} />
+                  <Skeleton variant="body" width="70" className={styles.skName} />
+                  <Skeleton variant="body" className={styles.skRating} />
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </div>

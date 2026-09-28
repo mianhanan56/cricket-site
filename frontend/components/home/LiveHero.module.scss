@@ -91,6 +91,13 @@
   flex: 1;
 }
 
+.age {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+  white-space: nowrap;
+}
+
 .format {
   @include chip;
   height: 22px;
@@ -121,6 +128,67 @@
   @include desktop {
     grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
     gap: $space-6;
+  }
+}
+
+.solo {
+  @include desktop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// ---- before the first ball: the fixture is the headline
+.matchup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-3 $space-4;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  font-size: clamp(20px, 3vw, 30px);
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+}
+
+.matchSide {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-3;
+  min-width: 0;
+}
+
+.matchName {
+  min-width: 0;
+}
+
+.matchV {
+  margin-right: $space-1;
+  font-size: 0.5em;
+  font-weight: 500;
+  color: $text-3;
+}
+
+.where {
+  display: flex;
+  flex-direction: column;
+  gap: 2px $space-2;
+  font-size: $fs-sm;
+  color: $text-2;
+
+  @include sm {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+.whereVenue {
+  color: $text-3;
+
+  @include sm {
+    &::before {
+      content: '·';
+      margin-right: $space-2;
+    }
   }
 }
 
@@ -326,9 +394,6 @@
   gap: $space-1;
 }
 
-.tracePlaceholder {
-  height: 64px;
-}
 
 // ---------------------------------------------------------------- Side
 

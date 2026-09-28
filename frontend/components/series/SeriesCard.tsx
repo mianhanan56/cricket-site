@@ -7,7 +7,8 @@ import Icon from '../ui/Icon';
 import styles from './SeriesCard.module.scss';
 
 const STATE: Record<MatchStatus, MatchStateView> = {
-  LIVE: { key: 'LIVE', family: 'live', word: 'Live', label: 'Live', alive: true },
+  // A series is under way, not live: only its matches are live.
+  LIVE: { key: 'LIVE', family: 'ongoing', word: 'Ongoing', label: 'Ongoing', alive: false },
   UPCOMING: { key: 'UPCOMING', family: 'upcoming', word: 'Upcoming', label: 'Upcoming', alive: false },
   COMPLETED: { key: 'FINISHED', family: 'final', word: 'Finished', label: 'Finished', alive: false },
 };

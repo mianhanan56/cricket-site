@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   if (!series) return { title: 'Series' };
 
   return {
-    title: `${series.name} — Schedule & Results`,
+    title: `${series.name} — Fixtures & Results`,
     description: `All ${series.matchCount} ${series.format} ${
       series.matchCount === 1 ? 'match' : 'matches'
     } in ${series.name}: fixtures, live scores and results.`,
@@ -141,7 +141,10 @@ export default async function SeriesDetailPage({
   const span = seriesSpan(series.startDate, series.endDate);
 
   const feedById = new Map(feed.map((m) => [m.id, m]));
-  const asMatch = (row: SeriesScheduleMatch) => feedById.get(row.id) ?? toMatch(row, ref);
+  // Rendered with no ball feed to check a break against, and crex latches them for
+  // hours — so a paused note is dropped and the card says only what the status proves.
+  const verifiable = (m: Match): Match => (m.note?.paused ? { ...m, note: null } : m);
+  const asMatch = (row: SeriesScheduleMatch) => verifiable(feedById.get(row.id) ?? toMatch(row, ref));
 
   const liveRows = series.matches.filter((m) => m.status === 'LIVE');
   const upcoming = series.matches.filter((m) => m.status === 'UPCOMING').map(asMatch);
@@ -153,6 +156,8 @@ export default async function SeriesDetailPage({
   const next = series.matches.find((m) => m.status === 'UPCOMING') ?? null;
   const total = series.matches.length || series.matchCount;
   const played = results.length;
+  // A tour can run Tests and ODIs; one format label would misname half of it.
+  const formats = [...new Set(series.matches.map((m) => m.format).filter(Boolean))];
 
   const shownLeaders = leaders ? rankedLeaders(leaders) : [];
   const topRuns = shownLeaders.find((l) => l.kind === 'RUNS');
@@ -176,7 +181,7 @@ export default async function SeriesDetailPage({
       <BackButton fallback="/series" className={styles.back} />
 
       <PageHeader
-        eyebrow={`${series.format} series`}
+        eyebrow={`${formats.length > 1 ? formats.join(' · ') : series.format} series`}
         title={series.name}
         aside={<FollowButton kind="series" entity={ref} />}
       >

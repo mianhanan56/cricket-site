@@ -6,23 +6,31 @@ import { useEffect } from 'react';
 import Icon from '../ui/Icon';
 import ThemeToggle from './ThemeToggle';
 import { PRIMARY_NAV, isActive, type NavLink } from './nav';
-import { closeOverlay, toggleOverlay, useOverlay } from '@/lib/uiState';
+import { closeOverlay, openOverlay, toggleOverlay, useOverlay } from '@/lib/uiState';
 import styles from './BottomNav.module.scss';
 
-const DOCK: NavLink[] = [
-  PRIMARY_NAV[0],
-  PRIMARY_NAV[1],
-  PRIMARY_NAV[2],
-  { href: '/my', label: 'Mine', icon: 'star', also: ['/automations'] },
+// Search sits between these two as a button — it opens the overlay, not a page.
+const DOCK_START: NavLink[] = [PRIMARY_NAV[0]];
+const DOCK_END: NavLink[] = [
+  { href: '/my', label: 'My Cricket', icon: 'star' },
+  { href: '/automations', label: 'Alerts', icon: 'bolt' },
 ];
+const DOCK = [...DOCK_START, ...DOCK_END];
 
 const MORE: NavLink[] = [
-  PRIMARY_NAV[3],
-  PRIMARY_NAV[4],
-  PRIMARY_NAV[5],
-  { href: '/fixtures', label: 'Full schedule', icon: 'calendar' },
-  { href: '/automations', label: 'Automations', icon: 'bolt' },
+  ...PRIMARY_NAV.slice(1),
+  { href: '/players', label: 'Players', icon: 'player' },
+  { href: '/fixtures', label: 'Fixtures', icon: 'calendar' },
 ];
+
+function DockLink({ link, active }: { link: NavLink; active: boolean }) {
+  return (
+    <Link href={link.href} className={`${styles.item} ${active ? styles.active : ''}`} aria-current={active ? 'page' : undefined}>
+      <Icon name={link.icon} size={21} strokeWidth={active ? 2.1 : 1.7} />
+      <span>{link.label}</span>
+    </Link>
+  );
+}
 
 export default function BottomNav() {
   const pathname = usePathname();
@@ -63,20 +71,21 @@ export default function BottomNav() {
       )}
 
       <nav className={styles.dock} aria-label="Primary">
-        {DOCK.map((link) => {
-          const active = isActive(pathname, link);
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`${styles.item} ${active ? styles.active : ''}`}
-              aria-current={active ? 'page' : undefined}
-            >
-              <Icon name={link.icon} size={21} strokeWidth={active ? 2.1 : 1.7} />
-              <span>{link.label}</span>
-            </Link>
-          );
-        })}
+        {DOCK_START.map((link) => (
+          <DockLink key={link.href} link={link} active={isActive(pathname, link)} />
+        ))}
+        <button
+          type="button"
+          className={`${styles.item} ${overlay === 'search' ? styles.active : ''}`}
+          onClick={() => openOverlay('search')}
+          aria-label="Search"
+        >
+          <Icon name="search" size={21} />
+          <span>Search</span>
+        </button>
+        {DOCK_END.map((link) => (
+          <DockLink key={link.href} link={link} active={isActive(pathname, link)} />
+        ))}
         <button
           type="button"
           className={`${styles.item} ${menuOpen || moreActive ? styles.active : ''}`}

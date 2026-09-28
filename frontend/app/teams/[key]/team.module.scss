@@ -136,10 +136,10 @@
 
 .cellValue {
   @include display-num;
-  font-size: $fs-2xl;
+  font-size: $fs-xl;
 
   @include tablet {
-    font-size: 36px;
+    font-size: $fs-2xl;
   }
 }
 

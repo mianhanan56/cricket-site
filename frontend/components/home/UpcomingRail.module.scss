@@ -189,9 +189,15 @@
   @include truncate;
   max-width: 100%;
 
-  &::before {
-    content: '·';
-    margin-right: $space-2;
+  @include phone-only {
+    flex-basis: 100%;
+  }
+
+  @include sm {
+    &::before {
+      content: '·';
+      margin-right: $space-2;
+    }
   }
 }
 

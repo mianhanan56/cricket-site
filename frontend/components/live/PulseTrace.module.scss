@@ -188,7 +188,12 @@
   }
 }
 
-:global([data-theme='light']) .now {
+.now.held {
+  fill: $text-3;
+  animation: none;
+}
+
+:global([data-theme='light']) .now:not(.held) {
   fill: $signal-text;
 }
 

@@ -71,7 +71,7 @@
 
 .big {
   @include display-num;
-  font-size: clamp(48px, 12vw, 80px);
+  font-size: clamp(30px, 5vw, 40px);
   color: $text;
 }
 

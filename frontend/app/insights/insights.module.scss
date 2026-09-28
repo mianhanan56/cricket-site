@@ -38,7 +38,7 @@
 
   dd {
     @include display-num;
-    font-size: clamp(30px, 4vw, 44px);
+    font-size: clamp(24px, 3vw, 30px);
     color: var(--tone);
   }
 }

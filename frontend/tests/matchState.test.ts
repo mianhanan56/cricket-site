@@ -299,6 +299,21 @@ describe('a stoppage the score plays through', () => {
       'BREAK'
     );
   });
+
+  it('stays down once a whole passage of play has run under it', () => {
+    const watch = new Map<string, StoppageWatch>();
+    let now = 1_000_000;
+
+    clearResumedStoppages([match(12, lunch)], watch, now);
+    for (const overs of [12.1, 12.2, 12.3]) {
+      now += 40_000;
+      clearResumedStoppages([match(overs, lunch)], watch, now);
+    }
+
+    // The end of an over holds the score still for minutes; the label is still a latch.
+    now += 400_000;
+    assert.equal(clearResumedStoppages([match(12.3, lunch)], watch, now)[0].note, null);
+  });
 });
 
 // --- what crex sent, decoded ------------------------------------------------

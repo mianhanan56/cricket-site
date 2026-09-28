@@ -11,7 +11,7 @@ import { PageHeader, SectionHead } from '@/components/ui/Section';
 import InsightCard from '@/components/insights/InsightCard';
 import EmptyState from '@/components/ui/EmptyState';
 import ErrorState from '@/components/ui/ErrorState';
-import SyncIndicator from '@/components/ui/SyncIndicator';
+import { BoardSkeleton } from '@/components/home/HomeSkeleton';
 import MatchTile from '@/components/match/MatchTile';
 import styles from './insights.module.scss';
 
@@ -81,7 +81,7 @@ export default function InsightsView() {
 
       {isLoading && !matches.length ? (
         <div className={styles.loading}>
-          <SyncIndicator />
+          <BoardSkeleton />
         </div>
       ) : error && !matches.length ? (
         <ErrorState onRetry={refresh} retrying={isRefreshing} />
@@ -107,7 +107,12 @@ export default function InsightsView() {
           </section>
         </>
       ) : (
-        <EmptyState icon="insight" title="No live matches to read" action={{ label: 'See what’s next', href: '/?tab=upcoming' }} />
+        <EmptyState
+          icon="insight"
+          title="No live insights right now"
+          body="Chases, momentum swings and stoppages show up here as soon as a match is under way."
+          action={{ label: 'See what’s next', href: '/?tab=upcoming' }}
+        />
       )}
     </div>
   );

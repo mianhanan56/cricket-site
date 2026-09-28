@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Match } from '@/types';
-import { useCrexMatchExtras } from '@/hooks/useCrexMatches';
-import { matchStateOf } from '@/lib/matchState';
-import { PHASE_LABEL, equationSentence, inningsProgress, liveEquation } from '@/lib/telemetry';
+import { useCrexMatchExtras, useCrexMatchSquads } from '@/hooks/useCrexMatches';
+import { feedCheckedNote } from '@/lib/crex';
+import { inningsUnderway, matchStateOf } from '@/lib/matchState';
+import { PHASE_LABEL, equationSentence, inningsProgress, inningsStarted, liveEquation } from '@/lib/telemetry';
 import { formatProgressShort } from '@/lib/overs';
 import { toBallEntry } from '@/lib/balls';
 import { matchPulse, pulseTrace, recentInningsBalls } from '@/lib/pulse';
@@ -15,6 +16,7 @@ import CreaseLine from '../live/CreaseLine';
 import MatchPulse from '../live/MatchPulse';
 import PulseTrace from '../live/PulseTrace';
 import Ticker from '../live/Ticker';
+import LocalTime from '../ui/LocalTime';
 import styles from './InsightCard.module.scss';
 
 const CARD_INTERVAL_MS = 15_000;
@@ -32,18 +34,28 @@ export default function InsightCard({ match }: { match: Match }) {
     return () => io.disconnect();
   }, []);
 
-  const state = matchStateOf(match);
   const extras = useCrexMatchExtras(match.id, {
     enabled: visible && match.status === 'LIVE',
     intervalMs: CARD_INTERVAL_MS,
     ballsPerOver: match.ballsPerOver,
     status: match.status,
   });
+  const state = matchStateOf(
+    match,
+    feedCheckedNote(match, { innings: extras.innings, lastBallAt: extras.commentary[0]?.timestamp ?? null, now: extras.fetchedAt })
+  );
 
   const perOver = match.ballsPerOver || 6;
   const eq = liveEquation(match);
+  const started = inningsStarted(eq);
+  // Before the first ball the card is the fixture: toss, conditions, and how the ground plays.
+  const { conditions } = useCrexMatchSquads(match.id, { enabled: visible && !started });
+  const weather = conditions?.weather;
+  const ground = conditions?.venue;
+
+  const pulseOn = started && inningsUnderway(state);
   const window = useMemo(() => recentInningsBalls(extras.commentary.map(toBallEntry)), [extras.commentary]);
-  const readings = useMemo(() => (state.alive ? matchPulse(window, match.format, perOver) : null), [state.alive, window, match.format, perOver]);
+  const readings = useMemo(() => (pulseOn ? matchPulse(window, match.format, perOver) : null), [pulseOn, window, match.format, perOver]);
   const trace = useMemo(() => pulseTrace(window), [window]);
   const sentence = eq ? equationSentence(eq) : null;
   const tight = eq?.rrr != null && eq.crr != null && eq.rrr > eq.crr;
@@ -60,19 +72,23 @@ export default function InsightCard({ match }: { match: Match }) {
 
       <Link href={`/matches/${match.id}`} className={styles.main}>
         <span className={styles.teams}>
-          {eq ? (
+          {started ? (
             <>
               <TeamBadge name={eq.battingTeam.name} shortName={eq.battingTeam.shortName} logo={eq.battingTeam.logo} size="sm" />
               <span className={styles.code}>{eq.battingTeam.shortName}</span>
               <span className={styles.vs}>v {eq.bowlingTeam.shortName}</span>
             </>
           ) : (
-            <span className={styles.code}>
-              {match.homeTeam.shortName} v {match.awayTeam.shortName}
-            </span>
+            [match.homeTeam, match.awayTeam].map((t, i) => (
+              <span key={t.id} className={styles.side}>
+                {i > 0 && <span className={styles.vs}>v</span>}
+                <TeamBadge name={t.name} shortName={t.shortName} logo={t.logo} size="sm" />
+                <span className={styles.code}>{t.shortName}</span>
+              </span>
+            ))
           )}
         </span>
-        {eq && (
+        {started && (
           <span className={styles.score}>
             <Ticker value={`${eq.innings.runs}/${eq.innings.wickets}`} />
             <small>{formatProgressShort(eq.innings.overs, perOver)}</small>
@@ -80,13 +96,58 @@ export default function InsightCard({ match }: { match: Match }) {
         )}
       </Link>
 
-      {sentence ? (
+      {sentence && started && state.alive ? (
         <p className={`${styles.equation} ${tight ? styles.tight : ''}`}>{sentence}</p>
+      ) : !state.alive ? (
+        <p className={`${styles.equation} ${styles.stateLine}`}>{state.label}</p>
       ) : (
-        !state.alive && <p className={styles.equation}>{state.label}</p>
+        !started && <p className={styles.equation}>{match.note?.label ?? 'Waiting for the first ball'}</p>
       )}
 
-      {eq && (
+      {!started && (
+        <>
+          <p className={styles.where}>
+            <LocalTime iso={match.startTime} format="dayTime" />
+            {match.venue && <span className={styles.venue}>{match.venue}</span>}
+          </p>
+          {(weather?.temperature || weather?.rainChance || ground?.averages[0] != null || ground?.wonBattingFirst != null) && (
+            <dl className={styles.figs}>
+              {weather?.temperature && (
+                <div>
+                  <dt>Weather</dt>
+                  <dd>
+                    {weather.temperature}
+                    {weather.condition && <small>{weather.condition}</small>}
+                  </dd>
+                </div>
+              )}
+              {weather?.rainChance && (
+                <div>
+                  <dt>Rain</dt>
+                  <dd>{weather.rainChance}</dd>
+                </div>
+              )}
+              {ground?.averages[0] != null && (
+                <div>
+                  <dt>Avg 1st inns</dt>
+                  <dd>{ground.averages[0]}</dd>
+                </div>
+              )}
+              {ground?.wonBattingFirst != null && ground.wonBowlingFirst != null && (
+                <div>
+                  <dt>Bat first · chase</dt>
+                  <dd>
+                    {ground.wonBattingFirst}–{ground.wonBowlingFirst}
+                    {ground.matches != null && <small>of {ground.matches}</small>}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          )}
+        </>
+      )}
+
+      {started && (
         <dl className={styles.figs}>
           <div>
             <dt>CRR</dt>
@@ -119,16 +180,14 @@ export default function InsightCard({ match }: { match: Match }) {
         </dl>
       )}
 
-      {readings ? (
+      {readings && (
         <div className={styles.pulse}>
-          <PulseTrace points={trace} />
+          <PulseTrace points={trace} still={!state.alive} />
           <MatchPulse readings={readings} compact />
         </div>
-      ) : (
-        <div className={styles.pulseEmpty} />
       )}
 
-      <CreaseLine family={state.family} progress={state.alive ? inningsProgress(match) : null} />
+      <CreaseLine family={state.family} progress={state.alive ? inningsProgress(match) : null} className={styles.foot} />
     </article>
   );
 }

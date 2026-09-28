@@ -1103,6 +1103,26 @@ export function isStaleStoppage(note: MatchNote, check: StoppageCheck): boolean 
   return ballsFrom(batting.overs, perOver) > 0;
 }
 
+/**
+ * The note to show for a match whose card and ball feed the caller fetched: the
+ * feed's own, less a stoppage the last delivery shows play has carried through.
+ */
+export function feedCheckedNote(
+  match: Match,
+  feed: { innings: InningsScore[]; lastBallAt: string | null; now: number | null }
+): MatchNote | null {
+  const note = match.note ?? null;
+  if (!note) return null;
+  const stale = isStaleStoppage(note, {
+    innings: feed.innings.length ? feed.innings : match.scorecard?.innings ?? [],
+    format: match.format,
+    perOver: match.ballsPerOver,
+    lastBallAt: feed.lastBallAt,
+    now: feed.now,
+  });
+  return stale ? null : note;
+}
+
 /** Has anything happened in this innings at all? */
 function hasPlay(inn: InningsScore): boolean {
   return !inn.notStarted && (inn.overs > 0 || inn.runs > 0 || inn.wickets > 0);
@@ -1126,7 +1146,13 @@ export interface StoppageWatch {
   signature: string;
   /** When the score last moved while this same stoppage stood. */
   movedAt: number | null;
+  /** How many separate times it moved. */
+  moves: number;
 }
+
+// One move can be the ball the note was called on, arriving a poll late; this
+// many is an innings being played under a label crex never took down.
+const LATCHED_AFTER_MOVES = 3;
 
 /** The part of a match a break is supposed to hold still: every score on the board. */
 function scoreSignature(match: Match): string {
@@ -1177,14 +1203,17 @@ export function clearResumedStoppages(
     // A stoppage we have not seen before — or a different one — starts its own
     // watch. Nothing yet contradicts it.
     if (!seen || seen.label !== label) {
-      watch.set(match.id, { label, signature, movedAt: null });
+      watch.set(match.id, { label, signature, movedAt: null, moves: 0 });
       return match;
     }
 
-    const movedAt = seen.signature === signature ? seen.movedAt : now;
-    watch.set(match.id, { label, signature, movedAt });
+    const moved = seen.signature !== signature;
+    const movedAt = moved ? now : seen.movedAt;
+    const moves = seen.moves + (moved ? 1 : 0);
+    watch.set(match.id, { label, signature, movedAt, moves });
 
-    return movedAt !== null && now - movedAt < PLAY_RESUMED_MS
+    const latched = moves >= LATCHED_AFTER_MOVES;
+    return latched || (movedAt !== null && now - movedAt < PLAY_RESUMED_MS)
       ? { ...match, note: null }
       : match;
   });
@@ -4690,6 +4719,27 @@ export async function getCrexTeamSquad(
 }
 
 /**
+ * A series squad with each player's discipline filled in from a match of that
+ * series. The series list names only the keepers; the match's own squad (`tb`)
+ * carries a role per player, so the two together are a real batting/bowling split.
+ */
+async function withMatchRoles(
+  squad: SquadPlayer[],
+  teamKey: string,
+  matchKey: string | null,
+  opts: FetchOpts
+): Promise<SquadPlayer[]> {
+  if (!squad.length || !matchKey) return squad;
+  const info = await getCrexMatchInfo(matchKey, opts).catch(() => null);
+  const roles = new Map((info?.squads[cleanKey(teamKey)] ?? []).map((p) => [p.id, p.role]));
+  if (!roles.size) return squad;
+  return squad.map((p) => {
+    const role = roles.get(p.id);
+    return role && p.role !== 'WK' ? { ...p, role } : p;
+  });
+}
+
+/**
  * Both sides' squads for a match, taken from the series rather than the match.
  *
  * crex announces a match XI close to the start and serves it keyed by match, so
@@ -5006,9 +5056,15 @@ export async function getCrexTeamProfile(
   const squadSeriesKey =
     upcoming.find((m) => m.series.id)?.series.id ?? mine.sort(byNewest)[0]?.series.id ?? null;
 
-  const squad = squadSeriesKey
+  const named = squadSeriesKey
     ? await getCrexTeamSquad(squadSeriesKey, key, opts).catch(() => [])
     : [];
+  const squad = await withMatchRoles(
+    named,
+    key,
+    [...upcoming, ...mine].find((m) => m.series.id === squadSeriesKey && m.id)?.id ?? null,
+    opts
+  );
 
   const squadSeriesName = squadSeriesKey
     ? (upcoming.find((m) => m.series.id === squadSeriesKey)?.series.name ??

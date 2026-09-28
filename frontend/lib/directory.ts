@@ -18,6 +18,8 @@ export interface DirectoryTeam {
   logo: string | null;
   gender: RankingGender;
   best: { position: number; format: RankingFormat; rating: number };
+  /** Every format the side is ranked in. */
+  ranks: Array<{ format: RankingFormat; position: number }>;
 }
 
 /** Everyone on a live ICC list, once each, keyed by crex f_key. */
@@ -66,9 +68,11 @@ export function rankedDirectory(rankings: Rankings): {
             logo: row.logo,
             gender: row.gender,
             best,
+            ranks: [{ format: row.format, position: row.position }],
           });
-        } else if (row.position < seen.best.position) {
-          seen.best = best;
+        } else {
+          seen.ranks.push({ format: row.format, position: row.position });
+          if (row.position < seen.best.position) seen.best = best;
         }
       }
     }

@@ -1,11 +1,13 @@
 @use 'component' as *;
 
-$cols: 44px 28px minmax(0, 1fr) auto 34px;
-
 .root {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: $space-8;
+  gap: $space-6;
+
+  @include tablet {
+    gap: $space-8;
+  }
 }
 
 .controls {
@@ -13,10 +15,37 @@ $cols: 44px 28px minmax(0, 1fr) auto 34px;
   flex-direction: column;
   gap: $space-3;
 
-  @include sm {
+  @include desktop {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
+    gap: $space-4;
+  }
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2 $space-3;
+  min-width: 0;
+
+  > * {
+    max-width: 100%;
+  }
+}
+
+// Phones: each group spans the row so four roles fit at 320px without a hidden scroll.
+.filters .segment {
+  @include mobile-only {
+    display: flex;
+    width: 100%;
+
+    > button {
+      flex: 1 1 auto;
+      justify-content: center;
+      padding-inline: $space-2;
+      font-size: $fs-sm;
+    }
   }
 }
 
@@ -27,7 +56,11 @@ $cols: 44px 28px minmax(0, 1fr) auto 34px;
   width: 100%;
 
   @include sm {
-    width: 300px;
+    max-width: 360px;
+  }
+
+  @include desktop {
+    flex: 0 1 280px;
   }
 }
 
@@ -73,20 +106,14 @@ $cols: 44px 28px minmax(0, 1fr) auto 34px;
   }
 }
 
-.columns {
+.sections {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: $space-10;
-  align-items: start;
+  gap: $space-8;
 
-  @include desktop {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: $space-6;
+  @include tablet {
+    gap: $space-10;
   }
-}
-
-.column {
-  min-width: 0;
 }
 
 .panel {
@@ -94,11 +121,48 @@ $cols: 44px 28px minmax(0, 1fr) auto 34px;
   overflow: hidden;
 }
 
-.head {
+// Phones: rank, crest, name over country, rating, star. Tablet up: every field gets a column.
+.head,
+.row {
   display: grid;
-  grid-template-columns: $cols;
-  column-gap: $space-3;
-  padding: $space-2-5 $space-3;
+  grid-template-columns: 34px 28px minmax(0, 1fr) auto 34px;
+  grid-template-areas: 'rank crest who rating follow';
+  align-items: center;
+  column-gap: $space-2-5;
+  padding-inline: $space-2-5 $space-2;
+
+  @include sm {
+    column-gap: $space-3;
+    padding-inline: $space-3;
+  }
+
+  @include tablet {
+    grid-template-columns: 48px 28px minmax(0, 2fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 64px 34px;
+    grid-template-areas: 'rank crest name country others rating follow';
+    column-gap: $space-4;
+    padding-inline: $space-4 $space-3;
+  }
+
+  @include desktop {
+    grid-template-columns: 56px 28px minmax(0, 340px) minmax(0, 240px) minmax(0, 1fr) 80px 34px;
+  }
+
+  @include tablet {
+    .panel[data-format] & {
+      grid-template-columns: 48px 28px minmax(0, 2fr) minmax(0, 1.4fr) 64px 34px;
+      grid-template-areas: 'rank crest name country rating follow';
+    }
+  }
+
+  @include desktop {
+    .panel[data-format] & {
+      grid-template-columns: 56px 28px minmax(0, 340px) minmax(0, 1fr) 80px 34px;
+    }
+  }
+}
+
+.head {
+  padding-block: $space-2-5;
   border-bottom: 1px solid $line;
 
   span {
@@ -106,50 +170,94 @@ $cols: 44px 28px minmax(0, 1fr) auto 34px;
   }
 
   span:nth-child(1) {
+    grid-area: rank;
     text-align: center;
   }
 
   span:nth-child(2) {
-    grid-column: 2 / 4;
-  }
+    grid-column: crest-start / who-end;
 
-  span:nth-child(3) {
-    grid-column: 4;
-    text-align: right;
+    @include tablet {
+      grid-column: crest-start / name-end;
+    }
   }
+}
+
+.headCountry,
+.headOthers {
+  display: none;
+
+  @include tablet {
+    display: block;
+  }
+}
+
+.headCountry {
+  grid-area: country;
+}
+
+.headOthers {
+  grid-area: others;
+
+  .panel[data-format] & {
+    display: none;
+  }
+}
+
+.headRating {
+  grid-area: rating;
+  text-align: right;
+}
+
+.list {
+  display: grid;
+}
+
+.more {
+  @include button-ghost;
+  width: 100%;
+  min-height: 44px;
+  margin-top: $space-2;
+  border-color: $line;
+  font-size: $fs-sm;
+}
+
+.moreCount {
+  @include data-num;
+  font-size: $fs-xs;
+  font-weight: 500;
+  color: $text-3;
 }
 
 .row {
   position: relative;
-  display: grid;
-  grid-template-columns: $cols;
-  align-items: center;
-  column-gap: $space-3;
   min-height: 56px;
-  padding: $space-2 $space-3;
+  padding-block: $space-2;
   transition: background-color $dur-2 $ease-out;
 
   & + & {
     border-top: 1px solid $line;
   }
 
-  &:hover {
-    background: $surface-2;
-  }
-
+  &:hover,
   &:focus-within {
     background: $surface-2;
   }
+
+  @include tablet {
+    min-height: 52px;
+  }
 }
 
-.pos {
+.rank {
+  grid-area: rank;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
 }
 
-.posNum {
+.rankNum {
   @include display-num;
   font-size: $fs-xl;
 
@@ -158,25 +266,34 @@ $cols: 44px 28px minmax(0, 1fr) auto 34px;
   }
 }
 
-.posFormat {
+.rankFormat {
   @include eyebrow;
-  font-size: 10px;
   letter-spacing: 0.04em;
 }
 
+.crest {
+  grid-area: crest;
+}
+
 .who {
+  grid-area: who;
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+
+  @include tablet {
+    display: contents;
+  }
 }
 
 .name {
   font-weight: 600;
   font-size: $fs-base;
+  line-height: $leading-snug;
   color: $text;
-  @include truncate;
   outline: none;
+  @include fluid-text;
 
   // The whole row opens the profile; the follow button sits above this layer.
   &::after {
@@ -190,15 +307,82 @@ $cols: 44px 28px minmax(0, 1fr) auto 34px;
     outline-offset: -2px;
     border-radius: $r-sm;
   }
+
+  @include tablet {
+    grid-area: name;
+    @include truncate;
+  }
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 $space-2;
+  min-width: 0;
+  font-size: $fs-xs;
+  color: $text-3;
+
+  @include tablet {
+    display: contents;
+  }
 }
 
 .country {
-  font-size: $fs-sm;
-  color: $text-3;
+  flex-shrink: 0;
+  max-width: 100%;
   @include truncate;
+
+  @include tablet {
+    grid-area: country;
+    font-size: $fs-md;
+    color: $text-2;
+  }
+}
+
+.others {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 $space-2;
+  min-width: 0;
+
+  @include tablet {
+    grid-area: others;
+    gap: $space-1-5;
+  }
+}
+
+.other {
+  font-family: $font-mono;
+  font-size: $fs-2xs;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+
+  @include tablet {
+    display: inline-flex;
+    align-items: baseline;
+    gap: $space-1;
+    height: 24px;
+    padding-inline: $space-2;
+    border-radius: $r-xs;
+    background: $surface-2;
+    color: $text-3;
+    line-height: 24px;
+
+    .row:hover & {
+      background: $surface-3;
+    }
+  }
+}
+
+.otherPos {
+  @include data-num;
+  color: $text-2;
 }
 
 .rating {
+  grid-area: rating;
   @include data-num;
   font-size: $fs-md;
   font-weight: 600;
@@ -207,6 +391,7 @@ $cols: 44px 28px minmax(0, 1fr) auto 34px;
 }
 
 .follow {
+  grid-area: follow;
   position: relative;
   z-index: $z-base;
 }

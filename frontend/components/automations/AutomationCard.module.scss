@@ -4,9 +4,9 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    'flow controls'
+    'kind controls'
     'sentence sentence'
-    'meta meta';
+    'stat stat';
   gap: $space-3;
   padding: $space-4;
   @include panel;
@@ -19,32 +19,6 @@
   border-color: color-mix(in oklab, var(--signal) 25%, var(--line));
 }
 
-.flow {
-  grid-area: flow;
-  display: flex;
-  align-items: center;
-  gap: $space-1-5;
-}
-
-.chip {
-  font-family: $font-mono;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: $text-3;
-
-  .on & {
-    color: $signal-text;
-  }
-}
-
-.arrow {
-  width: 14px;
-  height: 1px;
-  background: $line-3;
-}
-
 .sentence {
   grid-area: sentence;
   font-size: $fs-base;
@@ -52,15 +26,10 @@
   line-height: $leading-snug;
 }
 
-.meta {
-  grid-area: meta;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: $space-2 $space-3;
-}
-
 .kind {
+  grid-area: kind;
+  justify-self: start;
+  align-self: center;
   @include chip;
   height: 22px;
   color: $text-2;
@@ -79,6 +48,7 @@
 }
 
 .stat {
+  grid-area: stat;
   @include data-num;
   font-size: $fs-xs;
   color: $text-3;

@@ -136,7 +136,7 @@
 
 .spotNum {
   @include display-num;
-  font-size: clamp(56px, 14vw, 96px);
+  font-size: clamp(36px, 7vw, 52px);
   color: $text;
 }
 

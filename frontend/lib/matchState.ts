@@ -35,7 +35,9 @@ export type StateFamily =
   | 'weather'
   | 'hold'
   | 'void'
-  | 'final';
+  | 'final'
+  /** A series under way — never a match. Steady, because nothing is being bowled on its behalf. */
+  | 'ongoing';
 
 export interface MatchStateView {
   key: StateKey;
@@ -152,6 +154,13 @@ function keyFor(match: Match, note: MatchNote | null | undefined): StateKey {
     default:
       return 'LIVE';
   }
+}
+
+// Stoppages inside an innings: the last deliveries still describe the innings in progress.
+const MID_INNINGS: ReadonlySet<StateFamily> = new Set(['live', 'climax', 'interval', 'hold', 'weather', 'dormant']);
+
+export function inningsUnderway(state: MatchStateView): boolean {
+  return MID_INNINGS.has(state.family);
 }
 
 export function matchStateOf(match: Match, note: MatchNote | null | undefined = match.note): MatchStateView {

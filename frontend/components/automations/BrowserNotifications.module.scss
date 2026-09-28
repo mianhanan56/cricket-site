@@ -1,0 +1,51 @@
+@use 'component' as *;
+
+.panel {
+  padding: $space-4;
+  @include panel;
+
+  @include tablet {
+    padding: $space-5;
+  }
+}
+
+.badge {
+  @include chip;
+  height: 22px;
+  color: $text-2;
+}
+
+.badgeOn {
+  color: $signal-text;
+  border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+}
+
+.body {
+  display: grid;
+  gap: $space-2;
+  justify-items: start;
+  font-size: $fs-md;
+  line-height: $leading-normal;
+  color: $text-2;
+}
+
+.enable {
+  @include button-primary;
+  margin-top: $space-2;
+}
+
+.inApp {
+  display: grid;
+  gap: $space-3;
+  justify-items: start;
+  margin-top: $space-4;
+  padding-top: $space-4;
+  border-top: 1px solid $line;
+  font-size: $fs-md;
+  line-height: $leading-normal;
+  color: $text-2;
+}
+
+.open {
+  @include button-secondary;
+}

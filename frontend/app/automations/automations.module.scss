@@ -69,69 +69,26 @@
   }
 }
 
-.templates {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $space-2;
-}
-
-.template {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-2;
-  min-height: 40px;
-  padding: $space-2 $space-3;
-  border-radius: $r-sm;
-  border: 1px dashed $line-3;
-  font-size: $fs-sm;
-  color: $text-2;
-  text-align: left;
-  transition: color $dur-2 $ease-out, border-color $dur-2 $ease-out;
-  @include focus-ring;
-
-  &:hover {
-    color: $text;
-    border-style: solid;
-    border-color: $signal;
-  }
-}
-
 .list {
   display: grid;
   gap: $space-2;
 }
 
-.settingList {
-  @include panel;
-  overflow: hidden;
-
-  > div {
-    display: grid;
-    grid-template-columns: 72px minmax(0, 1fr);
-    gap: $space-3;
-    padding: $space-3 $space-4;
-
-    & + div {
-      border-top: 1px solid $line;
-    }
-  }
-
-  dt {
-    @include eyebrow;
-    padding-top: 2px;
-  }
-
-  dd {
-    font-size: $fs-sm;
-    color: $text-2;
-  }
+.advanced {
+  display: grid;
+  gap: $space-4;
 }
 
-.inline {
-  margin-left: $space-2;
-  font-weight: 600;
-  color: $text;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  @include focus-ring;
+.advancedToggle {
+  @include button-secondary;
+  justify-self: start;
+  min-height: 44px;
+}
+
+.chevron {
+  transition: transform $dur-2 $ease-out;
+}
+
+.chevronUp {
+  transform: rotate(180deg);
 }

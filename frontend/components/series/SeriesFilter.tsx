@@ -29,7 +29,7 @@ export interface SeriesFilterProps {
 }
 
 const GROUPS: Array<{ status: MatchStatus; title: string }> = [
-  { status: 'LIVE', title: 'Live' },
+  { status: 'LIVE', title: 'Ongoing' },
   { status: 'UPCOMING', title: 'Upcoming' },
   { status: 'COMPLETED', title: 'Finished' },
 ];
@@ -40,7 +40,7 @@ function order(list: SeriesSummary[], status: MatchStatus): SeriesSummary[] {
   return list;
 }
 
-function SeriesList({ series }: { series: SeriesSummary[] }) {
+export function SeriesList({ series }: { series: SeriesSummary[] }) {
   return (
     <ul className={styles.list}>
       {series.map((s) => (
@@ -100,7 +100,6 @@ export default function SeriesFilter({ matches, totals, initialStatus, initialTy
             value: t.key,
             label: t.label,
             count: counts[t.key],
-            live: t.key === 'live' && counts.live > 0,
           }))}
           onChange={(next: SeriesStatusKey) => setQuery({ status: next })}
         />

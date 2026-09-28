@@ -1,0 +1,84 @@
+@use 'component' as *;
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.status {
+  font-stretch: $stretch-wide;
+  font-weight: 700;
+  font-size: $fs-base;
+  color: $text;
+
+  @include tablet {
+    font-size: $fs-lg;
+  }
+}
+
+.interval,
+.hold {
+  color: $warn;
+}
+
+.weather {
+  color: $data;
+}
+
+.when {
+  display: flex;
+  flex-direction: column;
+  gap: 2px $space-3;
+  font-size: $fs-sm;
+  color: $text-2;
+
+  @include sm {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+  }
+}
+
+.count {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $data;
+}
+
+.venue {
+  color: $text-3;
+  @include focus-ring;
+
+  &:is(a):hover {
+    color: $text;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3 $space-6;
+  padding-top: $space-3;
+  border-top: 1px solid $line;
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include data-num;
+    font-size: $fs-lg;
+    font-weight: 600;
+
+    small {
+      margin-left: $space-1-5;
+      font-family: $font-sans;
+      font-size: $fs-xs;
+      font-weight: 500;
+      color: $text-3;
+    }
+  }
+}

@@ -7,7 +7,7 @@ const COLUMNS = [
     title: 'Live',
     links: [
       { href: '/', label: 'Matches' },
-      { href: '/fixtures', label: 'Schedule' },
+      { href: '/fixtures', label: 'Fixtures' },
       { href: '/insights', label: 'Insights' },
     ],
   },
@@ -24,7 +24,7 @@ const COLUMNS = [
     title: 'Yours',
     links: [
       { href: '/my', label: 'My Cricket' },
-      { href: '/automations', label: 'Automations' },
+      { href: '/automations', label: 'Alerts' },
       { href: '/search', label: 'Search' },
     ],
   },

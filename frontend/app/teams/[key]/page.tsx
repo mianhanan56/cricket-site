@@ -145,8 +145,8 @@ const ROLE_LABEL: Record<PlayerRole, string> = {
   BOWLER: 'Bowlers',
 };
 
-// The squad source only marks keepers; everyone else arrives as BATSMAN by
-// default, so that group is only called "Batters" when real roles are present.
+// Roles come from a match of the series; without one only keepers are marked and
+// everyone else arrives as BATSMAN, so that group is only "Batters" when roles are real.
 function squadGroups(squad: SquadPlayer[]) {
   const hasRealRoles = squad.some((p) => p.role === 'BOWLER' || p.role === 'ALL_ROUNDER');
   return ROLE_ORDER.map((role) => ({
@@ -284,7 +284,7 @@ export default async function TeamPage({ params }: { params: { key: string } }) 
           icon="calendar"
           title={`Nothing scheduled for ${team.name} right now`}
           action={{ label: 'Browse teams', href: '/teams' }}
-          secondary={{ label: 'Full schedule', href: '/fixtures' }}
+          secondary={{ label: 'All fixtures', href: '/fixtures' }}
         />
       )}
     </div>

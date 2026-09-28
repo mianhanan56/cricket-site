@@ -47,6 +47,10 @@
   }
 }
 
+.ongoing {
+  --tone: var(--signal-text);
+}
+
 .upcoming {
   --tone: var(--data);
 

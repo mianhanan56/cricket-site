@@ -107,11 +107,11 @@ export default function Navbar() {
                 </Link>
                 <Link href="/automations" className={styles.menuItem} role="menuitem">
                   <Icon name="bolt" size={17} />
-                  <span>Automations</span>
+                  <span>Alerts</span>
                 </Link>
                 <Link href="/fixtures" className={styles.menuItem} role="menuitem">
                   <Icon name="calendar" size={17} />
-                  <span>Full schedule</span>
+                  <span>Fixtures</span>
                 </Link>
               </div>
             )}

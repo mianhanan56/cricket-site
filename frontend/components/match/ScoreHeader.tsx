@@ -9,6 +9,7 @@ import TeamBadge from '../ui/TeamBadge';
 import LocalTime from '../ui/LocalTime';
 import CreaseLine from '../live/CreaseLine';
 import StateChip from '../live/StateChip';
+import LastBallAge from '../live/LastBallAge';
 import Ticker from '../live/Ticker';
 import Countdown from '../live/Countdown';
 import PlayerLink from './PlayerLink';
@@ -34,9 +35,12 @@ function Side({
   won,
   dim,
   align,
+  started,
 }: {
   team: Team;
   score: ScoreParts | null;
+  /** Anyone has batted — before that, an empty score slot says nothing. */
+  started: boolean;
   batting: boolean;
   won: boolean;
   dim: boolean;
@@ -52,9 +56,13 @@ function Side({
         </span>
         {won && <span className={styles.won}>Won</span>}
       </Link>
-      <span className={styles.score}>
-        {score ? <Ticker value={score.runs} /> : <span className={styles.noScore}>—</span>}
-      </span>
+      {score ? (
+        <span className={styles.score}>
+          <Ticker value={score.runs} />
+        </span>
+      ) : (
+        started && <span className={styles.noScore}>Yet to bat</span>
+      )}
       {score && <span className={styles.overs}>{score.overs}</span>}
     </div>
   );
@@ -106,6 +114,7 @@ export default function ScoreHeader({
       <div className={styles.top}>
         <StateChip state={state} full={!state.alive && state.key !== 'FINISHED'} />
         {connecting && <span className={styles.connecting}>Connecting</span>}
+        {lastBall?.timestamp && <LastBallAge iso={lastBall.timestamp} className={styles.age} />}
         <span className={styles.meta}>
           <Link href={`/series/${match.series.id}`} className={styles.series}>
             {match.series.name}
@@ -129,6 +138,7 @@ export default function ScoreHeader({
           score={home}
           batting={live && battingId === match.homeTeam.id}
           won={winnerId === match.homeTeam.id}
+          started={Boolean(home || away)}
           dim={(live && Boolean(battingId) && battingId !== match.homeTeam.id) || (Boolean(winnerId) && winnerId !== match.homeTeam.id)}
           align="left"
         />
@@ -161,6 +171,7 @@ export default function ScoreHeader({
           score={away}
           batting={live && battingId === match.awayTeam.id}
           won={winnerId === match.awayTeam.id}
+          started={Boolean(home || away)}
           dim={(live && Boolean(battingId) && battingId !== match.awayTeam.id) || (Boolean(winnerId) && winnerId !== match.awayTeam.id)}
           align="right"
         />
@@ -174,7 +185,9 @@ export default function ScoreHeader({
           {match.note?.detail && <span className={styles.detail}> {match.note.detail}</span>}
         </p>
       )}
-      {state.key === 'TOSS' && match.note && <p className={styles.sub}>{match.note.label}</p>}
+      {(state.key === 'TOSS' || (live && !home && !away && match.note?.kind === 'TOSS')) && match.note && (
+        <p className={styles.sub}>{match.note.label}</p>
+      )}
 
       {(situation.margin || situation.followOn || situation.target) && (
         <div className={styles.situation}>

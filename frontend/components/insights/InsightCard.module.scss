@@ -112,6 +112,14 @@
     @include data-num;
     font-size: $fs-lg;
     font-weight: 600;
+
+    small {
+      margin-left: $space-1-5;
+      font-family: $font-sans;
+      font-size: $fs-xs;
+      font-weight: 500;
+      color: $text-3;
+    }
   }
 }
 
@@ -130,6 +138,34 @@
   gap: $space-3;
 }
 
-.pulseEmpty {
-  min-height: 8px;
+.stateLine {
+  color: $warn;
+}
+
+.weather .stateLine {
+  color: $data;
+}
+
+.side {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.where {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.venue {
+  color: $text-3;
+  @include truncate;
+}
+
+// Pinned to the foot so every card in a row ends on the same line.
+.foot {
+  margin-top: auto;
 }

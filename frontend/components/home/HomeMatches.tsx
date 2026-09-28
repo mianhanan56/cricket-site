@@ -16,12 +16,15 @@ import {
 import type { HomeTab } from '@/lib/tabs';
 import { rankLive } from '@/lib/featured';
 import { useFollows } from '@/lib/follows';
+import { seriesFromMatches } from '@/lib/crex';
+import { SeriesList } from '../series/SeriesFilter';
 import LiveHero from './LiveHero';
 import NextUpHero from './NextUpHero';
 import ScoreTicker from './ScoreTicker';
 import UpcomingRail from './UpcomingRail';
 import ResultList from './ResultList';
 import MyCricketBand from './MyCricketBand';
+import WhatMatters from './WhatMatters';
 import MatchTile from '../match/MatchTile';
 import Segmented from '../ui/Segmented';
 import EmptyState from '../ui/EmptyState';
@@ -38,6 +41,7 @@ const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 // The overview is a summary: the next few and the last few, the rest a click away.
 const UPCOMING_PREVIEW = 5;
 const RESULTS_PREVIEW = 5;
+const SERIES_PREVIEW = 4;
 
 export interface HomeMatchesProps {
   /** Active tab from the URL; '' means the overview. */
@@ -81,6 +85,12 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
   );
   const featured = onStage.find((m) => m.id === featuredId) ?? onStage[0] ?? null;
 
+  // With nothing live the page still has a job: the competitions under way.
+  const ongoingSeries = useMemo(
+    () => (featured ? [] : seriesFromMatches(scoped).filter((s) => s.status === 'LIVE').slice(0, SERIES_PREVIEW)),
+    [featured, scoped]
+  );
+
   const allList = useMemo(() => {
     const rank: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
     return [...scoped].sort(
@@ -122,6 +132,8 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
         )}
       </div>
 
+      {hasData && <WhatMatters live={liveList} results={finishedList} />}
+
       <MyCricketBand matches={matches} />
 
       <section className={styles.board} aria-labelledby="board-title">
@@ -162,12 +174,12 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
                 <>
                   <UpcomingRail matches={upcomingList} limit={UPCOMING_PREVIEW} variant="compact" />
                   <Link href="/fixtures" className={styles.more}>
-                    View full schedule
+                    All fixtures
                     <Icon name="arrowRight" size={16} />
                   </Link>
                 </>
               ) : (
-                <EmptyState compact icon="calendar" title={`No ${typeNote}fixtures in the feed`} action={{ label: 'Open the schedule', href: '/fixtures' }} />
+                <EmptyState compact icon="calendar" title={`No ${typeNote}fixtures in the feed`} action={{ label: 'Open fixtures', href: '/fixtures' }} />
               )}
             </section>
             <section aria-labelledby="results-title">
@@ -205,7 +217,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
           upcomingList.length ? (
             <UpcomingRail matches={upcomingList} />
           ) : (
-            <EmptyState icon="calendar" title={`No ${typeNote}upcoming matches in the feed`} action={{ label: 'Open the schedule', href: '/fixtures' }} />
+            <EmptyState icon="calendar" title={`No ${typeNote}upcoming matches in the feed`} action={{ label: 'Open fixtures', href: '/fixtures' }} />
           )
         ) : tab === 'finished' ? (
           finishedList.length ? (
@@ -223,6 +235,13 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
           <EmptyState icon="signal" title={`No ${typeNote}matches listed right now`} />
         )}
       </section>
+
+      {ongoingSeries.length > 0 && (
+        <section className={styles.board} aria-labelledby="series-title">
+          <SectionHead id="series-title" title="Series in progress" action={{ href: '/series', label: 'All series' }} />
+          <SeriesList series={ongoingSeries} />
+        </section>
+      )}
     </>
   );
 }

@@ -10,7 +10,7 @@ export default function NotFound() {
         title="Off the edge of the square"
         body="That page isn’t in the feed — it may have moved or never existed."
         action={{ label: 'Live matches', href: '/' }}
-        secondary={{ label: 'Full schedule', href: '/fixtures' }}
+        secondary={{ label: 'All fixtures', href: '/fixtures' }}
       />
     </div>
   );

@@ -102,13 +102,13 @@ function Panel() {
         {wantsSystem && permission === 'default' && (
           <div className={styles.permission}>
             <Icon name="bell" size={18} />
-            <p>Show alerts from your automations as system notifications.</p>
+            <p>Get your alerts as browser notifications, even when this tab is in the background.</p>
             <button
               type="button"
               className={styles.permBtn}
               onClick={async () => setPermission(await requestSystemPermission())}
             >
-              Allow
+              Enable
             </button>
           </div>
         )}
@@ -142,10 +142,10 @@ function Panel() {
                 title={filter === 'unread' ? 'You’re all caught up' : 'No notifications yet'}
                 body={
                   automations.length
-                    ? 'Alerts from your automations land here as matches unfold.'
-                    : 'Set an automation and PulseCrease will tell you when it happens.'
+                    ? 'Your alerts land here as matches unfold.'
+                    : 'Create an alert and PulseCrease will tell you when a wicket falls, a match starts or a chase gets close.'
                 }
-                action={automations.length ? undefined : { label: 'Create an automation', href: '/automations' }}
+                action={automations.length ? undefined : { label: 'Create an alert', href: '/automations' }}
               />
             </div>
           )}
@@ -154,7 +154,7 @@ function Panel() {
         <footer className={styles.foot}>
           <Link href="/automations" className={styles.footLink} onClick={closeOverlay}>
             <Icon name="bolt" size={16} />
-            Automations
+            Alerts
             {automations.length > 0 && <span className={styles.footCount}>{automations.filter((a) => a.enabled).length} active</span>}
           </Link>
           {items.length > 0 && (

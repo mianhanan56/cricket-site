@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import AutomationsView from './AutomationsView';
 
 export const metadata: Metadata = {
-  title: 'Automations',
-  description: 'Cricket alerts that fire on their own — wickets, starts, milestones, tight chases.',
+  title: 'Alerts',
+  description: 'Cricket alerts for the moments you care about — match starts, wickets, fifties, hundreds and close chases.',
 };
 
 export default function AutomationsPage() {

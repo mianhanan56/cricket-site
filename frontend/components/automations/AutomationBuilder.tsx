@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   TRIGGERS,
   addAutomation,
@@ -10,40 +10,20 @@ import {
   type ScopeKind,
   type TriggerKind,
 } from '@/lib/automations';
-import { requestSystemPermission, systemPermission, type SystemPermission } from '@/lib/notifications';
-import Icon, { type IconName } from '../ui/Icon';
+import Icon from '../ui/Icon';
 import EntityPicker, { type PickedEntity } from './EntityPicker';
+import { SCOPE_LABEL, TRIGGER_ICON } from './alertOptions';
+import { useNotificationPermission } from './useNotificationPermission';
 import styles from './AutomationBuilder.module.scss';
-
-const TRIGGER_ICON: Record<TriggerKind, IconName> = {
-  MATCH_START: 'live',
-  WICKET: 'flag',
-  SIX: 'bolt',
-  FOUR: 'arrowRight',
-  FIFTY: 'star',
-  HUNDRED: 'trophy',
-  CLOSE_CHASE: 'signal',
-  STOPPAGE: 'cloud',
-  RESULT: 'check',
-  TOURNAMENT_MILESTONE: 'rankings',
-};
-
-const SCOPE_LABEL: Record<ScopeKind, string> = {
-  ANY: 'Any match',
-  FOLLOWED: 'My teams',
-  TEAM: 'A team',
-  SERIES: 'A series',
-  PLAYER: 'A player',
-};
 
 export default function AutomationBuilder({ onCreated }: { onCreated?: () => void }) {
   const [trigger, setTrigger] = useState<TriggerKind>('WICKET');
   const [scopeKind, setScopeKind] = useState<ScopeKind>('FOLLOWED');
   const [entity, setEntity] = useState<PickedEntity | null>(null);
-  const [system, setSystem] = useState(false);
+  const [wantSystem, setWantSystem] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [perm, setPerm] = useState<SystemPermission>('unsupported');
-  useEffect(() => setPerm(systemPermission()), []);
+  const [perm, requestPermission] = useNotificationPermission();
+  const system = wantSystem && perm === 'granted';
 
   const spec = triggerSpec(trigger);
   const scopes = spec.scopes;
@@ -63,10 +43,9 @@ export default function AutomationBuilder({ onCreated }: { onCreated?: () => voi
   };
 
   const toggleSystem = async () => {
-    if (system) return setSystem(false);
-    const next = perm === 'default' ? await requestSystemPermission() : perm;
-    setPerm(next);
-    setSystem(next === 'granted');
+    if (system) return setWantSystem(false);
+    const next = perm === 'default' ? await requestPermission() : perm;
+    setWantSystem(next === 'granted');
   };
 
   const create = () => {
@@ -80,7 +59,7 @@ export default function AutomationBuilder({ onCreated }: { onCreated?: () => voi
   return (
     <section className={styles.builder} aria-labelledby="builder-title">
       <h2 id="builder-title" className={styles.title}>
-        New automation
+        Advanced alert builder
       </h2>
 
       <ol className={styles.flow}>
@@ -150,10 +129,10 @@ export default function AutomationBuilder({ onCreated }: { onCreated?: () => voi
                 aria-checked={system}
                 className={`${styles.action} ${system ? styles.on : ''}`}
                 onClick={toggleSystem}
-                disabled={perm === 'unsupported' || perm === 'denied'}
+                disabled={!perm || perm === 'unsupported' || perm === 'denied'}
               >
                 <Icon name="signal" size={17} />
-                Also as a system alert
+                Also as a browser notification
                 <span className={styles.switch} aria-hidden="true" />
               </button>
             </div>
@@ -168,7 +147,7 @@ export default function AutomationBuilder({ onCreated }: { onCreated?: () => voi
         </p>
         <button type="button" className={styles.create} onClick={create} disabled={!ready}>
           <Icon name={saved ? 'check' : 'plus'} size={17} />
-          {saved ? 'Automation on' : 'Create automation'}
+          {saved ? 'Alert created' : 'Create alert'}
         </button>
       </div>
     </section>

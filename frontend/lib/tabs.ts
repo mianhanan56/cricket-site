@@ -24,7 +24,7 @@ export const SERIES_STATUS_TABS: ReadonlyArray<{
   status: MatchStatus | null;
 }> = [
   { key: 'all', label: 'All', status: null },
-  { key: 'live', label: 'Live', status: 'LIVE' },
+  { key: 'live', label: 'Ongoing', status: 'LIVE' },
   { key: 'upcoming', label: 'Upcoming', status: 'UPCOMING' },
   { key: 'finished', label: 'Finished', status: 'COMPLETED' },
 ];
@@ -63,3 +63,11 @@ export const RANKINGS_CATEGORY_KEYS: readonly RankingsCategory[] = [
   'bowling',
   'all-rounder',
 ];
+
+// --- Players (/players?gender=…&role=…&format=…) ----------------------------
+// Same values as /rankings, plus `all`, so a filter reads the same in both URLs.
+export type PlayersRoleKey = 'all' | RankingsCategory;
+export type PlayersFormatKey = 'all' | RankingsFormat;
+
+export const PLAYERS_ROLE_KEYS: readonly PlayersRoleKey[] = ['all', ...RANKINGS_CATEGORY_KEYS];
+export const PLAYERS_FORMAT_KEYS: readonly PlayersFormatKey[] = ['all', ...RANKINGS_FORMAT_KEYS];
