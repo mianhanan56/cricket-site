@@ -13,6 +13,8 @@ export interface PulseNotification {
   at: number;
   read: boolean;
   automationId?: string;
+  /** The alert and the event it fired for — the same wicket always has the same key. */
+  eventKey?: string;
 }
 
 const MAX_KEPT = 100;
@@ -62,11 +64,15 @@ export interface PushOptions {
   body: string;
   href?: string;
   automationId?: string;
+  eventKey?: string;
   /** Also raise a system notification when the page has permission. */
   system?: boolean;
 }
 
 export function pushNotification(opts: PushOptions): PulseNotification {
+  const seen = opts.eventKey ? notificationsStore.get().find((n) => n.eventKey === opts.eventKey) : undefined;
+  if (seen) return seen;
+
   const item: PulseNotification = {
     id: newId(),
     kind: opts.kind,
@@ -74,6 +80,7 @@ export function pushNotification(opts: PushOptions): PulseNotification {
     body: opts.body,
     href: opts.href,
     automationId: opts.automationId,
+    eventKey: opts.eventKey,
     at: Date.now(),
     read: false,
   };
@@ -83,7 +90,8 @@ export function pushNotification(opts: PushOptions): PulseNotification {
 
   if (opts.system && systemPermission() === 'granted') {
     try {
-      const n = new Notification(item.title, { body: item.body, tag: item.id, icon: '/icon.svg' });
+      // Tagged by event, so a repeat from a second tab replaces the first rather than stacking.
+      const n = new Notification(item.title, { body: item.body, tag: item.eventKey ?? item.id, icon: '/icon.svg' });
       if (item.href) {
         n.onclick = () => {
           window.focus();

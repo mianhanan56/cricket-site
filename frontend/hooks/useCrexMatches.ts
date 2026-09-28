@@ -35,6 +35,13 @@ const DEFAULT_INTERVAL_MS = 2_000;
  */
 export const IDLE_INTERVAL_MS = 30_000;
 
+/**
+ * A hidden tab polls only for a subscriber that asked to (the alert engine, when
+ * a browser notification is waiting on it), and no faster than this — Chrome
+ * holds a long-hidden tab's timers to about once a minute regardless.
+ */
+export const HIDDEN_INTERVAL_MS = 60_000;
+
 // Each consecutive failure doubles the wait, up to this ceiling.
 const MAX_BACKOFF_MS = 5 * 60_000;
 
@@ -57,6 +64,8 @@ export interface UseCrexMatchesOptions {
   intervalMs?: number;
   /** Set false to stop polling entirely (e.g. on a tab that isn't visible). */
   enabled?: boolean;
+  /** Keep polling while the tab is hidden, at `HIDDEN_INTERVAL_MS` at most. */
+  background?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +95,7 @@ const SERVER_STATE: ChannelState = {
 const channel = {
   state: SERVER_STATE,
   listeners: new Set<() => void>(),
-  subscribers: new Map<number, number>(),
+  subscribers: new Map<number, { interval: number; background: boolean }>(),
   nextId: 0,
   timer: null as ReturnType<typeof setTimeout> | null,
   abort: null as AbortController | null,
@@ -101,9 +110,13 @@ function emit(patch: Partial<ChannelState>) {
   channel.listeners.forEach((l) => l());
 }
 
+const isHidden = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
 function wantedInterval(): number | null {
-  if (!channel.subscribers.size) return null;
-  return Math.min(...channel.subscribers.values());
+  const subs = [...channel.subscribers.values()];
+  if (!isHidden()) return subs.length ? Math.min(...subs.map((s) => s.interval)) : null;
+  const background = subs.filter((s) => s.background);
+  return background.length ? Math.max(HIDDEN_INTERVAL_MS, Math.min(...background.map((s) => s.interval))) : null;
 }
 
 function clearTimer() {
@@ -122,12 +135,7 @@ async function poll(): Promise<void> {
     clearTimer();
     return;
   }
-  // A hidden tab's timers are throttled; park the chain and let the
-  // visibility listener restart it.
-  if (document.visibilityState === 'hidden') {
-    clearTimer();
-    return;
-  }
+  // A hidden tab with no background subscriber parks; the visibility listener restarts it.
 
   channel.abort?.abort();
   const controller = new AbortController();
@@ -184,9 +192,9 @@ function bindVisibility() {
   });
 }
 
-function register(intervalMs: number): () => void {
+function register(intervalMs: number, background: boolean): () => void {
   const id = channel.nextId++;
-  channel.subscribers.set(id, intervalMs);
+  channel.subscribers.set(id, { interval: intervalMs, background });
   bindVisibility();
   reschedule();
   return () => {
@@ -211,7 +219,8 @@ export function refreshMatches(): void {
 /**
  * Subscribe to the shared crex match list.
  *
- *   - Pauses while the tab is hidden, and polls immediately on return.
+ *   - Pauses while the tab is hidden (unless a `background` subscriber needs it),
+ *     and polls immediately on return.
  *   - Backs off exponentially on failure.
  *   - Keeps the last good data on error — a failed poll shows stale scores,
  *     never an empty list.
@@ -219,13 +228,13 @@ export function refreshMatches(): void {
  *     falling back to its seed.
  */
 export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatchesResult {
-  const { initial = [], intervalMs = DEFAULT_INTERVAL_MS, enabled = true } = options;
+  const { initial = [], intervalMs = DEFAULT_INTERVAL_MS, enabled = true, background = false } = options;
   const snapshot = useSyncExternalStore(subscribeState, getState, getServerState);
 
   useEffect(() => {
     if (!enabled) return;
-    return register(intervalMs);
-  }, [enabled, intervalMs]);
+    return register(intervalMs, background);
+  }, [enabled, intervalMs, background]);
 
   const lastSeen = useRef<Match[] | null>(null);
   const live = enabled && snapshot.lastUpdated ? snapshot.matches : null;
