@@ -2,77 +2,205 @@
 
 .page {
   @include container;
-  padding-block: $space-5 $space-8;
+  padding-bottom: $space-16;
   min-width: 0;
 }
 
-.heading {
-  font-size: clamp(#{$text-2xl}, 6vw, #{$text-3xl});
-  margin-bottom: $space-4;
+.srOnly {
+  @include visually-hidden;
+}
+
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: $space-10;
+}
+
+.fieldIcon {
+  position: absolute;
+  left: $space-4;
+  color: $text-3;
+  pointer-events: none;
 }
 
 .input {
   width: 100%;
-  padding: $space-3 $space-4;
-  border-radius: $radius-md;
-  background: $secondary;
-  border: 1px solid $card-border;
-  color: $text-primary;
-  font-size: 16px;
-  outline: none;
-  margin-bottom: $space-5;
+  height: 56px;
+  padding: 0 $space-12 0 $space-12;
+  border-radius: $r-md;
+  border: 1px solid $line-2;
+  background: $surface;
+  color: $text;
+  font: inherit;
+  font-size: $fs-lg;
+  font-weight: 500;
+  transition: border-color $dur-2 $ease-out, background-color $dur-2 $ease-out;
 
-  &:focus {
-    border-color: $accent;
-  }
-}
-
-.hint {
-  color: $text-muted;
-  font-size: 14px;
-}
-
-.section {
-  margin-bottom: $space-5;
-}
-
-.sectionTitle {
-  font-size: 18px;
-  margin-bottom: $space-3;
-}
-
-.list {
-  @include card;
-  display: flex;
-  flex-direction: column;
-  padding: $space-1;
-}
-
-.item {
-  @include flex-between;
-  gap: $space-1 $space-3;
-  // A result label is a full "Team A vs Team B · Series" string; on a phone it
-  // wraps under the status qualifier rather than forcing the row wider.
-  flex-wrap: wrap;
-  padding: $space-3;
-  border-radius: $radius-sm;
-
-  // The label itself.
-  > span:first-child {
-    @include fluid-text;
+  &::placeholder {
+    color: $text-3;
+    font-weight: 400;
   }
 
-  &:not(:last-child) {
-    border-bottom: 1px solid $card-border;
+  &::-webkit-search-cancel-button {
+    display: none;
   }
 
   &:hover {
-    background: $card-hover;
+    border-color: $line-3;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $signal;
+    outline-offset: 1px;
+    background: $surface-2;
+  }
+
+  @include tablet {
+    height: 64px;
+    font-size: $fs-xl;
   }
 }
 
-.sub {
-  flex-shrink: 0;
-  font-size: 12px;
-  color: $text-muted;
+.clear {
+  @include icon-button;
+  position: absolute;
+  right: $space-2;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+}
+
+.results {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-12;
+}
+
+.entities {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-8;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-6;
+  }
+
+  @include wide {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+}
+
+.entityGroup {
+  min-width: 0;
+}
+
+.entityList {
+  @include panel;
+  overflow: hidden;
+}
+
+.entity {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: $space-3;
+  min-height: 52px;
+  padding: $space-2 $space-4;
+  transition: background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+
+  &:hover {
+    background: $surface-2;
+
+    .entityArrow {
+      color: $text;
+    }
+  }
+}
+
+.entityIcon {
+  @include flex-center;
+  color: $text-2;
+}
+
+.entityText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.entityLabel {
+  font-weight: 600;
+  @include truncate;
+}
+
+.entitySub {
+  font-size: $fs-sm;
+  color: $text-3;
+  @include truncate;
+}
+
+.entityArrow {
+  color: $text-3;
+  transition: color $dur-2 $ease-out;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-12;
+
+  @include desktop {
+    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+    gap: $space-8;
+    align-items: start;
+  }
+}
+
+.col {
+  min-width: 0;
+}
+
+// Shared with the skeleton, which draws placeholder rows in these boxes.
+.section {
+  margin-bottom: $space-8;
+}
+
+.list {
+  @include panel;
+  overflow: hidden;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: $space-2;
+  min-height: 60px;
+  padding: $space-3 $space-4;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
 }

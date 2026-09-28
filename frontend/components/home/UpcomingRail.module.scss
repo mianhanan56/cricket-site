@@ -1,0 +1,320 @@
+@use 'component' as *;
+
+.rail {
+  container: rail / inline-size;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-6;
+}
+
+.dayHead {
+  display: flex;
+  align-items: baseline;
+  gap: $space-3;
+  margin-bottom: $space-2;
+}
+
+.dayTitle {
+  font-size: $fs-md;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.dayCount {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.list {
+  position: relative;
+
+  // The rail itself.
+  &::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 79.5px;
+    width: 1px;
+    background: linear-gradient($line-2, $line-2 85%, transparent);
+
+    @include tablet {
+      left: 103.5px;
+    }
+  }
+}
+
+.item + .item {
+  border-top: 1px solid $line;
+}
+
+.link {
+  display: grid;
+  grid-template-columns: 64px 16px minmax(0, 1fr);
+  align-items: start;
+  column-gap: $space-2;
+  padding: $space-3 $space-2 $space-3 0;
+  border-radius: $r-sm;
+  transition: background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    background: $surface;
+
+    .node {
+      background: $data;
+      box-shadow: 0 0 0 4px $data-soft;
+    }
+  }
+
+  @include tablet {
+    grid-template-columns: 88px 16px minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+.time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  padding-top: 1px;
+
+  time {
+    @include data-num;
+    font-size: $fs-md;
+    font-weight: 600;
+    color: $text;
+  }
+}
+
+.countdown {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+}
+
+.soon {
+  color: $data;
+}
+
+.node {
+  position: relative;
+  z-index: 1;
+  justify-self: center;
+  width: 9px;
+  height: 9px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: $bg;
+  border: 1.5px solid $data;
+  transition: background-color $dur-2 $ease-out, box-shadow $dur-2 $ease-out;
+
+  @include tablet {
+    margin-top: 0;
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+  min-width: 0;
+}
+
+.teams {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-1-5 $space-2;
+}
+
+.side {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  min-width: 0;
+}
+
+.code {
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+}
+
+.full {
+  display: none;
+  font-size: $fs-sm;
+  color: $text-3;
+  @include truncate;
+  max-width: 18ch;
+
+  @include desktop {
+    display: inline;
+  }
+}
+
+.vs {
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-1 $space-2;
+  font-size: $fs-xs;
+  color: $text-3;
+  min-width: 0;
+}
+
+.format {
+  @include chip;
+  height: 20px;
+  padding-inline: $space-1-5;
+  font-size: 10px;
+  color: $text-2;
+}
+
+.series {
+  color: $text-2;
+  @include truncate;
+  max-width: 100%;
+}
+
+.venue {
+  @include truncate;
+  max-width: 100%;
+
+  &::before {
+    content: '·';
+    margin-right: $space-2;
+  }
+}
+
+.state {
+  grid-column: 3;
+  justify-self: start;
+  margin-top: $space-2;
+
+  @include tablet {
+    grid-column: auto;
+    margin-top: 0;
+  }
+}
+
+// Wide lists read as a table: sides, then where and what, then the state.
+@container rail (min-width: 840px) {
+  .rail:not(.compact) {
+    .link {
+      grid-template-columns: 88px 16px minmax(0, 1.25fr) minmax(0, 1fr) auto;
+    }
+
+    .body {
+      display: contents;
+    }
+
+    .teams {
+      grid-column: 3;
+    }
+
+    .meta {
+      grid-column: 4;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 2px $space-2;
+      padding-right: $space-4;
+    }
+
+    .series {
+      font-size: $fs-sm;
+    }
+
+    .venue {
+      grid-column: 2;
+
+      &::before {
+        content: none;
+      }
+    }
+
+    .state {
+      grid-column: 5;
+    }
+  }
+}
+
+// ---------------------------------------------------------------- Compact
+// The overview's summary: one line of sides, one quiet line of context.
+
+.compact {
+  gap: $space-4;
+
+  .dayHead {
+    margin-bottom: $space-1;
+  }
+
+  .dayTitle {
+    @include eyebrow;
+    font-weight: 700;
+    color: $text-2;
+  }
+
+  .list::before {
+    left: 75.5px;
+    top: 14px;
+    bottom: 14px;
+  }
+
+  .link {
+    grid-template-columns: 60px 16px minmax(0, 1fr) auto;
+    align-items: center;
+    padding-block: $space-2;
+  }
+
+  .time time {
+    font-size: $fs-sm;
+    white-space: nowrap;
+  }
+
+  .node {
+    width: 7px;
+    height: 7px;
+    margin-top: 0;
+  }
+
+  .body {
+    gap: 2px;
+  }
+
+  .teams {
+    flex-wrap: nowrap;
+    gap: $space-2;
+  }
+
+  .code {
+    font-size: $fs-md;
+  }
+
+  .state {
+    grid-column: auto;
+    margin-top: 0;
+  }
+}
+
+.metaLine {
+  font-size: $fs-xs;
+  color: $text-3;
+  @include truncate;
+}
+
+.tick {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+  white-space: nowrap;
+}

@@ -1,0 +1,152 @@
+@use 'component' as *;
+
+.hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding: $space-4 $space-5;
+  border-radius: $r-lg;
+  border: 1px solid $line-2;
+  background:
+    radial-gradient(80% 70% at 100% 0%, color-mix(in oklab, var(--data) 9%, transparent), transparent 60%),
+    linear-gradient(180deg, var(--surface), var(--bg-raise));
+
+  @include desktop {
+    padding: $space-6;
+  }
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  @include grid-texture(40px);
+  mask-image: radial-gradient(70% 80% at 70% 20%, #000, transparent 75%);
+  -webkit-mask-image: radial-gradient(70% 80% at 70% 20%, #000, transparent 75%);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-3;
+}
+
+.label {
+  font-family: $font-mono;
+  font-size: $fs-xs;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: $data;
+}
+
+.body {
+  display: grid;
+  gap: $space-6;
+
+  @include desktop {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+  }
+}
+
+.matchup {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: clamp(20px, 3vw, 30px);
+  letter-spacing: -0.02em;
+
+  @include tablet {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: $space-4;
+  }
+}
+
+.side {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-3;
+  min-width: 0;
+}
+
+.name {
+  @include fluid-text;
+}
+
+.vs {
+  font-size: 0.45em;
+  font-weight: 500;
+  color: $text-3;
+}
+
+.clock {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+
+  @include desktop {
+    align-items: flex-end;
+  }
+}
+
+.clockLabel {
+  @include eyebrow;
+}
+
+.count {
+  @include data-num;
+  font-size: clamp(28px, 4.5vw, 44px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.when {
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.foot {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+
+  @include tablet {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-1 $space-3;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.format {
+  @include chip;
+  height: 22px;
+}
+
+.venue {
+  color: $text-3;
+}
+
+.open {
+  @include button-secondary;
+  min-height: 44px;
+}

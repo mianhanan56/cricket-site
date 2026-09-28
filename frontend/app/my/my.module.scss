@@ -1,0 +1,175 @@
+@use 'component' as *;
+
+.page {
+  @include container;
+  padding-bottom: $space-16;
+}
+
+.counts {
+  display: flex;
+  gap: $space-5;
+  font-size: $fs-sm;
+  color: $text-3;
+
+  strong {
+    @include display-num;
+    font-size: $fs-2xl;
+    margin-right: $space-1;
+    color: $text;
+  }
+}
+
+.section + .section,
+.columns + .section,
+.section + .columns {
+  margin-top: $space-12;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include wide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-10;
+
+  @include desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.list {
+  @include panel;
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-2 $space-2 $space-2 $space-3;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+}
+
+.rowLink {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  border-radius: $r-sm;
+  color: $text-2;
+  @include focus-ring;
+
+  &:hover .rowName {
+    color: $text;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.rowName {
+  font-weight: 600;
+  color: $text;
+  @include truncate;
+}
+
+.initial {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: $surface-3;
+  font-weight: 800;
+  font-stretch: $stretch-display;
+  color: $text;
+}
+
+.quiet {
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+.alerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+.alert {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  min-height: 44px;
+  padding: $space-2 $space-3;
+  border-radius: $r-sm;
+  border: 1px solid $line-2;
+  background: $surface;
+  font-size: $fs-sm;
+  text-align: left;
+  @include focus-ring;
+
+  svg:first-child {
+    color: $signal-text;
+  }
+
+  &:hover {
+    border-color: $signal;
+  }
+}
+
+.alertPlus {
+  color: $text-3;
+}
+
+.picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: $space-2;
+}
+
+.pick {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+  min-height: 56px;
+  padding: $space-2 $space-3;
+  @include panel;
+  @include panel-interactive;
+  text-align: left;
+  @include focus-ring;
+
+  &:hover .pickPlus {
+    color: $signal-text;
+  }
+}
+
+.pickName {
+  flex: 1;
+  min-width: 0;
+  font-size: $fs-sm;
+  font-weight: 600;
+  @include truncate(2);
+}
+
+.pickPlus {
+  color: $text-3;
+  flex-shrink: 0;
+}

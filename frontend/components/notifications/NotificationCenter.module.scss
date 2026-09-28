@@ -1,0 +1,306 @@
+@use 'component' as *;
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: $z-overlay;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  cursor: default;
+
+  @include desktop {
+    background: transparent;
+  }
+}
+
+.panel {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 420px);
+  background: $surface;
+  border-left: 1px solid $line-2;
+  outline: none;
+
+  @include motion {
+    animation: slide $dur-3 $ease-out;
+  }
+
+  @include desktop {
+    inset: calc(#{$navbar-height} + #{$space-2}) max(#{$space-6}, calc((100vw - #{$container-max}) / 2 + #{$space-6})) auto auto;
+    max-height: min(640px, calc(100vh - #{$navbar-height} - #{$space-6}));
+    border-radius: $r-lg;
+    border: 0;
+    box-shadow: $shadow-pop;
+
+    @include motion {
+      animation: drop $dur-2 $ease-out;
+    }
+  }
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.head {
+  padding: $space-4 $space-4 $space-3;
+  border-bottom: 1px solid $line;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.title {
+  font-size: $fs-lg;
+}
+
+.unread {
+  @include chip;
+  height: 22px;
+  color: $signal-ink;
+  background: $signal;
+  border-color: transparent;
+}
+
+.close {
+  @include icon-button;
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+}
+
+.toolbar {
+  @include flex-between;
+  margin-top: $space-3;
+}
+
+.segment {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: $r-sm;
+  background: $surface-2;
+  border: 1px solid $line;
+}
+
+.segBtn {
+  height: 30px;
+  padding-inline: $space-3;
+  border-radius: 4px;
+  font-size: $fs-sm;
+  font-weight: 500;
+  color: $text-2;
+  @include focus-ring;
+}
+
+.segOn {
+  background: $surface;
+  color: $text;
+  box-shadow: 0 0 0 1px $line-2;
+}
+
+.textBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  height: 32px;
+  padding-inline: $space-2;
+  border-radius: $r-sm;
+  font-size: $fs-sm;
+  color: $text-2;
+  @include focus-ring;
+
+  &:hover:not(:disabled) {
+    color: $text;
+    background: $surface-2;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.permission {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  margin: $space-3 $space-4 0;
+  padding: $space-3;
+  border-radius: $r-sm;
+  background: $signal-soft;
+  color: $text;
+  font-size: $fs-sm;
+
+  p {
+    flex: 1;
+  }
+}
+
+.permBtn {
+  @include button-primary;
+  min-height: 32px;
+  padding-inline: $space-3;
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: $space-2;
+}
+
+.emptyWrap {
+  padding: $space-4 $space-2;
+}
+
+.item {
+  display: flex;
+  gap: $space-3;
+  width: 100%;
+  padding: $space-3;
+  border-radius: $r-sm;
+  text-align: left;
+  @include focus-ring;
+
+  &:hover {
+    background: $surface-2;
+  }
+}
+
+.itemUnread {
+  background: color-mix(in oklab, var(--surface-2) 60%, transparent);
+
+  .itemTitle {
+    color: $text;
+    font-weight: 600;
+  }
+}
+
+.kind {
+  position: relative;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: $text-3;
+}
+
+.live {
+  background: $signal;
+  box-shadow: 0 0 0 3px $signal-soft;
+}
+
+.moment {
+  background: $data;
+  box-shadow: 0 0 0 3px $data-soft;
+}
+
+.alert {
+  background: $warn;
+  box-shadow: 0 0 0 3px $warn-soft;
+}
+
+.result {
+  background: $text-2;
+  border-radius: 2px;
+}
+
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemMeta {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.kindWord {
+  @include eyebrow;
+}
+
+.liveText {
+  color: $signal-text;
+}
+
+.momentText {
+  color: $data;
+}
+
+.alertText {
+  color: $warn;
+}
+
+.resultText {
+  color: $text-2;
+}
+
+.time {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+}
+
+.itemTitle {
+  color: $text-2;
+  font-size: $fs-md;
+  line-height: $leading-snug;
+}
+
+.itemText {
+  font-size: $fs-sm;
+  color: $text-3;
+  @include truncate;
+}
+
+.foot {
+  @include flex-between;
+  padding: $space-2 $space-3;
+  border-top: 1px solid $line;
+}
+
+.footLink {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  height: 36px;
+  padding-inline: $space-2;
+  border-radius: $r-sm;
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: $text;
+  @include focus-ring;
+
+  &:hover {
+    background: $surface-2;
+  }
+}
+
+.footCount {
+  @include data-num;
+  font-size: $fs-xs;
+  font-weight: 400;
+  color: $text-3;
+}

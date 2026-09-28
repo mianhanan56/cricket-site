@@ -1,0 +1,135 @@
+@use 'component' as *;
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding: $space-4 $space-5;
+  @include panel;
+}
+
+.live,
+.climax {
+  border-color: color-mix(in oklab, var(--signal) 22%, var(--line));
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+}
+
+.series {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+  font-size: $fs-sm;
+  color: $text-3;
+  @include truncate;
+}
+
+.format {
+  @include chip;
+  height: 20px;
+  padding-inline: $space-1-5;
+  color: $text-2;
+  flex-shrink: 0;
+}
+
+.main {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $space-3;
+  border-radius: $r-sm;
+  @include focus-ring;
+
+  &:hover .code {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.teams {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.code {
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  font-size: $fs-lg;
+  white-space: nowrap;
+}
+
+.vs {
+  font-size: $fs-sm;
+  color: $text-3;
+  white-space: nowrap;
+}
+
+.score {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  @include display-num;
+  font-size: $fs-2xl;
+
+  small {
+    @include data-num;
+    font-size: $fs-xs;
+    font-weight: 500;
+    color: $text-3;
+  }
+}
+
+.equation {
+  font-stretch: $stretch-wide;
+  font-weight: 700;
+  font-size: $fs-base;
+}
+
+.tight {
+  color: $warn;
+}
+
+.figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2 $space-6;
+  padding-block: $space-3;
+  border-block: 1px solid $line;
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include data-num;
+    font-size: $fs-lg;
+    font-weight: 600;
+  }
+}
+
+.figTight dd {
+  color: $warn;
+}
+
+.figs .word {
+  font-family: $font-sans;
+  font-size: $fs-md;
+}
+
+.pulse {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.pulseEmpty {
+  min-height: 8px;
+}

@@ -2,46 +2,9 @@
 
 .page {
   @include container;
-  padding-block: $space-6 0; // footer carries its own top margin
+  padding-top: $space-4;
 
   @include sm {
-    padding-block: $space-10 0; // pt-10 (40px)
+    padding-top: $space-6;
   }
-}
-
-.section {
-  margin-top: $space-6;
-}
-
-.sectionTitle {
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: $space-3;
-}
-
-.sectionHead {
-  @include flex-between;
-  margin-bottom: $space-3;
-
-  .sectionTitle {
-    margin-bottom: 0;
-  }
-}
-
-.seeAll {
-  font-size: 14px;
-  color: $accent;
-  font-weight: 500;
-
-  &:hover {
-    color: $accent-green;
-  }
-}
-
-.emptyState {
-  @include card;
-  padding: $space-5;
-  text-align: center;
-  color: $text-muted;
-  font-size: 14px;
 }

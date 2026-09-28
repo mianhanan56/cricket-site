@@ -1,191 +1,274 @@
 @use 'component' as *;
 
-// Matches the original design's navbar exactly: sticky glass header (h-16),
-// gradient logo mark, text-sm nav links with surface-elevated hover.
 .navbar {
   position: fixed;
-  inset: 0 0 auto 0;
-  height: $navbar-height;
+  inset: 0 0 auto;
   z-index: $z-navbar;
-  background: $navbar-bg;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid $card-border;
+  height: $navbar-height;
+  background: var(--nav-bg);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-bottom: 1px solid $line;
 }
 
 .inner {
   @include container;
-  @include flex-between;
   height: 100%;
-  // At 320px the wordmark, the search pill and three controls have to share the
-  // row — a fixed 16px gap is what tips it over. It opens back up from 576.
-  gap: $space-2;
-
-  @include sm {
-    gap: $space-4; // gap-4 (16px)
-  }
-}
-
-.logo {
   display: flex;
   align-items: center;
-  gap: $space-2; // gap-2.5 from 576 up
-  min-width: 0; // let the wordmark truncate before the row overflows
-  flex-shrink: 1;
-
-  &:hover .logoMark {
-    box-shadow: 0 8px 26px -6px color-mix(in oklab, var(--accent-green) 75%, transparent);
-  }
-
-  @include sm {
-    gap: $space-2-5; // gap-2.5 (10px)
-  }
+  gap: $space-4;
 }
 
-.logoMark {
-  @include flex-center;
-  width: 32px;
-  height: 32px;
-  border-radius: $radius-xl; // rounded-xl (18px)
-  background: linear-gradient(135deg, $accent, $accent-purple);
-  color: $bg; // text-background
-  box-shadow: 0 6px 20px -8px color-mix(in oklab, var(--accent-green) 55%, transparent);
-  transition: box-shadow 0.2s ease;
+.brand {
+  display: inline-flex;
   flex-shrink: 0;
-
-  svg {
-    width: 18px;
-    height: 18px;
-  }
-
-  @include sm {
-    width: 36px; // w-9
-    height: 36px; // h-9
-
-    svg {
-      width: 20px; // w-5
-      height: 20px; // h-5
-    }
-  }
-}
-
-.logoText {
-  @include truncate(1);
-  font-family: $font-display;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.02em; // tracking-tight
-  color: $text-primary;
-
-  @include sm {
-    font-size: $text-lg; // text-lg (18px)
-  }
-}
-
-.logoAccent {
-  color: $accent; // text-primary (green) in the original
+  border-radius: $r-sm;
+  @include focus-ring;
 }
 
 .links {
-  // Mobile: slide-down glass panel, pinned to the viewport (not the container)
-  // so it spans the full width under the bar at every size.
-  position: fixed;
-  top: $navbar-height;
-  left: 0;
-  right: 0;
-  flex-direction: column;
-  gap: 0;
-  padding-inline: var(--gutter, #{$gutter});
-  background: $surface;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border-bottom: 1px solid $card-border;
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.25s ease;
-  display: flex;
+  display: none;
 
-  &.open {
-    // Capped to what's left of the viewport so a short landscape phone scrolls
-    // the menu instead of hiding its last item behind the fold.
-    max-height: calc(100dvh - #{$navbar-height});
-    overflow-y: auto;
-    padding-block: $space-2;
-  }
-
-  @include tablet {
-    position: static;
-    flex-direction: row;
-    gap: $space-1; // gap-1 (4px)
-    padding: 0;
-    background: none;
-    backdrop-filter: none;
-    border: none;
-    max-height: none;
-    overflow: visible;
-
-    &.open {
-      max-height: none;
-      overflow: visible;
-      padding: 0;
-    }
+  @include desktop {
+    display: flex;
+    align-items: center;
+    gap: $space-1;
+    margin-inline: auto;
   }
 }
 
 .link {
-  padding: $space-3 $space-4; // mobile: roomy tap target
-  color: $text-muted; // text-muted-foreground
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding-inline: $space-3;
+  border-radius: $r-sm;
+  font-size: $fs-md;
   font-weight: 500;
-  font-size: $text-sm; // text-sm (14px)
-  border-radius: $radius-lg; // rounded-lg (14px)
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
+  color: $text-2;
+  transition: color $dur-2 $ease-out, background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  // The active item stands on its own crease.
+  &::after {
+    content: '';
+    position: absolute;
+    left: $space-3;
+    right: $space-3;
+    bottom: -12px;
+    height: 1px;
+    background: $signal;
+    transform: scaleX(0);
+    transition: transform $dur-3 $ease-out;
+  }
 
   &:hover {
-    color: $navbar-text; // hover:text-foreground
-    background: $surface-elevated; // hover:bg-surface-elevated
+    color: $text;
+    background: $surface-2;
   }
 
   &.active {
-    color: $navbar-active;
-  }
+    color: $text;
 
-  @include tablet {
-    padding: $space-2 14px; // px-3.5 py-2
+    &::after {
+      transform: scaleX(1);
+    }
   }
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: $space-2; // gap-2 (8px)
-  flex-shrink: 0;
+  gap: $space-1;
+  margin-left: auto;
+
+  @include desktop {
+    margin-left: 0;
+  }
 }
 
-.burger {
-  @include flex-center;
-  flex-direction: column;
-  gap: 4px;
-  width: 36px;
+.desktopOnly {
+  display: none;
+
+  @include desktop {
+    display: inline-flex;
+  }
+}
+
+.search {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
   height: 40px;
-  flex-shrink: 0;
-  border-radius: $radius-lg;
-  color: $text-primary;
+  width: 40px;
+  justify-content: center;
+  border-radius: $r-sm;
+  color: $text-2;
+  transition: color $dur-2 $ease-out, border-color $dur-2 $ease-out, background-color $dur-2 $ease-out;
+  @include focus-ring;
 
   &:hover {
-    background: $surface-elevated;
-  }
-
-  span {
-    display: block;
-    width: 18px;
-    height: 2px;
-    background: currentColor;
-    border-radius: 2px;
+    color: $text;
+    background: $surface-2;
   }
 
   @include tablet {
-    display: none;
+    width: auto;
+    justify-content: flex-start;
+    min-width: 200px;
+    padding-inline: $space-3 $space-2;
+    background: $surface;
+    border: 1px solid $line;
+
+    &:hover {
+      border-color: $line-3;
+    }
+  }
+
+  @include desktop {
+    min-width: 168px;
+  }
+
+  @include wide {
+    min-width: 220px;
+  }
+}
+
+.searchLabel {
+  display: none;
+  font-size: $fs-md;
+  color: $text-3;
+
+  @include tablet {
+    display: inline;
+    margin-right: auto;
+  }
+}
+
+.kbd {
+  display: none;
+  @include data-num;
+  font-size: $fs-xs;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: $r-xs;
+  border: 1px solid $line-2;
+  color: $text-3;
+
+  @include tablet {
+    display: inline-grid;
+  }
+}
+
+.iconBtn {
+  @include icon-button;
+  position: relative;
+}
+
+.iconBtnOn {
+  color: $text;
+  background: $surface-2;
+  border-color: $line-2;
+}
+
+.badge {
+  position: absolute;
+  top: 5px;
+  right: 4px;
+  min-width: 17px;
+  height: 17px;
+  padding-inline: 4px;
+  display: grid;
+  place-items: center;
+  border-radius: $r-pill;
+  background: $signal;
+  color: $signal-ink;
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 2px $bg;
+}
+
+.profile {
+  position: relative;
+}
+
+.avatar {
+  @include flex-center;
+  width: 36px;
+  height: 36px;
+  margin-left: $space-1;
+  border-radius: 50%;
+  color: $text-2;
+  background: $surface-2;
+  border: 1px solid $line-2;
+  transition: border-color $dur-2 $ease-out, color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+    border-color: $line-3;
+  }
+}
+
+.avatarOn {
+  color: $text;
+  border-color: $signal;
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + #{$space-2});
+  min-width: 220px;
+  padding: $space-1-5;
+  border-radius: $r-md;
+  background: $surface;
+  box-shadow: $shadow-pop;
+  z-index: $z-popover;
+
+  @include motion {
+    animation: menu-in $dur-2 $ease-out;
+  }
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: $space-2-5;
+  height: 40px;
+  padding-inline: $space-2-5;
+  border-radius: $r-sm;
+  font-size: $fs-md;
+  color: $text-2;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+    background: $surface-2;
+  }
+}
+
+.menuCount {
+  margin-left: auto;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+:global([data-theme='light']) {
+  .link::after,
+  .item::before {
+    background: $signal-text;
   }
 }

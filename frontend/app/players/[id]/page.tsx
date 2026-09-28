@@ -6,20 +6,17 @@ import type {
   PlayerFormEntry,
   PlayerProfile,
 } from '@/types';
-import { getCrexPlayerProfile, teamLogoUrl } from '../../../lib/crex';
-import PlayerPortrait from '../../../components/player/PlayerPortrait';
-import TableScroll from '../../../components/ui/TableScroll';
-import { SERVER_ZONE, formatInZone } from '../../../lib/datetime';
-import BackButton from '../../../components/ui/BackButton';
+import { getCrexPlayerProfile, teamLogoUrl } from '@/lib/crex';
+import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
+import PlayerPortrait from '@/components/player/PlayerPortrait';
+import TableScroll from '@/components/ui/TableScroll';
+import BackButton from '@/components/ui/BackButton';
+import TeamBadge from '@/components/ui/TeamBadge';
+import FollowButton from '@/components/follow/FollowButton';
+import { SectionHead } from '@/components/ui/Section';
 import styles from './player.module.scss';
 
-// Ids here are crex player f_keys ("1IG", "FW") — the same ones every scorecard
-// line, squad list and ranking row already carries, so any name the app prints
-// can link straight here without a lookup.
-//
-// Freshness is set per-fetch rather than with a page-level `revalidate`, for the
-// same reason as /matches/[id] and /series/[id]: an ISR-cached route caches the
-// notFound() path too, which serves an unknown key as a soft 404.
+// Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
 const REVALIDATE = 3600;
 
 async function loadPlayer(id: string): Promise<PlayerProfile | null> {
@@ -30,8 +27,6 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   const player = await loadPlayer(params.id);
   if (!player) return { title: 'Player' };
 
-  // The best single line about a player is their strongest career row, and
-  // "strongest" is simply the one with the most runs or wickets behind it.
   const bat = [...player.batting].sort((a, b) => b.runs - a.runs)[0];
   const bowl = [...player.bowling].sort((a, b) => b.wickets - a.wickets)[0];
   const line = bat?.runs
@@ -52,139 +47,15 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   };
 }
 
-// A date of birth is a calendar date, not a moment: it is the same day in every
-// timezone, so it is formatted in a fixed zone rather than shifted into the
-// reader's — which would move a midnight birthday to the day before.
-function fmtDate(iso: string): string {
-  return formatInZone(iso, 'date', SERVER_ZONE);
-}
+// A birth date is a calendar date, so it is formatted in a fixed zone rather than shifted.
+const fmtDate = (iso: string) => formatInZone(iso, 'date', SERVER_ZONE);
+const fmtRate = (value: number) => (value > 0 ? value.toFixed(2) : '—');
+const fmtCount = (value: number | null) => (value === null ? '—' : String(value));
 
-/** Two decimals, but never "0.00" for a figure the player has not earned. */
-function fmtRate(value: number): string {
-  return value > 0 ? value.toFixed(2) : '—';
-}
-
-function fmtCount(value: number | null): string {
-  return value === null ? '—' : String(value);
-}
-
-/**
- * One collapsible block.
- *
- * Every reference section on this page is a `<details>`: the reader who came for
- * recent form can fold the career tables away, and the one who came for the
- * tables can fold the rest — without a line of client JS, and with keyboard and
- * screen-reader behaviour that comes free with the element. Sections open by
- * default, so nothing is hidden from a first-time reader (or a crawler) until
- * they choose to hide it.
- */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <details className={styles.block} open>
-      <summary className={styles.blockTitle}>
-        {title}
-        {/* Plus when shut, minus when open — the vertical stroke collapses into
-            the horizontal one. Two states that differ in shape, not just in
-            angle: a rotated chevron is the same glyph twice and reads as
-            decoration on a page of five stacked blocks. */}
-        <span className={styles.toggle} aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round">
-            <path d="M5 12h14" />
-            <path className={styles.stroke} d="M12 5v14" />
-          </svg>
-        </span>
-      </summary>
-      <div className={styles.blockBody}>{children}</div>
-    </details>
-  );
-}
-
-/**
- * One innings from the last ten, as a tile.
- *
- * The tile is the page's one bold element, so the milestone tiers are carried
- * here and nowhere else: a hundred or a five-wicket haul fills mint, a fifty or
- * a three-wicket haul outlines it, and everything else stays quiet. That makes a
- * player's form legible as a shape before a single number is read — which is the
- * whole point of putting ten innings in a row.
- */
-function FormTile({ entry, discipline }: { entry: PlayerFormEntry; discipline: 'batting' | 'bowling' }) {
-  // The figures are already composed, so the tier is read off the leading
-  // number: runs scored on a batting tile, wickets taken on a bowling one.
-  const lead = Number.parseInt(entry.figures, 10) || 0;
-  const tier =
-    discipline === 'batting'
-      ? lead >= 100
-        ? styles.landmark
-        : lead >= 50
-          ? styles.notable
-          : ''
-      : lead >= 5
-        ? styles.landmark
-        : lead >= 3
-          ? styles.notable
-          : '';
-
-  const body = (
-    <>
-      <span className={styles.formFigures}>
-        {entry.figures}
-        {entry.notOut && <span className={styles.formNotOut}>*</span>}
-      </span>
-      <span className={styles.formFixture}>{entry.fixture}</span>
-      {entry.format && <span className={styles.formFormat}>{entry.format}</span>}
-    </>
-  );
-
-  // An innings whose match crex no longer keys is still worth showing; it just
-  // has nothing to open.
-  return entry.matchId ? (
-    <Link href={`/matches/${entry.matchId}`} className={`${styles.formTile} ${tier}`}>
-      {body}
-    </Link>
-  ) : (
-    <div className={`${styles.formTile} ${styles.formInert} ${tier}`}>{body}</div>
-  );
-}
-
-function FormRail({
-  title,
-  entries,
-  discipline,
-}: {
-  title: string;
-  entries: PlayerFormEntry[];
-  discipline: 'batting' | 'bowling';
-}) {
-  if (!entries.length) return null;
-
-  return (
-    <div className={styles.formGroup}>
-      <h3 className={styles.formTitle}>{title}</h3>
-      <div className={styles.formRail}>
-        {entries.map((entry, i) => (
-          // crex sends one row per innings, and a Test gives a player two in the
-          // same match — the match key is not unique here, the position is.
-          <FormTile key={`${entry.matchId}-${i}`} entry={entry} discipline={discipline} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Career rows split into international and everything else.
- *
- * crex prints one undifferentiated list, and it reads as a ranking of the
- * player's competitions when it is nothing of the kind — 1,300 T20 Blast runs
- * sitting directly under 3,395 Test runs invites exactly the comparison that
- * makes no sense. Two groups, each with its own subtotal, is the same data
- * saying something true.
- */
+/** crex lists one undifferentiated set; international and club careers are not comparable. */
 function groupCareer<T extends { international: boolean }>(rows: T[]): Array<[string, T[]]> {
   const international = rows.filter((r) => r.international);
   const club = rows.filter((r) => !r.international);
-  // One group only: no headings, because there is nothing to tell apart.
   if (!international.length || !club.length) return [['', rows]];
   return [
     ['International', international],
@@ -192,19 +63,122 @@ function groupCareer<T extends { international: boolean }>(rows: T[]): Array<[st
   ];
 }
 
-/** Sum one column across every row. */
-function total<T>(rows: T[], pick: (row: T) => number): number {
-  return rows.reduce((sum, row) => sum + pick(row), 0);
+const total = <T,>(rows: T[], pick: (row: T) => number) => rows.reduce((sum, row) => sum + pick(row), 0);
+
+// ---------------------------------------------------------------- Form
+
+const BAR_H = 72;
+
+type Discipline = 'batting' | 'bowling';
+
+/** Leading number of crex's composed figures: runs on "22 (34)", wickets on "3-41". */
+const leadOf = (entry: PlayerFormEntry) => Number.parseInt(entry.figures, 10) || 0;
+
+function tierOf(lead: number, discipline: Discipline): 'landmark' | 'notable' | 'plain' {
+  const [notable, landmark] = discipline === 'batting' ? [50, 100] : [3, 5];
+  return lead >= landmark ? 'landmark' : lead >= notable ? 'notable' : 'plain';
 }
 
-/**
- * The highest score, linked to the innings it was made in where crex still keys
- * that match.
- */
+function FormStrip({ entries, discipline }: { entries: PlayerFormEntry[]; discipline: Discipline }) {
+  // crex sends newest first; the strip reads left to right in time.
+  const chrono = [...entries].reverse();
+  const scale = Math.max(discipline === 'batting' ? 100 : 5, ...chrono.map(leadOf));
+  const guides = (discipline === 'batting' ? [50, 100] : [3, 5]).filter((g) => g <= scale);
+  const y = (v: number) => BAR_H - (v / scale) * BAR_H;
+
+  return (
+    <div className={styles.strip}>
+      <ol className={styles.bars}>
+        {chrono.map((entry, i) => {
+          const lead = leadOf(entry);
+          const h = Math.max(2, (lead / scale) * BAR_H);
+          const figure = discipline === 'batting' ? `${lead}${entry.notOut ? '*' : ''}` : entry.figures.split(/\s/)[0];
+          const label = `${entry.figures}${entry.notOut ? ' not out' : ''}, ${entry.fixture}${entry.format ? `, ${entry.format}` : ''}`;
+          const body = (
+            <>
+              <svg className={styles.barSvg} viewBox={`0 0 20 ${BAR_H}`} preserveAspectRatio="none" aria-hidden="true">
+                {guides.map((g) => (
+                  <line key={g} x1="0" x2="20" y1={y(g)} y2={y(g)} className={styles.guide} />
+                ))}
+                <rect x="3" y={BAR_H - h} width="14" height={h} rx="1.5" className={styles[tierOf(lead, discipline)]} />
+              </svg>
+              <span className={styles.barFig}>{figure}</span>
+            </>
+          );
+          return (
+            <li key={`${entry.matchId}-${i}`} className={styles.barItem}>
+              {entry.matchId ? (
+                <Link href={`/matches/${entry.matchId}`} className={styles.bar} aria-label={label} title={label}>
+                  {body}
+                </Link>
+              ) : (
+                <span className={styles.bar} aria-label={label} title={label} role="img">
+                  {body}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+      <div className={styles.axis} aria-hidden="true">
+        <span>Older</span>
+        <span>Latest</span>
+      </div>
+    </div>
+  );
+}
+
+function FormList({ entries, discipline }: { entries: PlayerFormEntry[]; discipline: Discipline }) {
+  return (
+    <ol className={styles.formList}>
+      {entries.map((entry, i) => {
+        const tier = tierOf(leadOf(entry), discipline);
+        const body = (
+          <>
+            <span className={styles.formFig} data-tier={tier}>
+              {entry.figures}
+              {entry.notOut && <span className={styles.notOut}>*</span>}
+            </span>
+            <span className={styles.formFixture}>{entry.fixture}</span>
+            {entry.format && <span className={styles.formFormat}>{entry.format}</span>}
+            {entry.date && <span className={styles.formDate}>{fmtDate(entry.date)}</span>}
+          </>
+        );
+        return (
+          <li key={`${entry.matchId}-${i}`}>
+            {entry.matchId ? (
+              <Link href={`/matches/${entry.matchId}`} className={styles.formRow}>
+                {body}
+              </Link>
+            ) : (
+              <div className={styles.formRow}>{body}</div>
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function FormPanel({ title, entries, discipline }: { title: string; entries: PlayerFormEntry[]; discipline: Discipline }) {
+  if (!entries.length) return null;
+  return (
+    <section className={styles.formPanel} aria-label={`${title} form`}>
+      <h3 className={styles.panelTitle}>
+        {title}
+        <span className={styles.panelCount}>{entries.length}</span>
+      </h3>
+      <FormStrip entries={entries} discipline={discipline} />
+      <FormList entries={entries} discipline={discipline} />
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- Career
+
 function HighScore({ row }: { row: PlayerBattingCareer }) {
   if (!row.highScore) return <>—</>;
   if (!row.highScoreMatchId) return <>{row.highScore}</>;
-
   return (
     <Link href={`/matches/${row.highScoreMatchId}`} className={styles.cellLink}>
       {row.highScore}
@@ -213,16 +187,12 @@ function HighScore({ row }: { row: PlayerBattingCareer }) {
 }
 
 function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
-  const groups = groupCareer(rows);
-
   return (
     <TableScroll className={styles.tableWrap} label="Batting career by format">
       <table className={styles.table}>
         <thead>
           <tr>
-            <th className={styles.left} scope="col">
-              Format
-            </th>
+            <th scope="col">Format</th>
             <th scope="col">Mat</th>
             <th scope="col">Inn</th>
             <th scope="col">Runs</th>
@@ -236,20 +206,18 @@ function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
             <th scope="col">Ducks</th>
           </tr>
         </thead>
-        {groups.map(([label, group]) => (
+        {groupCareer(rows).map(([label, group]) => (
           <tbody key={label || 'all'}>
             {label && (
               <tr className={styles.groupRow}>
-                <th className={styles.left} colSpan={12} scope="colgroup">
+                <th colSpan={12} scope="colgroup">
                   {label}
                 </th>
               </tr>
             )}
             {group.map((r) => (
               <tr key={r.format}>
-                <th className={styles.left} scope="row">
-                  {r.format}
-                </th>
+                <th scope="row">{r.format}</th>
                 <td>{r.matches}</td>
                 <td>{r.innings}</td>
                 <td className={styles.figure}>{r.runs}</td>
@@ -267,29 +235,24 @@ function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
             ))}
           </tbody>
         ))}
-        {/* Career totals — only where there is more than one row to add up, and
-            only the columns that genuinely do: an average and a strike rate would
-            need dismissals and balls faced, which crex does not send per format,
-            so they are dashed rather than invented from the per-format figures. */}
+        {/* Averages and strike rates need dismissals and balls faced, which crex does not send per format. */}
         {rows.length > 1 && (
-        <tfoot>
-          <tr className={styles.totalRow}>
-            <th className={styles.left} scope="row">
-              Career
-            </th>
-            <td>{total(rows, (r) => r.matches)}</td>
-            <td>{total(rows, (r) => r.innings)}</td>
-            <td className={styles.figure}>{total(rows, (r) => r.runs)}</td>
-            <td>{Math.max(...rows.map((r) => r.highScore)) || '—'}</td>
-            <td>—</td>
-            <td>—</td>
-            <td>{total(rows, (r) => r.hundreds)}</td>
-            <td>{total(rows, (r) => r.fifties)}</td>
-            <td>{total(rows, (r) => r.fours)}</td>
-            <td>{total(rows, (r) => r.sixes)}</td>
-            <td>—</td>
-          </tr>
-        </tfoot>
+          <tfoot>
+            <tr>
+              <th scope="row">Career</th>
+              <td>{total(rows, (r) => r.matches)}</td>
+              <td>{total(rows, (r) => r.innings)}</td>
+              <td className={styles.figure}>{total(rows, (r) => r.runs)}</td>
+              <td>{Math.max(...rows.map((r) => r.highScore)) || '—'}</td>
+              <td>—</td>
+              <td>—</td>
+              <td>{total(rows, (r) => r.hundreds)}</td>
+              <td>{total(rows, (r) => r.fifties)}</td>
+              <td>{total(rows, (r) => r.fours)}</td>
+              <td>{total(rows, (r) => r.sixes)}</td>
+              <td>—</td>
+            </tr>
+          </tfoot>
         )}
       </table>
     </TableScroll>
@@ -297,16 +260,12 @@ function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
 }
 
 function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
-  const groups = groupCareer(rows);
-
   return (
     <TableScroll className={styles.tableWrap} label="Bowling career by format">
       <table className={styles.table}>
         <thead>
           <tr>
-            <th className={styles.left} scope="col">
-              Format
-            </th>
+            <th scope="col">Format</th>
             <th scope="col">Mat</th>
             <th scope="col">Inn</th>
             <th scope="col">Wkts</th>
@@ -318,20 +277,18 @@ function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
             <th scope="col">5W</th>
           </tr>
         </thead>
-        {groups.map(([label, group]) => (
+        {groupCareer(rows).map(([label, group]) => (
           <tbody key={label || 'all'}>
             {label && (
               <tr className={styles.groupRow}>
-                <th className={styles.left} colSpan={10} scope="colgroup">
+                <th colSpan={10} scope="colgroup">
                   {label}
                 </th>
               </tr>
             )}
             {group.map((r) => (
               <tr key={r.format}>
-                <th className={styles.left} scope="row">
-                  {r.format}
-                </th>
+                <th scope="row">{r.format}</th>
                 <td>{r.matches}</td>
                 <td>{r.innings}</td>
                 <td className={styles.figure}>{r.wickets}</td>
@@ -346,27 +303,27 @@ function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
           </tbody>
         ))}
         {rows.length > 1 && (
-        <tfoot>
-          <tr className={styles.totalRow}>
-            <th className={styles.left} scope="row">
-              Career
-            </th>
-            <td>{total(rows, (r) => r.matches)}</td>
-            <td>{total(rows, (r) => r.innings)}</td>
-            <td className={styles.figure}>{total(rows, (r) => r.wickets)}</td>
-            <td>—</td>
-            <td>—</td>
-            <td>—</td>
-            <td>—</td>
-            <td>{total(rows, (r) => r.threeWickets)}</td>
-            <td>{total(rows, (r) => r.fiveWickets)}</td>
-          </tr>
-        </tfoot>
+          <tfoot>
+            <tr>
+              <th scope="row">Career</th>
+              <td>{total(rows, (r) => r.matches)}</td>
+              <td>{total(rows, (r) => r.innings)}</td>
+              <td className={styles.figure}>{total(rows, (r) => r.wickets)}</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+              <td>{total(rows, (r) => r.threeWickets)}</td>
+              <td>{total(rows, (r) => r.fiveWickets)}</td>
+            </tr>
+          </tfoot>
         )}
       </table>
     </TableScroll>
   );
 }
+
+// ---------------------------------------------------------------- Page
 
 export default async function PlayerPage({ params }: { params: { id: string } }) {
   const player = await loadPlayer(params.id);
@@ -374,24 +331,15 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
   const crest = teamLogoUrl(player.countryKey ?? undefined);
 
-  // crex returns a row per competition it has ever listed the player under,
-  // played or not: a squad member who never got a game carries "T20I 0 0 0 —",
-  // and a batter carries nine bowling rows of zeros. Neither says anything, so a
-  // row has to have a match behind it to appear — and a bowling row has to have
-  // an over behind it, not just a cap.
+  // crex returns a row for every competition a player was ever listed under, played or not.
   const batting = player.batting.filter((r) => r.matches > 0);
   const bowling = player.bowling.filter((r) => r.innings > 0 || r.wickets > 0);
+  // A batter's handful of overs is not bowling form.
+  const recentBowling = bowling.length > 0 ? player.recentBowling : [];
+  const bestRank = player.rankings.length ? Math.min(...player.rankings.map((r) => r.position)) : null;
 
-  // The "About" block is a list of facts, and half of them are missing on a
-  // domestic debutant. Building it as rows keeps the empty ones out rather than
-  // printing a column of dashes.
-  //
-  // The third slot is a casing flag, not decoration: crex writes the traits in
-  // lower case ("right handed · opener") and the rest of the fields in their own
-  // ("Keighley, Yorkshire", "6 ft 1 in"). Capitalising the block wholesale is
-  // what turns a height into "6 Ft 1 In", so only the traits are marked.
-  const about: Array<[string, string, boolean?]> = [
-    ['Name', player.name],
+  // Third slot marks crex's lower-case traits for capitalising; other fields keep their own casing ("6 ft 1 in").
+  const about = [
     ['Gender', player.gender],
     ['Role', player.role],
     player.bats && ['Bats', player.bats, true],
@@ -408,138 +356,136 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
   return (
     <div className={styles.page}>
-      <BackButton />
+      <BackButton className={styles.back} fallback="/players" />
 
-      <header className={styles.head}>
-        <PlayerPortrait name={player.name} src={player.image} />
-
-        <div className={styles.identity}>
-          <h1 className={styles.name}>{player.name}</h1>
-
-          <p className={styles.meta}>
-            {player.countryShortName && (
-              <span className={styles.country}>
-                {crest && (
-                  /* eslint-disable-next-line @next/next/no-img-element -- see PlayerPortrait */
-                  <img src={crest} alt="" width={18} height={18} decoding="async" />
-                )}
-                {player.countryShortName}
-              </span>
-            )}
-            {player.age !== null && <span>{player.age} yrs</span>}
-            <span>{player.role}</span>
-          </p>
-
-          {/* A live ICC position is the one credential worth putting in a
-              header — it dates itself, and it is the only number here that
-              compares this player to every other. */}
-          {player.rankings.length > 0 && (
-            <ul className={styles.ranks}>
-              {player.rankings.map((r) => (
-                <li key={`${r.format}-${r.discipline}`} className={styles.rank}>
-                  <span className={styles.rankPos}>#{r.position}</span>
-                  {r.discipline} · {r.format}
-                </li>
-              ))}
-            </ul>
-          )}
+      <header className={styles.hero}>
+        <div className={styles.heroMain}>
+          <PlayerPortrait name={player.name} src={player.image} />
+          <div className={styles.identity}>
+            <span className={styles.eyebrow}>{player.role}</span>
+            <h1 className={styles.name}>{player.name}</h1>
+            <p className={styles.meta}>
+              {player.countryShortName && (
+                <span className={styles.country}>
+                  <TeamBadge name={player.countryShortName} shortName={player.countryShortName} logo={crest} size="xs" />
+                  {player.countryShortName}
+                </span>
+              )}
+              {player.age !== null && <span>{player.age} yrs</span>}
+            </p>
+          </div>
         </div>
+        <FollowButton kind="players" entity={{ id: player.id, name: player.name }} className={styles.follow} />
       </header>
 
-      {(player.recentBatting.length > 0 || (bowling.length > 0 && player.recentBowling.length > 0)) && (
-        <Section title="Recent form">
-          <FormRail title="Batting" entries={player.recentBatting} discipline="batting" />
-          {/* Same rule as the career table below: a batter who has bowled two
-              overs all season has a bowling rail full of 0-somethings, which is
-              not form. */}
-          {bowling.length > 0 && (
-            <FormRail title="Bowling" entries={player.recentBowling} discipline="bowling" />
-          )}
-        </Section>
-      )}
-
-      <Section title="About">
-        <dl className={styles.about}>
-          {about.map(([label, value, capitalize]) => (
-            <div key={label} className={styles.aboutRow}>
-              <dt>{label}</dt>
-              <dd className={capitalize ? styles.capitalize : undefined}>{value}</dd>
-            </div>
+      {player.rankings.length > 0 && (
+        <ul className={styles.ranks} aria-label="ICC rankings">
+          {player.rankings.map((r) => (
+            <li key={`${r.format}-${r.discipline}`} className={styles.rank} data-best={r.position === bestRank || undefined}>
+              <span className={styles.rankLabel}>ICC {r.format}</span>
+              <span className={styles.rankPos}>
+                <span className={styles.rankHash}>#</span>
+                {r.position}
+              </span>
+              <span className={styles.rankRole}>{r.discipline}</span>
+            </li>
           ))}
-        </dl>
-
-        {player.teams.length > 0 && (
-          <div className={styles.teams}>
-            <h3 className={styles.teamsTitle}>Teams</h3>
-            <ul className={styles.teamList}>
-              {player.teams.map((team) => (
-                <li key={team}>{team}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {(player.instagram || player.twitter) && (
-          <ul className={styles.social}>
-            {player.instagram && (
-              <li>
-                <a
-                  href={`https://instagram.com/${player.instagram}`}
-                  rel="noopener noreferrer nofollow"
-                  target="_blank"
-                >
-                  Instagram
-                </a>
-              </li>
-            )}
-            {player.twitter && (
-              <li>
-                <a
-                  href={`https://x.com/${player.twitter}`}
-                  rel="noopener noreferrer nofollow"
-                  target="_blank"
-                >
-                  X / Twitter
-                </a>
-              </li>
-            )}
-          </ul>
-        )}
-      </Section>
-
-      {batting.length > 0 && (
-        <Section title="Career batting">
-          <BattingCareer rows={batting} />
-        </Section>
+        </ul>
       )}
 
-      {bowling.length > 0 && (
-        <Section title="Career bowling">
-          <BowlingCareer rows={bowling} />
-        </Section>
-      )}
-
-      {player.debuts.length > 0 && (
-        <Section title="Career debuts">
-          <dl className={styles.debuts}>
-            {player.debuts.map((d) => (
-              <div key={d.format} className={styles.debutRow}>
-                <dt>{d.format}</dt>
-                <dd>
-                  {d.matchId ? (
-                    <Link href={`/matches/${d.matchId}`} className={styles.cellLink}>
-                      {d.fixture}
-                    </Link>
-                  ) : (
-                    d.fixture
-                  )}
-                </dd>
+      <div className={styles.layout}>
+        <div className={styles.main}>
+          {(player.recentBatting.length > 0 || recentBowling.length > 0) && (
+            <section className={styles.section}>
+              <SectionHead title="Recent form" />
+              <div className={styles.formGrid}>
+                <FormPanel title="Batting" entries={player.recentBatting} discipline="batting" />
+                <FormPanel title="Bowling" entries={recentBowling} discipline="bowling" />
               </div>
-            ))}
-          </dl>
-        </Section>
-      )}
+            </section>
+          )}
 
+          {batting.length > 0 && (
+            <section className={styles.section}>
+              <SectionHead title="Career batting" />
+              <BattingCareer rows={batting} />
+            </section>
+          )}
+
+          {bowling.length > 0 && (
+            <section className={styles.section}>
+              <SectionHead title="Career bowling" />
+              <BowlingCareer rows={bowling} />
+            </section>
+          )}
+        </div>
+
+        <aside className={styles.side}>
+          <section className={styles.section}>
+            <SectionHead title="About" level={3} />
+            <div className={styles.card}>
+              <dl className={styles.about}>
+                {about.map(([label, value, capitalize]) => (
+                  <div key={label} className={styles.aboutRow}>
+                    <dt>{label}</dt>
+                    <dd className={capitalize ? styles.capitalize : undefined}>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {player.teams.length > 0 && (
+                <div className={styles.cardBlock}>
+                  <h4 className={styles.blockLabel}>Teams</h4>
+                  <ul className={styles.teamList}>
+                    {player.teams.map((team) => (
+                      <li key={team}>{team}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {(player.instagram || player.twitter) && (
+                <ul className={`${styles.cardBlock} ${styles.social}`}>
+                  {player.instagram && (
+                    <li>
+                      <a href={`https://instagram.com/${player.instagram}`} rel="noopener noreferrer nofollow" target="_blank">
+                        Instagram
+                      </a>
+                    </li>
+                  )}
+                  {player.twitter && (
+                    <li>
+                      <a href={`https://x.com/${player.twitter}`} rel="noopener noreferrer nofollow" target="_blank">
+                        X / Twitter
+                      </a>
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
+          </section>
+
+          {player.debuts.length > 0 && (
+            <section className={styles.section}>
+              <SectionHead title="Debuts" level={3} />
+              <ol className={styles.debuts}>
+                {player.debuts.map((d) => (
+                  <li key={d.format} className={styles.debutRow}>
+                    <span className={styles.debutFormat}>{d.format}</span>
+                    {d.matchId ? (
+                      <Link href={`/matches/${d.matchId}`} className={styles.debutFixture}>
+                        {d.fixture}
+                      </Link>
+                    ) : (
+                      <span className={styles.debutFixture}>{d.fixture}</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

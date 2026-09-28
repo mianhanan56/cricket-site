@@ -1,19 +1,18 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { HeadToHeadMatch, Match, TeamProfile } from '@/types';
+import type { HeadToHeadMatch, PlayerRole, SquadPlayer, TeamProfile, TeamRankingPosition } from '@/types';
 import { getCrexTeamProfile } from '../../../lib/crex';
-import RankingCrest from '../../../components/rankings/RankingCrest';
+import TeamBadge from '../../../components/ui/TeamBadge';
 import LocalTime from '../../../components/ui/LocalTime';
 import BackButton from '../../../components/ui/BackButton';
+import EmptyState from '../../../components/ui/EmptyState';
+import { SectionHead } from '../../../components/ui/Section';
+import UpcomingRail from '../../../components/home/UpcomingRail';
+import FollowButton from '../../../components/follow/FollowButton';
 import styles from './team.module.scss';
 
-// Keys here are crex team f_keys ("2Y", "1GK") — the same ones on every
-// scorecard, schedule row, points-table line and team-ranking row. Every side in
-// the app was named and unopenable before this page existed.
-//
-// Freshness is set per-fetch rather than with a page-level `revalidate`, for the
-// same reason as /matches/[id], /series/[id] and /players/[id]: an ISR-cached
-// route caches the notFound() path too, serving an unknown key as a soft 404.
+// Per-fetch freshness rather than page-level `revalidate`: ISR would cache the
+// notFound() path too, serving an unknown key as a soft 404.
 const REVALIDATE = 1800;
 
 async function loadTeam(key: string): Promise<TeamProfile | null> {
@@ -41,11 +40,42 @@ export async function generateMetadata({ params }: { params: { key: string } }) 
   };
 }
 
-
-
 const FORM_WORD = { W: 'won', L: 'lost', N: 'no result' } as const;
+const FIXTURES_SHOWN = 6;
+const RESULTS_SHOWN = 8;
 
-/** The side's last five, most recent first. Shares the table's vocabulary. */
+const rankingsHref = (r: TeamRankingPosition) =>
+  `/rankings?group=teams&format=${r.format.toLowerCase()}&gender=${r.gender.toLowerCase()}`;
+
+function ShownOf({ shown, total }: { shown: number; total: number }) {
+  return <span className={styles.shown}>{shown < total ? `${shown} of ${total}` : total}</span>;
+}
+
+/** The club's own colours as an SVG wash — attributes, not inline style. */
+function ColourWash({ primary, secondary }: { primary: string | null; secondary: string | null }) {
+  if (!primary && !secondary) return null;
+  return (
+    <svg className={styles.wash} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        {primary && (
+          <radialGradient id="team-wash-p" cx="0.08" cy="0" r="0.75">
+            <stop offset="0" stopColor={primary} stopOpacity="0.34" />
+            <stop offset="1" stopColor={primary} stopOpacity="0" />
+          </radialGradient>
+        )}
+        {secondary && (
+          <radialGradient id="team-wash-s" cx="0.96" cy="1" r="0.6">
+            <stop offset="0" stopColor={secondary} stopOpacity="0.22" />
+            <stop offset="1" stopColor={secondary} stopOpacity="0" />
+          </radialGradient>
+        )}
+      </defs>
+      {primary && <rect width="100" height="100" fill="url(#team-wash-p)" />}
+      {secondary && <rect width="100" height="100" fill="url(#team-wash-s)" />}
+    </svg>
+  );
+}
+
 function FormStrip({ form }: { form: Array<'W' | 'L' | 'N'> }) {
   return (
     <span className={styles.form}>
@@ -53,7 +83,7 @@ function FormStrip({ form }: { form: Array<'W' | 'L' | 'N'> }) {
         Last {form.length}, most recent first: {form.map((f) => FORM_WORD[f]).join(', ')}
       </span>
       {form.map((f, i) => (
-        <span className={styles.formDot} data-result={f} key={i} aria-hidden="true">
+        <span className={styles.token} data-result={f} key={i} aria-hidden="true">
           {f}
         </span>
       ))}
@@ -61,80 +91,72 @@ function FormStrip({ form }: { form: Array<'W' | 'L' | 'N'> }) {
   );
 }
 
-/**
- * One finished match, from this side's point of view.
- *
- * The outcome chip is drawn from `winnerKey` and not from the result text, so a
- * meeting crex worded in a way `attributeResult` cannot read shows the sentence
- * without a W or an L beside it — rather than being filed as a loss.
- */
-function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string }) {
-  const outcome = match.winnerKey ? (match.winnerKey === teamKey ? 'W' : 'L') : null;
-
-  const body = (
-    <>
-      <span className={styles.resultMark} data-result={outcome ?? 'N'}>
-        {outcome ?? '·'}
-      </span>
-      <span className={styles.rowMain}>
-        <span className={styles.rowTop}>{match.result}</span>
-        <span className={styles.rowMeta}>
-          <LocalTime iso={match.startTime} format="date" /> · {match.series}
-          {match.venue !== 'TBD' && ` · ${match.venue}`}
-        </span>
-      </span>
-      <span className={styles.rowFormat}>{match.format}</span>
-    </>
-  );
-
-  return match.id ? (
-    <Link href={`/matches/${match.id}`} className={styles.row}>
-      {body}
-    </Link>
-  ) : (
-    <div className={`${styles.row} ${styles.rowInert}`}>{body}</div>
-  );
-}
-
-/** One scheduled match. The opponent is whichever side is not this one. */
-function FixtureRow({ match, teamKey }: { match: Match; teamKey: string }) {
-  const opponent = match.homeTeam.id === teamKey ? match.awayTeam : match.homeTeam;
-
-  const body = (
-    <>
-      <span className={styles.vs}>vs</span>
-      <span className={styles.rowMain}>
-        <span className={styles.rowTop}>{opponent.name}</span>
-        <span className={styles.rowMeta}>
-          <LocalTime iso={match.startTime} format="dayTime" /> · {match.series.name}
-          {match.venue !== 'TBD' && ` · ${match.venue}`}
-        </span>
-      </span>
-      <span className={styles.rowFormat}>{match.format}</span>
-    </>
-  );
-
-  // Both kinds of id open: a crex match key where crex has allocated one, and
-  // the fixture's preview id where it has not.
+/** Splits "IND Won by 6 wickets" so the winner carries the weight; anything else prints whole. */
+function ResultText({ text }: { text: string }) {
+  const m = /^(.+?)\s+(won\b.*)$/i.exec(text);
+  if (!m) return <span className={styles.resultText}>{text}</span>;
   return (
-    <Link href={`/matches/${match.id}`} className={styles.row}>
-      {body}
-    </Link>
+    <span className={styles.resultText}>
+      <strong className={styles.winner}>{m[1]}</strong> {m[2]}
+    </span>
   );
 }
 
-/** Fixtures listed. Beyond this it is a schedule, and /fixtures is the schedule. */
-const FIXTURES_SHOWN = 6;
-/** Results listed. */
-const RESULTS_SHOWN = 8;
+// Outcome from `winnerKey`, never the sentence, so unattributable wording gets a
+// neutral mark instead of being filed as a loss.
+function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string }) {
+  const outcome = match.winnerKey ? (match.winnerKey === teamKey ? 'W' : 'L') : 'N';
+  const body = (
+    <>
+      <span className={styles.token} data-result={outcome} data-size="lg">
+        <span aria-hidden="true">{outcome === 'N' ? '·' : outcome}</span>
+        <span className={styles.srOnly}>{outcome === 'W' ? 'Won' : outcome === 'L' ? 'Lost' : 'No decision'}</span>
+      </span>
+      <span className={styles.resultMain}>
+        <ResultText text={match.result} />
+        <span className={styles.resultMeta}>
+          <LocalTime iso={match.startTime} format="date" />
+          <span className={styles.fmt}>{match.format}</span>
+          <span className={styles.series}>{match.series}</span>
+          {match.venue !== 'TBD' && <span className={styles.venue}>{match.venue}</span>}
+        </span>
+      </span>
+    </>
+  );
 
-/**
- * A section's count chip: the real total, and what is actually on screen when the
- * list is a slice of it. "8" above eight rows drawn from fourteen results is the
- * kind of number a reader reasonably trusts and should not.
- */
-const shownOf = (shown: number, total: number): string =>
-  shown < total ? `${shown} of ${total}` : String(total);
+  return (
+    <li data-outcome={outcome}>
+      {match.id ? (
+        <Link href={`/matches/${match.id}`} className={styles.resultRow}>
+          {body}
+        </Link>
+      ) : (
+        <div className={styles.resultRow}>{body}</div>
+      )}
+    </li>
+  );
+}
+
+const ROLE_ORDER: PlayerRole[] = ['BATSMAN', 'WK', 'ALL_ROUNDER', 'BOWLER'];
+const ROLE_LABEL: Record<PlayerRole, string> = {
+  BATSMAN: 'Batters',
+  WK: 'Wicket-keepers',
+  ALL_ROUNDER: 'All-rounders',
+  BOWLER: 'Bowlers',
+};
+
+// The squad source only marks keepers; everyone else arrives as BATSMAN by
+// default, so that group is only called "Batters" when real roles are present.
+function squadGroups(squad: SquadPlayer[]) {
+  const hasRealRoles = squad.some((p) => p.role === 'BOWLER' || p.role === 'ALL_ROUNDER');
+  return ROLE_ORDER.map((role) => ({
+    role,
+    label: role === 'BATSMAN' && !hasRealRoles ? 'Players' : ROLE_LABEL[role],
+    players: squad
+      .filter((p) => p.role === role)
+      .sort((a, b) => Number(!!b.isCaptain) - Number(!!a.isCaptain)),
+  })).filter((g) => g.players.length);
+}
 
 export default async function TeamPage({ params }: { params: { key: string } }) {
   const profile = await loadTeam(params.key);
@@ -142,140 +164,128 @@ export default async function TeamPage({ params }: { params: { key: string } }) 
 
   const { team, colors, rankings, upcoming, recent, form, squad, squadSeries } = profile;
 
-  // The club's own colours, handed to CSS as data rather than as styling — the
-  // same shape WinProbability uses for its split. Every rule that reads them
-  // lives in the stylesheet; only the two values crex knows and SCSS cannot are
-  // here. Both are optional: a side crex has no colours for falls back to the
-  // app's own accent, declared in the module.
-  const tint = {
-    ...(colors.primary ? { '--team-primary': colors.primary } : {}),
-    ...(colors.secondary ? { '--team-secondary': colors.secondary } : {}),
-  } as React.CSSProperties;
-
-  // Counted three ways, not two. `recent.length - won` would file a result this
-  // could not attribute — "GAW Won (DLS Method)", which names no margin — as a
-  // loss, and a record that quietly converts unknowns into defeats is the exact
-  // failure the rest of this feature is built to avoid.
+  // Counted three ways: an unattributable result is neither a win nor a loss.
   const won = recent.filter((m) => m.winnerKey === team.id).length;
   const lost = recent.filter((m) => m.winnerKey && m.winnerKey !== team.id).length;
-  const unread = recent.length - won - lost;
+  const hasStrip = rankings.length > 0 || form.length > 0;
+  const groups = squadGroups(squad);
 
   return (
     <div className={styles.page}>
-      <BackButton />
+      <div className={styles.back}>
+        <BackButton />
+      </div>
 
-      {/* The signature element: the hero carries the side's OWN colours, so a
-          CPL franchise's page looks like that franchise rather than like the
-          site's mint accent for the fifth time. Everything below the hero stays
-          on the app's palette — one bold element, disciplined around it. */}
-      <header className={styles.hero} style={tint} data-tinted={colors.primary ? '' : undefined}>
-        <div className={styles.heroWash} aria-hidden="true" />
+      <header className={styles.hero}>
+        <ColourWash primary={colors.primary} secondary={colors.secondary} />
 
         <div className={styles.heroMain}>
-          <div className={styles.crestBox}>
-            <RankingCrest name={team.name} shortName={team.shortName} logo={team.logo} size="lg" />
-          </div>
-
+          <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="xl" className={styles.crest} />
           <div className={styles.heroText}>
-            <p className={styles.eyebrow}>{team.shortName}</p>
-            <h1 className={styles.heading}>{team.name}</h1>
+            <span className={styles.eyebrow}>{team.shortName}</span>
+            <h1 className={styles.title}>{team.name}</h1>
+          </div>
+          <div className={styles.heroAction}>
+            <FollowButton
+              kind="teams"
+              entity={{ id: team.id, name: team.name, shortName: team.shortName, logo: team.logo }}
+            />
+          </div>
+        </div>
 
+        {hasStrip && (
+          <div className={styles.strip}>
+            {rankings.map((r) => (
+              <Link key={`${r.gender}-${r.format}`} href={rankingsHref(r)} className={styles.cell}>
+                <span className={styles.cellLabel}>
+                  ICC {r.format}
+                  {r.gender === 'WOMEN' && ' · Women'}
+                </span>
+                <span className={styles.cellValue}>#{r.position}</span>
+                <span className={styles.cellSub}>Rating {r.rating}</span>
+              </Link>
+            ))}
             {form.length > 0 && (
-              <div className={styles.heroForm}>
+              <div className={`${styles.cell} ${styles.formCell}`}>
+                <span className={styles.cellLabel}>Form</span>
                 <FormStrip form={form} />
-                <span className={styles.heroRecord}>
-                  {won}–{lost} from {recent.length}
-                  {unread > 0 && ` · ${unread} unread`}
+                <span className={styles.cellSub}>
+                  {won}–{lost} in last {recent.length}
                 </span>
               </div>
             )}
           </div>
-        </div>
-
-        {rankings.length > 0 && (
-          <ul className={styles.rankStrip}>
-            {rankings.map((r) => (
-              <li key={`${r.gender}-${r.format}`} className={styles.rankChip}>
-                <span className={styles.rankPos}>#{r.position}</span>
-                <span className={styles.rankLabel}>
-                  {r.format}
-                  {r.gender === 'WOMEN' && <span className={styles.rankGender}>W</span>}
-                </span>
-                <span className={styles.rankRating}>{r.rating}</span>
-              </li>
-            ))}
-          </ul>
         )}
       </header>
 
-      {upcoming.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            Fixtures
-            <span className={styles.sectionCount}>
-              {shownOf(Math.min(upcoming.length, FIXTURES_SHOWN), upcoming.length)}
-            </span>
-          </h2>
-          <div className={styles.list}>
-            {upcoming.slice(0, FIXTURES_SHOWN).map((m) => (
-              <FixtureRow match={m} teamKey={team.id} key={m.id} />
+      {(upcoming.length > 0 || recent.length > 0) && (
+        <div className={styles.columns}>
+          {upcoming.length > 0 && (
+            <section className={styles.section} aria-labelledby="team-upcoming">
+              <SectionHead id="team-upcoming" title="Upcoming">
+                <ShownOf shown={Math.min(upcoming.length, FIXTURES_SHOWN)} total={upcoming.length} />
+              </SectionHead>
+              <UpcomingRail matches={upcoming} limit={FIXTURES_SHOWN} />
+            </section>
+          )}
+
+          {recent.length > 0 && (
+            <section className={styles.section} aria-labelledby="team-results">
+              <SectionHead id="team-results" title="Results">
+                <ShownOf shown={Math.min(recent.length, RESULTS_SHOWN)} total={recent.length} />
+              </SectionHead>
+              <ul className={styles.results}>
+                {recent.slice(0, RESULTS_SHOWN).map((m) => (
+                  <ResultRow match={m} teamKey={team.id} key={m.key} />
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+      )}
+
+      {groups.length > 0 && (
+        <section className={styles.section} aria-labelledby="team-squad">
+          <SectionHead
+            id="team-squad"
+            title="Squad"
+            count={squad.length}
+            action={squadSeries ? { href: `/series/${squadSeries.id}`, label: squadSeries.name } : undefined}
+          />
+          <div className={styles.squad}>
+            {groups.map((g) => (
+              <div key={g.role} className={styles.group}>
+                <h3 className={styles.groupTitle}>
+                  {g.label}
+                  <span className={styles.groupCount}>{g.players.length}</span>
+                </h3>
+                <ul className={styles.players}>
+                  {g.players.map((p) => (
+                    <li key={p.id}>
+                      <Link href={`/players/${p.id}`} className={styles.player}>
+                        <span className={styles.playerName}>{p.name}</span>
+                        {p.isCaptain && (
+                          <span className={styles.tag} title="Captain">
+                            C
+                          </span>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ))}
           </div>
         </section>
       )}
 
-      {recent.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            Recent results
-            <span className={styles.sectionCount}>
-              {shownOf(Math.min(recent.length, RESULTS_SHOWN), recent.length)}
-            </span>
-          </h2>
-          <div className={styles.list}>
-            {recent.slice(0, RESULTS_SHOWN).map((m) => (
-              <ResultRow match={m} teamKey={team.id} key={m.key} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {squad.length > 0 && (
-        <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>
-            Squad
-            {squadSeries && (
-              <Link href={`/series/${squadSeries.id}`} className={styles.sectionLink}>
-                {squadSeries.name}
-              </Link>
-            )}
-          </h2>
-          <ul className={styles.squad}>
-            {squad.map((p) => (
-              <li key={p.id} className={styles.squadItem}>
-                <Link href={`/players/${p.id}`} className={styles.squadName}>
-                  {p.name}
-                </Link>
-                {(p.isCaptain || p.role === 'WK') && (
-                  <span className={styles.squadRole}>
-                    {p.isCaptain ? 'c' : ''}
-                    {p.isCaptain && p.role === 'WK' ? ' · ' : ''}
-                    {p.role === 'WK' ? 'wk' : ''}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* A side crex names but has nothing scheduled or recorded for inside the
-          window. Real, and common between tours — so it is a page that says so
-          rather than a 404. */}
       {!upcoming.length && !recent.length && !squad.length && (
-        <p className={styles.empty}>
-          No fixtures, results or squad listed for {team.name} right now.
-        </p>
+        <EmptyState
+          icon="calendar"
+          title={`Nothing scheduled for ${team.name} right now`}
+          action={{ label: 'Browse teams', href: '/teams' }}
+          secondary={{ label: 'Full schedule', href: '/fixtures' }}
+        />
       )}
     </div>
   );

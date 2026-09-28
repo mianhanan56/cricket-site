@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import type { Match } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
@@ -9,156 +10,51 @@ import {
   filterByMatchType,
   matchTypeKey,
   parseMatchType,
+  type MatchType,
   type MatchTypeKey,
 } from '@/lib/matchType';
 import type { HomeTab } from '@/lib/tabs';
-import FilterSelect from '../ui/FilterSelect';
-import MatchCard from './MatchCard';
-import { MatchCarouselSkeleton } from './HomeSkeleton';
+import { rankLive } from '@/lib/featured';
+import { useFollows } from '@/lib/follows';
+import LiveHero from './LiveHero';
+import NextUpHero from './NextUpHero';
+import ScoreTicker from './ScoreTicker';
+import UpcomingRail from './UpcomingRail';
+import ResultList from './ResultList';
+import MyCricketBand from './MyCricketBand';
+import MatchTile from '../match/MatchTile';
+import Segmented from '../ui/Segmented';
+import EmptyState from '../ui/EmptyState';
+import Icon from '../ui/Icon';
+import ErrorState from '../ui/ErrorState';
+import { SectionHead } from '../ui/Section';
+import { HeroSkeleton, BoardSkeleton } from './HomeSkeleton';
 import styles from './HomeMatches.module.scss';
 
-type Tab = HomeTab;
+// A Test between days stays out of "Live" — nothing is being played until tomorrow.
+const isAtStumps = (m: Match) => m.note?.kind === 'STUMPS';
 
-/**
- * A Test between days: the match is live, but no cricket is being played and none
- * will be until tomorrow.
- *
- * Those come out of the "Live" tab, which reads as "on right now". They are not
- * finished either, and the status logic is careful never to call them that — so
- * they stay in the catch-all "Matches" tab (and out of "Finished") until the last
- * day is done, and rejoin "Live" the moment the next day's play starts.
- *
- * Only stumps. A drinks break or an innings break is a pause of minutes inside a
- * session someone is watching, and dropping a match off the live tab for those
- * would make the tab flicker. crex draws the same line on its own home page.
- */
-function isAtStumps(match: Match): boolean {
-  return match.note?.kind === 'STUMPS';
-}
-
-// "Finished" surfaces every match completed in the last 7 days. The crex feed
-// arrives unfiltered, so the window is applied here.
 const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-
-function FlameIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-    </svg>
-  );
-}
-function CalendarIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="3" y="4" width="18" height="18" rx="2" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-  );
-}
-function CheckCircleIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-      <path d="M22 4 12 14.01l-3-3" />
-    </svg>
-  );
-}
-function LayersIcon() {
-  return (
-    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="m12 2 9 5-9 5-9-5 9-5z" />
-      <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
-    </svg>
-  );
-}
-function ChevronIcon({ dir }: { dir: 'left' | 'right' }) {
-  return (
-    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d={dir === 'left' ? 'M15 18l-6-6 6-6' : 'M9 18l6-6-6-6'} />
-    </svg>
-  );
-}
-
-// Horizontal, scroll-snapping carousel. Cards never wrap; the track shows 3
-// cards on desktop, 2 on tablet, 1 on mobile, and the arrows live in dedicated
-// side gutters so they never overlap or shrink the cards. `resetKey` scrolls
-// back to the start whenever it changes (e.g. switching tabs).
-function Carousel({ children, resetKey }: { children: ReactNode; resetKey: string }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [atStart, setAtStart] = useState(true);
-  const [atEnd, setAtEnd] = useState(false);
-
-  const sync = useCallback(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    setAtStart(el.scrollLeft <= 1);
-    setAtEnd(el.scrollLeft >= maxScroll - 1);
-  }, []);
-
-  // Re-evaluate arrow state when the content (tab) changes, and reset to start.
-  useEffect(() => {
-    const el = trackRef.current;
-    if (el) el.scrollLeft = 0;
-    sync();
-  }, [resetKey, sync]);
-
-  const scroll = useCallback((dir: number) => {
-    const el = trackRef.current;
-    if (!el) return;
-    // Advance by one full "page" of visible cards.
-    el.scrollBy({ left: el.clientWidth * dir, behavior: 'smooth' });
-  }, []);
-
-  return (
-    <div className={styles.slider}>
-      <button
-        type="button"
-        className={`${styles.arrow} ${styles.left}`}
-        onClick={() => scroll(-1)}
-        disabled={atStart}
-        aria-label="Previous"
-      >
-        <ChevronIcon dir="left" />
-      </button>
-
-      <div className={styles.track} ref={trackRef} onScroll={sync}>
-        {children}
-      </div>
-
-      <button
-        type="button"
-        className={`${styles.arrow} ${styles.right}`}
-        onClick={() => scroll(1)}
-        disabled={atEnd}
-        aria-label="Next"
-      >
-        <ChevronIcon dir="right" />
-      </button>
-    </div>
-  );
-}
+// The overview is a summary: the next few and the last few, the rest a click away.
+const UPCOMING_PREVIEW = 5;
+const RESULTS_PREVIEW = 5;
 
 export interface HomeMatchesProps {
-  /** Active tab from the URL; '' means "follow the data". */
-  initialTab: Tab | '';
+  /** Active tab from the URL; '' means the overview. */
+  initialTab: HomeTab | '';
   initialType: MatchTypeKey;
 }
 
 export default function HomeMatches({ initialTab, initialType }: HomeMatchesProps) {
-  // The crex Worker is the only source here — nothing is server-rendered, so
-  // `isLoading` covers the first poll and placeholders stand in for it.
-  const { matches, isLoading: crexLoading } = useCrexMatches();
-
-  // Tab and type both live in the URL: /?tab=upcoming&type=international.
+  const { matches, isLoading, error, refresh, isRefreshing } = useCrexMatches();
+  const follows = useFollows();
   const [{ tab: picked, type: typeKey }, setQuery] = useQueryTabs(
     { tab: initialTab, type: initialType },
     { type: 'all' }
   );
   const type = parseMatchType(typeKey);
+  const [featuredId, setFeaturedId] = useState<string | null>(null);
 
-  // The type filter is applied before the lists are split, so the stat tiles
-  // count what the carousel will actually show.
   const scoped = useMemo(() => filterByMatchType(matches, type), [matches, type]);
 
   const { liveList, upcomingList, finishedList } = useMemo(() => {
@@ -174,122 +70,159 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
     };
   }, [scoped]);
 
-  // The catch-all list: everything crex is carrying, in the order a reader cares
-  // about it — in progress, then next up, then just-finished. Deliberately built
-  // from `scoped` rather than by concatenating the three lists above, so a result
-  // older than the "Finished" window still appears here instead of vanishing.
+  // Every live match, stumps included, for the stage and the ticker.
+  const onStage = useMemo(
+    () =>
+      rankLive(
+        scoped.filter((m) => m.status === 'LIVE'),
+        new Set(follows.teams.map((t) => t.id))
+      ),
+    [scoped, follows.teams]
+  );
+  const featured = onStage.find((m) => m.id === featuredId) ?? onStage[0] ?? null;
+
   const allList = useMemo(() => {
     const rank: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
     return [...scoped].sort(
       (a, b) =>
         rank[a.status] - rank[b.status] ||
-        // Soonest first while a match is still ahead of us, most recent first
-        // once it isn't.
         (a.status === 'UPCOMING'
           ? +new Date(a.startTime) - +new Date(b.startTime)
           : +new Date(b.startTime) - +new Date(a.startTime))
     );
   }, [scoped]);
 
-  // The opening tab follows the data until the reader picks one themselves —
-  // and a pick is now a URL param, so it also survives a reload or a share.
-  const auto: Tab = liveList.length ? 'live' : upcomingList.length ? 'upcoming' : 'finished';
-  const tab: Tab = picked || auto;
-  const setTab = (next: Tab) => setQuery({ tab: next });
+  const tab: HomeTab | 'overview' = picked || 'overview';
+  const setTab = (next: HomeTab | 'overview') => setQuery({ tab: next === 'overview' ? '' : next });
 
-  const tabs = [
-    { key: 'live' as Tab, label: 'Live', statLabel: 'Live now', value: liveList.length, Icon: FlameIcon, tone: styles.toneLive },
-    { key: 'upcoming' as Tab, label: 'Upcoming', statLabel: 'Upcoming', value: upcomingList.length, Icon: CalendarIcon, tone: styles.tonePurple },
-    { key: 'finished' as Tab, label: 'Finished', statLabel: 'Finished', value: finishedList.length, Icon: CheckCircleIcon, tone: styles.toneAmber },
-    { key: 'all' as Tab, label: 'Matches', statLabel: 'All matches', value: allList.length, Icon: LayersIcon, tone: styles.toneBlue },
-  ];
-
-  // Folded into the empty states so "nothing here" reads as a consequence of
-  // the active filter, not as a broken feed.
   const typeNote = type === 'ALL' ? '' : `${type.toLowerCase()} `;
-
-  const list =
-    tab === 'live'
-      ? liveList
-      : tab === 'upcoming'
-        ? upcomingList
-        : tab === 'finished'
-          ? finishedList
-          : allList;
+  const hasData = matches.length > 0;
 
   return (
     <>
-      {/* Stats strip — each tile doubles as a shortcut to its tab. */}
-      <div className={styles.stats}>
-        {tabs.map(({ key, statLabel, value, Icon, tone }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setTab(key)}
-            className={`${styles.stat} ${tab === key ? styles.statActive : ''}`}
-          >
-            <span className={`${styles.statIcon} ${tone}`}>
-              <Icon />
-            </span>
-            <span className={styles.statBody}>
-              <span className={styles.statValue}>{value}</span>
-              <span className={styles.statLabel}>{statLabel}</span>
-            </span>
-          </button>
-        ))}
+      <div className={styles.stage}>
+        {isLoading && !hasData ? (
+          <HeroSkeleton />
+        ) : error && !hasData ? (
+          <ErrorState onRetry={refresh} retrying={isRefreshing} />
+        ) : featured ? (
+          <>
+            {onStage.length > 1 && (
+              <ScoreTicker matches={onStage} activeId={featured.id} onSelect={setFeaturedId} />
+            )}
+            <LiveHero key={featured.id} match={featured} />
+          </>
+        ) : upcomingList[0] ? (
+          <NextUpHero match={upcomingList[0]} />
+        ) : (
+          <EmptyState
+            icon="live"
+            title={`No ${typeNote}cricket on right now`}
+          />
+        )}
       </div>
 
-      {/* Section head + tab pills */}
-      {/* Order here is the phone order — title and filter share the first line,
-          the tab rail wraps below. Desktop reorders the filter after the rail
-          with CSS, so both layouts come out of one DOM. */}
-      <div className={styles.head}>
-        <h2 className={styles.title}>Matches</h2>
+      <MyCricketBand matches={matches} />
 
-        <div className={styles.headFilter}>
-          <FilterSelect
-            label="Type"
+      <section className={styles.board} aria-labelledby="board-title">
+        <div className={styles.boardHead}>
+          <h2 id="board-title" className={styles.boardTitle}>
+            Matches
+          </h2>
+          <Segmented
+            label="Match type"
+            size="sm"
             value={type}
-            options={MATCH_TYPE_OPTIONS}
-            onChange={(next) => setQuery({ type: matchTypeKey(next) })}
+            options={MATCH_TYPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            onChange={(next: MatchType) => setQuery({ type: matchTypeKey(next) })}
+            className={styles.typeFilter}
+          />
+          <Segmented
+            label="Match status"
+            value={tab}
+            options={[
+              { value: 'overview', label: 'Overview' },
+              { value: 'live', label: 'Live', count: liveList.length, live: liveList.length > 0 },
+              { value: 'upcoming', label: 'Upcoming', count: upcomingList.length },
+              { value: 'finished', label: 'Results', count: finishedList.length },
+              { value: 'all', label: 'All', count: allList.length },
+            ]}
+            onChange={setTab}
+            className={styles.tabs}
           />
         </div>
 
-        <div className={styles.pills} role="tablist">
-          {tabs.map(({ key, label, value, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => setTab(key)}
-              className={`${styles.pill} ${tab === key ? styles.pillActive : ''}`}
-            >
-              <Icon />
-              <span>{label}</span>
-              {key === 'live' && value > 0 && <span className={styles.count}>{value}</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {list.length ? (
-        <Carousel resetKey={`${tab}-${type}`}>
-          {list.map((m) => (
-            <div className={styles.slide} key={m.id}>
-              <MatchCard match={m} />
+        {(isLoading || error) && !hasData ? (
+          <BoardSkeleton />
+        ) : tab === 'overview' ? (
+          <div className={styles.split}>
+            <section aria-labelledby="next-title">
+              <SectionHead title="Coming up" id="next-title" count={upcomingList.length} level={3} />
+              {upcomingList.length ? (
+                <>
+                  <UpcomingRail matches={upcomingList} limit={UPCOMING_PREVIEW} variant="compact" />
+                  <Link href="/fixtures" className={styles.more}>
+                    View full schedule
+                    <Icon name="arrowRight" size={16} />
+                  </Link>
+                </>
+              ) : (
+                <EmptyState compact icon="calendar" title={`No ${typeNote}fixtures in the feed`} action={{ label: 'Open the schedule', href: '/fixtures' }} />
+              )}
+            </section>
+            <section aria-labelledby="results-title">
+              <SectionHead title="Results" id="results-title" count={finishedList.length} level={3} />
+              {finishedList.length ? (
+                <>
+                  <ResultList matches={finishedList.slice(0, RESULTS_PREVIEW)} variant="compact" />
+                  {finishedList.length > RESULTS_PREVIEW && (
+                    <button type="button" className={styles.more} onClick={() => setTab('finished')}>
+                      All {finishedList.length} results
+                      <Icon name="arrowRight" size={16} />
+                    </button>
+                  )}
+                </>
+              ) : (
+                <EmptyState compact icon="flag" title={`No ${typeNote}results this week`} />
+              )}
+            </section>
+          </div>
+        ) : tab === 'live' ? (
+          liveList.length ? (
+            <div className={styles.grid}>
+              {liveList.map((m) => (
+                <MatchTile key={m.id} match={m} />
+              ))}
             </div>
-          ))}
-        </Carousel>
-      ) : crexLoading ? (
-        <MatchCarouselSkeleton />
-      ) : (
-        <div className={styles.empty}>
-          {tab === 'all'
-            ? `No ${typeNote}matches are listed right now.`
-            : `No ${typeNote}matches in this category right now.`}
-        </div>
-      )}
+          ) : (
+            <EmptyState
+              icon="live"
+              title={`No ${typeNote}matches live right now`}
+              action={upcomingList.length ? { label: 'See what’s next', onClick: () => setTab('upcoming') } : undefined}
+            />
+          )
+        ) : tab === 'upcoming' ? (
+          upcomingList.length ? (
+            <UpcomingRail matches={upcomingList} />
+          ) : (
+            <EmptyState icon="calendar" title={`No ${typeNote}upcoming matches in the feed`} action={{ label: 'Open the schedule', href: '/fixtures' }} />
+          )
+        ) : tab === 'finished' ? (
+          finishedList.length ? (
+            <ResultList matches={finishedList} />
+          ) : (
+            <EmptyState icon="flag" title={`No ${typeNote}results this week`} />
+          )
+        ) : allList.length ? (
+          <div className={styles.grid}>
+            {allList.map((m) => (
+              <MatchTile key={m.id} match={m} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon="signal" title={`No ${typeNote}matches listed right now`} />
+        )}
+      </section>
     </>
   );
 }

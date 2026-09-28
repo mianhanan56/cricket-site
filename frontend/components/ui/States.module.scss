@@ -1,0 +1,188 @@
+@use 'component' as *;
+
+// ---------------------------------------------------------------- Sync
+
+.sync {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+.syncBeats {
+  position: relative;
+  display: inline-flex;
+  gap: 6px;
+  padding-block: 6px;
+
+  // The crease the beats travel along.
+  &::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    right: -6px;
+    top: 50%;
+    height: 1px;
+    background: $line-2;
+  }
+
+  span {
+    position: relative;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: $signal;
+    opacity: 0.25;
+
+    @include motion {
+      animation: beat 1.2s $ease-in-out infinite;
+    }
+
+    &:nth-child(2) {
+      animation-delay: 0.16s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.32s;
+    }
+  }
+}
+
+:global([data-theme='light']) .syncBeats span {
+  background: $signal-text;
+}
+
+@keyframes beat {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px) scale(1.25);
+  }
+}
+
+.syncLabel {
+  @include eyebrow;
+  color: $text-2;
+}
+
+// ---------------------------------------------------------------- Empty / error
+
+.empty,
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: $space-2;
+  padding: $space-12 $space-6;
+  border: 1px dashed $line-2;
+  border-radius: $r-md;
+  background: color-mix(in oklab, var(--surface) 50%, transparent);
+}
+
+.compact {
+  padding: $space-6 $space-4;
+}
+
+.emptyIcon {
+  @include flex-center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: $text-2;
+  background: $surface-2;
+  border: 1px solid $line-2;
+
+  .compact & {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.flatline {
+  width: 72px;
+  height: 1px;
+  margin-block: $space-1 $space-2;
+  background: linear-gradient(90deg, transparent, $line-3, transparent);
+}
+
+.title {
+  @include heading;
+  font-size: $fs-lg;
+  color: $text;
+
+  .compact & {
+    font-size: $fs-base;
+  }
+}
+
+.body {
+  max-width: 44ch;
+  font-size: $fs-md;
+  color: $text-2;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: $space-2;
+  margin-top: $space-3;
+}
+
+.actionPrimary {
+  @include button-primary;
+}
+
+.actionSecondary {
+  @include button-secondary;
+}
+
+.error {
+  border-color: color-mix(in oklab, var(--wicket) 35%, transparent);
+}
+
+.brokenLine {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: $space-2;
+
+  span {
+    width: 44px;
+    height: 2px;
+    border-radius: 2px;
+    background: $wicket;
+  }
+
+  span:first-child {
+    @include motion {
+      animation: reconnect 1.6s $ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes reconnect {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+.spin {
+  @include motion {
+    animation: spin 0.9s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

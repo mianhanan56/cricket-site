@@ -1,13 +1,13 @@
 {
   "name": "PulseCrease",
   "short_name": "PC",
-  "description": "Live cricket scores, fixtures, rankings and news.",
+  "description": "Live cricket intelligence \u2014 every ball, live.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#1a1a2e",
-  "background_color": "#1a1a2e",
+  "theme_color": "#090b0d",
+  "background_color": "#090b0d",
   "icons": [
     {
       "src": "/icon.svg",

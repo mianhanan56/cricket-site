@@ -1,0 +1,84 @@
+@use 'component' as *;
+
+.prompt {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-3;
+  margin-top: $space-4;
+  padding: $space-2 $space-3;
+  border-radius: $r-md;
+  border: 1px dashed $line-2;
+}
+
+.promptIcon {
+  @include flex-center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: $signal-text;
+  background: $signal-soft;
+}
+
+.promptText {
+  flex: 1;
+  min-width: 200px;
+  font-size: $fs-md;
+  color: $text-2;
+
+  strong {
+    color: $text;
+  }
+}
+
+.promptAction {
+  @include button-secondary;
+  min-height: 36px;
+}
+
+.band {
+  margin-top: $space-8;
+}
+
+.chips {
+  display: flex;
+  gap: $space-1-5;
+  @include scroll-x;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  height: 30px;
+  padding-inline: $space-1 $space-2-5;
+  border-radius: $r-pill;
+  border: 1px solid $line-2;
+  font-size: $fs-sm;
+  font-weight: 600;
+  white-space: nowrap;
+  @include focus-ring;
+
+  &:hover {
+    border-color: $line-3;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include wide {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.quiet {
+  font-size: $fs-md;
+  color: $text-3;
+}

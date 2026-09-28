@@ -1,0 +1,90 @@
+@use 'component' as *;
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  color: $text;
+}
+
+.mark {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.crease {
+  stroke: $line-3;
+  stroke-width: 1.5;
+}
+
+.returns {
+  stroke: $text-3;
+  stroke-width: 1.5;
+}
+
+.beat {
+  stroke: $signal;
+  stroke-width: 2.2;
+}
+
+.spark {
+  stroke: #fff;
+  stroke-width: 2.4;
+  stroke-dasharray: 10 90;
+  stroke-dashoffset: 100;
+  opacity: 0;
+
+  @include motion {
+    animation: spark 4.8s $ease-in-out infinite;
+  }
+}
+
+:global([data-theme='light']) {
+  .beat {
+    stroke: $signal-text;
+  }
+
+  .spark {
+    stroke: $signal;
+  }
+}
+
+@keyframes spark {
+  0%,
+  60% {
+    stroke-dashoffset: 100;
+    opacity: 0;
+  }
+  62% {
+    opacity: 1;
+  }
+  95% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+.word {
+  display: inline-flex;
+  font-family: $font-sans;
+  font-stretch: $stretch-display;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.pulse {
+  font-weight: 800;
+}
+
+.crease_ {
+  font-weight: 350;
+  color: $text-2;
+}

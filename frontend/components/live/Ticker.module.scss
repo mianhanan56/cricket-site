@@ -1,0 +1,26 @@
+@use 'component' as *;
+
+.ticker {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  line-height: inherit;
+
+  > span {
+    display: inline-block;
+  }
+}
+
+.roll {
+  @include motion {
+    animation: roll 380ms $ease-out backwards;
+  }
+}
+
+@keyframes roll {
+  from {
+    transform: translateY(55%);
+    opacity: 0;
+    filter: blur(2px);
+  }
+}

@@ -1,153 +1,146 @@
 @use 'component' as *;
 
-// ===========================================================================
-// Match centre skeletons — bars, plus row grids for the scorecard and
-// commentary. Page, header, sticky tabs, blocks and detail rows all come from
-// MatchDetail.module.scss.
-// ===========================================================================
-
-.inert {
-  pointer-events: none;
+.page {
+  @include container;
+  padding-top: $space-12;
+  padding-bottom: $space-16;
 }
 
-// --- Header ----------------------------------------------------------------
-
-.statusBadge {
-  width: 58px;
-  height: 20px;
-  border-radius: $radius-sm;
-}
-
-.headerSeries {
-  width: 108px;
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+  padding: $space-5;
+  border-radius: $r-lg;
+  border: 1px solid $line-2;
+  background: linear-gradient(180deg, var(--surface), var(--bg-raise));
 
   @include tablet {
-    width: 160px;
+    padding: $space-6 $space-8;
   }
 }
 
-.teamName {
-  width: 116px;
+.teams {
+  display: grid;
+  gap: $space-4;
 
   @include tablet {
-    width: 148px;
+    grid-template-columns: 1fr 1fr;
+    gap: $space-16;
   }
 }
 
-.vs {
-  width: 22px;
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
 }
 
-.teamShort {
-  width: 42px;
+.team {
+  width: 50%;
 }
 
 .score {
-  width: 84px;
-  margin-top: 2px;
+  width: 60%;
+  height: 48px;
+  border-radius: $r-sm;
 }
 
-.scoreOvers {
-  width: 58px;
+.crease {
+  height: 1px;
+  background: $line-2;
 }
 
-// The real .headerMeta is a centred single line under a hairline rule.
-.headerMeta {
-  width: min(72%, 340px);
-  margin-inline: auto;
-}
-
-// Mirrors a .tab: flex: 1 with py-3 around 14px/600, so the rail keeps its
-// exact height and the three bars divide it evenly.
-.tabCell {
-  flex: 1;
+.rail {
   display: flex;
-  justify-content: center;
-  padding: $space-3;
-  border-bottom: 3px solid transparent;
-}
-
-.tabBar {
-  width: 86px;
-}
-
-// --- Blocks ---------------------------------------------------------------
-
-.blockTitle {
-  width: 132px;
-}
-
-// --- Team form -----------------------------------------------------------
-
-.formTeam {
-  width: 128px;
-}
-
-// --- Scorecard table ------------------------------------------------------
-// Grid, not <table>: same column rhythm and zebra banding as .table without
-// asserting table semantics over content that hasn't arrived.
-
-.tableSk {
-  min-width: 100%;
-}
-
-.batRow,
-.bowlRow {
-  display: grid;
-  align-items: center;
   gap: $space-2;
-  padding: $space-2;
+  margin-top: $space-5;
 }
 
-.batRow {
-  grid-template-columns: minmax(88px, 1.6fr) minmax(96px, 1.4fr) repeat(5, minmax(28px, 40px));
+.tab {
+  width: 88px;
 }
 
-.bowlRow {
-  grid-template-columns: minmax(96px, 2fr) repeat(5, minmax(28px, 44px));
+.body {
+  display: grid;
+  gap: $space-4;
+  margin-top: $space-6;
 }
 
-// Zebra rows off $bg, matching the real table's alternating cells.
-.zebra:nth-child(even) {
-  background: $bg;
+.block {
+  height: 180px;
+  border-radius: $r-md;
 }
 
-.headCell {
-  height: 8px;
+.table {
+  padding: $space-2 0;
 }
 
-.right {
-  margin-left: auto;
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(5, minmax(0, 0.6fr));
+  gap: $space-3;
+  align-items: center;
+  height: 46px;
+  padding-inline: $space-4;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
 }
 
-// --- Commentary ----------------------------------------------------------
-
-.overHeader {
-  width: 78px;
-  height: 14px;
+.cell {
+  justify-self: end;
+  width: 70%;
 }
 
-.ballMarker {
-  width: 44px;
-  height: 18px;
-  border-radius: $radius-sm;
-}
-
-.ballText {
-  flex: 1;
+.feed {
   display: flex;
   flex-direction: column;
-  gap: $space-1-5;
-  min-width: 0;
+  gap: $space-3;
 }
 
-.ballRuns {
-  width: 46px;
+.overCard {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  margin-left: 82px;
+  padding: $space-3 $space-4;
+  @include panel;
 }
 
-// One pill of an over's ball strip, at the size the real one is drawn.
-.overCardBall {
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
+.overTitle {
+  width: 40%;
+}
+
+.overBalls {
+  display: flex;
+  gap: 5px;
+}
+
+.ball {
+  display: grid;
+  grid-template-columns: 44px 32px minmax(0, 1fr);
+  gap: $space-2;
+  align-items: start;
+  padding-block: $space-2;
+}
+
+.at {
+  margin-top: 4px;
+}
+
+.node {
+  justify-self: center;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  border: 1.5px solid $line-3;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
 }

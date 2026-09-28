@@ -1,0 +1,134 @@
+@use 'component' as *;
+
+.page {
+  @include container;
+  padding-bottom: $space-16;
+}
+
+.srOnly {
+  @include visually-hidden;
+}
+
+.filter {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  width: 100%;
+  height: 42px;
+  padding-inline: $space-3;
+  border-radius: $r-sm;
+  background: $surface;
+  border: 1px solid $line-2;
+  color: $text-3;
+  transition: border-color $dur-2 $ease-out;
+
+  &:focus-within {
+    border-color: $signal;
+  }
+
+  @include tablet {
+    width: 280px;
+  }
+}
+
+.filterInput {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: $text;
+  font: inherit;
+  font-size: $fs-md;
+
+  &::placeholder {
+    color: $text-3;
+  }
+}
+
+.section + .section {
+  margin-top: $space-10;
+
+  @include tablet {
+    margin-top: $space-12;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-2;
+  list-style: none;
+
+  @include sm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: $space-3;
+  }
+
+  @include wide {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.tile {
+  @include panel;
+  @include panel-interactive;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-width: 0;
+}
+
+.tileLink {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: $space-3;
+  min-width: 0;
+  padding: $space-3 $space-2 $space-3 $space-3;
+  border-radius: $r-md;
+  @include focus-ring;
+}
+
+.tileText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-size: $fs-base;
+  font-weight: 600;
+  color: $text;
+  @include truncate;
+}
+
+.short {
+  @include eyebrow;
+}
+
+.best {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.bestPos {
+  @include display-num;
+  font-size: $fs-lg;
+}
+
+.bestFmt {
+  @include eyebrow;
+}
+
+.follow {
+  margin-right: $space-2;
+}

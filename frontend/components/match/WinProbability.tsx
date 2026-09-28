@@ -217,24 +217,9 @@ export default function WinProbability({
   if (!wp) return null;
 
   return (
-    <div className={styles.widget}>
+    <section className={styles.widget} aria-label="Win probability">
       <div className={styles.head}>
-        <span className={styles.title}>Win Probability</span>
-      </div>
-      <div
-        className={styles.bar}
-        role="img"
-        aria-label={
-          `Win probability ${match.homeTeam.shortName} ${wp.homePct}%` +
-          (wp.drawPct ? `, draw ${wp.drawPct}%` : '') +
-          `, ${match.awayTeam.shortName} ${wp.awayPct}%`
-        }
-      >
-        <span className={styles.home} style={{ width: `${wp.homePct}%` }} />
-        {wp.drawPct > 0 && (
-          <span className={styles.draw} style={{ width: `${wp.drawPct}%` }} />
-        )}
-        <span className={styles.away} style={{ width: `${wp.awayPct}%` }} />
+        <h2 className={styles.title}>Win probability</h2>
       </div>
       <div className={styles.labels}>
         <span className={styles.homeLabel}>
@@ -249,6 +234,22 @@ export default function WinProbability({
           <strong>{wp.awayPct}%</strong> {match.awayTeam.shortName}
         </span>
       </div>
-    </div>
+      <svg
+        className={styles.bar}
+        viewBox="0 0 100 6"
+        preserveAspectRatio="none"
+        role="img"
+        aria-label={
+          `Win probability ${match.homeTeam.shortName} ${wp.homePct}%` +
+          (wp.drawPct ? `, draw ${wp.drawPct}%` : '') +
+          `, ${match.awayTeam.shortName} ${wp.awayPct}%`
+        }
+      >
+        <rect className={styles.home} x="0" y="0" width={wp.homePct} height="6" />
+        {wp.drawPct > 0 && <rect className={styles.draw} x={wp.homePct} y="0" width={wp.drawPct} height="6" />}
+        <rect className={styles.away} x={wp.homePct + wp.drawPct} y="0" width={wp.awayPct} height="6" />
+        <line className={styles.mid} x1="50" x2="50" y1="0" y2="6" />
+      </svg>
+    </section>
   );
 }

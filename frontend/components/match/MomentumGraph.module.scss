@@ -1,0 +1,229 @@
+@use 'component' as *;
+
+.graph {
+  --a: var(--data);
+  --b: var(--signal);
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+:global([data-theme='light']) .graph {
+  --b: var(--signal-text);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-3;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2 $space-5;
+  font-size: $fs-sm;
+  font-weight: 600;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+  }
+}
+
+.swatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.legend_a .swatch {
+  background: var(--a);
+}
+
+.legend_b .swatch {
+  background: var(--b);
+}
+
+.legendFig {
+  @include data-num;
+  font-weight: 500;
+  color: $text-2;
+}
+
+.readout {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  padding: $space-2 $space-3;
+  border-radius: $r-sm;
+  background: $bg;
+  border: 1px solid $line;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-2;
+  overflow-wrap: anywhere;
+}
+
+.ro_wicket {
+  color: $wicket;
+  border-color: color-mix(in oklab, var(--wicket) 35%, transparent);
+}
+
+.ro_moment {
+  color: $warn;
+}
+
+.ro_point {
+  color: $text;
+}
+
+.canvas {
+  width: 100%;
+  min-height: 1px;
+}
+
+.svg {
+  display: block;
+  overflow: visible;
+  touch-action: pan-y;
+}
+
+.grid {
+  stroke: $line;
+  stroke-dasharray: 2 4;
+}
+
+.baseline {
+  stroke: $line-3;
+}
+
+.tick {
+  stroke: $line-3;
+}
+
+.yLabel,
+.xLabel {
+  font-family: $font-mono;
+  font-size: 10px;
+  fill: $text-3;
+}
+
+.yLabel {
+  text-anchor: end;
+}
+
+.xLabel {
+  text-anchor: middle;
+}
+
+.bar {
+  opacity: 0.85;
+}
+
+.bar_a {
+  fill: var(--a);
+}
+
+.bar_b {
+  fill: var(--b);
+}
+
+.barWicket {
+  fill: $wicket;
+}
+
+.worm_a {
+  --tone: var(--a);
+}
+
+.worm_b {
+  --tone: var(--b);
+}
+
+.area {
+  fill: color-mix(in oklab, var(--tone) 9%, transparent);
+}
+
+.line {
+  fill: none;
+  stroke: var(--tone);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.now {
+  fill: var(--tone);
+  transform-box: fill-box;
+  transform-origin: center;
+
+  @include motion {
+    animation: now 1.8s ease-out infinite;
+  }
+}
+
+@keyframes now {
+  50% {
+    opacity: 0.4;
+    transform: scale(1.8);
+  }
+}
+
+.hit {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.cross {
+  stroke: $text-3;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.marker {
+  cursor: pointer;
+  outline: none;
+
+  &:focus-visible .wicketDot,
+  &:hover .wicketDot {
+    r: 6;
+  }
+
+  &:focus-visible .hitDot {
+    stroke: $signal;
+    stroke-width: 1.5;
+  }
+}
+
+.hitDot {
+  fill: transparent;
+}
+
+.wicketDot {
+  fill: $wicket;
+  stroke: $surface;
+  stroke-width: 2;
+  transition: r $dur-2 $ease-out;
+}
+
+.moment {
+  fill: $warn;
+}
+
+.moment_INNINGS_END {
+  fill: $data;
+}
+
+.moment_REVIEW {
+  fill: $text-2;
+}
+
+.axisName {
+  display: flex;
+  justify-content: space-between;
+  @include eyebrow;
+}

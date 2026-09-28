@@ -1,0 +1,191 @@
+@use 'component' as *;
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  height: 100%;
+  padding: $space-4;
+  @include panel;
+  @include panel-interactive;
+  @include focus-ring;
+
+  &:hover .series {
+    color: $text-2;
+  }
+}
+
+.live,
+.climax {
+  border-color: color-mix(in oklab, var(--signal) 22%, var(--line));
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  min-width: 0;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.format {
+  @include chip;
+  height: 22px;
+  padding-inline: $space-2;
+  color: $text-2;
+  border-color: $line-2;
+}
+
+.series {
+  font-size: $fs-sm;
+  color: $text-3;
+  @include truncate;
+  transition: color $dur-2 $ease-out;
+}
+
+.rows {
+  display: grid;
+  gap: $space-2-5;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  min-width: 0;
+}
+
+// Batting side: a live signal beside the code.
+.batting .code::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: $space-1-5;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: $signal;
+
+  @include motion {
+    animation: live-pulse $dur-pulse ease-out infinite;
+  }
+}
+
+.names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.code {
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+  font-size: $fs-base;
+  line-height: 1.2;
+}
+
+.name {
+  font-size: $fs-xs;
+  color: $text-3;
+  @include truncate;
+}
+
+.scoreBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+}
+
+.score {
+  @include display-num;
+  font-size: $fs-xl;
+  white-space: nowrap;
+}
+
+.prior {
+  font-size: $fs-md;
+  font-weight: 600;
+  color: $text-3;
+}
+
+.overs {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+  margin-top: 2px;
+}
+
+.noScore {
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.won .code,
+.won .score {
+  color: $text;
+}
+
+.wonMark {
+  display: inline-block;
+  margin-left: $space-1;
+  vertical-align: -2px;
+  color: $signal-text;
+}
+
+.dim {
+  .code,
+  .score {
+    color: $text-3;
+  }
+}
+
+.foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $space-3;
+  margin-top: auto;
+  min-width: 0;
+}
+
+.note {
+  font-size: $fs-sm;
+  color: $text-2;
+  @include truncate(2);
+}
+
+.final .note {
+  color: $text;
+  font-weight: 600;
+}
+
+.tight {
+  color: $warn;
+}
+
+.when {
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.countdown {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.soon {
+  color: $data;
+}

@@ -1,208 +1,113 @@
 @use 'component' as *;
 
-// Format tabs on the left, type dropdown on the right. Wraps to two rows on a
-// phone rather than squeezing either control.
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: $space-3;
-  margin-bottom: $space-5;
+  gap: $space-2 $space-3;
+  margin-bottom: $space-4;
+
+  > * {
+    max-width: 100%;
+  }
 }
 
-.tabs {
-  @include scroll-x;
+.dayBar {
   display: flex;
+  align-items: stretch;
   gap: $space-2;
-  max-width: 100%;
-  padding-bottom: $space-1;
+  margin-bottom: $space-8;
+  padding-bottom: $space-4;
+  border-bottom: 1px solid $line;
 }
 
-.tab {
+.strip {
+  display: flex;
+  gap: $space-1-5;
+  min-width: 0;
+  flex: 1;
+  @include scroll-x;
+  scroll-behavior: smooth;
+  // Fade the scroller's trailing edge so it reads as continuing.
+  mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
+
+  @media (prefers-reduced-motion: reduce) {
+    scroll-behavior: auto;
+  }
+}
+
+.chip {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
   flex-shrink: 0;
-  padding: $space-2 $space-4;
-  border-radius: 999px;
-  font-size: $text-sm;
-  font-weight: 600;
-  color: $text-secondary;
-  background: $card-bg;
-  border: 1px solid $card-border;
+  min-width: 58px;
+  min-height: 76px;
+  padding: $space-2;
+  border-radius: $r-sm;
+  border: 1px solid $line;
+  background: $surface;
+  color: $text-2;
   cursor: pointer;
   transition:
-    color 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    border-color $dur-2 $ease-out,
+    background-color $dur-2 $ease-out,
+    color $dur-2 $ease-out;
+  @include focus-ring;
 
   &:hover {
-    color: $text-primary;
-    border-color: color-mix(in oklab, var(--accent-green) 35%, transparent);
+    border-color: $line-3;
+    color: $text;
   }
 
-  &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 2px;
+  &[aria-pressed='true'] {
+    border-color: $text;
+    background: $surface-3;
+    color: $text;
+
+    .chipFill {
+      fill: $signal-text;
+    }
   }
 
-  // Ink ON an accent fill is --accent-green-ink, not --fg: $primary resolves to
-  // the page foreground, which is near-black on mint in light and near-white on
-  // light mint in dark — both under 4.5:1. This is the same active-pill pairing
-  // the home tabs use, so the three pages read as one system.
-  &.active {
-    color: $accent-green-ink;
-    background: $accent;
-    border-color: transparent;
-    box-shadow: $shadow-glow;
+  &:last-child {
+    margin-right: $space-6;
   }
 }
 
-// The calendar and the type filter share the right end of the toolbar. They stay
-// side by side even on a phone — both are short, and stacking them would push
-// the list a row further down for no gain.
-.selects {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $space-2;
+.chipDay {
+  @include eyebrow;
+  font-size: 10px;
+  color: inherit;
+  white-space: nowrap;
 }
 
-// --- Day bands --------------------------------------------------------------
-// One band per day, and the page's only structure. The heading scrolls with its
-// band rather than sticking: pinned under the navbar it was a second opaque bar
-// permanently across the page, and it is the day's own title, not a page rail.
-
-.day {
-  margin-bottom: $space-8;
+.chipDate {
+  @include display-num;
+  font-size: $fs-xl;
+  color: $text;
 }
 
-.dayHeading {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: $space-1 $space-3;
-  margin: 0 0 $space-3;
+.chipBar {
+  display: block;
+  width: 32px;
+  height: 3px;
 }
 
-.dayLabel {
-  font-family: $font-display;
-  font-size: $text-xl;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: $text-primary;
+.chipTrack {
+  fill: $line-2;
 }
 
-// The absolute date beside the relative one: "Today" alone makes a shared or
-// reloaded page ambiguous, and on the other bands it is the only date given.
-.dayDate {
-  font-size: $text-xs;
-  color: $text-secondary;
+.chipFill {
+  fill: $data;
 }
 
-.dayCount {
-  margin-left: auto;
-  flex-shrink: 0;
-  padding: $space-1 $space-2;
-  border-radius: 999px;
-  background: $surface-elevated;
-  font-size: $text-2xs;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: $text-muted;
+.chipCount {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
 }
 
-// Fluid columns rather than a fixed count per band: cards find their own number
-// per row and resize with the viewport, so nothing jumps at a breakpoint. The
-// explicit steps below only cap how many can appear.
-.grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: $space-3;
-
-  @include sm {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  @include desktop {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.card {
-  @include card;
-  @include card-hover;
-  display: flex;
-  flex-direction: column;
-  gap: $space-3;
-  padding: $space-3;
+.list {
   min-width: 0;
-
-  @include sm {
-    padding: $space-4;
-  }
-}
-
-.cardTop {
-  @include flex-between;
-  flex-wrap: wrap;
-  gap: $space-1 $space-2;
-}
-
-.format {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: $accent;
-}
-
-.date {
-  font-size: 12px;
-  color: $text-secondary;
-  font-family: $font-mono;
-}
-
-.teams {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: $space-2 $space-3;
-  min-width: 0;
-  font-size: clamp(17px, 4.5vw, 20px);
-  font-weight: 700;
-
-  // Short codes are short, but domestic sides occasionally aren't — let a long
-  // one break instead of widening the card past its grid column.
-  > span {
-    overflow-wrap: anywhere;
-  }
-}
-
-.vs {
-  flex-shrink: 0;
-  font-size: 12px;
-  font-weight: 400;
-  color: $text-muted;
-  text-transform: uppercase;
-}
-
-.series {
-  @include truncate(1);
-  min-width: 0;
-  font-size: 13px;
-  color: $text-secondary;
-}
-
-.venue {
-  @include truncate(1);
-  min-width: 0;
-  font-size: 12px;
-  color: $text-muted;
-  padding-top: $space-2;
-  border-top: 1px solid $card-border;
-}
-
-.empty {
-  @include card;
-  padding: $space-5;
-  text-align: center;
-  color: $text-muted;
 }

@@ -1,0 +1,268 @@
+@use 'component' as *;
+
+.twoCol {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-8;
+
+  @include desktop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.muted {
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+// ---------------------------------------------------------------- Form
+
+.formRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  flex-wrap: wrap;
+
+  & + & {
+    margin-top: $space-3;
+    padding-top: $space-3;
+    border-top: 1px solid $line;
+  }
+}
+
+.formTeam {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.formChips {
+  display: flex;
+  gap: 5px;
+}
+
+.formChip {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: $r-xs;
+  @include data-num;
+  font-size: $fs-xs;
+  font-weight: 700;
+  background: $surface-3;
+  color: $text-2;
+}
+
+.formW {
+  background: $signal-soft;
+  color: $signal-text;
+}
+
+.formL {
+  background: $wicket-soft;
+  color: $wicket;
+}
+
+// ---------------------------------------------------------------- Squads
+
+.squads {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-4;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.squadCol {
+  @include panel;
+  overflow: hidden;
+}
+
+.squadHead {
+  display: flex;
+  align-items: center;
+  gap: $space-2-5;
+  padding: $space-3 $space-4;
+  border-bottom: 1px solid $line;
+  background: $bg-raise;
+}
+
+.squadTeam {
+  font-size: $fs-md;
+  font-weight: 700;
+  @include truncate;
+}
+
+.squadCount {
+  margin-left: auto;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.squadList {
+  padding-block: $space-1;
+}
+
+.squadPlayer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  min-height: 40px;
+  padding-inline: $space-4;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+}
+
+.squadName {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $fs-md;
+  min-width: 0;
+}
+
+.captain {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: $r-xs;
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 700;
+  color: $signal-ink;
+  background: $signal;
+}
+
+.role {
+  @include eyebrow;
+  flex-shrink: 0;
+}
+
+.roleBowler {
+  color: $data;
+}
+
+.roleAllRounder {
+  color: $warn;
+}
+
+.roleKeeper {
+  color: $signal-text;
+}
+
+// ---------------------------------------------------------------- Weather
+
+.weather {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.weatherNow {
+  display: flex;
+  align-items: baseline;
+  gap: $space-3;
+}
+
+.temp {
+  @include display-num;
+  font-size: 44px;
+}
+
+.cond {
+  font-size: $fs-md;
+  color: $text-2;
+}
+
+.weatherGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-3;
+
+  @include sm {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include data-num;
+    font-size: $fs-md;
+  }
+}
+
+// ---------------------------------------------------------------- Venue
+
+.venue {
+  display: grid;
+  gap: $space-4;
+}
+
+.avgs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-3;
+
+  @include sm {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.avg {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  padding: $space-3;
+  @include panel;
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include display-num;
+    font-size: $fs-2xl;
+  }
+}
+
+.avgBar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin-top: $space-1;
+
+  rect {
+    fill: $data;
+  }
+}
+
+.broadcast {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    height: 34px;
+    padding-inline: $space-3;
+    border-radius: $r-sm;
+    border: 1px solid $line-2;
+    font-size: $fs-sm;
+    font-weight: 600;
+  }
+}

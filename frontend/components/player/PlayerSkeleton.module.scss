@@ -1,83 +1,104 @@
 @use 'component' as *;
 
-// ===========================================================================
-// Player skeleton — bar geometry only.
-//
-// The containers (page, header, form rail, about grid) come from the real page's
-// module so the placeholder occupies the real layout. What lives here is the
-// fixed sizes the bars need: inside a content-sized flex row a percentage
-// collapses to nothing.
-// ===========================================================================
-
-// Nothing in a skeleton is interactive — kill the hover lift the real tiles
-// carry, so a cursor crossing the page doesn't animate dead boxes.
-.inert {
-  pointer-events: none;
+.back {
+  width: 40px;
+  height: 40px;
+  margin-bottom: $space-2;
+  border-radius: $r-sm;
 }
 
-// --- Header ---------------------------------------------------------------
+.eyebrow {
+  width: 64px;
+}
 
 .name {
-  width: 240px;
+  width: 220px;
   max-width: 100%;
-  height: 30px;
+  height: 32px;
+  border-radius: $r-sm;
 
   @include tablet {
-    width: 320px;
-    height: 40px;
+    width: 360px;
+    height: 56px;
   }
 }
 
 .meta {
-  display: flex;
-  gap: $space-3;
-  margin-top: $space-2-5;
+  width: 120px;
 }
 
-.metaBar {
+.follow {
+  width: 104px;
+  height: 36px;
+  border-radius: $r-sm;
+}
+
+.rankLabel {
+  width: 60px;
+}
+
+.rankPos {
   width: 64px;
-  height: 16px;
+  height: 40px;
+  border-radius: $r-sm;
 }
 
-.rank {
-  width: 116px;
-  height: 24px;
-  border-radius: $radius-md;
-}
-
-// --- Sections -------------------------------------------------------------
-
-.blockTitle {
-  width: 132px;
-  height: 20px;
+.heading {
+  width: 180px;
   margin-bottom: $space-4;
 }
 
-.formTitle {
-  width: 66px;
-  height: 12px;
-  margin-bottom: $space-2-5;
+.headingSm {
+  width: 96px;
+  margin-bottom: $space-4;
 }
 
-// Matches .formTile's box: two lines of type plus the format caption.
-.formTile {
-  flex: 0 0 auto;
-  width: 104px;
-  height: 74px;
-  border-radius: $radius-md;
+.bars {
+  display: flex;
+  align-items: flex-end;
+  gap: $space-1;
+  height: 72px;
+}
+
+.bar {
+  flex: 1;
+  border-radius: $r-xs;
+
+  @for $i from 1 through 10 {
+    &:nth-child(#{$i}) {
+      height: #{20 + ($i * 37 % 50)}px;
+    }
+  }
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+  min-height: 52px;
+  padding-inline: $space-4;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+}
+
+.rowFig {
+  width: 56px;
+}
+
+.rowText {
+  width: 40%;
+}
+
+.rowWide {
+  flex: 1;
 }
 
 .aboutLabel {
-  width: 72px;
-  height: 12px;
+  width: 64px;
 }
 
 .aboutValue {
-  width: 108px;
-  height: 16px;
-}
-
-.tableRow {
-  height: 34px;
-  margin-bottom: $space-1;
+  width: 70%;
 }

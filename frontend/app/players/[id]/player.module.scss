@@ -1,598 +1,591 @@
 @use 'component' as *;
 
-// Player profile: portrait + identity, then the form rail, then the reference
-// material (about, career tables, debuts) — each of those a collapsible block.
-//
-// The reading order is deliberate and it is not crex's. Their page opens with a
-// biography and buries the last ten innings below it; the question a reader
-// actually arrives with is "how is this player going right now", so the form
-// rail sits directly under the name and everything else folds out of the way.
-//
-// Signature element: the form rail. Ten glass tiles, monospaced figures, and a
-// mint tier that fills on a hundred or a five-for — a player's shape reads off
-// the row before a single number is parsed. Everything else on the page is
-// deliberately quiet so that one band carries it.
-
 .page {
   @include container;
-  padding-block: $space-5 $space-8;
-  min-width: 0;
+  padding-top: $space-5;
+  padding-bottom: $space-16;
 }
 
-// ── Header ──────────────────────────────────────────────────────────────────
+.back {
+  margin-bottom: $space-2;
+}
 
-.head {
+// ---------------------------------------------------------------- Hero
+
+.hero {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: $space-5;
+  padding-block: $space-4 $space-6;
+
+  @include tablet {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding-block: $space-6 $space-8;
+  }
+}
+
+.heroMain {
+  display: flex;
+  align-items: flex-end;
   gap: $space-4;
-  margin-bottom: $space-6;
+  min-width: 0;
 
   @include tablet {
     gap: $space-6;
-    margin-bottom: $space-8;
   }
 }
 
 .identity {
-  @include fluid-text;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-width: 0;
+  padding-bottom: $space-1;
+}
+
+.eyebrow {
+  font-family: $font-mono;
+  font-size: $fs-xs;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: $signal-text;
 }
 
 .name {
-  font-family: $font-display;
-  font-weight: 700;
-  font-size: $text-2xl;
-  line-height: $leading-tight;
-  letter-spacing: -0.02em;
-  color: $text-primary;
-
-  @include sm {
-    font-size: $text-3xl;
-  }
-
-  @include tablet {
-    font-size: $text-4xl;
-  }
+  font-size: clamp(30px, 7vw, 64px);
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+  @include fluid-text;
 }
 
-// Country · age · role, separated by dots drawn in CSS so the markup stays a
-// list of facts rather than a string with punctuation baked into it.
 .meta {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: $space-2;
-  margin-top: $space-1-5;
-  font-size: $text-sm;
-  color: $text-secondary;
-
-  > span + span::before {
-    content: '·';
-    margin-right: $space-2;
-    color: $text-muted;
-  }
+  gap: $space-1 $space-4;
+  font-size: $fs-md;
+  color: $text-2;
 }
 
 .country {
   display: inline-flex;
   align-items: center;
-  gap: $space-1-5;
-  font-weight: 600;
-  color: $text-primary;
+  gap: $space-2;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+  color: $text;
+}
 
-  img {
-    display: block;
-    width: 18px;
-    height: 18px;
-    object-fit: contain;
-    border-radius: 3px;
+.follow {
+  align-self: flex-start;
+
+  @include tablet {
+    align-self: flex-end;
   }
 }
 
+// ---------------------------------------------------------------- Rankings
+
 .ranks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $space-2;
-  margin-top: $space-3;
+  @include panel;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  overflow: hidden;
+  margin-bottom: $space-10;
 }
 
 .rank {
-  display: inline-flex;
-  align-items: baseline;
-  gap: $space-1-5;
-  padding: $space-1 $space-2-5;
-  border-radius: $radius-md;
-  background: $surface-elevated;
-  border: 1px solid $card-border;
-  font-size: $text-2xs;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: $text-secondary;
-  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  padding: $space-3;
+  // Hairline between tiles without doubling at the wrap.
+  box-shadow: -1px 0 0 $line, 0 -1px 0 $line;
+
+  @include sm {
+    padding: $space-4;
+  }
+
+  @include tablet {
+    padding: $space-5;
+  }
+}
+
+.rankLabel {
+  @include eyebrow;
 }
 
 .rankPos {
-  font-family: $font-mono;
-  font-size: $text-xs;
-  font-weight: 700;
-  letter-spacing: 0;
-  color: $accent;
-}
+  @include display-num;
+  font-size: clamp(36px, 6vw, 52px);
+  color: $text;
 
-// ── Blocks ──────────────────────────────────────────────────────────────────
-
-.block {
-  @include card;
-  padding: $space-4;
-  margin-bottom: $space-4;
-
-  @include tablet {
-    padding: $space-5 $space-6;
-    margin-bottom: $space-5;
+  .rank[data-best] & {
+    color: $signal-text;
   }
 }
 
-// The same mint rule the match page marks its sections with, so a reader
-// arriving from a scorecard is looking at one system — here it doubles as the
-// accordion's handle: the whole row is the hit target, and the rule is what the
-// eye tracks down the page whether the block is open or shut.
-.blockTitle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: $space-3;
-  font-family: $font-display;
-  font-size: $text-base;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  color: $text-primary;
-  cursor: pointer;
-  list-style: none;
-  transition: color 0.15s ease;
-
-  // Safari still draws its own disclosure triangle without this.
-  &::-webkit-details-marker {
-    display: none;
-  }
-
-  &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 3px;
-    border-radius: 3px;
-  }
+.rankHash {
+  font-size: 0.55em;
+  color: $text-3;
+  margin-right: 2px;
+  vertical-align: 0.5em;
 }
 
-// The only moving part on the page. A bordered token so the row reads as
-// pressable before it is pressed, tinted mint while its block is open — which
-// makes the open/shut state legible from the icon's colour as well as its shape.
-.toggle {
+.rankRole {
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+// ---------------------------------------------------------------- Layout
+
+.layout {
   display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 26px;
-  height: 26px;
-  border-radius: $radius-sm;
-  border: 1px solid $card-border;
-  background: $surface-elevated;
-  color: $text-muted;
-  transition:
-    color 0.15s ease,
-    border-color 0.15s ease,
-    background-color 0.15s ease;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-10;
 
-  svg {
-    width: 15px;
-    height: 15px;
+  @include desktop {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: $space-8;
+    align-items: start;
   }
 
-  .blockTitle:hover & {
-    color: $accent;
-    border-color: var(--card-hover-border);
-  }
-
-  [open] > .blockTitle & {
-    background: $accent-light;
-    border-color: $accent;
-    color: $accent;
+  @include wide {
+    grid-template-columns: minmax(0, 1fr) 360px;
   }
 }
 
-// The plus's upright, scaled away to leave a minus.
-.stroke {
-  transform-origin: 12px 12px;
-  transition:
-    transform 0.2s ease,
-    opacity 0.2s ease;
-
-  [open] > .blockTitle & {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
+.main,
+.side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-10;
+  min-width: 0;
 }
 
-// The gap under the title belongs to the body, not the title: a closed block
-// must sit as tight as a single row.
-.blockBody {
-  padding-top: $space-4;
+.section {
+  min-width: 0;
 }
 
-// ── Recent form (signature) ─────────────────────────────────────────────────
+// ---------------------------------------------------------------- Form
 
-.formGroup + .formGroup {
-  margin-top: $space-5;
-}
-
-.formTitle {
-  font-size: $text-2xs;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: $text-muted;
-  margin-bottom: $space-2-5;
-}
-
-// A rail, not a grid: ten innings in chronological order are a sequence, and
-// wrapping them onto a second line breaks the reading of a run of form. It
-// scrolls on a phone and fits on a desktop.
-.formRail {
-  @include scroll-x;
-  display: flex;
-  gap: $space-2;
-  padding-bottom: $space-1;
-
-  // Pull the rail's ends out to the block's padding so a scrolled tile does not
-  // appear to start mid-air.
-  margin-inline: -#{$space-4};
-  padding-inline: $space-4;
+.formGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-4;
 
   @include tablet {
-    margin-inline: 0;
-    padding-inline: 0;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
 }
 
-.formTile {
+.formPanel {
+  @include panel;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.panelTitle {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  padding: $space-4 $space-4 0;
+  font-size: $fs-base;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+}
+
+.panelCount {
+  @include data-num;
+  font-size: $fs-xs;
+  font-weight: 500;
+  color: $text-3;
+}
+
+.strip {
+  padding: $space-4 $space-4 $space-3;
+  border-bottom: 1px solid $line;
+}
+
+.bars {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 3px;
+}
+
+.barItem {
+  min-width: 0;
+}
+
+.bar {
   display: flex;
   flex-direction: column;
-  gap: $space-1;
-  flex: 0 0 auto;
-  min-width: 96px;
-  padding: $space-2-5 $space-3;
-  border-radius: $radius-md;
-  background: $surface-elevated;
-  border: 1px solid $card-border;
-  transition:
-    border-color 0.15s ease,
-    transform 0.15s ease,
-    background-color 0.15s ease;
+  align-items: center;
+  gap: $space-1-5;
+  padding-block: $space-1;
+  border-radius: $r-xs;
+  @include focus-ring;
 
-  &:hover {
-    border-color: var(--card-hover-border);
-    transform: translateY(-2px);
+  @include motion {
+    transition: background-color $dur-2 $ease-out;
   }
 
-  &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 2px;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: border-color 0.15s ease;
-
-    &:hover {
-      transform: none;
-    }
+  &:is(a):hover {
+    background: $surface-2;
   }
 }
 
-// An innings with no match page behind it: same tile, nothing to press.
-.formInert {
-  cursor: default;
-
-  &:hover {
-    border-color: $card-border;
-    transform: none;
-  }
+.barSvg {
+  display: block;
+  width: 100%;
+  height: 72px;
+  overflow: visible;
 }
 
-// Fifty, or a three-wicket haul: outlined in mint, surface unchanged.
+.guide {
+  stroke: $line-2;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.plain {
+  fill: $line-3;
+}
+
 .notable {
-  border-color: var(--card-hover-border);
+  fill: $data;
 }
 
-// Hundred, or a five-for: mint tint behind a solid mint edge — the only filled
-// surface on the page. The figures stay in the body colour rather than going
-// mint too: on an 18%-tint fill, mint-on-mint is the one pairing here that
-// would not clear AA.
 .landmark {
-  background: $accent-light;
-  border-color: $accent;
+  fill: $signal;
 }
 
-.formFigures {
-  @include score-number;
-  font-size: $text-lg;
-  color: $text-primary;
+.barFig {
+  @include data-num;
+  font-size: 10px;
+  color: $text-2;
   white-space: nowrap;
+
+  @include sm {
+    font-size: $fs-2xs;
+  }
 }
 
-.formNotOut {
-  color: $accent;
+.axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: $space-2;
+
+  span {
+    @include eyebrow;
+    font-size: 10px;
+  }
+}
+
+.formList {
+  li + li {
+    border-top: 1px solid $line;
+  }
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) auto;
+  grid-template-areas:
+    'fig fixture format'
+    'fig date format';
+  align-items: center;
+  column-gap: $space-3;
+  row-gap: 2px;
+  min-height: 52px;
+  padding: $space-2 $space-4;
+  @include focus-ring;
+
+  @include motion {
+    transition: background-color $dur-2 $ease-out;
+  }
+
+  &:is(a):hover {
+    background: $surface-2;
+  }
+}
+
+.formFig {
+  grid-area: fig;
+  @include display-num;
+  font-size: $fs-base;
+  font-weight: 700;
+  color: $text-2;
+
+  &[data-tier='notable'] {
+    color: $data;
+  }
+
+  &[data-tier='landmark'] {
+    color: $signal-text;
+  }
+}
+
+.notOut {
   margin-left: 1px;
 }
 
 .formFixture {
-  font-size: $text-xs;
+  grid-area: fixture;
+  font-size: $fs-md;
   font-weight: 600;
-  color: $text-secondary;
-  white-space: nowrap;
+  @include truncate;
+}
+
+.formDate {
+  grid-area: date;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
 }
 
 .formFormat {
-  font-size: $text-2xs;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: $text-muted;
-  white-space: nowrap;
+  grid-area: format;
+  @include chip;
+  height: 22px;
+  padding-inline: $space-2;
+  font-size: 10px;
+  color: $text-2;
 }
 
-// ── About ───────────────────────────────────────────────────────────────────
+// ---------------------------------------------------------------- Tables
+
+.tableWrap {
+  @include panel;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  @include focus-ring;
+}
+
+.table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  @include data-num;
+  font-size: $fs-md;
+
+  th,
+  td {
+    height: 44px;
+    padding-inline: $space-3;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  thead th {
+    @include eyebrow;
+    height: 40px;
+    border-bottom: 1px solid $line;
+  }
+
+  th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    padding-left: $space-4;
+    text-align: left;
+    background: $surface;
+  }
+
+  tbody th {
+    font-family: $font-sans;
+    font-weight: 700;
+    font-stretch: $stretch-wide;
+    color: $text;
+  }
+
+  td {
+    color: $text-2;
+  }
+
+  tbody tr + tr,
+  .groupRow + tr {
+    border-top: 1px solid $line;
+  }
+
+  tbody tr:not(.groupRow):hover {
+    th,
+    td {
+      background: $surface-2;
+    }
+  }
+
+  tbody + tbody .groupRow {
+    border-top: 1px solid $line;
+  }
+
+  tfoot tr {
+    border-top: 1px solid $line-2;
+  }
+
+  tfoot th,
+  tfoot td {
+    font-weight: 700;
+    color: $text;
+  }
+
+  tfoot th {
+    font-family: $font-sans;
+  }
+
+  td:last-child,
+  th:last-child {
+    padding-right: $space-4;
+  }
+}
+
+.groupRow th {
+  @include eyebrow;
+  height: 36px;
+  background: $bg-raise;
+  color: $text-2;
+}
+
+// sticky first column of a group row sits on the raised band, not the surface.
+.table .groupRow th:first-child {
+  background: $bg-raise;
+}
+
+.figure {
+  font-weight: 700;
+
+  .table & {
+    color: $text;
+  }
+}
+
+.cellLink {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: $line-3;
+  text-underline-offset: 3px;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+    text-decoration-color: $data;
+  }
+}
+
+// ---------------------------------------------------------------- Aside
+
+.card {
+  @include panel;
+  overflow: hidden;
+}
 
 .about {
   display: grid;
-  gap: 0;
-
-  @include tablet {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: $space-8;
-  }
 }
 
 .aboutRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
   align-items: baseline;
-  justify-content: space-between;
-  gap: $space-4;
-  padding-block: $space-2-5;
-  border-bottom: 1px solid $card-border;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
 
   dt {
-    flex-shrink: 0;
-    font-size: $text-xs;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: $text-muted;
+    @include eyebrow;
   }
 
   dd {
+    font-size: $fs-md;
+    color: $text;
     @include fluid-text;
-    text-align: right;
-    font-size: $text-sm;
-    color: $text-primary;
   }
 }
 
-// crex writes the batting and bowling traits in lower case. Casing them here
-// rather than in the decode keeps the lib honest about what the source said —
-// and it is applied per row, because the same rule on a height gives "6 Ft 1 In".
 .capitalize {
   text-transform: capitalize;
 }
 
-.teams {
-  margin-top: $space-5;
+.cardBlock {
+  padding: $space-4;
+  border-top: 1px solid $line;
 }
 
-.teamsTitle {
-  font-size: $text-2xs;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: $text-muted;
+.blockLabel {
+  @include eyebrow;
   margin-bottom: $space-2-5;
 }
 
 .teamList {
   display: flex;
   flex-wrap: wrap;
-  gap: $space-2;
+  gap: $space-1-5;
 
   li {
-    padding: $space-1 $space-2-5;
-    border-radius: $radius-sm;
-    background: $surface-elevated;
-    border: 1px solid $card-border;
-    font-size: $text-xs;
-    color: $text-secondary;
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding-inline: $space-2-5;
+    border: 1px solid $line-2;
+    border-radius: $r-pill;
+    font-size: $fs-sm;
+    color: $text-2;
   }
 }
 
 .social {
   display: flex;
   flex-wrap: wrap;
-  gap: $space-4;
-  margin-top: $space-5;
+  gap: $space-2;
 
   a {
-    font-size: $text-sm;
-    font-weight: 600;
-    color: $accent;
-    transition: opacity 0.15s ease;
-
-    &:hover {
-      opacity: 0.75;
-    }
-
-    &:focus-visible {
-      outline: 2px solid $accent;
-      outline-offset: 2px;
-      border-radius: $radius-sm;
-    }
+    @include button-secondary;
+    min-height: 36px;
+    font-size: $fs-sm;
   }
 }
-
-// ── Career tables ───────────────────────────────────────────────────────────
-
-.tableWrap {
-  @include scroll-x;
-  max-width: 100%;
-  margin-inline: -#{$space-4};
-  padding-inline: $space-4;
-
-  @include tablet {
-    margin-inline: 0;
-    padding-inline: 0;
-  }
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: $text-xs;
-  font-variant-numeric: tabular-nums;
-
-  th,
-  td {
-    padding: $space-2 $space-1-5;
-    text-align: right;
-    white-space: nowrap;
-    color: $text-primary;
-    font-weight: 400;
-  }
-
-  thead th {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: $text-muted;
-    border-bottom: 1px solid $card-border;
-  }
-
-  // Rows rule off from each other, but a group heading opens its own block and
-  // must not carry the previous group's bottom border into it.
-  tbody tr + tr th,
-  tbody tr + tr td {
-    border-top: 1px solid $card-border;
-  }
-
-  tbody + tbody tr:first-child th,
-  tbody + tbody tr:first-child td,
-  .groupRow th {
-    border-top: 0;
-  }
-
-  // The format is the row's name, so it reads as a heading rather than a cell —
-  // and it is the column a reader scans down to find their format.
-  tbody th {
-    font-weight: 600;
-  }
-
-  @include sm {
-    font-size: $text-sm;
-
-    th,
-    td {
-      padding: $space-2 $space-2;
-    }
-  }
-
-  .left {
-    text-align: left;
-  }
-}
-
-// The one figure per row that answers "how good": runs on a batting row,
-// wickets on a bowling one.
-.figure {
-  font-weight: 700;
-  color: $accent-green;
-}
-
-// The International / Club & franchise divider inside a career table. A band,
-// not a heading — it separates without competing with the section title above.
-.groupRow th {
-  padding-top: $space-4;
-  padding-bottom: $space-1-5;
-  font-size: $text-2xs;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: $text-muted;
-}
-
-// Career totals. Ruled off above rather than tinted: it is a sum of the rows, so
-// it reads as the end of the column, not as another entry in it.
-.totalRow {
-  th,
-  td {
-    padding-top: $space-2-5;
-    border-top: 2px solid $card-border;
-    font-weight: 700;
-  }
-}
-
-// A figure that opens the match it was made in — the highest score, a debut
-// fixture. Same restraint as the player links on the match page: the number
-// stays a number, and the underline is the affordance.
-.cellLink {
-  color: inherit;
-  text-decoration-color: transparent;
-  text-decoration-line: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-  transition:
-    color 0.15s ease,
-    text-decoration-color 0.15s ease;
-
-  &:hover {
-    color: $accent;
-    text-decoration-color: currentColor;
-  }
-
-  &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 2px;
-    border-radius: 3px;
-    text-decoration-color: transparent;
-  }
-}
-
-// ── Debuts ──────────────────────────────────────────────────────────────────
 
 .debuts {
-  display: grid;
-  gap: 0;
+  @include panel;
+  overflow: hidden;
 }
 
 .debutRow {
   display: grid;
   gap: $space-1;
-  padding-block: $space-2-5;
-  border-bottom: 1px solid $card-border;
+  padding: $space-3 $space-4;
 
-  @include sm {
-    grid-template-columns: 90px minmax(0, 1fr);
-    gap: $space-4;
-    align-items: baseline;
+  & + & {
+    border-top: 1px solid $line;
   }
+}
 
-  dt {
-    font-size: $text-xs;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: $accent;
-  }
+.debutFormat {
+  @include eyebrow;
+  color: $text-2;
+}
 
-  dd {
-    @include fluid-text;
-    font-size: $text-sm;
-    color: $text-secondary;
+.debutFixture {
+  font-size: $fs-sm;
+  line-height: $leading-snug;
+  color: $text-2;
+  @include fluid-text;
+
+  &:is(a) {
+    color: $text;
+    @include focus-ring;
+
+    &:hover {
+      color: $data;
+    }
   }
 }

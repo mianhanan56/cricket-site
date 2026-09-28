@@ -1,31 +1,45 @@
 @use 'component' as *;
 
-// ===========================================================================
-// Search skeletons — bars only; page, input, section and result-list boxes come
-// from app/search/search.module.scss.
-// ===========================================================================
+.head {
+  display: grid;
+  gap: $space-3;
+  padding-block: $space-8 $space-6;
 
-.inert {
-  pointer-events: none;
+  @include tablet {
+    padding-block: $space-12 $space-8;
+  }
 }
 
-// Stands in for the search field itself while the client half boots: same
-// height as .input (py-3 around 16px text + 1px border).
+.eyebrow {
+  width: 56px;
+}
+
+.title {
+  width: 240px;
+  max-width: 100%;
+  height: 40px;
+  border-radius: $r-sm;
+}
+
 .input {
-  height: 48px;
-  border-radius: $radius-md;
-  margin-bottom: $space-5;
+  height: 56px;
+  margin-bottom: $space-10;
+  border-radius: $r-md;
+
+  @include tablet {
+    height: 64px;
+  }
 }
 
 .sectionTitle {
-  width: 108px;
-  height: 16px;
+  width: 120px;
+  margin-bottom: $space-4;
 }
 
 .itemLabel {
-  width: 168px;
+  width: 45%;
 }
 
 .itemSub {
-  width: 74px;
+  width: 30%;
 }

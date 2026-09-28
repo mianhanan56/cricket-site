@@ -1,78 +1,114 @@
 @use 'component' as *;
 
-// ===========================================================================
-// Series skeleton — bar geometry only.
-//
-// The containers (toolbar tabs, grid, card, header, schedule) come from
-// SeriesFilter.module.scss / SeriesCard.module.scss so the placeholder occupies
-// the real layout. What lives here is the fixed widths the bars need: inside a
-// content-sized flex row a percentage collapses.
-// ===========================================================================
-
-// Nothing in a skeleton is interactive — kill the hover lift the real card
-// carries, so a cursor crossing the page doesn't animate dead boxes.
 .inert {
   pointer-events: none;
 }
 
-// --- Status tabs -----------------------------------------------------------
-// Each bar matches a .tab's box (py-2 px-4 around $text-sm plus a count chip).
-
-.tabBar {
-  height: 36px;
-  border-radius: 999px;
-}
-
-.tab1 {
-  width: 76px; // "All"
-}
-.tab2 {
-  width: 84px; // "Live"
-}
-.tab3 {
-  width: 118px; // "Upcoming"
-}
-.tab4 {
-  width: 110px; // "Finished"
-}
-
-// --- Series card ---------------------------------------------------------
-
-.formatChip {
-  width: 42px; // "ODI" / "T20"
-  height: 20px;
-  border-radius: $radius-md;
-}
-
-.statusPill {
-  width: 62px; // LIVE / UPCOMING / COMPLETED
-  height: 20px;
-  border-radius: $radius-md;
+.format {
+  height: 24px;
 }
 
 .name {
-  width: 88%;
+  width: min(320px, 80%);
 }
 
-.name2 {
-  width: 54%;
-  margin-top: $space-1-5;
+.dates {
+  width: 120px;
 }
 
-.nameBlock {
-  width: 100%;
-}
-
-.count {
-  width: 76px; // "12 matches"
+.readout {
+  width: 60%;
 }
 
 .rail {
-  height: 5px;
-  border-radius: 999px;
+  height: 4px;
+  width: 100%;
 }
 
-.date {
-  width: 58px; // "14 Aug 2026"
-  height: 12px;
+.chip {
+  width: 84px;
+}
+
+.segmented {
+  width: min(360px, 100%);
+  height: 42px;
+}
+
+.segmentedSm {
+  width: 260px;
+  height: 36px;
+
+  @include tablet {
+    margin-left: auto;
+  }
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  padding-block: $space-8 $space-6;
+
+  @include tablet {
+    padding-block: $space-12 $space-8;
+  }
+}
+
+.eyebrow {
+  width: 90px;
+}
+
+.title {
+  width: min(520px, 90%);
+  height: 44px;
+}
+
+.control {
+  @include desktop {
+    grid-template-columns: minmax(0, 1fr) 360px;
+  }
+}
+
+.big {
+  width: 180px;
+  height: 64px;
+}
+
+.bigRail {
+  width: 100%;
+  height: 6px;
+}
+
+.node {
+  width: 30px;
+  height: 30px;
+}
+
+.figures {
+  min-height: 220px;
+  border-radius: $r-md;
+}
+
+.tabs {
+  width: min(380px, 100%);
+  height: 46px;
+  margin-bottom: $space-8;
+}
+
+.tiles {
+  display: grid;
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include wide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.tile {
+  height: 168px;
+  border-radius: $r-md;
 }

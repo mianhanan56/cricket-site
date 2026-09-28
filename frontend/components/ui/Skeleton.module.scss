@@ -26,7 +26,7 @@
   overflow: hidden;
   flex-shrink: 0;
   background: $sk-base;
-  border-radius: 999px;
+  border-radius: $r-xs;
   // Floor, so a placeholder that is handed neither a variant nor a height in
   // `className` still shows up rather than collapsing to nothing.
   min-height: 8px;
@@ -73,7 +73,8 @@
 }
 
 .chip {
-  height: 22px; // pills, format chips, status badges
+  height: 22px;
+  border-radius: $r-pill;
 }
 
 .circle {
@@ -83,7 +84,7 @@
 
 .square {
   aspect-ratio: 1;
-  border-radius: $radius-xl; // matches the 44px team badge / 40px stat tile
+  border-radius: 28%;
 }
 
 .block {

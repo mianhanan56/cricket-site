@@ -9,16 +9,15 @@ import {
 } from '../../../../../lib/crex';
 import PlayerPortrait from '../../../../../components/player/PlayerPortrait';
 import TableScroll from '../../../../../components/ui/TableScroll';
-import RankingCrest from '../../../../../components/rankings/RankingCrest';
+import TeamBadge from '../../../../../components/ui/TeamBadge';
+import EmptyState from '../../../../../components/ui/EmptyState';
 import BackButton from '../../../../../components/ui/BackButton';
+import { PageHeader } from '../../../../../components/ui/Section';
 import styles from './seriesStat.module.scss';
 
-// The tables are read off every card in the series, so they are cached hard: a
-// finished scorecard does not change, and a live one moves the top of a table by
-// a run at a time.
+// Aggregated from every scorecard in the series, so cached hard.
 const REVALIDATE = 900;
 
-/** URL slug ⇄ stat kind. Slugs read as the thing they rank. */
 const SLUGS: Record<string, SeriesStatKind> = {
   'most-runs': 'RUNS',
   'most-wickets': 'WICKETS',
@@ -32,34 +31,39 @@ const SLUGS: Record<string, SeriesStatKind> = {
   'best-economy': 'ECONOMY',
 };
 
-// The reverse, for the switcher below. Not exported: a Next page module may
-// only export the page and its route config, so the rail keeps its own copy.
-const STAT_SLUGS: Record<SeriesStatKind, string> = Object.fromEntries(
-  Object.entries(SLUGS).map(([slug, kind]) => [kind, slug])
-) as Record<SeriesStatKind, string>;
+// A page module may only export the page and its config, so the reverse map stays local.
+const STAT_SLUGS = Object.fromEntries(Object.entries(SLUGS).map(([slug, kind]) => [kind, slug])) as Record<
+  SeriesStatKind,
+  string
+>;
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { id: string; kind: string };
-}) {
+/** The ranked figure's column, and the supporting column it would duplicate. */
+const HEADLINE: Record<SeriesStatKind, { head: string; unit: string | null; replaces: string }> = {
+  RUNS: { head: 'Runs', unit: 'runs', replaces: 'Runs' },
+  WICKETS: { head: 'Wkts', unit: 'wickets', replaces: 'Wkts' },
+  HIGHEST_SCORE: { head: 'HS', unit: null, replaces: 'HS' },
+  BEST_FIGURES: { head: 'BBI', unit: null, replaces: 'BBI' },
+  SIXES: { head: '6s', unit: 'sixes', replaces: '6s' },
+  FOURS: { head: '4s', unit: 'fours', replaces: '4s' },
+  FIFTIES: { head: '50s', unit: 'fifties', replaces: '50' },
+  HUNDREDS: { head: '100s', unit: 'hundreds', replaces: '100' },
+  STRIKE_RATE: { head: 'SR', unit: 'strike rate', replaces: 'SR' },
+  ECONOMY: { head: 'Econ', unit: 'economy', replaces: 'Econ' },
+};
+
+export async function generateMetadata({ params }: { params: { id: string; kind: string } }) {
   const kind = SLUGS[params.kind];
   if (!kind) return { title: 'Series stats' };
 
-  const series = await getCrexSeriesSchedule(params.id, { revalidate: REVALIDATE }).catch(
-    () => null
-  );
+  const series = await getCrexSeriesSchedule(params.id, { revalidate: REVALIDATE }).catch(() => null);
   const label = seriesStatLabel(kind);
 
   return {
     title: series ? `${label} in ${series.name}` : label,
-    description: series
-      ? `${label} in ${series.name}: the leading ten, with innings, average and strike rate.`
-      : undefined,
+    description: series ? `${label} in ${series.name}: the leading ten, with innings, average and strike rate.` : undefined,
   };
 }
 
-/** Which columns a table draws, in order. Batting and bowling read differently. */
 const BATTING_COLUMNS = ['Runs', 'Mat', 'Inns', 'HS', 'Avg', 'SR', '100', '50', '4s', '6s'] as const;
 const BOWLING_COLUMNS = ['Wkts', 'Mat', 'Inns', 'Ov', 'Runs', 'BBI', 'Avg', 'Econ', 'SR', '5w'] as const;
 
@@ -97,11 +101,7 @@ function cellsFor(row: SeriesStatRow, discipline: SeriesStatTable['discipline'])
       ];
 }
 
-export default async function SeriesStatPage({
-  params,
-}: {
-  params: { id: string; kind: string };
-}) {
+export default async function SeriesStatPage({ params }: { params: { id: string; kind: string } }) {
   const kind = SLUGS[params.kind];
   if (!kind) notFound();
 
@@ -112,92 +112,95 @@ export default async function SeriesStatPage({
 
   if (!series) notFound();
 
-  const columns = table?.discipline === 'BOWLING' ? BOWLING_COLUMNS : BATTING_COLUMNS;
-  // The top three get the podium; everyone else is a row. Three because that is
-  // what fits at portrait scale, and because a podium of one is not a podium.
-  const podium = table?.rows.slice(0, 3) ?? [];
+  const label = seriesStatLabel(kind);
+  const headline = HEADLINE[kind];
+  const columns: readonly string[] = table?.discipline === 'BOWLING' ? BOWLING_COLUMNS : BATTING_COLUMNS;
+  const keep = columns.map((c, i) => [c, i] as const).filter(([c]) => c !== headline.replaces);
+  const leader = table?.rows[0] ?? null;
+  const leaderCells = leader && table ? cellsFor(leader, table.discipline) : [];
+  const spotlight = keep.filter(([c]) => ['Mat', 'Inns', 'Avg', 'SR', 'Econ', 'Runs', 'Wkts'].includes(c)).slice(0, 4);
 
   return (
     <div className={styles.page}>
-      <BackButton fallback={`/series/${params.id}`} />
+      <BackButton fallback={`/series/${params.id}`} className={styles.back} />
 
-      <header className={styles.head}>
-        <p className={styles.eyebrow}>{series.name}</p>
-        <h1 className={styles.heading}>{seriesStatLabel(kind)}</h1>
-      </header>
+      <PageHeader eyebrow={series.name} title={label} />
 
-      {/* Sibling rankings, so a reader who wanted wickets rather than runs does
-          not have to go back to the series page to change their mind. */}
       <nav className={styles.switcher} aria-label="Other rankings">
-        {SERIES_STAT_KINDS.map((other) => (
-          <Link
-            key={other}
-            href={`/series/${params.id}/stats/${STAT_SLUGS[other]}`}
-            className={`${styles.switch} ${other === kind ? styles.switchOn : ''}`}
-            aria-current={other === kind ? 'page' : undefined}
-          >
-            {seriesStatLabel(other)}
-          </Link>
-        ))}
+        <div className={styles.switchGroup}>
+          {SERIES_STAT_KINDS.map((other) => (
+            <Link
+              key={other}
+              href={`/series/${params.id}/stats/${STAT_SLUGS[other]}`}
+              className={`${styles.switch} ${other === kind ? styles.on : ''}`}
+              aria-current={other === kind ? 'page' : undefined}
+            >
+              {seriesStatLabel(other)}
+            </Link>
+          ))}
+        </div>
       </nav>
 
-      {!table ? (
-        <p className={styles.empty}>
-          Nothing to rank yet — no completed scorecard in this series.
-        </p>
+      {!table || !leader ? (
+        <EmptyState
+          icon="rankings"
+          title="Nothing to rank yet"
+          action={{ label: 'Back to the series', href: `/series/${params.id}` }}
+        />
       ) : (
         <>
-          <div className={styles.podium}>
-            {podium.map((row) => (
-              <Link
-                href={`/players/${row.playerKey}`}
-                className={styles.podiumCard}
-                data-rank={row.rank}
-                key={row.playerKey}
-              >
-                <span className={styles.podiumRank}>{row.rank}</span>
+          <Link href={`/players/${leader.playerKey}`} className={styles.spotlight}>
+            <span className={styles.portrait}>
+              <PlayerPortrait name={leader.playerName} src={leader.playerImage} />
+            </span>
 
-                <span className={styles.podiumHalo}>
-                  <PlayerPortrait name={row.playerName} src={row.playerImage} />
-                </span>
+            <span className={styles.spotMain}>
+              <span className={styles.spotLabel}>Leader</span>
+              <span className={styles.spotName}>{leader.playerName}</span>
+              <span className={styles.spotTeam}>
+                <TeamBadge name={leader.team.name} shortName={leader.team.shortName} logo={leader.team.logo} size="xs" />
+                {leader.team.name}
+              </span>
+            </span>
 
-                <span className={styles.podiumFigure}>{row.value}</span>
-                <span className={styles.podiumName}>{row.playerName}</span>
-                <span className={styles.podiumTeam}>
-                  <RankingCrest
-                    name={row.team.name}
-                    shortName={row.team.shortName}
-                    logo={row.team.logo}
-                  />
-                  <span>{row.team.name}</span>
-                </span>
-              </Link>
-            ))}
-          </div>
+            <span className={styles.spotValue}>
+              <span className={styles.spotNum}>{leader.value}</span>
+              {headline.unit && <span className={styles.spotUnit}>{headline.unit}</span>}
+            </span>
 
-          <TableScroll
-            className={styles.tableWrap}
-            label={`${seriesStatLabel(kind)} in ${series.name}`}
-          >
+            {spotlight.length > 0 && (
+              <span className={styles.spotStats}>
+                {spotlight.map(([c, i]) => (
+                  <span key={c} className={styles.spotStat}>
+                    <span className={styles.spotStatLabel}>{c}</span>
+                    <span className={styles.spotStatNum}>{leaderCells[i]}</span>
+                  </span>
+                ))}
+              </span>
+            )}
+          </Link>
+
+          <TableScroll className={styles.tableWrap} label={`${label} in ${series.name}`}>
             <table className={styles.table}>
               <caption className={styles.caption}>
-                {seriesStatLabel(kind)} in {series.name} — top {table.rows.length}, from{' '}
-                {table.matchesCounted} {table.matchesCounted === 1 ? 'scorecard' : 'scorecards'}
+                {label} in {series.name}: top {table.rows.length}, from {table.matchesCounted}{' '}
+                {table.matchesCounted === 1 ? 'scorecard' : 'scorecards'}
                 {table.qualifier ? `, minimum ${table.qualifier}` : ''}
               </caption>
 
               <thead>
                 <tr>
-                  <th scope="col" className={styles.numCol}>
+                  <th scope="col" className={styles.rankCol}>
                     #
                   </th>
                   <th scope="col" className={styles.playerCol}>
                     Player
                   </th>
-                  {columns.map((c, i) => (
-                    // The first figure is the one the table is ranked by, so it
-                    // carries the accent all the way down the column.
-                    <th scope="col" key={c} className={i === 0 ? styles.leadCol : undefined}>
+                  <th scope="col" className={styles.leadCol}>
+                    {headline.head}
+                  </th>
+                  {keep.map(([c]) => (
+                    <th scope="col" key={c}>
                       {c}
                     </th>
                   ))}
@@ -207,28 +210,19 @@ export default async function SeriesStatPage({
               <tbody>
                 {table.rows.map((row) => {
                   const cells = cellsFor(row, table.discipline);
-
                   return (
-                    <tr key={row.playerKey}>
-                      <td className={styles.numCol}>{row.rank}</td>
+                    <tr key={row.playerKey} data-lead={row.rank === 1 || undefined}>
+                      <td className={styles.rankCol}>{row.rank}</td>
                       <td className={styles.playerCol}>
                         <Link href={`/players/${row.playerKey}`} className={styles.player}>
-                          <RankingCrest
-                            name={row.team.name}
-                            shortName={row.team.shortName}
-                            logo={row.team.logo}
-                          />
+                          <TeamBadge name={row.team.name} shortName={row.team.shortName} logo={row.team.logo} size="xs" />
                           <span className={styles.playerName}>{row.playerName}</span>
                           <span className={styles.playerTeam}>{row.team.shortName}</span>
                         </Link>
                       </td>
-                      {cells.map((cell, i) => (
-                        <td
-                          key={columns[i]}
-                          className={i === 0 ? styles.leadCol : undefined}
-                        >
-                          {cell}
-                        </td>
+                      <td className={styles.leadCol}>{row.value}</td>
+                      {keep.map(([c, i]) => (
+                        <td key={c}>{cells[i]}</td>
                       ))}
                     </tr>
                   );

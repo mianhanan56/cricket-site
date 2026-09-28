@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type {
   CommentaryBall,
   InningsScore,
@@ -24,24 +24,17 @@ import type { StoppageWatch } from '@/lib/crex';
 // stream we deliberately don't touch (see worker-crex/README) — so the only
 // option is polling.
 //
-// 2s is matched to the Worker's edge TTL on /matches/live, which was dropped to
-// 2s alongside this. The two numbers have to move together: polling faster than
-// the TTL just serves the same cached body repeatedly, and a longer TTL would
-// cap freshness no matter how often we ask.
+// 2s is matched to the Worker's edge TTL on /matches/live. The two numbers have
+// to move together: polling faster than the TTL just serves the same cached body.
 const DEFAULT_INTERVAL_MS = 2_000;
 
 /**
- * The cadence for a match that is not being played.
- *
- * A page still has to poll when the match on it is upcoming — that is how it
- * finds out the match has started — but nothing about a fixture two hours out
- * changes second to second, so it asks at a rate suited to noticing a toss
- * rather than a delivery.
+ * The cadence for a match that is not being played — fast enough to notice a
+ * toss, cheap enough to leave open.
  */
 export const IDLE_INTERVAL_MS = 30_000;
 
-// After a failure, back off rather than hammering a struggling upstream. Each
-// consecutive error doubles the wait, up to this ceiling.
+// Each consecutive failure doubles the wait, up to this ceiling.
 const MAX_BACKOFF_MS = 5 * 60_000;
 
 export interface UseCrexMatchesResult {
@@ -65,125 +58,188 @@ export interface UseCrexMatchesOptions {
   enabled?: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// One shared channel for the match list. Every subscriber reads the same
+// snapshot; the channel polls at the fastest interval any live subscriber asks
+// for, so the home board, the hero, the alert engine and search cost one
+// request per tick between them instead of one each.
+// ---------------------------------------------------------------------------
+
+interface ChannelState {
+  matches: Match[];
+  lastUpdated: Date | null;
+  error: Error | null;
+  isRefreshing: boolean;
+  /** The first poll has resolved, successfully or not. */
+  settled: boolean;
+}
+
+const SERVER_STATE: ChannelState = {
+  matches: [],
+  lastUpdated: null,
+  error: null,
+  isRefreshing: false,
+  settled: false,
+};
+
+const channel = {
+  state: SERVER_STATE,
+  listeners: new Set<() => void>(),
+  subscribers: new Map<number, number>(),
+  nextId: 0,
+  timer: null as ReturnType<typeof setTimeout> | null,
+  abort: null as AbortController | null,
+  failures: 0,
+  // What each match's reported break looked like last poll — see `clearResumedStoppages`.
+  stoppages: new Map<string, StoppageWatch>(),
+  visibilityBound: false,
+};
+
+function emit(patch: Partial<ChannelState>) {
+  channel.state = { ...channel.state, ...patch };
+  channel.listeners.forEach((l) => l());
+}
+
+function wantedInterval(): number | null {
+  if (!channel.subscribers.size) return null;
+  return Math.min(...channel.subscribers.values());
+}
+
+function clearTimer() {
+  if (channel.timer) clearTimeout(channel.timer);
+  channel.timer = null;
+}
+
+function schedule(delay: number) {
+  clearTimer();
+  channel.timer = setTimeout(poll, Math.max(0, delay));
+}
+
+async function poll(): Promise<void> {
+  const interval = wantedInterval();
+  if (interval === null) {
+    clearTimer();
+    return;
+  }
+  // A hidden tab's timers are throttled; park the chain and let the
+  // visibility listener restart it.
+  if (document.visibilityState === 'hidden') {
+    clearTimer();
+    return;
+  }
+
+  channel.abort?.abort();
+  const controller = new AbortController();
+  channel.abort = controller;
+  emit({ isRefreshing: true });
+
+  try {
+    const next = await getCrexMatchList({ signal: controller.signal });
+    if (controller.signal.aborted) return;
+
+    const landed = new Date();
+    channel.failures = 0;
+    emit({
+      matches: clearResumedStoppages(next, channel.stoppages, landed.getTime()),
+      lastUpdated: landed,
+      error: null,
+      isRefreshing: false,
+      settled: true,
+    });
+    schedule(wantedInterval() ?? interval);
+  } catch (err) {
+    if (controller.signal.aborted) return;
+    channel.failures += 1;
+    emit({
+      error: err instanceof Error ? err : new Error(String(err)),
+      isRefreshing: false,
+      settled: true,
+    });
+    schedule(Math.min(interval * 2 ** channel.failures, MAX_BACKOFF_MS));
+  }
+}
+
+/** Poll now if the data is older than the wanted interval, else when it will be. */
+function reschedule() {
+  const interval = wantedInterval();
+  if (interval === null) {
+    clearTimer();
+    channel.abort?.abort();
+    return;
+  }
+  if (channel.state.isRefreshing) return;
+  const age = channel.state.lastUpdated ? Date.now() - channel.state.lastUpdated.getTime() : Infinity;
+  schedule(channel.failures ? Math.min(interval * 2 ** channel.failures, MAX_BACKOFF_MS) - age : interval - age);
+}
+
+function bindVisibility() {
+  if (channel.visibilityBound) return;
+  channel.visibilityBound = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !channel.subscribers.size) return;
+    channel.failures = 0;
+    clearTimer();
+    void poll();
+  });
+}
+
+function register(intervalMs: number): () => void {
+  const id = channel.nextId++;
+  channel.subscribers.set(id, intervalMs);
+  bindVisibility();
+  reschedule();
+  return () => {
+    channel.subscribers.delete(id);
+    reschedule();
+  };
+}
+
+const subscribeState = (listener: () => void) => {
+  channel.listeners.add(listener);
+  return () => channel.listeners.delete(listener);
+};
+const getState = () => channel.state;
+const getServerState = () => SERVER_STATE;
+
+export function refreshMatches(): void {
+  channel.failures = 0;
+  clearTimer();
+  void poll();
+}
+
 /**
- * Poll the crex Worker for the match list.
+ * Subscribe to the shared crex match list.
  *
- * Three things this does that a bare setInterval would not:
- *
- *   - Pauses while the tab is hidden, and polls immediately on return. A
- *     backgrounded tab otherwise keeps fetching scores nobody is reading.
- *   - Backs off exponentially on failure instead of retrying every 20s.
- *   - Keeps the last good data on error. A failed poll shows stale scores,
+ *   - Pauses while the tab is hidden, and polls immediately on return.
+ *   - Backs off exponentially on failure.
+ *   - Keeps the last good data on error — a failed poll shows stale scores,
  *     never an empty list.
+ *   - A subscriber that stops polling keeps the last list it saw, rather than
+ *     falling back to its seed.
  */
 export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatchesResult {
   const { initial = [], intervalMs = DEFAULT_INTERVAL_MS, enabled = true } = options;
-
-  const [matches, setMatches] = useState<Match[]>(initial);
-  const [isLoading, setIsLoading] = useState(initial.length === 0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  // Poll bookkeeping lives in refs so changing it never re-triggers the effect.
-  const failures = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abort = useRef<AbortController | null>(null);
-  const mounted = useRef(true);
-  // What each match's reported break looked like last poll, so a break the score
-  // has since moved under can be spotted as a stale one — see
-  // `clearResumedStoppages`. Poll-to-poll memory, so a ref rather than state.
-  const stoppages = useRef(new Map<string, StoppageWatch>());
-  // Bumping this re-runs the scheduling effect, which is how refresh() works.
-  const [tick, setTick] = useState(0);
-
-  const refresh = useCallback(() => {
-    failures.current = 0;
-    setTick((t) => t + 1);
-  }, []);
+  const snapshot = useSyncExternalStore(subscribeState, getState, getServerState);
 
   useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
+    if (!enabled) return;
+    return register(intervalMs);
+  }, [enabled, intervalMs]);
 
-  useEffect(() => {
-    if (!enabled) {
-      setIsLoading(false);
-      return;
-    }
+  const lastSeen = useRef<Match[] | null>(null);
+  const live = enabled && snapshot.lastUpdated ? snapshot.matches : null;
+  if (live) lastSeen.current = live;
 
-    const clear = () => {
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = null;
-    };
+  const refresh = useCallback(() => refreshMatches(), []);
 
-    const schedule = (delay: number) => {
-      clear();
-      timer.current = setTimeout(run, delay);
-    };
-
-    async function run(): Promise<void> {
-      // Don't poll into a hidden tab, and don't re-arm a timer either: a
-      // background tab's setTimeout is throttled to about once a minute, so a
-      // re-armed chain comes back minutes late. Drop it and let the visibility
-      // listener below restart us the moment the tab returns.
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        clear();
-        return;
-      }
-
-      abort.current?.abort();
-      const controller = new AbortController();
-      abort.current = controller;
-
-      setIsRefreshing(true);
-      try {
-        const next = await getCrexMatchList({ signal: controller.signal });
-        if (!mounted.current || controller.signal.aborted) return;
-
-        const landed = new Date();
-        setMatches(clearResumedStoppages(next, stoppages.current, landed.getTime()));
-        setError(null);
-        setLastUpdated(landed);
-        failures.current = 0;
-        schedule(intervalMs);
-      } catch (err) {
-        // An abort is us tearing down, not a failure.
-        if (controller.signal.aborted || !mounted.current) return;
-
-        setError(err instanceof Error ? err : new Error(String(err)));
-        failures.current += 1;
-        schedule(Math.min(intervalMs * 2 ** failures.current, MAX_BACKOFF_MS));
-      } finally {
-        if (mounted.current && !controller.signal.aborted) {
-          setIsRefreshing(false);
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void run();
-
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        failures.current = 0;
-        clear();
-        void run();
-      }
-    };
-    document.addEventListener('visibilitychange', onVisible);
-
-    return () => {
-      clear();
-      abort.current?.abort();
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [enabled, intervalMs, tick]);
-
-  return { matches, isLoading, isRefreshing, error, lastUpdated, refresh };
+  return {
+    matches: live ?? lastSeen.current ?? initial,
+    isLoading: enabled && !snapshot.settled && initial.length === 0,
+    isRefreshing: enabled && snapshot.isRefreshing,
+    error: enabled ? snapshot.error : null,
+    lastUpdated: lastSeen.current ? snapshot.lastUpdated : null,
+    refresh,
+  };
 }
 
 export interface UseCrexMatchResult extends Omit<UseCrexMatchesResult, 'matches'> {

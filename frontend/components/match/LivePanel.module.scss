@@ -1,0 +1,214 @@
+@use 'component' as *;
+
+.muted {
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+.liveGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-6;
+
+  @include desktop {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-areas:
+      'over pulse'
+      'crease pulse';
+    align-items: start;
+  }
+}
+
+.cellOver {
+  @include desktop {
+    grid-area: over;
+  }
+}
+
+.cellPulse {
+  @include desktop {
+    grid-area: pulse;
+  }
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: $space-4;
+  }
+}
+
+.cellCrease {
+  @include desktop {
+    grid-area: crease;
+  }
+}
+
+// ---------------------------------------------------------------- Crease
+
+.crease {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+
+  @include sm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.person {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'role role'
+    'name fig'
+    'stats stats';
+  gap: $space-1 $space-3;
+  padding: $space-4;
+  @include panel;
+}
+
+.onStrike {
+  border-color: color-mix(in oklab, var(--signal) 40%, var(--line));
+  background: color-mix(in oklab, var(--signal) 4%, var(--surface));
+
+  .role {
+    color: $signal-text;
+  }
+}
+
+.bowler {
+  @include sm {
+    grid-column: 1 / -1;
+  }
+}
+
+.role {
+  grid-area: role;
+  @include eyebrow;
+}
+
+.personName {
+  grid-area: name;
+  font-weight: 700;
+  font-size: $fs-base;
+  @include truncate;
+}
+
+.personFig {
+  grid-area: fig;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+
+  strong {
+    @include display-num;
+    font-size: $fs-2xl;
+  }
+
+  span {
+    @include data-num;
+    font-size: $fs-xs;
+    color: $text-3;
+  }
+}
+
+.personStats {
+  grid-area: stats;
+  display: flex;
+  gap: $space-5;
+  margin-top: $space-2;
+  padding-top: $space-2;
+  border-top: 1px solid $line;
+
+  div {
+    display: flex;
+    gap: $space-1-5;
+    align-items: baseline;
+  }
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include data-num;
+    font-size: $fs-sm;
+  }
+}
+
+// ---------------------------------------------------------------- POTM
+
+.potm {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'avatar body'
+    'figs figs';
+  gap: $space-4;
+  align-items: center;
+  padding: $space-5;
+  border-radius: $r-lg;
+  border: 1px solid color-mix(in oklab, var(--signal) 30%, var(--line));
+  background:
+    radial-gradient(60% 120% at 0% 50%, color-mix(in oklab, var(--signal) 9%, transparent), transparent 70%),
+    var(--surface);
+
+  @include tablet {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'avatar body figs';
+  }
+}
+
+.potmAvatar {
+  grid-area: avatar;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  font-size: $fs-xl;
+  color: $signal-ink;
+  background: $signal;
+}
+
+.potmBody {
+  grid-area: body;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.potmLabel {
+  @include eyebrow;
+  color: $signal-text;
+}
+
+.potmName {
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  font-size: $fs-xl;
+  @include truncate;
+}
+
+.potmTeam {
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.potmFigs {
+  grid-area: figs;
+  display: flex;
+  gap: $space-6;
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include display-num;
+    font-size: $fs-2xl;
+  }
+}

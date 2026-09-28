@@ -1,29 +1,25 @@
 import Link from 'next/link';
-import type { SeriesLeader, SeriesLeaders as Leaders } from '@/types';
+import type { SeriesLeader, SeriesLeaders as Leaders, SeriesStatKind } from '@/types';
 import PlayerPortrait from '../player/PlayerPortrait';
+import TeamBadge from '../ui/TeamBadge';
 import styles from './SeriesLeaders.module.scss';
 
-/**
- * Where each honour's full ranking lives. Kept beside the rail rather than
- * imported from the route so a page module is not pulled into this component.
- */
-const STAT_SLUG: Partial<Record<SeriesLeader['kind'], string>> = {
+/** Kept here rather than imported from the route, so a page module stays out of this component. */
+export const STAT_SLUG: Record<SeriesStatKind, string> = {
   RUNS: 'most-runs',
   WICKETS: 'most-wickets',
   HIGHEST_SCORE: 'highest-score',
   BEST_FIGURES: 'best-figures',
   SIXES: 'most-sixes',
   FOURS: 'most-fours',
+  FIFTIES: 'most-fifties',
+  HUNDREDS: 'most-hundreds',
   STRIKE_RATE: 'best-strike-rate',
   ECONOMY: 'best-economy',
 };
 
-/**
- * What the rail shows, in the order a cricket follower asks for it. Every one of
- * these has a ranking page behind it; the two crex sends that do not — dot balls
- * and fantasy points — are left off rather than made into dead cards.
- */
-const RAIL_ORDER = [
+// Dot balls and fantasy points have no ranking page behind them, so they are left off.
+const ORDER = [
   'RUNS',
   'WICKETS',
   'HIGHEST_SCORE',
@@ -34,73 +30,123 @@ const RAIL_ORDER = [
   'ECONOMY',
 ] as const;
 
-/** The unit that belongs under each headline figure. Null where the figure is one. */
 const UNIT: Partial<Record<SeriesLeader['kind'], string>> = {
   RUNS: 'runs',
-  WICKETS: 'wickets',
+  WICKETS: 'wkts',
   SIXES: 'sixes',
   FOURS: 'fours',
-  DOTS: 'dot balls',
-  FANTASY: 'points',
 };
 
-/**
- * The tournament's honours, as cards in the page's right rail.
- *
- * The rail fills the column beside a table that does not reach the edge of a
- * laptop screen, and answers "who is leading this" without a tab. Each card is
- * a door: it opens that honour's full ranking — the top ten, with the innings,
- * average and strike rate behind the figure — at /series/[id]/stats/[kind].
- *
- * Runs and wickets keep the amber and violet tint; the rest are mint, because
- * the two that decide a tournament should be the two that are coloured.
- */
-export function SeriesKeyStats({
-  leaders,
-  seriesId,
-}: {
-  leaders: Leaders;
-  /** crex series key, for the ranking page each card opens. */
-  seriesId: string;
-}) {
-  const shown = RAIL_ORDER.map((kind) => leaders.leaders.find((l) => l.kind === kind)).filter(
-    (l): l is SeriesLeader => Boolean(l)
-  );
+const EXTRA: Array<{ kind: SeriesStatKind; label: string }> = [
+  { kind: 'FIFTIES', label: 'Most fifties' },
+  { kind: 'HUNDREDS', label: 'Most hundreds' },
+];
 
+export function rankedLeaders(leaders: Leaders): SeriesLeader[] {
+  return ORDER.map((kind) => leaders.leaders.find((l) => l.kind === kind)).filter((l): l is SeriesLeader =>
+    Boolean(l)
+  );
+}
+
+function hrefFor(seriesId: string, kind: SeriesLeader['kind']): string {
+  return `/series/${seriesId}/stats/${STAT_SLUG[kind as SeriesStatKind]}`;
+}
+
+/** One honour as a compact figure — the control center's side column. */
+export function LeaderFigure({ leader, seriesId }: { leader: SeriesLeader; seriesId: string }) {
+  return (
+    <Link href={hrefFor(seriesId, leader.kind)} className={styles.figure}>
+      <span className={styles.figureLabel}>{leader.label}</span>
+      <span className={styles.figureBody}>
+        <PlayerPortrait name={leader.playerName} src={leader.playerImage} size="sm" />
+        <span className={styles.who}>
+          <span className={styles.name}>{leader.playerName}</span>
+          <span className={styles.team}>
+            <TeamBadge name={leader.team.name} shortName={leader.team.shortName} logo={leader.team.logo} size="xs" />
+            {leader.team.shortName}
+          </span>
+        </span>
+        <span className={styles.figureValue}>{leader.value}</span>
+      </span>
+    </Link>
+  );
+}
+
+/** The tournament's honours board; every card opens its full ranking. */
+export function SeriesLeadersBoard({ leaders, seriesId }: { leaders: Leaders; seriesId: string }) {
+  const shown = rankedLeaders(leaders);
   if (!shown.length) return null;
 
   return (
-    <div className={styles.rail}>
-      <div className={styles.railHead}>
-        <h2 className={styles.railTitle}>Key stats</h2>
+    <div className={styles.board}>
+      <div className={styles.grid}>
+        {shown.map((leader) => (
+          <Link
+            href={hrefFor(seriesId, leader.kind)}
+            className={styles.card}
+            data-featured={leader.kind === 'RUNS' || leader.kind === 'WICKETS' ? '' : undefined}
+            key={leader.kind}
+          >
+            <span className={styles.cardLabel}>{leader.label}</span>
+
+            <span className={styles.value}>
+              {leader.value}
+              {UNIT[leader.kind] && <span className={styles.unit}>{UNIT[leader.kind]}</span>}
+            </span>
+
+            <span className={styles.cardWho}>
+              <PlayerPortrait name={leader.playerName} src={leader.playerImage} size="sm" />
+              <span className={styles.who}>
+                <span className={styles.name}>{leader.playerName}</span>
+                <span className={styles.team}>
+                  <TeamBadge
+                    name={leader.team.name}
+                    shortName={leader.team.shortName}
+                    logo={leader.team.logo}
+                    size="xs"
+                  />
+                  {leader.team.name}
+                </span>
+              </span>
+            </span>
+
+            {(leader.innings !== null || leader.support) && (
+              <span className={styles.support}>
+                {[leader.innings !== null ? `${leader.innings} inns` : null, leader.support]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+            )}
+          </Link>
+        ))}
       </div>
 
-      {shown.map((leader) => (
-        <Link
-          href={`/series/${seriesId}/stats/${STAT_SLUG[leader.kind]}`}
-          className={styles.railCard}
-          data-kind={leader.kind}
-          key={leader.kind}
-        >
-          <span className={styles.railLabel}>{leader.label}</span>
+      <div className={styles.foot}>
+        {(leaders.fours !== null || leaders.sixes !== null) && (
+          <dl className={styles.totals}>
+            {leaders.fours !== null && (
+              <div>
+                <dt>Tournament fours</dt>
+                <dd>{leaders.fours}</dd>
+              </div>
+            )}
+            {leaders.sixes !== null && (
+              <div>
+                <dt>Tournament sixes</dt>
+                <dd>{leaders.sixes}</dd>
+              </div>
+            )}
+          </dl>
+        )}
 
-          <span className={styles.railBody}>
-            <span className={styles.railHalo}>
-              <PlayerPortrait name={leader.playerName} src={leader.playerImage} size="sm" />
-            </span>
-
-            <span className={styles.railWho}>
-              <span className={styles.railName}>{leader.playerName}</span>
-              <span className={styles.railTeam}>{leader.team.name}</span>
-            </span>
-
-            <span className={styles.railFigure}>
-              {leader.value}
-              {UNIT[leader.kind] && <span className={styles.railUnit}>{UNIT[leader.kind]}</span>}
-            </span>
-          </span>
-        </Link>
-      ))}
+        <nav className={styles.more} aria-label="More rankings">
+          {EXTRA.map((x) => (
+            <Link key={x.kind} href={`/series/${seriesId}/stats/${STAT_SLUG[x.kind]}`} className={styles.moreLink}>
+              {x.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
     </div>
   );
 }

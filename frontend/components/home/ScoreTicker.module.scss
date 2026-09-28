@@ -1,0 +1,99 @@
+@use 'component' as *;
+
+.rail {
+  display: flex;
+  gap: $space-2;
+  padding-block: 2px;
+  @include scroll-x;
+  scroll-snap-type: x proximity;
+}
+
+.item {
+  --tone: var(--text-3);
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2-5;
+  flex-shrink: 0;
+  height: 40px;
+  padding-inline: $space-3;
+  border-radius: $r-sm;
+  border: 1px solid $line;
+  background: $surface;
+  scroll-snap-align: start;
+  transition: border-color $dur-2 $ease-out, background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    border-color: $line-3;
+  }
+}
+
+.live,
+.climax {
+  --tone: var(--signal);
+}
+
+.interval,
+.hold {
+  --tone: var(--warn);
+}
+
+.weather,
+.transition {
+  --tone: var(--data);
+}
+
+.active {
+  border-color: color-mix(in oklab, var(--tone) 60%, transparent);
+  background: color-mix(in oklab, var(--tone) 7%, var(--surface));
+}
+
+.glyph {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone);
+
+  .live & {
+    @include motion {
+      animation: live-pulse $dur-pulse ease-out infinite;
+    }
+  }
+}
+
+.teams {
+  display: inline-flex;
+  gap: $space-1;
+  font-size: $fs-sm;
+  font-weight: 600;
+  font-stretch: $stretch-wide;
+  color: $text-3;
+}
+
+.bat {
+  color: $text;
+}
+
+.v {
+  font-weight: 400;
+}
+
+.score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: $space-1-5;
+  @include data-num;
+  font-size: $fs-md;
+  font-weight: 700;
+}
+
+.ov {
+  font-size: $fs-2xs;
+  font-weight: 500;
+  color: $text-3;
+}
+
+.word {
+  @include eyebrow;
+  color: var(--tone);
+}

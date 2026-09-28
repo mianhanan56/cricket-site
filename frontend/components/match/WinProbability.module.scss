@@ -1,78 +1,72 @@
 @use 'component' as *;
 
 .widget {
-  @include card;
-  padding: $space-3;
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: $space-3;
+  padding: $space-4 $space-5;
+  @include panel;
 }
 
 .head {
-  @include flex-between;
+  display: flex;
+  justify-content: space-between;
 }
 
 .title {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: $text-muted;
-}
-
-.bar {
-  display: flex;
-  height: 12px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: $card-hover;
-}
-
-.home {
-  background: linear-gradient(90deg, $accent-light, $accent);
-  transition: width 0.5s ease;
-}
-
-// The draw's band sits between the two sides, which is also where the outcome
-// sits: neither end of the bar. Set as a hatch-free flat neutral so it reads as
-// the absence of a win rather than as a third team.
-.draw {
-  background: color-mix(in oklab, var(--muted-foreground) 45%, transparent);
-  transition: width 0.5s ease;
-}
-
-.away {
-  background: $surface-elevated;
-  transition: width 0.5s ease;
+  @include eyebrow;
+  font-stretch: normal;
 }
 
 .labels {
-  @include flex-between;
-  gap: $space-2;
-  font-size: $text-xs;
-  color: $text-secondary;
-
-  @include sm {
-    font-size: 13px;
-  }
+  display: flex;
+  justify-content: space-between;
+  gap: $space-3;
+  font-size: $fs-sm;
+  color: $text-2;
 
   strong {
-    @include score-number;
-    color: $text-primary;
+    @include display-num;
+    font-size: $fs-xl;
+    color: $text;
   }
 }
 
 .homeLabel strong {
-  color: $accent-green;
+  color: $data;
 }
 
 .awayLabel strong {
-  color: $text-secondary;
+  color: $signal-text;
 }
 
-.drawLabel {
-  color: $text-muted;
+.bar {
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+}
 
-  strong {
-    color: $text-secondary;
-  }
+.home {
+  fill: $data;
+  transition: width $dur-4 $ease-out;
+}
+
+.draw {
+  fill: $text-3;
+}
+
+.away {
+  fill: $signal;
+  transition: x $dur-4 $ease-out, width $dur-4 $ease-out;
+}
+
+:global([data-theme='light']) .away {
+  fill: $signal-text;
+}
+
+.mid {
+  stroke: $bg;
+  stroke-width: 0.6;
 }

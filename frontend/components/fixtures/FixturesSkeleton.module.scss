@@ -1,47 +1,77 @@
 @use 'component' as *;
 
-// ===========================================================================
-// Fixtures skeleton — bar geometry only; the page, tab rail, grid and card
-// boxes come from fixtures.module.scss / FixturesFilter.module.scss.
-// ===========================================================================
+.head {
+  display: grid;
+  gap: $space-3;
+  padding-block: $space-8 $space-6;
 
-.inert {
-  pointer-events: none;
-}
-
-// Matches a .tab: py-2 px-4 around 14px/600 text in a full pill.
-.tabBar {
-  height: 34px;
-  border-radius: 999px;
+  @include tablet {
+    padding-block: $space-12 $space-8;
+  }
 }
 
-.tab1 {
-  width: 62px; // All
-}
-.tab2 {
-  width: 70px; // T20
-}
-.tab3 {
-  width: 72px; // ODI
-}
-.tab4 {
-  width: 78px; // TEST
+.eyebrow {
+  width: 72px;
 }
 
-.format {
-  width: 38px;
+.title {
+  width: 200px;
+  height: 40px;
+  border-radius: $r-sm;
 }
 
-.date {
-  width: 124px; // "Sat, 14 Sep, 14:30" in the mono face
+.segFormat {
+  width: 210px;
+  height: 42px;
+  border-radius: $r-sm;
 }
 
-// The team codes sit at 20px/700 in a row with a 12px "vs" between them.
-.teamCode {
-  width: 54px;
-  height: 17px;
+.segType {
+  width: 284px;
+  max-width: 100%;
+  height: 42px;
+  border-radius: $r-sm;
 }
 
-.vs {
-  width: 18px;
+.chips {
+  display: flex;
+  gap: $space-1-5;
+  overflow: hidden;
+}
+
+.chip {
+  width: 58px;
+  height: 76px;
+  border-radius: $r-sm;
+}
+
+.day {
+  width: 120px;
+  margin-bottom: $space-4;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: $space-6;
+  align-items: center;
+  min-height: 72px;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+
+  @include tablet {
+    grid-template-columns: 88px minmax(0, 1fr);
+  }
+}
+
+.time {
+  justify-self: end;
+  width: 56px;
+}
+
+.body {
+  display: grid;
+  gap: $space-2;
 }

@@ -1,189 +1,110 @@
-// ============================================================================
-// global.scss — document-wide reset + base element/typography defaults
-//
-// Applies to raw HTML tags only. Every styled component targets its own scoped
-// .module.scss class, and class selectors out-specify these element selectors,
-// so these defaults never override component styling — they only set sane
-// baselines for un-classed markup.
-// ============================================================================
-
 @use 'component' as *;
 
-// ----------------------------------------------------------------------------
-// Theme tokens (CSS custom properties)
-//
-// `:root` is the LIGHT theme (default — the "soft aurora" look). The dark theme
-// is applied by setting `data-theme="dark"` on <html> (persisted in
-// localStorage by the ThemeToggle, and set pre-hydration by an inline script in
-// layout.tsx so there is no flash). Every $color token in component.scss maps
-// to one of these vars, so switching the attribute reskins the entire app.
-// ----------------------------------------------------------------------------
-
-// Raw palette values are the EXACT oklch() values from the original design
-// (inning-insight-pro styles.css) so colors are identical, not approximated.
-// The effect vars (glass/aurora/glow) reference the palette vars, so they are
-// declared once and adapt automatically per theme.
+// Dark ("night session") is the default; light ("day session") is opt-in via
+// data-theme on <html>, written pre-paint by the script in layout.tsx.
 :root {
-  color-scheme: light;
-
-  // --- Surfaces (light — "soft aurora") ---
-  --bg-base: oklch(0.985 0.006 260);
-  --surface: oklch(0.965 0.01 260);
-  --surface-elevated: oklch(0.995 0.004 260);
-  --card: oklch(1 0 0);
-  --card-hover: oklch(0.965 0.01 260);
-  --muted: oklch(0.94 0.012 260);
-  --secondary: oklch(0.94 0.012 260);
-
-  // --- Text ---
-  --fg: oklch(0.22 0.04 275);
-  --text-secondary: oklch(0.36 0.035 270);
-  --muted-foreground: oklch(0.48 0.03 265);
-
-  // --- Brand (original: primary = green, accent = violet) ---
-  --accent-green: oklch(0.62 0.17 160);
-  --accent-green-ink: oklch(0.99 0.005 260); // primary-foreground
-  --accent-green-soft: color-mix(in oklab, var(--accent-green) 18%, transparent);
-  --accent-purple: oklch(0.58 0.19 295);
-  --accent-blue: oklch(0.58 0.16 245); // Blue — series / competitions accent
-  --live: oklch(0.62 0.22 25);
-  --live-bg: color-mix(in oklab, var(--live) 15%, transparent);
-  --amber: oklch(0.62 0.15 75);
-
-  // --- Lines & chrome ---
-  --border: oklch(0.22 0.04 275 / 10%);
-  --card-hover-border: color-mix(in oklab, var(--accent-green) 45%, transparent);
-  --navbar-bg: color-mix(in oklab, var(--bg-base) 70%, transparent);
-
-  // --- Effects (declared once — reference palette vars, adapt per theme) ---
-  --glass-bg: linear-gradient(
-    145deg,
-    color-mix(in oklab, var(--surface-elevated) 85%, transparent),
-    color-mix(in oklab, var(--surface) 70%, transparent)
-  );
-  --glass-border: color-mix(in oklab, white 8%, transparent);
-  --shadow-card: 0 10px 30px -14px rgba(12, 14, 26, 0.28);
-  --shadow-glow: 0 0 40px -8px color-mix(in oklab, var(--accent-green) 55%, transparent);
-  --shadow-glow-accent: 0 0 40px -8px color-mix(in oklab, var(--accent-purple) 55%, transparent);
-  --aurora-bg:
-    radial-gradient(ellipse 80% 50% at 20% 0%, color-mix(in oklab, var(--accent-green) 18%, transparent), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 10%, color-mix(in oklab, var(--accent-purple) 22%, transparent), transparent 60%),
-    radial-gradient(ellipse 90% 40% at 50% 100%, color-mix(in oklab, var(--accent-purple) 12%, transparent), transparent 60%),
-    var(--bg-base);
-
-  // --- Skeleton placeholders ---
-  // The base is the foreground tinted into the card, never a neutral grey — it
-  // keeps loading states inside the same violet-leaning family as the rest of
-  // the palette. `--sk-sheen` references `--sk-hi`, so it is declared once here
-  // and adapts per theme automatically (same pattern as the effects above).
-  --sk-base: color-mix(in oklab, var(--fg) 8%, var(--card));
-  --sk-base-strong: color-mix(in oklab, var(--fg) 13%, var(--card));
-  --sk-hi: oklch(1 0 0 / 85%);
-  --sk-sheen: linear-gradient(
-    100deg,
-    transparent 10%,
-    color-mix(in oklab, var(--accent-green) 14%, var(--sk-hi)) 38%,
-    var(--sk-hi) 50%,
-    color-mix(in oklab, var(--accent-purple) 16%, var(--sk-hi)) 62%,
-    transparent 90%
-  );
-
-  // --- Selection & scrollbar ---
-  --selection: color-mix(in oklab, var(--accent-green) 28%, transparent);
-  --scrollbar-thumb: color-mix(in oklab, var(--fg) 14%, transparent);
-  --scrollbar-thumb-hover: color-mix(in oklab, var(--fg) 24%, transparent);
-}
-
-:root[data-theme='dark'] {
   color-scheme: dark;
 
-  // --- Surfaces (dark — "midnight aurora") ---
-  //
-  // Hue 275 rather than 260: the same violet the light theme's ink is built on,
-  // so the two themes are one family seen at two exposures instead of a blue
-  // dark mode bolted onto a violet light one.
-  //
-  // The steps are spaced further apart than they were (0.155 → 0.215 → 0.255).
-  // The old ramp put the card 0.055 above the page, which the glass surface then
-  // made translucent — cards read as barely-there rectangles. Each level is now
-  // separated enough to survive the glass on top of it.
-  --bg-base: oklch(0.155 0.014 275);
-  --surface: oklch(0.195 0.016 275);
-  --surface-elevated: oklch(0.255 0.018 275);
-  --card: oklch(0.215 0.017 275);
-  --card-hover: oklch(0.26 0.019 275);
-  --muted: oklch(0.265 0.017 275);
-  --secondary: oklch(0.265 0.017 275);
+  --bg: #090b0d;
+  --bg-raise: #0d1013;
+  --surface: #111519;
+  --surface-2: #171c21;
+  --surface-3: #1f252b;
 
-  // --- Text ---
-  // Held just under pure white: on a near-black surface a 1.0 foreground buzzes.
-  --fg: oklch(0.96 0.006 275);
-  --text-secondary: oklch(0.845 0.014 275);
-  --muted-foreground: oklch(0.73 0.016 275);
+  --line: rgb(255 255 255 / 7%);
+  --line-2: rgb(255 255 255 / 12%);
+  --line-3: rgb(255 255 255 / 22%);
 
-  // --- Brand ---
-  // The mint keeps its hue but comes down off full neon (0.84/0.17 → 0.82/0.15).
-  // At the old value it fluoresced against the dark ground and dominated every
-  // screen it appeared on; this still carries the brand and still clears 4.5:1
-  // both as text on the page and as ink on its own fill.
-  --accent-green: oklch(0.82 0.15 160);
-  --accent-green-ink: oklch(0.17 0.016 275);
-  // 18% of the mint reads on a white card but vanishes on a dark one, and this
-  // is what draws the active tab's underline, the won-form chips, the selected
-  // innings button and the squad rules. Lifted so those all register.
-  --accent-green-soft: color-mix(in oklab, var(--accent-green) 28%, transparent);
-  --accent-purple: oklch(0.75 0.14 295);
-  --accent-blue: oklch(0.73 0.12 245); // Blue — series / competitions accent
-  --live: oklch(0.68 0.2 25);
-  --amber: oklch(0.81 0.14 80);
+  --text: #e9edf0;
+  --text-2: #a7b0b8;
+  --text-3: #7c868f;
 
-  // --- Lines & chrome ---
-  // 7% white was invisible over a glass card — the borders that give every
-  // surface its edge simply weren't rendering.
-  --border: oklch(1 0 0 / 11%);
-  --navbar-bg: color-mix(in oklab, var(--bg-base) 78%, transparent);
+  --signal: #c6f432;
+  --signal-text: #c6f432;
+  --signal-ink: #0b0e05;
+  --signal-soft: color-mix(in oklab, var(--signal) 13%, transparent);
+  --data: #56d3ee;
+  --data-soft: color-mix(in oklab, var(--data) 13%, transparent);
+  --warn: #f4b740;
+  --warn-soft: color-mix(in oklab, var(--warn) 14%, transparent);
+  --wicket: #ff5566;
+  --wicket-soft: color-mix(in oklab, var(--wicket) 15%, transparent);
 
-  // --- Effects ---
-  // Glass: near-opaque here. The light theme can afford 85/70 because its
-  // surfaces are bright; at these levels the page shows straight through and
-  // the aurora mottles the card contents.
-  --glass-bg: linear-gradient(
-    145deg,
-    color-mix(in oklab, var(--card) 94%, transparent),
-    color-mix(in oklab, var(--surface) 88%, transparent)
+  --grid: rgb(255 255 255 / 3.5%);
+  --nav-bg: color-mix(in oklab, var(--bg) 80%, transparent);
+  --scrim: rgb(3 5 7 / 72%);
+
+  --shadow-1: 0 1px 0 rgb(255 255 255 / 3%) inset, 0 10px 30px -18px rgb(0 0 0 / 70%);
+  --shadow-pop: 0 30px 80px -24px rgb(0 0 0 / 80%), 0 0 0 1px var(--line-2);
+  --glow-signal: 0 0 0 1px color-mix(in oklab, var(--signal) 40%, transparent),
+    0 0 28px -8px color-mix(in oklab, var(--signal) 55%, transparent);
+
+  --atmosphere:
+    radial-gradient(60% 40% at 18% -8%, color-mix(in oklab, var(--signal) 7%, transparent), transparent 70%),
+    radial-gradient(50% 36% at 88% -4%, color-mix(in oklab, var(--data) 7%, transparent), transparent 70%);
+
+  --sk-base: color-mix(in oklab, white 6%, var(--surface));
+  --sk-base-strong: color-mix(in oklab, white 10%, var(--surface));
+  --sk-hi: rgb(255 255 255 / 7%);
+  --sk-sheen: linear-gradient(
+    100deg,
+    transparent 15%,
+    color-mix(in oklab, var(--signal) 10%, var(--sk-hi)) 45%,
+    var(--sk-hi) 55%,
+    transparent 85%
   );
-  --glass-border: color-mix(in oklab, white 11%, transparent);
 
-  // Aurora: pushed into the corners and faded out sooner than the light theme's.
-  // The old dark mix left a heavy green haze across the top-left quarter of
-  // every page, muddying whatever sat on it; these read as light in the room
-  // while the signature glow is still unmistakably there.
-  --aurora-bg:
-    radial-gradient(ellipse 85% 55% at 10% -10%, color-mix(in oklab, var(--accent-green) 15%, transparent), transparent 60%),
-    radial-gradient(ellipse 75% 50% at 90% -2%, color-mix(in oklab, var(--accent-purple) 18%, transparent), transparent 60%),
-    radial-gradient(ellipse 110% 45% at 50% 108%, color-mix(in oklab, var(--accent-blue) 11%, transparent), transparent 60%),
-    var(--bg-base);
-
-  --shadow-card: 0 12px 32px -14px rgb(0 0 0 / 65%);
-  --shadow-glow: 0 0 32px -10px color-mix(in oklab, var(--accent-green) 45%, transparent);
-  --shadow-glow-accent: 0 0 32px -10px color-mix(in oklab, var(--accent-purple) 45%, transparent);
-
-  // --- Skeleton placeholders (sheen gradient inherits from :root) ---
-  // Lifted off the card with white rather than the near-white foreground: on a
-  // dark surface a foreground tint is invisible.
-  --sk-base: color-mix(in oklab, white 8%, var(--card));
-  --sk-base-strong: color-mix(in oklab, white 13%, var(--card));
-  --sk-hi: oklch(1 0 0 / 10%);
-
-  // --- Selection & scrollbar ---
-  --selection: color-mix(in oklab, var(--accent-green) 32%, transparent);
-  --scrollbar-thumb: color-mix(in oklab, white 12%, transparent);
-  --scrollbar-thumb-hover: color-mix(in oklab, white 20%, transparent);
+  --selection: color-mix(in oklab, var(--signal) 30%, transparent);
+  --scrollbar-thumb: rgb(255 255 255 / 10%);
+  --scrollbar-thumb-hover: rgb(255 255 255 / 18%);
 }
 
-// ----------------------------------------------------------------------------
-// Reset
-// ----------------------------------------------------------------------------
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f1f3f5;
+  --bg-raise: #e9ecef;
+  --surface: #ffffff;
+  --surface-2: #f5f7f8;
+  --surface-3: #eceff2;
+
+  --line: rgb(12 18 24 / 8%);
+  --line-2: rgb(12 18 24 / 13%);
+  --line-3: rgb(12 18 24 / 24%);
+
+  --text: #0c1116;
+  --text-2: #444f5a;
+  --text-3: #626d78;
+
+  --signal: #c2ef2a;
+  --signal-text: #3f6200;
+  --signal-ink: #0c1116;
+  --signal-soft: color-mix(in oklab, #9ccc00 16%, transparent);
+  --data: #06809b;
+  --warn: #9a5f00;
+  --wicket: #d0223a;
+
+  --grid: rgb(12 18 24 / 4%);
+  --nav-bg: color-mix(in oklab, var(--bg) 84%, transparent);
+  --scrim: rgb(20 26 32 / 40%);
+
+  --shadow-1: 0 1px 2px rgb(12 18 24 / 5%);
+  --shadow-pop: 0 30px 70px -28px rgb(12 18 24 / 35%), 0 0 0 1px var(--line-2);
+  --glow-signal: 0 0 0 1px color-mix(in oklab, #7fa800 45%, transparent);
+
+  --atmosphere:
+    radial-gradient(60% 40% at 18% -8%, color-mix(in oklab, #b6e61a 16%, transparent), transparent 70%),
+    radial-gradient(50% 36% at 88% -4%, color-mix(in oklab, var(--data) 9%, transparent), transparent 70%);
+
+  --sk-base: color-mix(in oklab, var(--text) 6%, var(--surface));
+  --sk-base-strong: color-mix(in oklab, var(--text) 11%, var(--surface));
+  --sk-hi: rgb(255 255 255 / 85%);
+
+  --scrollbar-thumb: rgb(12 18 24 / 14%);
+  --scrollbar-thumb-hover: rgb(12 18 24 / 24%);
+}
+
+// ---------------------------------------------------------------- Reset
 
 *,
 *::before,
@@ -201,12 +122,23 @@ body {
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
-
-  // Backstop against a stray horizontal scrollbar. `clip` rather than `hidden`
-  // on purpose: `hidden` would turn the root into a scroll container and break
-  // the `position: sticky` navbar/tab rails. Every known overflow source is
-  // fixed at its cause — this only catches the unforeseen one.
+  scroll-padding-top: calc(#{$navbar-height} + 56px);
+  // `clip`, not `hidden`: hidden makes the root a scroll container and breaks sticky rails.
   overflow-x: clip;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 img,
@@ -218,7 +150,6 @@ svg {
   max-width: 100%;
 }
 
-// Never let an intrinsically-sized image distort when its box narrows.
 img,
 video {
   height: auto;
@@ -229,47 +160,36 @@ ol {
   list-style: none;
 }
 
-#__next,
-#root {
-  isolation: isolate;
-}
-
-// ----------------------------------------------------------------------------
-// Base typography
-// ----------------------------------------------------------------------------
+// ---------------------------------------------------------------- Base
 
 body {
-  font-family: $font-primary;
-  font-size: $text-base;
+  font-family: $font-sans;
+  font-size: $fs-base;
   line-height: $leading-normal;
-  color: $text-primary;
-  @include aurora-bg;
-  background-attachment: fixed;
+  color: $text;
+  background-color: $bg;
+  background-image: var(--atmosphere);
+  background-repeat: no-repeat;
+  background-size: 100% 900px;
   min-height: 100vh;
-  min-height: 100dvh; // mobile browsers: exclude the collapsing URL bar
+  min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  font-feature-settings: 'ss01';
 }
 
-// Headings use the Sora display face with a tight negative tracking — this is
-// the type-pairing signature. Components set their own sizes/colors; the
-// $text-* scale in component.scss is available for explicit sizing.
 h1,
 h2,
 h3,
 h4,
 h5,
 h6 {
-  font-family: $font-display;
-  font-weight: 600;
-  line-height: $leading-tight;
-  letter-spacing: -0.02em;
+  @include heading;
 }
 
-// font-size only — line-height/color are left to inherit so components that
-// set those on a container (e.g. article .content) keep their exact spacing.
 p {
-  font-size: $text-base;
+  font-size: inherit;
 }
 
 span {
@@ -277,21 +197,14 @@ span {
 }
 
 small {
-  font-size: $text-xs;
+  font-size: $fs-xs;
 }
 
-li {
-  font-size: $text-base;
-}
-
-// Keep links inheriting their context color (preserves existing appearance);
-// individual components style their own links via scoped classes.
 a {
   color: inherit;
   text-decoration: none;
 }
 
-// Form controls inherit type styles; reset the chrome.
 input,
 button,
 textarea,
@@ -306,13 +219,18 @@ button {
   border: none;
 }
 
-// ----------------------------------------------------------------------------
-// Global accents
-// ----------------------------------------------------------------------------
+:focus-visible {
+  outline: 2px solid $signal;
+  outline-offset: 2px;
+}
+
+abbr[title] {
+  text-decoration: none;
+}
 
 ::selection {
   background: var(--selection);
-  color: $text-primary;
+  color: $text;
 }
 
 ::-webkit-scrollbar {
@@ -325,8 +243,11 @@ button {
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 
   &:hover {
     background: var(--scrollbar-thumb-hover);
+    background-clip: padding-box;
   }
 }

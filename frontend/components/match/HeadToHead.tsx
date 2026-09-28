@@ -39,16 +39,16 @@ export default function HeadToHead({ record }: { record: H2H }) {
       </div>
 
       {decided > 0 && (
-        <div
+        <svg
           className={styles.bar}
+          viewBox="0 0 100 6"
+          preserveAspectRatio="none"
           role="img"
           aria-label={`${home.shortName} ${homeWins}, ${away.shortName} ${awayWins}`}
         >
-          {/* A percentage cannot be a class, so it is passed as data — the same
-              shape WinProbability uses. Every colour lives in the stylesheet. */}
-          <span className={styles.barHome} style={{ width: `${homePct}%` }} />
-          <span className={styles.barAway} style={{ width: `${100 - homePct}%` }} />
-        </div>
+          <rect className={styles.barHome} x="0" y="0" width={homePct} height="6" />
+          <rect className={styles.barAway} x={homePct} y="0" width={100 - homePct} height="6" />
+        </svg>
       )}
 
       {(drawn > 0 || unresolved > 0) && (

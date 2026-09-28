@@ -10,71 +10,60 @@ import type {
   RankingsGroup as Group,
 } from '@/lib/tabs';
 import type { RankingsData, TeamRankingsData } from '@/lib/rankings';
-import FilterSelect, { type FilterOption } from '../ui/FilterSelect';
+import { PageHeader } from '../ui/Section';
+import Segmented, { type SegmentOption } from '../ui/Segmented';
+import EmptyState from '../ui/EmptyState';
 import RankingCrest from './RankingCrest';
-import TableScroll from '../ui/TableScroll';
 import styles from './RankingsView.module.scss';
 
-const GROUPS: readonly FilterOption<Group>[] = [
+const GROUPS: readonly SegmentOption<Group>[] = [
   { value: 'players', label: 'Players' },
   { value: 'teams', label: 'Teams' },
 ];
 
-const GENDERS: readonly FilterOption<Gender>[] = [
+const GENDERS: readonly SegmentOption<Gender>[] = [
   { value: 'men', label: 'Men' },
   { value: 'women', label: 'Women' },
 ];
 
-const FORMATS: readonly FilterOption<Format>[] = [
+const FORMATS: readonly SegmentOption<Format>[] = [
   { value: 'test', label: 'Test' },
   { value: 'odi', label: 'ODI' },
   { value: 't20i', label: 'T20I' },
 ];
 
-const CATEGORIES: readonly FilterOption<Category>[] = [
+const CATEGORIES: readonly SegmentOption<Category>[] = [
   { value: 'batting', label: 'Batting' },
   { value: 'bowling', label: 'Bowling' },
   { value: 'all-rounder', label: 'All-rounder' },
 ];
 
-/**
- * The one row shape the podium and the table render.
- *
- * Players and teams arrive as different types on purpose (see TeamRankingEntry),
- * but they are the *same list* on the page — same podium, same columns for the
- * three they share. Normalizing once here is what keeps the JSX from branching
- * on `group` in a dozen places, and it is where the per-group differences are
- * stated: a player row carries a country and a movement, a team row carries
- * matches and points.
- */
 interface Row {
   id: string;
   position: number;
   title: string;
-  /** Country for a player; the match count for a team. */
-  subtitle: string;
+  /** Country for a player; matches and points for a team, on the phone line. */
+  meta: string;
+  country?: string;
   rating: number;
-  /** Places gained since the last list. Undefined when the source has no `pr`. */
+  /** Places gained. Undefined when the source has no previous position. */
   movement?: number;
   crest?: { logo: string | null; shortName: string };
   matches?: number;
   points?: number;
-  /**
-   * Where the row's subject has a page. Both groups do — a team by its key, a
-   * player by the crex f_key the live lists carry. The bundled snapshot has no
-   * player keys, so those rows render as plain names rather than dead links.
-   */
   href?: string;
 }
+
+const num = (n: number) => n.toLocaleString('en-US');
 
 const toPlayerRow = (e: RankingEntry): Row => ({
   id: e.id,
   position: e.position,
   title: e.playerName,
-  subtitle: e.country,
+  meta: e.country,
+  country: e.country,
   rating: e.rating,
-  movement:
-    typeof e.previousPosition === 'number' ? e.previousPosition - e.position : undefined,
+  movement: typeof e.previousPosition === 'number' ? e.previousPosition - e.position : undefined,
   href: e.playerKey ? `/players/${e.playerKey}` : undefined,
 });
 
@@ -82,7 +71,7 @@ const toTeamRow = (e: TeamRankingEntry): Row => ({
   id: e.id,
   position: e.position,
   title: e.teamName,
-  subtitle: `${e.matches} ${e.matches === 1 ? 'match' : 'matches'}`,
+  meta: `${e.matches} ${e.matches === 1 ? 'match' : 'matches'} · ${num(e.points)} pts`,
   rating: e.rating,
   crest: { logo: e.logo, shortName: e.shortName },
   matches: e.matches,
@@ -90,18 +79,12 @@ const toTeamRow = (e: TeamRankingEntry): Row => ({
   href: e.teamKey ? `/teams/${e.teamKey}` : undefined,
 });
 
-/**
- * Places gained or lost, as a chip.
- *
- * Nothing is drawn for a row whose source doesn't publish a previous position —
- * a "—" there would read as "held its place", which is a claim we can't make.
- */
 function Movement({ places }: { places: number | undefined }) {
   if (places === undefined) return null;
 
   if (places === 0) {
     return (
-      <span className={`${styles.move} ${styles.moveFlat}`} title="No change">
+      <span className={styles.move} data-dir="flat">
         <span aria-hidden="true">–</span>
         <span className={styles.srOnly}>No change</span>
       </span>
@@ -110,35 +93,53 @@ function Movement({ places }: { places: number | undefined }) {
 
   const up = places > 0;
   const n = Math.abs(places);
-
   return (
-    <span className={`${styles.move} ${up ? styles.moveUp : styles.moveDown}`}>
-      <span aria-hidden="true">{up ? '▲' : '▼'}</span>
-      {n}
-      <span className={styles.srOnly}>{` place${n === 1 ? '' : 's'} ${up ? 'up' : 'down'}`}</span>
+    <span className={styles.move} data-dir={up ? 'up' : 'down'}>
+      <span aria-hidden="true">
+        {up ? '▲' : '▼'} {up ? '+' : '−'}
+        {n}
+      </span>
+      <span className={styles.srOnly}>{`${n} place${n === 1 ? '' : 's'} ${up ? 'up' : 'down'}`}</span>
     </span>
+  );
+}
+
+function RatingBar({ value, max, className }: { value: number; max: number; className?: string }) {
+  const pct = max > 0 ? Math.min(100, Math.max(1, (value / max) * 100)) : 0;
+  return (
+    <svg
+      className={`${styles.bar} ${className ?? ''}`}
+      viewBox="0 0 100 4"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <rect className={styles.barTrack} width="100" height="4" />
+      <rect className={styles.barFill} width={pct.toFixed(2)} height="4" />
+    </svg>
+  );
+}
+
+function Name({ row, className }: { row: Row; className: string }) {
+  return row.href ? (
+    <Link href={row.href} className={`${className} ${styles.stretch}`}>
+      {row.title}
+    </Link>
+  ) : (
+    <span className={className}>{row.title}</span>
   );
 }
 
 export interface RankingsViewProps {
   data: RankingsData;
   teams: TeamRankingsData;
-  /**
-   * ICC publication date per gender. Folded into the caption rather than given
-   * its own element — a date is a qualifier on "official", not a fact of its
-   * own, and the numbers can lag by weeks so leaving it implicit is dishonest.
-   */
+  /** ICC publication date per gender — only present on the bundled fallback. */
   asOf?: Partial<Record<Gender, string>>;
-  /** Active controls, read off the URL by the page. */
   initial: { group: Group; format: Format; gender: Gender; category: Category };
 }
 
-/** How many rows sit in the podium above the table. */
 const PODIUM = 3;
 
 export default function RankingsView({ data, teams, asOf, initial }: RankingsViewProps) {
-  // Every control lives in the URL, so a specific list is linkable:
-  // /rankings?group=teams&format=test&gender=women.
   const [{ group, format, gender, category }, setQuery] = useQueryTabs(initial, {
     group: 'players',
     format: 'odi',
@@ -146,11 +147,8 @@ export default function RankingsView({ data, teams, asOf, initial }: RankingsVie
     category: 'batting',
   });
 
-  // The ICC publishes no Women's Test rankings — drop that option for women.
+  // The ICC publishes no Women's Test rankings.
   const formats = gender === 'women' ? FORMATS.filter((f) => f.value !== 'test') : FORMATS;
-
-  // Switching to women while on Test would land on an empty list, so the
-  // format moves with the gender in the same URL update.
   const changeGender = (g: Gender) =>
     setQuery(g === 'women' && format === 'test' ? { gender: g, format: 'odi' } : { gender: g });
 
@@ -160,203 +158,154 @@ export default function RankingsView({ data, teams, asOf, initial }: RankingsVie
     : (data[format]?.[gender]?.[category] ?? []).map(toPlayerRow);
 
   const formatLabel = FORMATS.find((f) => f.value === format)?.label ?? '';
+  const categoryLabel = CATEGORIES.find((c) => c.value === category)?.label ?? '';
+  const title = `${gender === 'women' ? "Women's" : "Men's"} ${formatLabel} ${isTeams ? 'Teams' : categoryLabel}`;
+  const top = rows.length ? Math.max(...rows.map((r) => r.rating)) : 0;
   const podium = rows.slice(0, PODIUM);
   const rest = rows.slice(PODIUM);
+  const listKey = `${group}-${format}-${gender}-${category}`;
 
   return (
     <div className={styles.page}>
-      <header className={styles.head}>
-        <h1 className={styles.heading}>ICC Rankings</h1>
-        <p className={styles.caption}>
-          Official {formatLabel} {isTeams ? 'team' : 'player'} rankings
-          {asOf?.[gender] ? ` · as of ${asOf[gender]}` : ''}
-        </p>
-      </header>
+      <PageHeader eyebrow="ICC Rankings" title={title}>
+        {asOf?.[gender] && <p className={styles.asOf}>As of {asOf[gender]}</p>}
+      </PageHeader>
 
-      {/*
-        One rail of dropdowns rather than three rows of tabs. Nine tabs across
-        three rows spent most of the page's vertical budget restating options
-        that are two clicks away either way — and the rail scales, which the tab
-        rows had already stopped doing at four axes.
-      */}
-      <div className={styles.rail}>
-        <FilterSelect
-          label="Ranking"
-          value={group}
-          options={GROUPS}
-          align="left"
-          onChange={(g) => setQuery({ group: g })}
-        />
-        <FilterSelect
-          label="Gender"
-          value={gender}
-          options={GENDERS}
-          align="left"
-          onChange={changeGender}
-        />
-        <FilterSelect
-          label="Format"
-          value={format}
-          options={formats}
-          align="left"
-          onChange={(f) => setQuery({ format: f })}
-        />
-        {/* Teams are ranked as sides, so there is no discipline to pick. */}
+      <div className={styles.controls}>
+        <Segmented label="Ranking" value={group} options={GROUPS} onChange={(g) => setQuery({ group: g })} />
+        <Segmented label="Gender" value={gender} options={GENDERS} onChange={changeGender} />
+        <Segmented label="Format" value={format} options={formats} onChange={(f) => setQuery({ format: f })} />
         {!isTeams && (
-          <FilterSelect
+          <Segmented
             label="Discipline"
             value={category}
             options={CATEGORIES}
-            align="left"
             onChange={(c) => setQuery({ category: c })}
           />
         )}
       </div>
 
       {rows.length ? (
-        <>
-          {/*
-            Signature element — the podium. The old page spotlighted #1 alone,
-            which is the one rank a reader can already name; the interesting
-            information in a ranking is the top three and the gaps between them,
-            so all three get a card and #1 keeps the aurora wash.
-          */}
-          <ol className={styles.podium}>
+        <div key={listKey} className={styles.board}>
+          <ol className={styles.podium} aria-label={`${title}, top ${podium.length}`}>
             {podium.map((row, i) => (
-              <li
-                key={row.id}
-                // Below 576px the runners-up collapse to a single row each —
-                // three full-height cards there pushed the table off the fold
-                // for the sake of two names.
-                className={`${styles.step} ${i === 0 ? styles.stepLead : styles.stepCompact}`}
-              >
+              <li key={row.id} className={styles.step} data-lead={i === 0 ? '' : undefined}>
                 <div className={styles.stepTop}>
-                  <span className={styles.stepRank} aria-hidden="true">
+                  <span className={styles.stepPos}>
+                    <span className={styles.srOnly}>Rank </span>
                     {row.position}
                   </span>
-                  {row.crest && (
-                    <RankingCrest
-                      name={row.title}
-                      shortName={row.crest.shortName}
-                      logo={row.crest.logo}
-                      size={i === 0 ? 'lg' : 'sm'}
-                    />
-                  )}
                   <Movement places={row.movement} />
+                  {row.crest && (
+                    <span className={styles.stepCrest}>
+                      <RankingCrest
+                        name={row.title}
+                        shortName={row.crest.shortName}
+                        logo={row.crest.logo}
+                        size={i === 0 ? 'lg' : 'sm'}
+                      />
+                    </span>
+                  )}
                 </div>
 
                 <div className={styles.stepBody}>
-                  <span className={styles.stepEyebrow}>Rank {row.position}</span>
-                  {row.href ? (
-                    <Link href={row.href} className={styles.stepName}>
-                      {row.title}
-                    </Link>
-                  ) : (
-                    <span className={styles.stepName}>{row.title}</span>
-                  )}
-                  <span className={styles.stepSub}>{row.subtitle}</span>
+                  <Name row={row} className={styles.stepName} />
+                  <span className={styles.stepMeta}>{row.meta}</span>
                 </div>
 
-                <div className={styles.stepScore}>
-                  <span className={styles.stepRating}>{row.rating}</span>
-                  <span className={styles.stepRatingLabel}>Rating</span>
+                <div className={styles.stepFigures}>
+                  <span className={styles.stepRating}>
+                    {row.rating}
+                    <span className={styles.stepLabel}>Rating</span>
+                  </span>
+                  {i > 0 && (
+                    <span className={styles.stepGap}>
+                      <span className={styles.srOnly}>Behind the leader by </span>
+                      {row.rating - top === 0 ? '0' : `−${top - row.rating}`}
+                    </span>
+                  )}
                 </div>
+                <RatingBar value={row.rating} max={top} className={styles.stepBar} />
               </li>
             ))}
           </ol>
 
           {rest.length > 0 && (
-            <TableScroll
-              className={styles.tableWrap}
-              label={`${isTeams ? 'Team' : 'Player'} rankings, ${formatLabel}`}
-            >
-              <table className={styles.table}>
-                <caption className={styles.srOnly}>
-                  {isTeams ? 'Team' : 'Player'} rankings, {formatLabel}, positions{' '}
-                  {rest[0].position} to {rest[rest.length - 1].position}
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">#</th>
-                    <th scope="col" className={styles.left}>
-                      {isTeams ? 'Team' : 'Player'}
-                    </th>
+            <div className={styles.table} data-group={group}>
+              <div className={`${styles.row} ${styles.head}`} aria-hidden="true">
+                <span className={styles.cPos}>#</span>
+                {!isTeams && <span className={styles.cMove}>Move</span>}
+                <span className={styles.cMain}>{isTeams ? 'Team' : 'Player'}</span>
+                {isTeams ? (
+                  <>
+                    <span className={styles.cNum}>Matches</span>
+                    <span className={styles.cNum2}>Points</span>
+                  </>
+                ) : (
+                  <span className={styles.cCountry}>Country</span>
+                )}
+                <span className={styles.cGap}>Gap</span>
+                <span className={styles.cBar} />
+                <span className={styles.cRating}>Rating</span>
+              </div>
+
+              <ol className={styles.rows} aria-label={`${title}, positions ${rest[0].position} to ${rest[rest.length - 1].position}`}>
+                {rest.map((row) => (
+                  <li key={row.id} className={styles.row}>
+                    <span className={styles.cPos}>
+                      <span className={styles.srOnly}>Rank </span>
+                      {row.position}
+                    </span>
+                    {!isTeams && (
+                      <span className={styles.cMove}>
+                        <Movement places={row.movement} />
+                      </span>
+                    )}
+                    <span className={styles.cMain}>
+                      {row.crest && (
+                        <RankingCrest name={row.title} shortName={row.crest.shortName} logo={row.crest.logo} />
+                      )}
+                      <span className={styles.nameStack}>
+                        <Name row={row} className={styles.name} />
+                        <span className={styles.meta}>{row.meta}</span>
+                      </span>
+                    </span>
                     {isTeams ? (
                       <>
-                        <th scope="col" className={styles.hideSm}>
-                          Matches
-                        </th>
-                        <th scope="col" className={styles.hideSm}>
-                          Points
-                        </th>
+                        <span className={styles.cNum}>
+                          <span className={styles.srOnly}>Matches </span>
+                          {row.matches}
+                        </span>
+                        <span className={styles.cNum2}>
+                          <span className={styles.srOnly}>Points </span>
+                          {row.points !== undefined ? num(row.points) : ''}
+                        </span>
                       </>
                     ) : (
-                      <>
-                        <th scope="col" className={`${styles.left} ${styles.hideSm}`}>
-                          Country
-                        </th>
-                        <th scope="col" className={styles.hideSm}>
-                          Move
-                        </th>
-                      </>
+                      <span className={styles.cCountry}>{row.country}</span>
                     )}
-                    <th scope="col">Rating</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rest.map((row) => (
-                    <tr key={row.id}>
-                      <td className={styles.pos}>{row.position}</td>
-                      <td className={styles.left}>
-                        <span className={styles.nameCell}>
-                          {row.crest && (
-                            <RankingCrest
-                              name={row.title}
-                              shortName={row.crest.shortName}
-                              logo={row.crest.logo}
-                            />
-                          )}
-                          <span className={styles.nameStack}>
-                            {row.href ? (
-                              <Link href={row.href} className={styles.nameLink}>
-                                {row.title}
-                              </Link>
-                            ) : (
-                              <span className={styles.name}>{row.title}</span>
-                            )}
-                            {/* The columns the table drops on a phone reappear
-                                here, so nothing is lost to the narrow band. */}
-                            <span className={styles.nameMeta}>{row.subtitle}</span>
-                          </span>
-                        </span>
-                      </td>
-                      {isTeams ? (
-                        <>
-                          <td className={`${styles.stat} ${styles.hideSm}`}>{row.matches}</td>
-                          <td className={`${styles.stat} ${styles.hideSm}`}>{row.points}</td>
-                        </>
-                      ) : (
-                        <>
-                          <td className={`${styles.left} ${styles.muted} ${styles.hideSm}`}>
-                            {row.subtitle}
-                          </td>
-                          <td className={styles.hideSm}>
-                            <Movement places={row.movement} />
-                          </td>
-                        </>
-                      )}
-                      <td className={styles.num}>{row.rating}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableScroll>
+                    <span className={styles.cGap}>
+                      <span className={styles.srOnly}>Behind the leader by </span>−{top - row.rating}
+                    </span>
+                    <span className={styles.cBar}>
+                      <RatingBar value={row.rating} max={top} />
+                    </span>
+                    <span className={styles.cRating}>
+                      <span className={styles.srOnly}>Rating </span>
+                      {row.rating}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           )}
-        </>
+        </div>
       ) : (
-        <p className={styles.empty}>
-          No {isTeams ? 'team' : 'player'} rankings published for this combination yet.
-        </p>
+        <EmptyState
+          icon="rankings"
+          title={`No ${isTeams ? 'team' : 'player'} rankings for this list`}
+          action={{ label: "Show men's ODI", onClick: () => setQuery({ gender: 'men', format: 'odi' }) }}
+        />
       )}
     </div>
   );

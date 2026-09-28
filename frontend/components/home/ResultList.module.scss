@@ -1,0 +1,189 @@
+@use 'component' as *;
+
+.list {
+  display: grid;
+  container-type: inline-size;
+  @include panel;
+  overflow: hidden;
+
+  li + li {
+    border-top: 1px solid $line;
+  }
+}
+
+.row {
+  display: grid;
+  gap: $space-3;
+  padding: $space-4;
+  transition: background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    background: $surface-2;
+  }
+
+  @container (min-width: 620px) {
+    grid-template-columns: 240px minmax(0, 1fr);
+    align-items: center;
+    gap: $space-6;
+  }
+}
+
+.sides {
+  display: grid;
+  gap: $space-1-5;
+}
+
+.side {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.code {
+  width: 7ch;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+  @include truncate;
+}
+
+.score {
+  @include display-num;
+  font-size: $fs-lg;
+  font-weight: 700;
+}
+
+.won .code,
+.won .score {
+  color: $text;
+}
+
+.lost .code,
+.lost .score {
+  color: $text-3;
+}
+
+.check {
+  color: $signal-text;
+}
+
+.outcome {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+  min-width: 0;
+}
+
+.result {
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  font-size: $fs-base;
+  line-height: $leading-snug;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+
+  @container (min-width: 620px) {
+    font-size: $fs-lg;
+  }
+}
+
+.resultRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+.resultSub {
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-1 $space-4;
+  font-size: $fs-sm;
+  color: $text-3;
+  min-width: 0;
+}
+
+.potm {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-1-5;
+  color: $text-2;
+}
+
+.potmLabel {
+  @include eyebrow;
+}
+
+.potmFig {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.series {
+  @include truncate;
+}
+
+.mark {
+  display: inline-flex;
+}
+
+// ---------------------------------------------------------------- Compact
+// Historical, recessed: scores on a fixed column, the result under them.
+
+.compact {
+  background: $bg-raise;
+
+  .row {
+    gap: $space-2;
+    padding: $space-3 $space-4;
+
+    @container (min-width: 460px) {
+      grid-template-columns: 176px minmax(0, 1fr);
+      align-items: center;
+      gap: $space-5;
+    }
+  }
+
+  .sides {
+    gap: 3px;
+  }
+
+  .side {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr) auto 14px;
+    align-items: center;
+    gap: $space-2;
+  }
+
+  .code {
+    width: auto;
+    font-size: $fs-md;
+  }
+
+  .score {
+    @include data-num;
+    font-size: $fs-md;
+    font-weight: 700;
+    letter-spacing: 0;
+  }
+
+  .outcome {
+    gap: 2px;
+  }
+
+  .result {
+    font-size: $fs-sm;
+    letter-spacing: 0.02em;
+  }
+
+  .potm {
+    font-size: $fs-xs;
+  }
+}

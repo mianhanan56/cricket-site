@@ -1,318 +1,305 @@
 @use 'component' as *;
 
-// ===========================================================================
-// /venues/[key] — one ground.
-//
-// Identity is the app's Aurora system, unchanged. The one bold element:
-//
-//   THE CHASE SPLIT. A single two-tone bar showing how this ground's decided
-//   matches divided between the side chasing and the side batting first. It is
-//   the only thing a venue page can tell a reader that no other page in the app
-//   can, so it gets the width, the weight and the colour, and everything else on
-//   the page stays a quiet list around it.
-//
-// Mint is the chase and violet the defence — the app's two accents, used as a
-// pair rather than as a new colour, so the bar belongs to the same system as the
-// win-probability split it visually rhymes with.
-// ===========================================================================
-
 .page {
   @include container;
-  padding-block: $space-5 $space-10;
-  display: flex;
-  flex-direction: column;
-  gap: $space-5;
-  min-width: 0;
+  padding-top: $space-5;
+  padding-bottom: $space-16;
+}
 
-  @include tablet {
-    padding-block: $space-6 $space-16;
-    gap: $space-6;
+.back {
+  margin-bottom: 0;
+}
+
+.counts {
+  display: flex;
+  gap: $space-8;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+  }
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include display-num;
+    font-size: $fs-2xl;
+
+    @include tablet {
+      font-size: 36px;
+    }
   }
 }
 
-// ── Header ─────────────────────────────────────────────────────────────
-.head {
-  display: flex;
-  flex-direction: column;
-  gap: $space-1;
+// ---------------------------------------------------------------- Top band
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-10;
+  margin-bottom: $space-12;
+
+  @include desktop {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: $space-6;
+    align-items: start;
+  }
 }
 
-.eyebrow {
-  font-family: $font-display;
-  font-size: $text-2xs;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: $text-muted;
-}
-
-.heading {
-  font-family: $font-display;
-  font-size: clamp(#{$text-xl}, 6vw, #{$text-3xl});
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: $leading-tight;
-  overflow-wrap: anywhere;
-}
-
-.caption {
-  font-size: $text-sm;
-  color: $text-muted;
-  font-variant-numeric: tabular-nums;
-}
-
-// ── The chase split — the signature element ────────────────────────────
 .split {
-  @include card;
-  padding: $space-4;
-  display: flex;
-  flex-direction: column;
-  gap: $space-3;
+  @include panel;
+  display: grid;
+  gap: $space-5;
+  padding: $space-5 $space-4;
 
   @include tablet {
-    padding: $space-5 $space-6;
+    padding: $space-6;
   }
 }
 
 .splitHead {
   display: flex;
-  flex-direction: column;
-  gap: $space-1;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: $space-2 $space-4;
 }
 
 .splitTitle {
-  font-family: $font-display;
-  font-size: $text-base;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  @include heading;
+  font-size: $fs-lg;
 }
 
-.splitLede {
-  font-size: $text-sm;
-  color: $text-secondary;
+.verdict {
+  @include chip;
+  color: $data;
+  border-color: color-mix(in oklab, var(--data) 40%, transparent);
+  background: $data-soft;
 
-  strong {
-    color: $text-primary;
-    font-weight: 700;
-  }
-}
-
-// The sample size, printed with the claim rather than in a footnote. A split
-// drawn from four results and one drawn from forty look identical otherwise.
-.splitBasis {
-  display: block;
-  font-size: $text-2xs;
-  color: $text-muted;
-  font-variant-numeric: tabular-nums;
-}
-
-.bar {
-  display: flex;
-  height: 12px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: color-mix(in oklab, var(--fg) 8%, transparent);
-}
-
-.barChase {
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--accent-green) 70%, transparent),
-    var(--accent-green)
-  );
-  transition: width 0.4s ease;
-}
-
-.barDefend {
-  background: linear-gradient(
-    90deg,
-    var(--accent-purple),
-    color-mix(in oklab, var(--accent-purple) 70%, transparent)
-  );
-  transition: width 0.4s ease;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .barChase,
-  .barDefend {
-    transition: none;
-  }
-}
-
-.splitLegend {
-  display: flex;
-  justify-content: space-between;
-  gap: $space-3;
-  font-size: $text-2xs;
-  color: $text-muted;
-}
-
-.legendFigure {
-  @include score-number;
-  font-size: $text-sm;
-  margin-right: 3px;
-}
-
-.legendChase .legendFigure {
-  color: $accent-green;
-}
-
-.legendDefend .legendFigure {
-  color: $accent-purple;
-}
-
-.legendDefend {
-  text-align: right;
-}
-
-// ── Sections ───────────────────────────────────────────────────────────
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: $space-2-5;
-  min-width: 0;
-}
-
-.sectionTitle {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  font-family: $font-display;
-  font-size: $text-lg;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.sectionCount {
-  font-family: $font-primary;
-  font-size: $text-2xs;
-  font-weight: 600;
-  color: $text-muted;
-  padding: 2px $space-2;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--fg) 7%, transparent);
-  font-variant-numeric: tabular-nums;
-}
-
-// ── Regulars ───────────────────────────────────────────────────────────
-// A scrolling rail of crests: the number of sides that use a ground varies from
-// two (a bilateral venue) to eight (a franchise league), which a grid handles
-// badly at both ends.
-.regulars {
-  @include scroll-x;
-  display: flex;
-  gap: $space-2;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.regular {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  flex-shrink: 0;
-  padding: $space-2 $space-3;
-  border-radius: $radius-lg;
-  background: color-mix(in oklab, var(--card) 70%, transparent);
-  border: 1px solid $card-border;
-  text-decoration: none;
-  color: inherit;
-  transition:
-    border-color 0.18s ease,
-    background-color 0.18s ease;
-
-  &:hover,
-  &:focus-visible {
-    border-color: var(--card-hover-border);
-    background: $card-hover;
-  }
-}
-
-.regularName {
-  font-size: $text-sm;
-  font-weight: 600;
-}
-
-.regularCount {
-  @include score-number;
-  font-size: $text-xs;
-  color: $text-muted;
-  padding-left: $space-1;
-  border-left: 1px solid $card-border;
-}
-
-// ── Rows ───────────────────────────────────────────────────────────────
-.list {
-  @include card;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
-}
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  padding: $space-3;
-  text-decoration: none;
-  color: inherit;
-  min-width: 0;
-  transition: background-color 0.18s ease;
-
-  & + & {
-    border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  }
-
-  &:hover,
-  &:focus-visible {
-    background: $card-hover;
-  }
-
-  @include sm {
-    padding: $space-3 $space-4;
-  }
-}
-
-.rowInert {
-  cursor: default;
-
-  &:hover {
+  &[data-side='other'] {
+    color: $text-2;
+    border-color: $line-2;
     background: transparent;
   }
 }
 
-.rowMain {
-  @include fluid-text;
+.splitFigures {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  flex: 1;
+  justify-content: space-between;
+  gap: $space-4;
 }
 
-.rowTop {
-  font-size: $text-sm;
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+
+  &[data-side='defend'] {
+    align-items: flex-end;
+    text-align: right;
+  }
+}
+
+.figureLabel {
+  @include eyebrow;
+}
+
+.figureNum {
+  @include display-num;
+  font-size: $fs-score;
+
+  [data-side='chase'] > & {
+    color: $data;
+  }
+}
+
+.figurePct {
+  @include data-num;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.bar {
+  display: block;
+  width: 100%;
+  height: 10px;
+  border-radius: $r-pill;
+  overflow: hidden;
+}
+
+.barChase {
+  fill: $data;
+}
+
+.barDefend {
+  fill: $surface-3;
+}
+
+.barMid {
+  stroke: $bg;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.basis {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+// ---------------------------------------------------------------- Regulars
+
+.regularsBlock {
+  min-width: 0;
+}
+
+.regulars {
+  @include panel;
+  overflow: hidden;
+
+  li + li {
+    border-top: 1px solid $line;
+  }
+}
+
+.regular {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: $space-3;
+  min-height: 52px;
+  padding: $space-2 $space-4;
+  transition: background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    background: $surface-2;
+  }
+}
+
+.regularName {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.regularCode {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+}
+
+.regularFull {
+  font-size: $fs-sm;
+  color: $text-3;
+  @include truncate;
+}
+
+.regularCount {
+  display: inline-flex;
+  align-items: baseline;
+  gap: $space-1-5;
+  @include data-num;
+  font-size: $fs-md;
   font-weight: 600;
-  @include truncate(1);
+}
+
+.regularUnit {
+  font-size: $fs-xs;
+  font-weight: 400;
+  color: $text-3;
+}
+
+// ---------------------------------------------------------------- Lists
+
+.lists {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-12;
+
+  @include desktop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-8;
+    align-items: start;
+  }
+}
+
+.section {
+  min-width: 0;
+}
+
+.results {
+  @include panel;
+  overflow: hidden;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  min-height: 60px;
+  @include focus-ring;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+
+  &:is(a) {
+    transition: background-color $dur-2 $ease-out;
+
+    &:hover {
+      background: $surface-2;
+    }
+  }
+}
+
+.rowMain {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  min-width: 0;
+}
+
+.rowResult {
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  font-size: $fs-md;
+  line-height: $leading-snug;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  @include fluid-text;
 }
 
 .rowMeta {
-  font-size: $text-2xs;
-  color: $text-muted;
-  @include truncate(1);
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  min-width: 0;
+  font-size: $fs-sm;
+  color: $text-3;
+
+  time {
+    @include data-num;
+    flex-shrink: 0;
+    font-size: $fs-xs;
+  }
+}
+
+.rowSeries {
+  @include truncate;
 }
 
 .rowFormat {
-  flex-shrink: 0;
-  font-family: $font-display;
-  font-size: $text-2xs;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: $text-muted;
-}
-
-.vs {
-  color: $text-muted;
-  font-weight: 400;
+  @include chip;
+  height: 22px;
+  padding-inline: $space-2;
+  font-size: 10px;
+  color: $text-2;
 }

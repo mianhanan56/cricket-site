@@ -1,118 +1,95 @@
 @use 'component' as *;
 
-// ===========================================================================
-// PointsTable — a series' standings.
-//
-// Nothing new is invented here: the Aurora glass card, the mint accent and the
-// Sora/Manrope pairing are the app's. What this component adds:
-//
-//   * the STATUS TAG — a filled Q / C / E chip in the position column, mint for
-//     a side that is through, amber for the champion, dim for the eliminated.
-//     The signature element and the only place boldness is spent, because "who
-//     is still alive" is the question a table answers; riding the position
-//     column keeps the marks on one axis down the whole table,
-//   * a form strip of five letters rather than five colour-only dots — colour
-//     alone would carry W/L for nobody with a colour-vision deficiency,
-//   * the phone treatment the rankings table established: NRR and form fold onto
-//     a second line inside the team cell instead of the table scrolling.
-// ===========================================================================
-
 .groups {
-  display: flex;
-  flex-direction: column;
-  gap: $space-5;
-  min-width: 0;
+  display: grid;
+  gap: $space-8;
 }
 
 .group {
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
+  display: grid;
+  gap: $space-3;
   min-width: 0;
 }
 
-// A group's own name, on the multi-group competitions that have them. Set as a
-// quiet eyebrow rather than a heading: the section already has one, and this
-// distinguishes two tables rather than introducing them.
 .groupName {
-  font-family: $font-display;
-  font-size: $text-2xs;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: $text-muted;
-  padding-inline: $space-1;
-}
-
-.srOnly {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
+  @include heading;
+  font-size: $fs-body;
 }
 
 .wrap {
-  @include card;
-  padding: $space-1 $space-2;
-  max-width: 100%;
-
-  @include sm {
-    padding: $space-2 $space-3;
-  }
+  @include panel;
+  overflow: hidden;
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: $text-sm;
 
-  th,
-  td {
-    padding: $space-2-5 $space-1;
+  th {
+    @include eyebrow;
+    height: 36px;
+    padding-inline: $space-2;
     text-align: right;
     white-space: nowrap;
-  }
+    border-bottom: 1px solid $line;
+    background: $bg-raise;
 
-  @include sm {
-    th,
-    td {
-      padding: $space-3 $space-2;
+    abbr {
+      text-decoration: none;
+      cursor: help;
     }
   }
 
-  th {
-    font-size: $text-2xs;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: $text-muted;
-    font-weight: 600;
-    border-bottom: 1px solid $card-border;
+  td {
+    height: 56px;
+    padding: $space-2;
+    text-align: right;
+    vertical-align: middle;
   }
 
-  // The abbreviations are the column headings a scorer would write. Underlining
-  // them the way a browser does turns eight headers into eight dotted rules.
-  abbr {
-    text-decoration: none;
-    cursor: help;
+  tbody tr + tr td {
+    border-top: 1px solid $line;
   }
 
-  // Nested rather than written at the top level: `th, td` above is a class plus
-  // an element selector, so a bare `.left` loses to it and the team column's
-  // heading ends up right-aligned over the numbers. Same fix as the rankings
-  // table, which has the same shape.
-  .left {
-    text-align: left;
+  th:first-child,
+  td:first-child {
+    padding-left: $space-3;
+
+    @include sm {
+      padding-left: $space-4;
+    }
+  }
+
+  th:last-child,
+  td:last-child {
+    padding-right: $space-3;
+
+    @include sm {
+      padding-right: $space-4;
+    }
   }
 }
 
-// The two columns a phone cannot fit. Both reappear in `.teamMeta` under the
-// team name rather than being lost — NR at 576px, form at 768px, which is where
-// five 17px boxes stop costing the team name its width.
+.table .left,
+.table .rankHead,
+.table .rank {
+  text-align: left;
+}
+
+.left {
+  width: 100%;
+}
+
+// Lets the team cell shrink so long names truncate instead of widening the table.
+.table td.left {
+  max-width: 0;
+}
+
+.rankHead {
+  width: 1%;
+}
+
+// Phones drop these columns; they reappear in .teamMeta under the name.
 .hideSm {
   display: none;
 
@@ -129,214 +106,164 @@
   }
 }
 
-.rankHead {
-  width: 1%;
-}
-
-.ptsHead {
-  color: $text-secondary;
-}
-
-// ── The row ────────────────────────────────────────────────────────────
 .row {
-  position: relative;
-  transition: background-color 0.18s ease;
-
-  & + & td {
-    border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  }
+  transition: background-color $dur-2 $ease-out;
 
   &:hover {
-    background: $card-hover;
+    background: $surface-2;
   }
 
-  td:first-child {
-    padding-left: $space-3;
-
-    @include sm {
-      padding-left: $space-4;
-    }
+  &[data-marked] {
+    background: $signal-soft;
   }
 
-  // A knocked-out side is dimmed rather than flagged in red: red is the live
-  // colour everywhere else in the app, and elimination is not an alert.
   &[data-state='eliminated'] {
     .teamName,
-    .pos {
-      color: $text-muted;
-    }
-  }
-
-  &[data-state='champion'] {
-    background: color-mix(in oklab, var(--amber) 8%, transparent);
-  }
-
-  // The sides the surrounding page is about — set on a match page for the two
-  // teams playing. A weight change and a faint wash rather than a colour: the
-  // tag already owns colour on this row, and a second coloured signal would
-  // make "in this match" and "qualified" compete for the same read.
-  &[data-marked] {
-    background: color-mix(in oklab, var(--fg) 5%, transparent);
-
-    .teamName {
-      font-weight: 700;
-    }
-
-    .pos {
-      color: $text-primary;
+    .stat,
+    .pts {
+      color: $text-3;
     }
   }
 }
 
 .rank {
-  width: 1%;
   white-space: nowrap;
 }
 
-// The position and its status chip share a cell, so the chips line up down the
-// table instead of trailing team names of six different lengths.
-.rank .pos {
-  @include score-number;
+.pos {
   display: inline-block;
-  min-width: 1ch;
-  color: $text-secondary;
-  font-size: $text-sm;
-  text-align: right;
+  min-width: 2ch;
+  @include data-num;
+  font-size: $fs-md;
+  font-weight: 600;
+  color: $text-2;
 }
 
-// ── Team cell ──────────────────────────────────────────────────────────
+.tag,
+.legendTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: $space-1-5;
+  border-radius: $r-xs;
+  border: 1px solid $line-2;
+  @include data-num;
+  font-size: 10px;
+  font-weight: 700;
+  color: $text-3;
+  vertical-align: 1px;
+
+  &[data-state='qualified'] {
+    color: $signal-text;
+    border-color: color-mix(in oklab, var(--signal-text) 55%, transparent);
+    background: $signal-soft;
+  }
+
+  &[data-state='champion'] {
+    color: $signal-ink;
+    border-color: transparent;
+    background: $signal;
+  }
+}
+
 .teamCell {
   display: flex;
   align-items: center;
-  gap: $space-2;
+  gap: $space-3;
   min-width: 0;
 }
 
 .teamStack {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: $space-1;
   min-width: 0;
 }
 
 .teamName {
-  @include truncate(1);
-  display: flex;
-  align-items: center;
-  gap: $space-1-5;
-  font-weight: 600;
-  font-size: $text-sm;
-  color: $text-primary;
-  text-decoration: none;
-  transition: color 0.15s ease;
+  font-weight: 700;
+  font-size: $fs-md;
+  color: $text;
+  @include truncate;
+  @include focus-ring;
 
-  &:hover,
-  &:focus-visible {
-    color: $accent-green;
+  &:hover {
+    color: $signal-text;
   }
 }
 
-// ── Status tag ─────────────────────────────────────────────────────────
-// A letter on a solid fill, not a tint: this is the table's one loud element and
-// it has to read from across the row. A letter and not colour alone, so the
-// state survives greyscale and a colour-vision deficiency the way the form
-// strip's W/L does.
-.tag {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  margin-left: $space-2;
-  border-radius: 7px;
-  font-family: $font-display;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.01em;
-  vertical-align: middle;
-
-  // Eliminated is drawn as an outline, not as red: red is the live colour
-  // everywhere else in the app, and a knocked-out side is not an alert.
-  color: $text-muted;
-  background: transparent;
-  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--fg) 20%, transparent);
-
-  &[data-state='qualified'] {
-    color: $accent-green-ink;
-    background: $accent-green;
-    box-shadow: 0 1px 4px color-mix(in oklab, var(--accent-green) 40%, transparent);
-  }
-
-  &[data-state='champion'] {
-    // A deep amber ink rather than white: white on amber clears no contrast bar
-    // in either theme.
-    color: oklch(0.28 0.06 75);
-    background: $accent-amber;
-    box-shadow: 0 1px 4px color-mix(in oklab, var(--amber) 40%, transparent);
-  }
-}
-
-// The dropped columns, folded under the name on a phone and gone above it.
 .teamMeta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: $space-2;
-  font-size: $text-2xs;
-  color: $text-muted;
-  font-variant-numeric: tabular-nums;
+  gap: $space-1 $space-2-5;
+
+  &:empty {
+    display: none;
+  }
 
   @include tablet {
     display: none;
   }
 }
 
-// NR and NRR only: they get their own columns at 576px, so they leave the meta
-// line there rather than printing twice. Form stays until 768px, where its
-// column appears.
 .metaSm {
-  white-space: nowrap;
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
 
   @include sm {
     display: none;
   }
 }
 
-.stat {
-  font-variant-numeric: tabular-nums;
-  color: $text-secondary;
+.metaNrr[data-sign='pos'] {
+  color: $signal-text;
 }
 
-// Signed, so it needs tabular figures and a colour that says which way. Kept
-// quiet — NRR is a tiebreaker, not the headline.
+.metaNrr[data-sign='neg'] {
+  color: $wicket;
+}
+
+.stat {
+  @include data-num;
+  font-size: $fs-md;
+  color: $text-2;
+  min-width: 28px;
+}
+
 .nrr {
-  font-variant-numeric: tabular-nums;
-  font-size: $text-xs;
+  @include data-num;
+  font-size: $fs-md;
+  font-weight: 600;
+  min-width: 72px;
 
   &[data-sign='pos'] {
-    color: color-mix(in oklab, var(--accent-green) 82%, var(--fg));
+    color: $signal-text;
   }
 
   &[data-sign='neg'] {
-    color: $text-muted;
+    color: $wicket;
   }
 }
 
+.table .ptsHead {
+  color: $text-2;
+}
+
 .pts {
-  @include score-number;
-  color: $accent-green;
-  font-size: $text-base;
+  @include display-num;
+  font-size: $fs-xl;
+  color: $text;
+  min-width: 44px;
 }
 
 .none {
-  color: $text-muted;
+  color: $text-3;
 }
 
-// ── Form strip ─────────────────────────────────────────────────────────
-// Letters, not bare colour: a W/L strip that is only green and grey is unreadable
-// for a reader with a colour-vision deficiency, and the letter costs nothing at
-// 9px in a 16px box.
 .form {
   display: inline-flex;
   gap: 3px;
@@ -344,59 +271,54 @@
 }
 
 .formDot {
-  @include flex-center;
-  width: 17px;
-  height: 17px;
-  border-radius: 5px;
-  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: $r-xs;
+  @include data-num;
+  font-size: 10px;
   font-weight: 700;
-  font-family: $font-display;
-  letter-spacing: 0;
-  line-height: 1;
+  color: $text-3;
+  background: $surface-3;
 
   &[data-result='W'] {
-    background: color-mix(in oklab, var(--accent-green) 22%, transparent);
-    color: color-mix(in oklab, var(--accent-green) 88%, var(--fg));
+    color: $signal-text;
+    background: $signal-soft;
   }
 
   &[data-result='L'] {
-    background: color-mix(in oklab, var(--live) 16%, transparent);
-    color: color-mix(in oklab, var(--live) 82%, var(--fg));
-  }
-
-  &[data-result='N'] {
-    background: color-mix(in oklab, var(--fg) 8%, transparent);
-    color: $text-muted;
+    color: $wicket;
+    background: $wicket-soft;
   }
 }
 
-// Inside the phone-only meta line, where 17px boxes would outweigh the text.
 .formInline .formDot {
-  width: 14px;
-  height: 14px;
-  border-radius: 4px;
-  font-size: 8px;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
 }
 
-// ── Legend ─────────────────────────────────────────────────────────────
 .legend {
   display: flex;
   flex-wrap: wrap;
-  gap: $space-3;
-  padding-inline: $space-1;
-  margin: 0;
+  gap: $space-2 $space-5;
   list-style: none;
-  font-size: $text-2xs;
-  color: $text-muted;
+  font-size: $fs-xs;
+  color: $text-2;
 
   li {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: $space-1-5;
+    gap: $space-2;
+  }
+
+  .legendTag {
+    margin-left: 0;
   }
 }
 
-.legendTag {
-  @extend .tag;
-  margin-left: 0;
+.srOnly {
+  @include visually-hidden;
 }

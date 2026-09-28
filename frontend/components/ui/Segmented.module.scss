@@ -1,0 +1,65 @@
+@use 'component' as *;
+
+.group {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 3px;
+  gap: 2px;
+  border-radius: $r-sm;
+  background: $surface;
+  border: 1px solid $line;
+  @include scroll-x;
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  flex-shrink: 0;
+  height: 34px;
+  padding-inline: $space-3;
+  border-radius: 4px;
+  font-size: $fs-md;
+  font-weight: 500;
+  color: $text-2;
+  white-space: nowrap;
+  transition: color $dur-2 $ease-out, background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+  }
+}
+
+.sm .option {
+  height: 28px;
+  padding-inline: $space-2-5;
+  font-size: $fs-sm;
+}
+
+.on {
+  color: $text;
+  background: $surface-3;
+  box-shadow: inset 0 0 0 1px $line-2;
+}
+
+.count {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+
+  .on & {
+    color: $text-2;
+  }
+}
+
+.live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: $signal;
+
+  @include motion {
+    animation: live-pulse $dur-pulse ease-out infinite;
+  }
+}

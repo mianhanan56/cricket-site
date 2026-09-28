@@ -1,29 +1,19 @@
-// ============================================================================
-// main.scss — application entry stylesheet (imported once in app/layout.tsx)
-//
-// Pulls in the global reset/typography layer and holds the page-level layout
-// shell. Page-specific visuals live in their own scoped *.module.scss files
-// (Next.js CSS Modules); the index below maps each route to its stylesheet for
-// maintainability.
-// ============================================================================
-
 @use 'component' as *;
 @use 'global';
-
-// ----------------------------------------------------------------------------
-// App layout shell — keeps the footer pinned below content on every page.
-// ----------------------------------------------------------------------------
 
 .app-shell {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
   min-height: 100dvh;
-  // A flex column establishes a min-content floor on its children; without this
-  // any single over-wide descendant would widen the whole shell instead of
-  // scrolling inside its own box.
   width: 100%;
   overflow-x: clip;
+  // Clears the fixed bottom dock on phones and tablets.
+  padding-bottom: calc(#{$dock-height} + env(safe-area-inset-bottom));
+
+  @include desktop {
+    padding-bottom: 0;
+  }
 }
 
 .main-content {
@@ -32,13 +22,19 @@
   padding-top: $navbar-height;
 }
 
-// ----------------------------------------------------------------------------
-// Page stylesheet index (scoped CSS Modules — edit these for page-specific UI)
-// ----------------------------------------------------------------------------
-//   Home          → app/page.module.scss
-//   Match detail  → components/match/MatchDetail.module.scss
-//   Fixtures      → app/fixtures/fixtures.module.scss
-//   Rankings      → app/rankings/rankings.module.scss
-//   Player        → app/player/[id]/player.module.scss
-//   Search        → app/search/search.module.scss
-// ----------------------------------------------------------------------------
+.skip-link {
+  position: fixed;
+  top: $space-2;
+  left: $space-2;
+  z-index: $z-toast;
+  padding: $space-2 $space-4;
+  border-radius: $r-sm;
+  background: $signal;
+  color: $signal-ink;
+  font-weight: 700;
+  transform: translateY(-200%);
+
+  &:focus-visible {
+    transform: none;
+  }
+}

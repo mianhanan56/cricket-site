@@ -1,17 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import styles from './RankingsView.module.scss';
+import styles from './RankingCrest.module.scss';
 
 /**
- * Team crest for a rankings row, degrading to the short name.
- *
- * A client component for the same reason MatchCard's badge is one: crests 404
- * for a handful of associate and women's sides, and a broken-image glyph in a
- * ten-row table is worse than three letters. It does NOT reuse TeamBadge — that
- * one falls back to a hue-derived gradient built with an inline style, which is
- * right for a match card carrying two big sides and wrong for a dense list where
- * ten different gradients would fight the accent for attention.
+ * Team crest for dense lists, degrading to the short name. Unlike TeamBadge the
+ * fallback is neutral: ten hue-tinted initials in one table fight for attention.
  */
 export default function RankingCrest({
   name,
@@ -22,19 +16,15 @@ export default function RankingCrest({
   name: string;
   shortName: string;
   logo?: string | null;
-  /** `lg` in the podium, `sm` in the table. */
   size?: 'sm' | 'lg';
 }) {
   const [failed, setFailed] = useState(false);
   const box = size === 'lg' ? 48 : 28;
 
   return (
-    <span className={`${styles.crest} ${size === 'lg' ? styles.crestLg : ''}`}>
+    <span className={`${styles.crest} ${size === 'lg' ? styles.lg : ''}`}>
       {logo && !failed ? (
-        // Crests are 1-5KB webp already optimized on Akamai, so next/image would
-        // add a proxy hop for no gain. The directive has to sit immediately above
-        // the element — with the justification below it, it disabled nothing.
-        // eslint-disable-next-line @next/next/no-img-element
+        // eslint-disable-next-line @next/next/no-img-element -- tiny pre-optimised crests
         <img
           src={logo}
           alt={`${name} crest`}
@@ -45,7 +35,7 @@ export default function RankingCrest({
           onError={() => setFailed(true)}
         />
       ) : (
-        <span className={styles.crestFallback}>{shortName.slice(0, 3)}</span>
+        <span className={styles.fallback}>{shortName.slice(0, 3)}</span>
       )}
     </span>
   );

@@ -1,0 +1,60 @@
+@use 'component' as *;
+
+.badge {
+  --size: 36px;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 28%;
+  overflow: hidden;
+}
+
+.xs {
+  --size: 20px;
+}
+
+.sm {
+  --size: 28px;
+}
+
+.md {
+  --size: 36px;
+}
+
+.lg {
+  --size: 48px;
+}
+
+.xl {
+  --size: 72px;
+}
+
+.crest {
+  background: color-mix(in oklab, white 92%, var(--surface));
+  border: 1px solid $line;
+
+  img {
+    width: 78%;
+    height: 78%;
+    object-fit: contain;
+  }
+}
+
+.initials {
+  font-family: $font-sans;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  font-size: calc(var(--size) * 0.3);
+  letter-spacing: -0.02em;
+  color: #fff;
+  border: 1px solid rgb(255 255 255 / 12%);
+}
+
+@for $i from 0 through 11 {
+  .initials[data-hue='#{$i}'] {
+    $h: $i * 30;
+    background: linear-gradient(145deg, hsl($h 55% 42%), hsl(($h + 30) % 360 50% 28%));
+  }
+}

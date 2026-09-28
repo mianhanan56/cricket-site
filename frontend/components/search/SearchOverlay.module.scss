@@ -1,0 +1,312 @@
+@use 'component' as *;
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: $z-modal;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0;
+
+  @include tablet {
+    padding: 10vh $space-4 $space-4;
+  }
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: default;
+
+  @include motion {
+    animation: fade $dur-2 $ease-out;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: $surface;
+  overflow: hidden;
+
+  @include tablet {
+    max-width: 640px;
+    height: auto;
+    max-height: min(640px, 80vh);
+    border-radius: $r-lg;
+    box-shadow: $shadow-pop;
+  }
+
+  @include motion {
+    animation: rise $dur-3 $ease-out;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+}
+
+.field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  border-bottom: 1px solid $line;
+
+  // A signal trace sweeps the field's crease while the dialog is open.
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 30%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, $signal, transparent);
+
+    @include motion {
+      animation: sweep 2.4s $ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+.fieldIcon {
+  color: $text-3;
+  flex-shrink: 0;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  font-size: $fs-lg;
+  color: $text;
+  outline: none;
+
+  &::placeholder {
+    color: $text-3;
+  }
+
+  &::-webkit-search-cancel-button {
+    display: none;
+  }
+}
+
+.esc {
+  @include data-num;
+  font-size: $fs-xs;
+  padding: $space-1 $space-2;
+  border-radius: $r-xs;
+  border: 1px solid $line-2;
+  color: $text-3;
+
+  &:hover {
+    color: $text;
+  }
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: $space-2;
+}
+
+.group + .group {
+  margin-top: $space-2;
+}
+
+.groupHead {
+  @include flex-between;
+}
+
+.groupTitle {
+  @include eyebrow;
+  padding: $space-2 $space-2 $space-1-5;
+}
+
+.clear {
+  font-size: $fs-sm;
+  color: $text-2;
+  padding: $space-1 $space-2;
+  border-radius: $r-xs;
+
+  &:hover {
+    color: $text;
+    background: $surface-2;
+  }
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+  min-height: 52px;
+  padding: $space-2;
+  border-radius: $r-sm;
+  text-align: left;
+  border: 1px solid transparent;
+}
+
+.itemActive {
+  background: $surface-2;
+  border-color: $line-2;
+}
+
+.itemIcon {
+  @include flex-center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: $r-sm;
+  color: $text-2;
+  background: $surface-2;
+
+  .itemActive & {
+    background: $surface-3;
+    color: $text;
+  }
+}
+
+.itemText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.itemLabel {
+  font-weight: 600;
+  @include truncate;
+}
+
+.itemSub {
+  font-size: $fs-sm;
+  color: $text-3;
+  @include truncate;
+}
+
+.itemTag {
+  @include chip;
+  height: 22px;
+  color: $text-3;
+}
+
+.liveTag {
+  @include chip;
+  @include live-pulse;
+  height: 22px;
+  color: $signal-text;
+  border-color: color-mix(in oklab, var(--signal) 40%, transparent);
+}
+
+.itemArrow {
+  color: $text-3;
+  opacity: 0;
+
+  .itemActive & {
+    opacity: 1;
+  }
+}
+
+.recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-1-5;
+  padding: 0 $space-2 $space-2;
+}
+
+.recentItem {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  height: 32px;
+  padding-inline: $space-3;
+  border-radius: $r-pill;
+  border: 1px solid $line-2;
+  font-size: $fs-sm;
+  color: $text-2;
+
+  &:hover {
+    color: $text;
+    border-color: $line-3;
+  }
+}
+
+.status {
+  display: flex;
+  justify-content: center;
+  padding: $space-10 $space-4;
+}
+
+.none {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-10 $space-4;
+  text-align: center;
+}
+
+.noneTitle {
+  font-size: $fs-base;
+  color: $text-2;
+}
+
+.noneAction {
+  @include button-secondary;
+}
+
+.foot {
+  display: none;
+  gap: $space-4;
+  padding: $space-2-5 $space-4;
+  border-top: 1px solid $line;
+  font-size: $fs-xs;
+  color: $text-3;
+
+  @include tablet {
+    display: flex;
+  }
+
+  kbd {
+    @include data-num;
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    margin-right: 3px;
+    padding-inline: 3px;
+    border-radius: $r-xs;
+    border: 1px solid $line-2;
+    font-size: 10px;
+  }
+}

@@ -12,15 +12,7 @@ function initialsOf(name: string): string {
   return (first + last).toUpperCase();
 }
 
-/**
- * The illustrated portrait crex draws for a player, with initials as the
- * fallback.
- *
- * A client component for the same reason TeamBadge is: the illustrations only
- * exist for players crex has drawn — a debutant's key 404s — and a broken-image
- * glyph in the page's largest element is far worse than a monogram. Every other
- * part of the profile is static, so this is the one island of interactivity.
- */
+/** crex's illustrated portrait; a debutant's key 404s, so it falls back to initials. */
 export default function PlayerPortrait({
   name,
   src,
@@ -44,14 +36,12 @@ export default function PlayerPortrait({
 
   return (
     <span className={`${styles.portrait} ${box}`}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- crex's portraits
-          are small PNGs already on Akamai; next/image would add a proxy hop and
-          is not used anywhere in this app. */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- small PNGs already on a CDN */}
       <img
         src={src}
         alt={name}
-        width={132}
-        height={132}
+        width={148}
+        height={148}
         decoding="async"
         onError={() => setFailed(true)}
       />

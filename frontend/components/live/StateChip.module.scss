@@ -1,0 +1,150 @@
+@use 'component' as *;
+
+.chip {
+  --tone: var(--text-3);
+  @include chip;
+  height: 24px;
+  max-width: 100%;
+  color: var(--tone);
+  border-color: color-mix(in oklab, var(--tone) 38%, transparent);
+  background: color-mix(in oklab, var(--tone) 8%, transparent);
+}
+
+.word {
+  @include truncate;
+}
+
+.glyph {
+  position: relative;
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+.live {
+  --tone: var(--signal);
+
+  .glyph {
+    @include motion {
+      animation: ping $dur-pulse ease-out infinite;
+    }
+  }
+}
+
+:global([data-theme='light']) .live {
+  --tone: var(--signal-text);
+}
+
+.climax {
+  --tone: var(--wicket);
+
+  .glyph {
+    @include motion {
+      animation: ping 0.8s ease-out infinite;
+    }
+  }
+}
+
+.upcoming {
+  --tone: var(--data);
+
+  .glyph {
+    background: transparent;
+    border: 1.5px solid var(--tone);
+  }
+}
+
+.interval {
+  --tone: var(--warn);
+
+  .glyph {
+    @include motion {
+      animation: hold 2.8s $ease-in-out infinite;
+    }
+  }
+}
+
+.transition {
+  --tone: var(--data);
+
+  .glyph {
+    border-radius: 1px;
+    width: 8px;
+    height: 3px;
+  }
+}
+
+.dormant {
+  --tone: var(--text-2);
+
+  .glyph {
+    background: transparent;
+    border: 1.5px solid var(--tone);
+
+    @include motion {
+      animation: hold $dur-dormant $ease-in-out infinite;
+    }
+  }
+}
+
+.weather {
+  --tone: var(--data);
+
+  .glyph {
+    width: 3px;
+    height: 9px;
+    border-radius: 2px;
+    transform: skewX(-20deg);
+  }
+}
+
+.hold {
+  --tone: var(--warn);
+
+  .glyph {
+    width: 7px;
+    height: 8px;
+    border-radius: 0;
+    background: linear-gradient(90deg, var(--tone) 0 2px, transparent 2px 5px, var(--tone) 5px);
+  }
+}
+
+.void {
+  --tone: var(--text-3);
+
+  .glyph {
+    width: 9px;
+    height: 1.5px;
+    border-radius: 0;
+  }
+}
+
+.final {
+  --tone: var(--text-2);
+
+  .glyph {
+    border-radius: 1px;
+  }
+}
+
+@keyframes ping {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--tone) 70%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--tone) 0%, transparent);
+  }
+}
+
+@keyframes hold {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}

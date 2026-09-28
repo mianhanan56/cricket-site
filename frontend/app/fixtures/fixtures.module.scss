@@ -2,18 +2,6 @@
 
 .page {
   @include container;
-  padding-block: $space-5 $space-8;
+  padding-bottom: $space-16;
   min-width: 0;
-}
-
-.heading {
-  font-size: clamp(#{$text-2xl}, 6vw, #{$text-3xl});
-  margin-bottom: $space-4;
-}
-
-.empty {
-  @include card;
-  padding: $space-5;
-  text-align: center;
-  color: $text-muted;
 }

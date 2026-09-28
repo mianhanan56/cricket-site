@@ -1,0 +1,148 @@
+@use 'component' as *;
+
+.dock {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: $z-dock;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: calc(#{$dock-height} + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--nav-bg);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border-top: 1px solid $line;
+
+  @include desktop {
+    display: none;
+  }
+}
+
+.item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: $fs-2xs;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: $text-3;
+  -webkit-tap-highlight-color: transparent;
+  @include focus-ring;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 30%;
+    right: 30%;
+    height: 2px;
+    border-radius: 0 0 2px 2px;
+    background: $signal;
+    transform: scaleX(0);
+    transition: transform $dur-3 $ease-out;
+  }
+
+  &:active {
+    color: $text-2;
+  }
+}
+
+.active {
+  color: $text;
+
+  &::before {
+    transform: scaleX(1);
+  }
+}
+
+.sheetWrap {
+  position: fixed;
+  inset: 0;
+  z-index: $z-overlay;
+
+  @include desktop {
+    display: none;
+  }
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  cursor: default;
+
+  @include motion {
+    animation: fade-in $dur-2 $ease-out;
+  }
+}
+
+.sheet {
+  position: absolute;
+  inset: auto 0 0;
+  padding: $space-2 $space-3 calc(#{$dock-height} + env(safe-area-inset-bottom) + #{$space-3});
+  border-radius: $r-lg $r-lg 0 0;
+  background: $surface;
+  border-top: 1px solid $line-2;
+
+  @include motion {
+    animation: sheet-up $dur-3 $ease-out;
+  }
+}
+
+.grabber {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 0 auto $space-3;
+  border-radius: $r-pill;
+  background: $line-3;
+}
+
+.sheetList {
+  display: grid;
+  gap: $space-0-5;
+}
+
+.sheetLink {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  min-height: 48px;
+  padding-inline: $space-3;
+  border-radius: $r-sm;
+  font-size: $fs-base;
+  color: $text-2;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+    background: $surface-2;
+  }
+}
+
+.sheetActive {
+  color: $text;
+  background: $surface-2;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+:global([data-theme='light']) {
+  .link::after,
+  .item::before {
+    background: $signal-text;
+  }
+}

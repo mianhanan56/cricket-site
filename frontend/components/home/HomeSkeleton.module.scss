@@ -1,124 +1,151 @@
 @use 'component' as *;
 
-// ===========================================================================
-// Home skeleton — bar geometry only.
-//
-// Every container (stats grid, section head, carousel track, card, team row)
-// is borrowed from HomeMatches.module.scss / MatchCard.module.scss so the
-// placeholder occupies the real layout. What lives here is the handful of fixed
-// widths the bars need: inside content-sized flex rows a percentage collapses,
-// and these are the widths the real strings actually run to.
-// ===========================================================================
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+  padding: $space-5;
+  border-radius: $r-lg;
+  border: 1px solid $line-2;
+  background: linear-gradient(180deg, var(--surface), var(--bg-raise));
 
-// Nothing in a skeleton is interactive — kill the hover lift the real card and
-// stat tile carry, so a cursor crossing the page doesn't animate dead boxes.
-.inert {
-  pointer-events: none;
-}
-
-// --- Stats strip -----------------------------------------------------------
-
-// The real tile stacks a 20px number on a 12px label at line-height 1.1, which
-// leaves no gap for bars to breathe in — add it back.
-.statBody {
-  gap: $space-1-5;
-}
-
-.statValue {
-  width: 30px; // a 1–2 digit count at $text-xl
-}
-
-.statLabel {
-  width: 74px; // "Live now" / "All matches"
-}
-
-// --- Section head ---------------------------------------------------------
-
-// Carries the real title's auto margin as well as its width, so the filter and
-// the rail sit at the right end of the row exactly as they do when loaded.
-.headTitle {
-  width: 116px; // "Matches" at $text-2xl
-  margin-right: auto;
-}
-
-// The type dropdown's trigger: "All cricket" + caret, at the height the head row
-// aligns everything to.
-.filterBar {
-  width: 118px;
-  height: 48px;
-  border-radius: $radius-xl;
-}
-
-// Sits inside the real .pills glass rail; each bar matches a .pill's box
-// (py-2 px-4 around $text-sm + a 16px icon).
-.pillBar {
-  height: 32px;
-  border-radius: $radius-lg;
-}
-
-.pill1 {
-  width: 74px;
-}
-.pill2 {
-  width: 96px;
-}
-.pill3 {
-  width: 92px;
-}
-.pill4 {
-  width: 92px; // "Matches" + icon
-}
-
-// The phone rail is a four-up grid of equal columns with no icons, so the bars
-// stop carrying their own label-sized widths and just fill their cell. Declared
-// after .pill1–.pill4 because a media query adds no specificity of its own.
-@include phone-only {
-  .pillBar {
-    width: auto;
-    min-width: 0;
-    height: 28px;
+  @include desktop {
+    padding: $space-8;
   }
 }
 
-// --- Match card ----------------------------------------------------------
+.heroMain {
+  display: grid;
+  gap: $space-6;
 
-.formatChip {
-  width: 42px; // "ODI" / "T20"
-  height: 20px;
-  border-radius: $radius-md;
+  @include desktop {
+    grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+    gap: $space-8;
+  }
 }
 
-.seriesBar {
-  width: 118px;
-}
-
-.statusBar {
-  width: 46px; // LIVE / UPCOMING / RESULT
-}
-
-.teamMeta {
+.heroScore {
   display: flex;
   flex-direction: column;
-  gap: $space-1-5;
-  min-width: 0;
+  gap: $space-4;
 }
 
-.teamCode {
-  width: 46px;
+.team {
+  width: 45%;
 }
 
-.teamName {
-  width: 92px;
+.bigScore {
+  width: min(360px, 70%);
+  height: clamp(68px, 17vw, 120px);
+  border-radius: $r-md;
+}
+
+.equation {
+  width: 60%;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: $space-3;
+
+  @include sm {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.tile {
+  height: 52px;
+  border-radius: $r-sm;
+}
+
+// The crease with a signal waiting on it.
+.trace {
+  position: relative;
+  display: block;
+  height: 1px;
+  margin-top: $space-6;
+  background: $line-2;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 25%;
+    background: linear-gradient(90deg, transparent, $signal, transparent);
+
+    @include motion {
+      animation: wait 1.8s $ease-in-out infinite;
+    }
+  }
+}
+
+@keyframes wait {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(400%);
+  }
+}
+
+.heroSide {
+  display: grid;
+  gap: $space-4;
+  align-content: start;
+}
+
+.panel {
+  height: 150px;
+  border-radius: $r-md;
+}
+
+.gap {
+  height: $space-12;
+}
+
+.board {
+  display: grid;
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include wide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.tile2 {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  padding: $space-4;
+  @include panel;
+}
+
+.line1 {
+  width: 50%;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+.code {
+  width: 30%;
 }
 
 .score {
-  width: 62px;
+  width: 22%;
+  margin-left: auto;
 }
 
-.footNote {
-  width: 62%;
-}
-
-.venue {
-  width: 46%;
+.crease {
+  height: 1px;
+  background: $line-2;
 }

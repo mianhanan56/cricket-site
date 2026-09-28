@@ -1,0 +1,541 @@
+@use 'component' as *;
+
+.header {
+  --glow: var(--signal);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+  padding: $space-4 $space-4 $space-3;
+  border-radius: $r-lg;
+  border: 1px solid $line-2;
+  background:
+    radial-gradient(70% 90% at 50% -20%, color-mix(in oklab, var(--glow) 10%, transparent), transparent 70%),
+    linear-gradient(180deg, var(--surface), var(--bg-raise));
+
+  @include tablet {
+    padding: $space-6 $space-8 $space-4;
+  }
+}
+
+.interval,
+.hold {
+  --glow: var(--warn);
+}
+
+.weather,
+.transition,
+.upcoming {
+  --glow: var(--data);
+}
+
+.dormant,
+.void,
+.final {
+  --glow: var(--text-3);
+}
+
+.climax {
+  --glow: var(--wicket);
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  @include grid-texture(36px);
+  mask-image: radial-gradient(60% 80% at 50% 0%, #000, transparent 80%);
+  -webkit-mask-image: radial-gradient(60% 80% at 50% 0%, #000, transparent 80%);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2 $space-3;
+}
+
+.connecting {
+  @include eyebrow;
+  color: $warn;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-1 $space-2;
+  min-width: 0;
+  font-size: $fs-sm;
+  color: $text-3;
+
+  > * + *::before {
+    content: '·';
+    margin-right: $space-2;
+    color: $text-3;
+  }
+}
+
+.series,
+.venue {
+  @include fluid-text;
+  @include focus-ring;
+}
+
+a.series,
+a.venue {
+  color: $text-2;
+
+  &:hover {
+    color: $text;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+// ---------------------------------------------------------------- Teams
+
+.teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'home center'
+    'away center';
+  gap: $space-4 $space-3;
+  align-items: center;
+
+  @include tablet {
+    grid-template-columns: minmax(0, 1fr) 136px minmax(0, 1fr);
+    grid-template-areas: 'home center away';
+    gap: $space-6;
+  }
+}
+
+.side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'team score'
+    'team overs';
+  align-items: center;
+  column-gap: $space-3;
+  min-width: 0;
+
+  @include tablet {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'team'
+      'score'
+      'overs';
+    row-gap: $space-2;
+  }
+
+  &.left {
+    grid-area: home;
+  }
+
+  &.right {
+    grid-area: away;
+
+    @include tablet {
+      justify-items: end;
+      text-align: right;
+
+      .team {
+        flex-direction: row-reverse;
+      }
+    }
+  }
+}
+
+.team {
+  grid-area: team;
+  display: flex;
+  align-items: center;
+  gap: $space-2-5;
+  min-width: 0;
+  border-radius: $r-sm;
+  @include focus-ring;
+
+  &:hover .teamName {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.teamName {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  font-size: $fs-md;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+
+  @include tablet {
+    font-size: $fs-base;
+  }
+}
+
+.teamFull {
+  display: none;
+
+  @include tablet {
+    display: block;
+    @include truncate;
+  }
+}
+
+.teamCode {
+  font-size: $fs-lg;
+
+  @include tablet {
+    display: none;
+  }
+}
+
+.won {
+  @include chip;
+  height: 20px;
+  flex-shrink: 0;
+  color: $signal-ink;
+  background: $signal;
+  border-color: transparent;
+}
+
+.score {
+  grid-area: score;
+  @include display-num;
+  font-size: clamp(30px, 7vw, 60px);
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+.noScore {
+  color: $text-3;
+}
+
+.overs {
+  grid-area: overs;
+  justify-self: end;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+
+  @include tablet {
+    justify-self: auto;
+    font-size: $fs-sm;
+  }
+}
+
+.batting .score {
+  color: $text;
+}
+
+.batting .teamName::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-inline: $space-2;
+  vertical-align: middle;
+  border-radius: 50%;
+  background: $signal;
+
+  @include motion {
+    animation: live-pulse $dur-pulse ease-out infinite;
+  }
+}
+
+.dim {
+  .score,
+  .teamName {
+    color: $text-3;
+  }
+}
+
+// ---------------------------------------------------------------- Center
+
+.center {
+  grid-area: center;
+  display: flex;
+  justify-content: center;
+}
+
+.vs {
+  @include eyebrow;
+  font-size: $fs-xs;
+}
+
+.lastBall {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-1-5;
+}
+
+.impact {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  @include data-num;
+  font-size: 26px;
+  font-weight: 700;
+  color: $text;
+  background: $surface-3;
+  border: 1px solid $line-2;
+
+  @include tablet {
+    width: 84px;
+    height: 84px;
+    font-size: 34px;
+  }
+
+  @include motion {
+    animation: impact-in 520ms $ease-snap;
+  }
+}
+
+.long {
+  font-size: 17px;
+
+  @include tablet {
+    font-size: 22px;
+  }
+}
+
+.k_dot {
+  background: transparent;
+  color: $text-2;
+}
+
+.k_four {
+  background: $data;
+  color: #04161b;
+  border-color: transparent;
+}
+
+.k_six {
+  background: $signal;
+  color: $signal-ink;
+  border-color: transparent;
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--signal) 60%, transparent);
+
+  @include motion {
+    animation:
+      impact-in 520ms $ease-snap,
+      six-wave 1.4s ease-out 0.2s 2;
+  }
+}
+
+.k_wicket {
+  background: $wicket;
+  color: #fff;
+  border-color: transparent;
+
+  @include motion {
+    animation: wicket-hit 600ms $ease-out;
+  }
+}
+
+.k_wide,
+.k_noball {
+  color: $warn;
+  border-color: color-mix(in oklab, var(--warn) 60%, transparent);
+  background: $warn-soft;
+}
+
+.k_extra {
+  color: $data;
+  border-style: dashed;
+}
+
+.lastBallAt {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+@keyframes impact-in {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+
+@keyframes six-wave {
+  to {
+    box-shadow: 0 0 0 22px color-mix(in oklab, var(--signal) 0%, transparent);
+  }
+}
+
+@keyframes wicket-hit {
+  0% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(0.94);
+    opacity: 1;
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+.startClock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.clockLabel {
+  @include eyebrow;
+}
+
+.clock {
+  @include data-num;
+  font-size: $fs-lg;
+  font-weight: 700;
+  color: $data;
+
+  @include tablet {
+    font-size: $fs-xl;
+  }
+}
+
+.clockWhen {
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+// ---------------------------------------------------------------- Lines
+
+.headline {
+  font-stretch: $stretch-wide;
+  font-weight: 700;
+  font-size: clamp(17px, 2.4vw, 22px);
+  line-height: $leading-snug;
+  text-align: left;
+
+  @include tablet {
+    text-align: center;
+  }
+}
+
+.stateLine {
+  color: var(--glow);
+}
+
+.detail {
+  font-weight: 500;
+  color: $text-2;
+}
+
+.sub {
+  font-size: $fs-sm;
+  color: $text-2;
+
+  @include tablet {
+    text-align: center;
+  }
+}
+
+.tight {
+  color: $warn;
+}
+
+.warn {
+  color: $warn;
+}
+
+.situation {
+  display: grid;
+  gap: $space-1;
+  font-size: $fs-md;
+  font-weight: 600;
+
+  @include tablet {
+    text-align: center;
+  }
+}
+
+.tiles {
+  display: flex;
+  flex-wrap: wrap;
+  border-top: 1px solid $line;
+
+  @include tablet {
+    justify-content: center;
+  }
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: $space-3 $space-4 $space-2 0;
+  margin-right: $space-4;
+  min-width: 0;
+
+  @include tablet {
+    padding-inline: $space-5;
+    margin: 0;
+
+    & + & {
+      border-left: 1px solid $line;
+    }
+  }
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include data-num;
+    font-size: $fs-lg;
+    font-weight: 600;
+
+    small {
+      margin-left: 3px;
+      font-size: $fs-xs;
+      color: $text-3;
+    }
+  }
+}
+
+.tileTight dd {
+  color: $warn;
+}
+
+.tile .lastWicket,
+.tile .phase {
+  font-family: $font-sans;
+  font-size: $fs-md;
+}
+
+.lastWicket small {
+  font-family: $font-mono;
+}
+
+.live {
+  --glow: var(--signal);
+}
+
+.k_run {
+  color: $text;
+}
+
+.tileWide {
+  max-width: 100%;
+}

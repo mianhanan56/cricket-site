@@ -1,0 +1,58 @@
+@use 'component' as *;
+
+.page {
+  @include container;
+  padding-bottom: $space-16;
+}
+
+.skHead {
+  display: grid;
+  gap: $space-3;
+  padding-block: $space-8 $space-6;
+
+  @include tablet {
+    padding-block: $space-12 $space-8;
+  }
+}
+
+.skEyebrow {
+  width: 64px;
+}
+
+.skTitle {
+  width: 260px;
+  max-width: 100%;
+  height: 40px;
+  border-radius: $r-sm;
+}
+
+.skControl {
+  width: 170px;
+  height: 42px;
+  border-radius: $r-sm;
+}
+
+.skSearch {
+  width: 100%;
+  height: 42px;
+  border-radius: $r-sm;
+
+  @include sm {
+    width: 300px;
+  }
+}
+
+.skColTitle {
+  width: 120px;
+  margin-bottom: $space-4;
+}
+
+.skPos {
+  width: 24px;
+  height: 22px;
+  justify-self: center;
+}
+
+.skRating {
+  width: 32px;
+}

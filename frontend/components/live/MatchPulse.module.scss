@@ -1,0 +1,103 @@
+@use 'component' as *;
+
+.pulse {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.list {
+  display: grid;
+  gap: $space-2-5;
+}
+
+.row {
+  --tone: var(--signal);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'label figure'
+    'meter meter';
+  align-items: center;
+  column-gap: $space-3;
+  row-gap: $space-1-5;
+}
+
+.momentum {
+  --tone: var(--signal);
+}
+
+.pressure {
+  --tone: var(--data);
+}
+
+.boundaries {
+  --tone: var(--warn);
+}
+
+.wickets {
+  --tone: var(--wicket);
+}
+
+:global([data-theme='light']) .momentum {
+  --tone: var(--signal-text);
+}
+
+.label {
+  grid-area: label;
+  font-size: $fs-sm;
+  color: $text-2;
+  @include truncate;
+}
+
+.meterCell {
+  grid-area: meter;
+}
+
+.meter {
+  display: block;
+  width: 100%;
+  height: 8px;
+}
+
+.on {
+  fill: var(--tone);
+  transition: fill $dur-3 $ease-out;
+}
+
+.off {
+  fill: $surface-3;
+  transition: fill $dur-3 $ease-out;
+}
+
+.figure {
+  grid-area: figure;
+  @include data-num;
+  font-size: $fs-xs;
+  font-weight: 600;
+  color: $text;
+
+  @include motion {
+    animation: tick $dur-4 $ease-out;
+  }
+}
+
+@keyframes tick {
+  from {
+    color: var(--tone);
+  }
+}
+
+.window {
+  @include eyebrow;
+}
+
+.compact {
+  .list {
+    gap: $space-2;
+  }
+
+  .label {
+    font-size: $fs-xs;
+  }
+}

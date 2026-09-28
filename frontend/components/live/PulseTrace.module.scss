@@ -1,0 +1,208 @@
+@use 'component' as *;
+
+.wrap {
+  position: relative;
+  width: 100%;
+  height: 64px;
+  border-radius: $r-sm;
+  touch-action: pan-y;
+  @include focus-ring;
+}
+
+// One column per delivery, so each column's centre is its point on the trace.
+.hits {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.hit {
+  position: relative;
+  cursor: crosshair;
+}
+
+.tip {
+  position: absolute;
+  z-index: 2;
+  bottom: calc(100% + #{$space-1-5});
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  max-width: 240px;
+  padding: $space-1-5 $space-2-5;
+  border-radius: $r-sm;
+  border: 1px solid $line-2;
+  background: $surface-3;
+  box-shadow: $shadow-pop;
+  pointer-events: none;
+
+  @include motion {
+    animation: tip-in $dur-2 $ease-out;
+  }
+
+  &.start {
+    left: 0;
+    translate: none;
+  }
+
+  &.end {
+    left: auto;
+    right: 0;
+    translate: none;
+  }
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.tipHead {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+}
+
+.tipAt {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+}
+
+.tipWord {
+  font-family: $font-mono;
+  font-size: $fs-2xs;
+  font-weight: 700;
+  letter-spacing: $tracking-label;
+  text-transform: uppercase;
+  color: $text;
+}
+
+.t_six {
+  color: $signal-text;
+}
+
+.t_four {
+  color: $data;
+}
+
+.t_wicket {
+  color: $wicket;
+}
+
+.tipScore {
+  margin-left: auto;
+  padding-left: $space-2;
+  @include data-num;
+  font-size: $fs-2xs;
+  font-weight: 700;
+}
+
+.tipDetail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: $fs-xs;
+  color: $text-2;
+}
+
+.live {
+  @include visually-hidden;
+}
+
+.guide {
+  stroke: $line-3;
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.focus {
+  fill: $text;
+  stroke: $bg;
+  stroke-width: 2;
+}
+
+.trace {
+  display: block;
+  overflow: visible;
+}
+
+.crease {
+  stroke: $line-2;
+  stroke-width: 1;
+}
+
+.path {
+  fill: none;
+  stroke: $text-2;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+
+  @include motion {
+    animation: draw 900ms $ease-out;
+  }
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+.mark {
+  stroke: $bg;
+  stroke-width: 1.5;
+}
+
+.six {
+  fill: $signal;
+}
+
+.four {
+  fill: $data;
+}
+
+.wicket {
+  fill: $wicket;
+}
+
+:global([data-theme='light']) .six {
+  fill: $signal-text;
+}
+
+.now {
+  fill: $signal;
+  transform-box: fill-box;
+  transform-origin: center;
+
+  @include motion {
+    animation: now 1.8s ease-out infinite;
+  }
+}
+
+:global([data-theme='light']) .now {
+  fill: $signal-text;
+}
+
+@keyframes now {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  60% {
+    opacity: 0.35;
+    transform: scale(1.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

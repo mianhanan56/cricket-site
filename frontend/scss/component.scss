@@ -1,156 +1,189 @@
-// ============================================================================
-// component.scss — shared foundation for reusable UI components
-//
-// Design tokens (variables), mixins, placeholders, and keyframes consumed by
-// the scoped *.module.scss component styles and by global/main stylesheets.
-// Pull into any stylesheet with:  @use 'component' as *;
-//
-// Visual identity: "Aurora" — a dark, premium interface with soft green/violet
-// radial glows, glassmorphic surfaces and a bright mint-green brand accent.
-// Type pairing: Sora (display) + Manrope (body). Signature element: the aurora
-// glow background + glass cards that lift with a green glow on hover.
-//
-// NOTE: this file emits no standalone CSS except the shared @keyframes — it is
-// a definitions library, so @use-ing it adds no duplicated rules.
-// ============================================================================
+// Design tokens, mixins and shared keyframes. Emits no CSS except @keyframes.
+// Color tokens resolve to custom properties declared in global.scss, so one
+// data-theme attribute reskins every module.
 
-// ----------------------------------------------------------------------------
-// 1. Design tokens
-//
-// Every COLOR token below resolves to a CSS custom property declared in
-// global.scss (`:root` = light, `:root[data-theme='dark']` = dark). This keeps
-// the whole SCSS-module layer theme-agnostic: the same $token flips value at
-// runtime when the <html data-theme> attribute changes. Non-color tokens
-// (spacing, radius, type, breakpoints) stay static SCSS values.
-// ----------------------------------------------------------------------------
+// ---------------------------------------------------------------- Color
 
-// --- Backgrounds & surfaces ---
-$bg: var(--bg-base); // Page background (aurora base)
-$surface: var(--surface); // Slightly raised flat surface
-$surface-elevated: var(--surface-elevated); // Highest flat surface (chips, tiles)
+$bg: var(--bg);
+$bg-raise: var(--bg-raise);
+$surface: var(--surface);
+$surface-2: var(--surface-2);
+$surface-3: var(--surface-3);
 
-// --- Brand colors ---
-$primary: var(--fg); // Strong foreground / emphasis
-$secondary: var(--secondary); // Secondary surface (footer, gradients)
-$accent: var(--accent-green); // Mint green — the dominant brand accent
-$accent-light: var(--accent-green-soft); // Lighter mint — fills, badges, active
-$accent-green: var(--accent-green); // Scores, runs
-$accent-green-ink: var(--accent-green-ink); // Ink on an accent-green fill
-$accent-purple: var(--accent-purple); // Violet — secondary accent
-$accent-blue: var(--accent-blue); // Blue — series / competitions accent
-$accent-red: var(--live); // Red (live, wickets, danger)
-$accent-amber: var(--amber); // Amber (records, milestones)
+$line: var(--line);
+$line-2: var(--line-2);
+$line-3: var(--line-3);
 
-// --- Text ---
-$text-primary: var(--fg);
-$text-secondary: var(--text-secondary);
-$text-muted: var(--muted-foreground);
+$text: var(--text);
+$text-2: var(--text-2);
+$text-3: var(--text-3);
 
-// --- Cards & surfaces ---
-$card-bg: var(--card);
-$card-border: var(--border);
-$card-hover: var(--card-hover);
+$signal: var(--signal);
+$signal-text: var(--signal-text);
+$signal-ink: var(--signal-ink);
+$signal-soft: var(--signal-soft);
+$data: var(--data);
+$data-soft: var(--data-soft);
+$warn: var(--warn);
+$warn-soft: var(--warn-soft);
+$wicket: var(--wicket);
+$wicket-soft: var(--wicket-soft);
 
-// --- Navbar (glass on the aurora page) ---
-$navbar-bg: var(--navbar-bg);
-$navbar-text: var(--fg);
-$navbar-active: var(--accent-green);
+// Legacy names, mapped onto the system above.
+$primary: $text;
+$secondary: $surface-2;
+$accent: $signal-text;
+$accent-light: $signal-soft;
+$accent-green: $signal-text;
+$accent-green-ink: $signal-ink;
+$accent-purple: $data;
+$accent-blue: $data;
+$accent-red: $wicket;
+$accent-amber: $warn;
+$text-primary: $text;
+$text-secondary: $text-2;
+$text-muted: $text-3;
+$surface-elevated: $surface-2;
+$card-bg: $surface;
+$card-border: $line;
+$card-hover: $surface-2;
+$navbar-bg: var(--nav-bg);
+$navbar-text: $text;
+$navbar-active: $signal-text;
+$live-color: $wicket;
+$live-bg: $wicket-soft;
+$sk-base: var(--sk-base);
+$sk-base-strong: var(--sk-base-strong);
+$sk-sheen: var(--sk-sheen);
 
-// --- Live indicator ---
-$live-color: var(--live);
-$live-bg: var(--live-bg);
+// ---------------------------------------------------------------- Type
 
-// --- Skeleton placeholders ---
-$sk-base: var(--sk-base); // Resting fill of a placeholder box
-$sk-base-strong: var(--sk-base-strong); // Static fill when motion is reduced
-$sk-sheen: var(--sk-sheen); // Mint→violet sweep (the aurora tell)
+$font-sans: var(--font-archivo), 'Archivo', ui-sans-serif, system-ui, -apple-system, sans-serif;
+$font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+$font-primary: $font-sans;
+$font-display: $font-sans;
 
-// --- Breakpoints ---
-// The six bands the whole app is designed against. Everything is mobile-first
-// (min-width), so a band inherits from the one below it and only the deltas are
-// written. `mobile-only` is the single max-width escape hatch, for the handful
-// of rules that must NOT survive into the next band.
-//
-//   ≤ 575px          phone                  (base — no media query)
-//   576px – 767px    large phone            @include sm
-//   768px – 1023px   tablet                 @include tablet
-//   1024px – 1279px  laptop / small desktop @include desktop
-//   1280px – 1439px  desktop                @include wide
-//   1440px +         large desktop          @include xwide
+$stretch-display: 118%;
+$stretch-wide: 108%;
+$stretch-narrow: 88%;
+
+$fs-2xs: 11px;
+$fs-xs: 12px;
+$fs-sm: 13px;
+$fs-md: 14px;
+$fs-base: 15px;
+$fs-body: 16px;
+$fs-lg: 18px;
+$fs-xl: 22px;
+$fs-2xl: 28px;
+$fs-h1: clamp(30px, 5vw, 48px);
+$fs-display: clamp(44px, 10vw, 104px);
+$fs-score: clamp(36px, 7vw, 64px);
+$fs-live-score: clamp(48px, 13vw, 76px);
+$fs-section: clamp(18px, 1.8vw, 22px);
+
+$text-2xs: $fs-2xs;
+$text-xs: $fs-xs;
+$text-sm: $fs-md;
+$text-base: $fs-body;
+$text-lg: $fs-lg;
+$text-xl: 20px;
+$text-2xl: 24px;
+$text-3xl: 30px;
+$text-4xl: 36px;
+
+$leading-tight: 1.1;
+$leading-snug: 1.3;
+$leading-normal: 1.5;
+$leading-relaxed: 1.6;
+
+$tracking-label: 0.08em;
+$tracking-tight: -0.02em;
+
+// ---------------------------------------------------------------- Space
+
+$space-0-5: 2px;
+$space-1: 4px;
+$space-1-5: 6px;
+$space-2: 8px;
+$space-2-5: 10px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-8: 32px;
+$space-10: 40px;
+$space-12: 48px;
+$space-16: 64px;
+$space-20: 80px;
+$space-24: 96px;
+
+// ---------------------------------------------------------------- Shape
+
+$r-xs: 3px;
+$r-sm: 6px;
+$r-md: 10px;
+$r-lg: 14px;
+$r-pill: 999px;
+
+$radius-sm: $r-sm;
+$radius-md: $r-sm;
+$radius-lg: $r-md;
+$radius-xl: $r-md;
+$radius-2xl: $r-lg;
+$radius-3xl: $r-lg;
+
+$shadow-1: var(--shadow-1);
+$shadow-pop: var(--shadow-pop);
+$shadow-card: $shadow-1;
+$shadow-glow: var(--glow-signal);
+$shadow-glow-accent: var(--glow-signal);
+
+// ---------------------------------------------------------------- Motion
+
+$ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+$ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+$ease-snap: cubic-bezier(0.3, 1.4, 0.5, 1);
+$dur-1: 120ms;
+$dur-2: 200ms;
+$dur-3: 320ms;
+$dur-4: 560ms;
+$dur-pulse: 1800ms;
+$dur-dormant: 4200ms;
+
+// ---------------------------------------------------------------- Layers
+
+$z-base: 1;
+$z-sticky: 20;
+$z-navbar: 100;
+$z-dock: 110;
+$z-popover: 400;
+$z-overlay: 900;
+$z-modal: 1000;
+$z-toast: 1100;
+
+// ---------------------------------------------------------------- Layout
+
+//   ≤ 575 phone · 576 large phone · 768 tablet · 1024 laptop · 1280 desktop · 1440 wide
 $sm: 576px;
 $tablet: 768px;
 $desktop: 1024px;
 $wide: 1280px;
 $xwide: 1440px;
-$mobile-max: 575.98px; // upper bound of the base band, for mobile-only rules
-$phone-max: 767.98px; // upper bound of every phone band, for phone-only rules
+$mobile-max: 575.98px;
+$phone-max: 767.98px;
+$desktop-max: 1023.98px;
 
-// --- Typography ---
-$font-primary: 'Manrope', ui-sans-serif, system-ui, -apple-system, sans-serif;
-$font-display: 'Sora', ui-sans-serif, system-ui, sans-serif;
-$font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+$navbar-height: 60px;
+$dock-height: 64px;
+$container-max: 1320px;
 
-// Type scale — matches the original design's Tailwind text-* sizes exactly.
-$text-2xs: 10px; // text-[10px] (format chips, kbd, count badges)
-$text-xs: 12px; // text-xs
-$text-sm: 14px; // text-sm
-$text-base: 16px; // text-base
-$text-lg: 18px; // text-lg
-$text-xl: 20px; // text-xl
-$text-2xl: 24px; // text-2xl
-$text-3xl: 30px; // text-3xl
-$text-4xl: 36px; // text-4xl
+$gutter: $space-4;
+$gutter-sm: $space-5;
+$gutter-wide: $space-8;
 
-$leading-tight: 1.2;
-$leading-normal: 1.5;
-$leading-relaxed: 1.6;
+// ---------------------------------------------------------------- Mixins
 
-// Spacing — matches the original's Tailwind spacing scale (4px base) exactly.
-$space-1: 4px; // 1
-$space-1-5: 6px; // 1.5
-$space-2: 8px; // 2
-$space-2-5: 10px; // 2.5
-$space-3: 12px; // 3
-$space-4: 16px; // 4
-$space-5: 20px; // 5
-$space-6: 24px; // 6
-$space-8: 32px; // 8
-$space-10: 40px; // 10
-$space-12: 48px; // 12
-$space-16: 64px; // 16
-$space-24: 96px; // 24
-
-// Radius — matches the original (--radius: 0.875rem = 14px).
-$radius-sm: 10px; // rounded-sm  (radius - 4)
-$radius-md: 12px; // rounded-md  (radius - 2)
-$radius-lg: 14px; // rounded-lg  (radius)
-$radius-xl: 18px; // rounded-xl  (radius + 4)
-$radius-2xl: 22px; // rounded-2xl (radius + 8)
-$radius-3xl: 24px; // rounded-3xl
-
-$shadow-card: var(--shadow-card);
-$shadow-glow: var(--shadow-glow);
-$shadow-glow-accent: var(--shadow-glow-accent);
-
-// --- Layout ---
-$navbar-height: 64px;
-$container-max: 1280px;
-
-// Page gutter per band. Published as the `--gutter` custom property by the
-// `container` mixin so descendants (notably full-bleed carousel tracks and the
-// arrows parked in the gutter) can line up with it without re-deriving it.
-$gutter: $space-3; // ≤575px
-$gutter-sm: $space-4; // 576px+
-$gutter-wide: $space-6; // 1280px+
-
-$z-navbar: 100;
-$z-modal: 1000;
-
-// ----------------------------------------------------------------------------
-// 2. Mixins
-// ----------------------------------------------------------------------------
-
-// --- Responsive breakpoints (mobile-first, min-width) ---
 @mixin sm {
   @media (min-width: $sm) {
     @content;
@@ -181,27 +214,30 @@ $z-modal: 1000;
   }
 }
 
-// The one max-width query in the system. Use it only when a rule must not leak
-// upward (e.g. a control that changes position, not just size, on phones).
 @mixin mobile-only {
   @media (max-width: $mobile-max) {
     @content;
   }
 }
 
-// Everything below the tablet band — for the handful of rules that change a
-// layout's *kind* on a phone (a carousel becoming a stack, a rail dropping its
-// icons) rather than just its scale. Keep it as rare as `mobile-only`.
 @mixin phone-only {
   @media (max-width: $phone-max) {
     @content;
   }
 }
 
-// --- Layout helpers ---
-// Publishes `--gutter` so anything nested inside a container can align to the
-// page edge — full-bleed tracks pull out by it, gutter-parked arrows offset by
-// it — and all of them stay in step when the gutter changes per band.
+@mixin below-desktop {
+  @media (max-width: $desktop-max) {
+    @content;
+  }
+}
+
+@mixin motion {
+  @media (prefers-reduced-motion: no-preference) {
+    @content;
+  }
+}
+
 @mixin container {
   --gutter: #{$gutter};
   width: 100%;
@@ -218,8 +254,6 @@ $z-modal: 1000;
   }
 }
 
-// Horizontal scroller: momentum on iOS, no visible scrollbar, and a swipe that
-// doesn't chain into the page/browser history when it reaches an end.
 @mixin scroll-x {
   overflow-x: auto;
   overscroll-behavior-x: contain;
@@ -231,9 +265,6 @@ $z-modal: 1000;
   }
 }
 
-// Guard for any text that can arrive arbitrarily long (team names, venues,
-// series titles) inside a flex/grid cell, which otherwise refuses to shrink
-// below its content and pushes the row past the viewport.
 @mixin fluid-text {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -251,46 +282,6 @@ $z-modal: 1000;
   justify-content: space-between;
 }
 
-// --- Glassmorphic surface (the signature look) ---
-@mixin glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-}
-
-// --- Aurora glow background (soft green + violet radial washes) ---
-@mixin aurora-bg {
-  background: var(--aurora-bg);
-}
-
-// --- Card surface (glass) with hover glow — matches the original's rounded-2xl ---
-@mixin card {
-  @include glass;
-  border-radius: $radius-2xl;
-  box-shadow: $shadow-card;
-  transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    transform 0.2s ease;
-}
-
-@mixin card-hover {
-  &:hover {
-    border-color: var(--card-hover-border);
-    box-shadow: $shadow-glow;
-    transform: translateY(-2px);
-  }
-}
-
-// --- Typography helpers ---
-@mixin score-number {
-  font-family: $font-display;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
 @mixin truncate($lines: 1) {
   @if $lines == 1 {
     overflow: hidden;
@@ -304,12 +295,207 @@ $z-modal: 1000;
   }
 }
 
-// --- Skeleton wave stagger ---
-// Phases the loading sweep across a container's children so a grid or list
-// reads as ONE wave travelling down the page instead of N boxes pulsing on
-// their own. Sets `--sk-delay`, which every nested placeholder inherits — a
-// custom property crosses CSS-Module boundaries, so a container styled in one
-// module can phase placeholders styled in another (components/ui/Skeleton).
+@mixin visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@mixin focus-ring {
+  &:focus-visible {
+    outline: 2px solid $signal;
+    outline-offset: 2px;
+  }
+}
+
+// Flat layered surface — the default container. No blur, one hairline.
+@mixin panel {
+  background: $surface;
+  border: 1px solid $line;
+  border-radius: $r-md;
+}
+
+@mixin panel-interactive {
+  transition:
+    border-color $dur-2 $ease-out,
+    background-color $dur-2 $ease-out;
+
+  &:hover {
+    border-color: $line-3;
+    background: $surface-2;
+  }
+}
+
+// Translucent chrome — nav, overlays, sticky rails. Never content cards.
+@mixin glass {
+  background: var(--nav-bg);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid $line;
+}
+
+@mixin card {
+  @include panel;
+}
+
+@mixin card-hover {
+  @include panel-interactive;
+}
+
+@mixin aurora-bg {
+  background: $bg;
+}
+
+// Fine data-grid texture for telemetry surfaces.
+@mixin grid-texture($size: 32px) {
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: $size $size;
+  background-position: -1px -1px;
+}
+
+// Small uppercase mono label that names a figure.
+@mixin eyebrow {
+  font-family: $font-mono;
+  font-size: $fs-2xs;
+  font-weight: 500;
+  letter-spacing: $tracking-label;
+  text-transform: uppercase;
+  color: $text-3;
+}
+
+@mixin data-num {
+  font-family: $font-mono;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum', 'zero';
+}
+
+@mixin display-num {
+  font-family: $font-sans;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  letter-spacing: $tracking-tight;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+@mixin score-number {
+  @include display-num;
+}
+
+@mixin heading {
+  font-family: $font-sans;
+  font-stretch: $stretch-wide;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: $leading-tight;
+}
+
+@mixin chip {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  height: 26px;
+  padding-inline: $space-2-5;
+  border-radius: $r-pill;
+  border: 1px solid $line-2;
+  font-family: $font-mono;
+  font-size: $fs-2xs;
+  font-weight: 600;
+  letter-spacing: $tracking-label;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+@mixin button-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-2;
+  min-height: 40px;
+  padding-inline: $space-4;
+  border-radius: $r-sm;
+  font-family: $font-sans;
+  font-size: $fs-md;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color $dur-2 $ease-out,
+    border-color $dur-2 $ease-out,
+    color $dur-2 $ease-out,
+    transform $dur-1 $ease-out;
+  @include focus-ring;
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+@mixin button-primary {
+  @include button-base;
+  background: $signal;
+  color: $signal-ink;
+  border: 1px solid transparent;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--signal) 88%, var(--text));
+  }
+}
+
+@mixin button-secondary {
+  @include button-base;
+  background: $surface-2;
+  color: $text;
+  border: 1px solid $line-2;
+
+  &:hover:not(:disabled) {
+    border-color: $line-3;
+    background: $surface-3;
+  }
+}
+
+@mixin button-ghost {
+  @include button-base;
+  color: $text-2;
+  border: 1px solid transparent;
+
+  &:hover:not(:disabled) {
+    color: $text;
+    background: $surface-2;
+  }
+}
+
+@mixin icon-button {
+  @include flex-center;
+  width: 40px;
+  height: 40px;
+  border-radius: $r-sm;
+  color: $text-2;
+  border: 1px solid transparent;
+  transition:
+    color $dur-2 $ease-out,
+    background-color $dur-2 $ease-out,
+    border-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+    background: $surface-2;
+    border-color: $line;
+  }
+}
+
 @mixin sk-stagger($step: 90ms, $count: 12) {
   @for $i from 1 through $count {
     > *:nth-child(#{$i}) {
@@ -318,38 +504,29 @@ $z-modal: 1000;
   }
 }
 
-// --- Live pulsing dot ---
 @mixin live-pulse {
   position: relative;
   &::before {
     content: '';
     display: inline-block;
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
-    background: $live-color;
-    margin-right: $space-1;
-    animation: live-pulse 1.4s ease-in-out infinite;
+    background: $signal;
+    margin-right: $space-1-5;
+    animation: live-pulse $dur-pulse ease-out infinite;
   }
 }
 
-// ----------------------------------------------------------------------------
-// 3. Shared keyframes
-// (kept here so they compile into each scoped module that uses live-pulse,
-//  keeping CSS-Modules animation-name scoping consistent.)
-// ----------------------------------------------------------------------------
+// ---------------------------------------------------------------- Keyframes
 
 @keyframes live-pulse {
-  // The ring is drawn from the --live token rather than a baked red so it
-  // tracks whichever theme is active.
-  0%,
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--live) 60%, transparent);
-    opacity: 1;
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--signal) 70%, transparent);
   }
-  50% {
-    box-shadow: 0 0 0 6px color-mix(in oklab, var(--live) 0%, transparent);
-    opacity: 0.7;
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px color-mix(in oklab, var(--signal) 0%, transparent);
   }
 }
 
@@ -359,6 +536,6 @@ $z-modal: 1000;
     transform: translate3d(0, 0, 0);
   }
   50% {
-    transform: translate3d(0, -8px, 0);
+    transform: translate3d(0, -6px, 0);
   }
 }

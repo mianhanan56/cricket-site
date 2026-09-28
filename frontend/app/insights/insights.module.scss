@@ -1,0 +1,80 @@
+@use 'component' as *;
+
+.page {
+  @include container;
+  padding-bottom: $space-16;
+}
+
+.vitals {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-radius: $r-md;
+  border: 1px solid $line;
+  overflow: hidden;
+  @include grid-texture(24px);
+
+  @include tablet {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @include desktop {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.vital {
+  --tone: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  padding: $space-4;
+  border-right: 1px solid $line;
+  border-bottom: 1px solid $line;
+  background: color-mix(in oklab, var(--surface) 85%, transparent);
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include display-num;
+    font-size: clamp(30px, 4vw, 44px);
+    color: var(--tone);
+  }
+}
+
+.signal {
+  --tone: var(--signal-text);
+}
+
+.data {
+  --tone: var(--data);
+}
+
+.warn {
+  --tone: var(--warn);
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: $space-16 0;
+}
+
+.section {
+  margin-top: $space-12;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include wide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

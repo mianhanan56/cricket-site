@@ -1,0 +1,44 @@
+@use 'component' as *;
+
+.button {
+  @include button-secondary;
+  min-height: 36px;
+  padding-inline: $space-3;
+
+  svg {
+    transition: transform $dur-3 $ease-snap;
+  }
+}
+
+.compact {
+  @include icon-button;
+  width: 34px;
+  height: 34px;
+}
+
+.on {
+  color: $signal-text;
+  border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  background: $signal-soft;
+
+  svg {
+    transform: scale(1.08);
+  }
+
+  &:hover:not(:disabled) {
+    color: $signal-text;
+    background: $signal-soft;
+  }
+}
+
+.labelled {
+  @include button-ghost;
+  min-height: 34px;
+  padding-inline: $space-2-5;
+  font-size: $fs-sm;
+  border-color: $line;
+
+  &.on {
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+  }
+}

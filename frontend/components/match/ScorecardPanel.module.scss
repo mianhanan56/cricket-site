@@ -1,0 +1,276 @@
+@use 'component' as *;
+
+.inningsHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-3 $space-4;
+}
+
+.inningsName {
+  font-size: $fs-lg;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+}
+
+.inningsScore {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+}
+
+.inningsRuns {
+  @include display-num;
+  font-size: $fs-2xl;
+}
+
+.inningsOvers {
+  @include data-num;
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+.batter {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-width: 180px;
+  height: 56px !important;
+}
+
+.batterName {
+  font-weight: 600;
+}
+
+.notOut {
+  margin-left: 2px;
+  color: $signal-text;
+}
+
+.dismissal {
+  font-size: $fs-xs;
+  color: $text-3;
+  white-space: normal;
+  max-width: 34ch;
+}
+
+.atCrease {
+  background: color-mix(in oklab, var(--signal) 4%, transparent);
+
+  .dismissal {
+    color: $signal-text;
+  }
+}
+
+.top {
+  color: $signal-text !important;
+}
+
+.haul {
+  color: $wicket !important;
+}
+
+.extrasRow td,
+.totalRow td {
+  height: 44px;
+}
+
+.extrasRow td {
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.extrasDetail {
+  margin-left: $space-2;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.totalRow td {
+  font-weight: 700;
+  border-bottom: 0 !important;
+  background: $bg-raise;
+}
+
+.yetToBat {
+  margin-top: $space-4;
+}
+
+.subTitle {
+  @include eyebrow;
+  margin-bottom: $space-2;
+}
+
+.ytbList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+
+  li {
+    display: inline-flex;
+    align-items: center;
+    gap: $space-2;
+    height: 32px;
+    padding-inline: $space-2 $space-3;
+    border-radius: $r-pill;
+    border: 1px solid $line;
+    font-size: $fs-sm;
+  }
+}
+
+.ytbNum {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+}
+
+// Fall of wickets as a run of score tokens along the innings.
+.fow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-2;
+
+  @include sm {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+.fowItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'score name'
+    'score fig';
+  column-gap: $space-3;
+  align-items: center;
+  padding: $space-2-5 $space-3;
+  border-radius: $r-sm;
+  border: 1px solid $line;
+  background: $surface;
+}
+
+.fowScore {
+  grid-area: score;
+  @include display-num;
+  font-size: $fs-xl;
+  color: $wicket;
+
+  span {
+    font-size: $fs-sm;
+    color: $text-3;
+  }
+}
+
+.fowName {
+  grid-area: name;
+  font-size: $fs-sm;
+  font-weight: 600;
+  @include truncate;
+}
+
+.fowFig {
+  grid-area: fig;
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+}
+
+.stands {
+  @include panel;
+  overflow: hidden;
+}
+
+.stand {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+}
+
+.standWkt {
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+}
+
+.standSide {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.standRight {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.standName {
+  font-size: $fs-sm;
+  font-weight: 600;
+  @include truncate;
+  max-width: 100%;
+}
+
+.standFig {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.standCenter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-1;
+  width: 84px;
+
+  @include tablet {
+    width: 160px;
+  }
+}
+
+.standRuns {
+  @include display-num;
+  font-size: $fs-lg;
+
+  small {
+    margin-left: 2px;
+    @include data-num;
+    font-size: $fs-2xs;
+    font-weight: 400;
+    color: $text-3;
+  }
+}
+
+.standBar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.barA {
+  fill: $data;
+}
+
+.barB {
+  fill: $signal;
+}
+
+:global([data-theme='light']) .barB {
+  fill: $signal-text;
+}
+
+.unbroken {
+  @include eyebrow;
+  color: $signal-text;
+}

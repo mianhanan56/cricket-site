@@ -1,0 +1,39 @@
+@use 'component' as *;
+
+.crest {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: $r-sm;
+  overflow: hidden;
+  background: $surface-2;
+  border: 1px solid $line;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+.lg {
+  width: 44px;
+  height: 44px;
+  border-radius: $r-sm;
+
+  @include tablet {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+.fallback {
+  @include display-num;
+  font-size: $fs-2xs;
+  color: $text-2;
+
+  .lg & {
+    font-size: $fs-xs;
+  }
+}

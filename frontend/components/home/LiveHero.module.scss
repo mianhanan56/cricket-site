@@ -1,0 +1,464 @@
+@use 'component' as *;
+
+.hero {
+  --glow: var(--signal);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+  padding: $space-4;
+  border-radius: $r-lg;
+  border: 1px solid $line-2;
+  background:
+    radial-gradient(90% 70% at 0% 0%, color-mix(in oklab, var(--glow) 9%, transparent), transparent 60%),
+    linear-gradient(180deg, var(--surface), var(--bg-raise));
+  box-shadow: $shadow-1;
+
+  @include sm {
+    padding: $space-5;
+  }
+
+  @include desktop {
+    padding: $space-6;
+    gap: $space-5;
+  }
+}
+
+.interval,
+.hold {
+  --glow: var(--warn);
+}
+
+.weather,
+.transition {
+  --glow: var(--data);
+}
+
+.dormant,
+.void {
+  --glow: var(--text-3);
+}
+
+.grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  @include grid-texture(40px);
+  mask-image: radial-gradient(80% 90% at 30% 20%, #000, transparent 75%);
+  -webkit-mask-image: radial-gradient(80% 90% at 30% 20%, #000, transparent 75%);
+  pointer-events: none;
+}
+
+// ---------------------------------------------------------------- Top
+
+.top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2 $space-3;
+}
+
+.liveNow {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  font-family: $font-mono;
+  font-size: $fs-xs;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: $signal-text;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: $signal;
+
+  @include motion {
+    animation: live-pulse $dur-pulse ease-out infinite;
+  }
+}
+
+.context {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+  flex: 1;
+}
+
+.format {
+  @include chip;
+  height: 22px;
+  padding-inline: $space-2;
+  color: $text-2;
+}
+
+.series {
+  font-size: $fs-sm;
+  color: $text-2;
+  @include truncate;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+// ---------------------------------------------------------------- Main
+
+.main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-5;
+
+  @include desktop {
+    grid-template-columns: minmax(0, 1.65fr) minmax(280px, 1fr);
+    gap: $space-6;
+  }
+}
+
+.scoreSide {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  min-width: 0;
+}
+
+.batting {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  min-width: 0;
+}
+
+.teamName {
+  min-width: 0;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  font-size: $fs-base;
+
+  @include tablet {
+    font-size: $fs-lg;
+  }
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.teamFull {
+  display: block;
+  @include truncate;
+}
+
+.teamCode {
+  @include visually-hidden;
+}
+
+.score {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 $space-3;
+  @include display-num;
+  font-size: $fs-live-score;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+}
+
+.runs {
+  color: $text;
+}
+
+.slash {
+  margin-inline: -0.04em;
+  font-weight: 300;
+  color: $text-3;
+}
+
+.wkts {
+  color: $text-2;
+}
+
+.overs {
+  align-self: flex-end;
+  margin-bottom: 0.4em;
+  @include data-num;
+  font-size: $fs-sm;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: $text-2;
+
+  @include tablet {
+    font-size: $fs-base;
+  }
+}
+
+.versus {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.vsWord {
+  @include eyebrow;
+}
+
+.vsTeam {
+  font-weight: 600;
+  color: $text;
+}
+
+.vsFig {
+  @include data-num;
+  font-size: $fs-sm;
+  padding: 2px $space-2;
+  border-radius: $r-xs;
+  background: $surface-3;
+  color: $text;
+}
+
+.equation {
+  font-stretch: $stretch-wide;
+  font-weight: 700;
+  font-size: $fs-base;
+
+  @include tablet {
+    font-size: $fs-lg;
+  }
+  line-height: $leading-snug;
+  color: $text;
+}
+
+.tight {
+  color: $warn;
+}
+
+.stateLine {
+  font-stretch: $stretch-wide;
+  font-weight: 700;
+  font-size: $fs-base;
+
+  @include tablet {
+    font-size: $fs-lg;
+  }
+  color: var(--glow);
+}
+
+// Figures in a row, separated by hairlines — not four boxes.
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid $line;
+  border-bottom: 1px solid $line;
+
+  @include sm {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  padding: $space-2 $space-3 $space-2 0;
+
+  & + & {
+    @include sm {
+      padding-left: $space-4;
+      border-left: 1px solid $line;
+    }
+  }
+
+  &:nth-child(even) {
+    @include phone-only {
+      padding-left: $space-4;
+      border-left: 1px solid $line;
+    }
+  }
+
+  &:nth-child(n + 3) {
+    @include phone-only {
+      border-top: 1px solid $line;
+    }
+  }
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include data-num;
+    font-size: $fs-lg;
+    font-weight: 600;
+    line-height: 1.1;
+
+    small {
+      margin-left: 3px;
+      font-size: $fs-xs;
+      color: $text-3;
+    }
+  }
+}
+
+.tileTight dd {
+  color: $warn;
+}
+
+.tile .phase {
+  font-family: $font-sans;
+  font-size: $fs-md;
+  font-stretch: $stretch-wide;
+  line-height: 1.55;
+}
+
+.signal {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+}
+
+.tracePlaceholder {
+  height: 64px;
+}
+
+// ---------------------------------------------------------------- Side
+
+.side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+  align-content: start;
+
+  @include tablet {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @include desktop {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  padding: $space-3 $space-4;
+  border-radius: $r-md;
+  border: 1px solid $line;
+  background: color-mix(in oklab, var(--bg) 40%, transparent);
+}
+
+.panelTitle {
+  @include eyebrow;
+  margin-bottom: $space-2;
+}
+
+.crease {
+  display: grid;
+  gap: $space-2-5;
+}
+
+.player {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px $space-3;
+}
+
+.bowler {
+  padding-top: $space-3;
+  border-top: 1px solid $line;
+}
+
+.playerName {
+  font-size: $fs-md;
+  font-weight: 600;
+  @include truncate;
+  @include focus-ring;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.strike {
+  margin-left: 2px;
+  color: $signal-text;
+}
+
+.playerFig {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  @include data-num;
+
+  strong {
+    font-size: $fs-base;
+  }
+
+  span {
+    font-size: $fs-xs;
+    color: $text-3;
+  }
+}
+
+.playerSub {
+  grid-column: 1 / -1;
+  @include data-num;
+  font-size: $fs-2xs;
+  color: $text-3;
+}
+
+.muted {
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+// ---------------------------------------------------------------- Bottom
+
+.bottom {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  padding-top: $space-3;
+  border-top: 1px solid $line;
+
+  @include tablet {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+}
+
+.timeline {
+  min-width: 0;
+  flex: 1;
+}
+
+.open {
+  @include button-primary;
+  flex-shrink: 0;
+  min-height: 40px;
+  padding-inline: $space-4;
+
+  svg {
+    transition: transform $dur-2 $ease-out;
+  }
+
+  &:hover svg {
+    transform: translateX(3px);
+  }
+}
+
+// The meters live on the match page too; phones keep only the trace.
+.pulsePanel {
+  @include phone-only {
+    display: none;
+  }
+}

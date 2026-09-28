@@ -1,14 +1,14 @@
 import Link from 'next/link';
+import Logo from '../brand/Logo';
 import styles from './Footer.module.scss';
 
-// Two balanced columns rather than one long stack and a single orphan link —
-// the split mirrors how the navbar separates live scoring from browsing.
 const COLUMNS = [
   {
-    title: 'Scores',
+    title: 'Live',
     links: [
-      { href: '/', label: 'Live Matches' },
-      { href: '/fixtures', label: 'Fixtures' },
+      { href: '/', label: 'Matches' },
+      { href: '/fixtures', label: 'Schedule' },
+      { href: '/insights', label: 'Insights' },
     ],
   },
   {
@@ -16,6 +16,15 @@ const COLUMNS = [
     links: [
       { href: '/series', label: 'Series' },
       { href: '/rankings', label: 'Rankings' },
+      { href: '/teams', label: 'Teams' },
+      { href: '/players', label: 'Players' },
+    ],
+  },
+  {
+    title: 'Yours',
+    links: [
+      { href: '/my', label: 'My Cricket' },
+      { href: '/automations', label: 'Automations' },
       { href: '/search', label: 'Search' },
     ],
   },
@@ -26,33 +35,18 @@ export default function Footer() {
     <footer className={styles.footer}>
       <div className={styles.inner}>
         <div className={styles.brand}>
-          <Link href="/" className={styles.logo}>
-            <span className={styles.logoMark} aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-              </svg>
-            </span>
-            <span className={styles.logoText}>
-              Pulse<span className={styles.logoAccent}>Crease</span>
-            </span>
+          <Link href="/" className={styles.logo} aria-label="PulseCrease home">
+            <Logo />
           </Link>
-
-          <p className={styles.tagline}>
-            Live scores, ball-by-ball commentary and stats for every match.
-          </p>
-
-          <span className={styles.status}>
-            <span className={styles.dot} aria-hidden="true" />
-            Scores refresh automatically
-          </span>
+          <p className={styles.tagline}>Every ball. Live.</p>
         </div>
 
         <nav className={styles.columns} aria-label="Footer">
           {COLUMNS.map((col) => (
             <div key={col.title} className={styles.column}>
-              <h4>{col.title}</h4>
+              <h2 className={styles.colTitle}>{col.title}</h2>
               {col.links.map((l) => (
-                <Link key={l.href} href={l.href}>
+                <Link key={l.href} href={l.href} className={styles.link}>
                   {l.label}
                 </Link>
               ))}
@@ -61,10 +55,12 @@ export default function Footer() {
         </nav>
       </div>
 
+      <div className={styles.crease} aria-hidden="true" />
       <div className={styles.bottom}>
-        <div className={styles.bottomInner}>
-          <span>© {new Date().getFullYear()} PulseCrease</span>
-        </div>
+        <span>© {new Date().getFullYear()} PulseCrease</span>
+        <span className={styles.shortcut}>
+          Press <kbd>/</kbd> to search
+        </span>
       </div>
     </footer>
   );

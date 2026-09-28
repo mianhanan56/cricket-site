@@ -1,278 +1,156 @@
 @use 'component' as *;
 
-// Series card. Keeps MatchCard's glass surface so the two read as one system,
-// but the content is series-level and organised around a single idea: the
-// schedule block at the foot of the card.
-//
-// That block is the signature element. A series' two facts are *how far through
-// it is* and *what dates it covers*, and they used to be two weak rows — an
-// icon'd date line up top, a bare fraction below. They are now one rail: the
-// fill is the share of matches played, the labels under its ends are the start
-// and end dates. Everything else on the card is deliberately quiet around it.
-//
-// `--tint` carries the status colour to the status pill, the rail fill and the
-// hover border, so a live card is identifiable at a glance without a second
-// badge. It is set per status, never inline.
-
-.card {
-  @include card; // glass + rounded-2xl (22px)
-  --tint: var(--accent-blue);
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: $space-3;
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'format chip go'
+    'main main main'
+    'progress progress progress';
+  align-items: center;
+  gap: $space-3 $space-3;
   padding: $space-4;
-  height: 100%;
-  width: 100%;
-  min-width: 0;
+  transition: background-color $dur-2 $ease-out;
+  @include focus-ring;
 
   &:hover {
-    border-color: color-mix(in oklab, var(--tint) 45%, transparent);
-    transform: translateY(-2px);
+    background: $surface-2;
   }
 
   &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 2px;
+    outline-offset: -2px;
   }
 
-  &[data-status='LIVE'] {
-    --tint: var(--live);
+  @include tablet {
+    grid-template-columns: 52px minmax(0, 1fr) minmax(200px, 300px) 116px 18px;
+    grid-template-areas: 'format main progress chip go';
+    gap: $space-5;
+    min-height: 76px;
+    padding-inline: $space-5;
   }
-
-  &[data-status='UPCOMING'] {
-    --tint: var(--accent-purple);
-  }
-
-  // A finished series gets no colour of its own — it is the one state that
-  // should recede, so it borrows the muted text token.
-  &[data-status='COMPLETED'] {
-    --tint: var(--muted-foreground);
-  }
-
-  @include sm {
-    padding: $space-5; // p-5 (20px)
-  }
-}
-
-.header {
-  @include flex-between;
-  gap: $space-2;
 }
 
 .format {
-  flex-shrink: 0;
-  font-family: $font-mono;
-  font-size: $text-2xs; // 10px
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  padding: $space-1 $space-2;
-  border-radius: $radius-sm;
-  background: $surface-elevated;
-  border: 1px solid $card-border;
-  color: $text-secondary;
-}
-
-// Status pill — drawn entirely from --tint, so one rule covers all three states.
-.status {
+  grid-area: format;
+  justify-self: start;
   display: inline-flex;
   align-items: center;
-  gap: $space-1-5;
-  flex-shrink: 0;
-  font-size: $text-2xs; // 10px
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: $space-1 $space-2;
-  border-radius: $radius-sm;
-  color: color-mix(in oklab, var(--tint) 88%, var(--fg));
-  background: color-mix(in oklab, var(--tint) 13%, transparent);
-  border: 1px solid color-mix(in oklab, var(--tint) 24%, transparent);
+  justify-content: center;
+  min-width: 44px;
+  height: 24px;
+  padding-inline: $space-1-5;
+  border-radius: $r-xs;
+  border: 1px solid $line-2;
+  @include data-num;
+  font-size: $fs-2xs;
+  font-weight: 600;
+  letter-spacing: $tracking-label;
+  color: $text-2;
 }
 
-// pulsing live dot (matches MatchCard)
-.dot {
-  position: relative;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: $live-color;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: $live-color;
-    animation: series-live-ring 1.8s ease-out infinite;
-  }
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  min-width: 0;
 }
 
-// series name — the headline of the card
 .name {
-  font-family: $font-display;
-  font-weight: 700;
-  font-size: $text-base;
-  line-height: $leading-tight;
-  letter-spacing: -0.01em;
-  color: $text-primary;
-  overflow-wrap: anywhere; // a single unbroken competition name must still fit
-  @include truncate(2);
-  // Two lines are reserved whether or not the name needs them: without this a
-  // one-line title pulls its schedule block up and the grid rows stop aligning.
-  min-height: calc(2em * #{$leading-tight});
+  @include heading;
+  font-size: $fs-lg;
+  color: $text;
+  @include fluid-text;
 
-  @include sm {
-    font-size: $text-lg; // 18px
+  @include tablet {
+    font-size: $fs-body;
+    @include truncate;
   }
 }
 
-// ── schedule block ─────────────────────────────────────────────
-// mt-auto keeps it pinned to the foot of the card so every card in a row lines
-// up on its rail, whatever the name above did.
-.schedule {
+.dates {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.progress {
+  grid-area: progress;
   display: flex;
   flex-direction: column;
   gap: $space-2;
-  margin-top: auto;
-  padding-top: $space-3;
-  border-top: 1px solid $card-border;
-}
-
-.tally {
-  @include flex-between;
-  gap: $space-2;
-}
-
-// The fraction reads as one figure: mono + tabular so 9/34 and 33/34 occupy the
-// same width and the rail below never shifts under it.
-.count {
-  display: inline-flex;
-  align-items: baseline;
-  gap: $space-1;
   min-width: 0;
-  font-family: $font-mono;
-  font-variant-numeric: tabular-nums;
-  font-size: $text-sm; // 14px
-  font-weight: 600;
-  color: $text-secondary;
 }
 
-// Played is the live half of the fraction — it gets the ink.
-.done {
-  font-size: $text-base;
-  font-weight: 700;
-  color: $text-primary;
+.readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $space-3;
+}
+
+.readLabel {
+  @include eyebrow;
+}
+
+.readNum {
+  @include data-num;
+  font-size: $fs-md;
+  font-weight: 600;
+  color: $text;
 }
 
 .of {
-  color: $text-muted;
+  color: $text-3;
+  font-weight: 500;
 }
 
-.label {
-  font-family: $font-primary;
-  font-size: $text-2xs;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: $text-muted;
-}
-
-// View → : always present but recessive, brightening on hover. Fading it in
-// from nothing left the tally row visibly lopsided at rest.
-.view {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-1;
-  flex-shrink: 0;
-  font-size: $text-xs;
-  font-weight: 600;
-  color: $text-muted;
-  transition:
-    color 0.18s ease,
-    gap 0.18s ease;
-
-  .card:hover & {
-    color: $accent;
-    gap: $space-1-5;
-  }
-}
-
-// The rail: fill = matches played, ends = the dates below it.
 .rail {
-  position: relative;
   display: block;
-  height: 5px;
-  border-radius: 999px;
-  background: $surface-elevated;
-  box-shadow: inset 0 0 0 1px $card-border;
-  overflow: hidden;
+  width: 100%;
+  height: 4px;
+  overflow: visible;
 }
 
-.fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    color-mix(in oklab, var(--tint) 45%, transparent),
-    color-mix(in oklab, var(--tint) 95%, var(--fg))
-  );
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+.railTrack {
+  fill: $line-2;
+}
 
-  // Width is data, not decoration — generated here so no component ships an
-  // inline style. 1% steps keep every real ratio exact.
-  @for $i from 0 through 100 {
-    &[data-pct='#{$i}'] {
-      width: $i * 1%;
+.railFill {
+  fill: $text-3;
+
+  .rail[data-live] & {
+    fill: $text-2;
+  }
+}
+
+.railTip {
+  fill: $signal;
+}
+
+:global([data-theme='light']) .railTip {
+  fill: var(--signal-text);
+}
+
+.chip {
+  grid-area: chip;
+  justify-self: end;
+
+  @include tablet {
+    justify-self: start;
+  }
+}
+
+.go {
+  grid-area: go;
+  color: $text-3;
+  transition: color $dur-2 $ease-out, transform $dur-2 $ease-out;
+
+  .row:hover & {
+    color: $text;
+
+    @include motion {
+      transform: translateX(2px);
     }
-  }
-}
-
-// Endpoint labels. Small, mono and quiet: they are the rail's axis, not a row
-// of their own competing with the fraction above.
-.span {
-  @include flex-between;
-  gap: $space-2;
-  font-family: $font-mono;
-  font-size: $text-2xs;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  color: $text-muted;
-
-  time {
-    @include truncate(1);
-  }
-
-  @include sm {
-    font-size: $text-xs;
-  }
-}
-
-// A single-day series has no span to draw — one centred date instead of two
-// endpoints pinned to a rail that means nothing.
-.single {
-  margin-inline: auto;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fill,
-  .view {
-    transition: none;
-  }
-
-  .dot::before {
-    animation: none;
-  }
-}
-
-@keyframes series-live-ring {
-  0% {
-    transform: scale(1);
-    opacity: 0.7;
-  }
-  100% {
-    transform: scale(2.4);
-    opacity: 0;
   }
 }

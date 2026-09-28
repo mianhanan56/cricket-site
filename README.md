@@ -1,6 +1,6 @@
 # PulseCrease
 
-Cricket live-scores platform — a CREX.com-style clone.
+Live cricket intelligence — scores, match telemetry, momentum, and alerts that fire on their own.
 
 There is no backend and no database. Every page's data comes live from crex.com's
 own internal APIs, reached through a Cloudflare Worker that allowlists the
@@ -55,7 +55,11 @@ NEXT_PUBLIC_CREX_WORKER_URL=http://localhost:8788
 | `/venues/[key]` | the schedule corpus only | ISR 1800s |
 | `/players/[id]` | Worker `/player/overview` | ISR 1h |
 | `/rankings` | Worker `/rankings/players` × 15 lists + `/mapping` | ISR 1h |
-| `/search` | client-side over the match list | 60s corpus cache |
+| `/search` | client-side over the match list + `/api/search-index` | 60s corpus cache |
+| `/teams`, `/players` | the live ICC ranking lists (`lib/directory.ts`) | ISR 1h |
+| `/insights` | Worker `/matches/live`, plus each visible live match's card and feed | 2s list · 15s per card |
+| `/automations`, `/my` | the reader's own rules and follows, in `localStorage` | — |
+| `/api/search-index` | the live ICC ranking lists — players and teams for search | ISR 1h |
 
 See [worker-crex/README.md](worker-crex/README.md) for the route allowlist, the
 crex wire format, and how to add an endpoint.
@@ -141,4 +145,18 @@ in an earlier move to Workers. Live matches poll the Worker instead.
 - TypeScript everywhere; SCSS Modules for styles (no Tailwind, no inline styles).
 - Server Components by default in Next.js; `'use client'` only when needed.
 - Shared interfaces live in `frontend/types/index.ts`.
-- Mobile-first SCSS using `min-width` breakpoints from `_variables.scss`.
+- Mobile-first SCSS using `min-width` breakpoints from `scss/component.scss`.
+- Every colour is a token in `scss/component.scss` backed by a custom property in
+  `scss/global.scss`; dark is the default theme, `data-theme="light"` the other.
+- The match list is one shared poll (`useCrexMatches`) — every subscriber reads the
+  same snapshot, and it runs at the fastest interval any of them asks for.
+
+## Automations
+
+Rules live in the browser (`lib/automations.ts`) and are evaluated by
+`AutomationEngine` against consecutive snapshots of the live feed: a match
+starting, a wicket, a tight chase, a stoppage and a result come off the match
+list; sixes, fours and 50/100 milestones off the ball feed of in-scope matches.
+Nothing fires on the first snapshot, and a shared ledger stops two open tabs
+delivering the same event twice. Alerts reach the notification center and,
+with permission, the system tray — while a PulseCrease tab is open.

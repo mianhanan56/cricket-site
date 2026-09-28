@@ -1,97 +1,67 @@
 @use 'component' as *;
 
-// ===========================================================================
-// Rankings skeleton — bars, plus a row grid standing in for the standings
-// table. Page, head, filter rail, podium and card internals all come from
-// RankingsView.module.scss, so the placeholders occupy the real boxes.
-// ===========================================================================
-
 .inert {
   pointer-events: none;
 }
 
-// The podium is an <ol> in the real view; strip the marker here too.
-.plain {
-  list-style: none;
+.seg {
+  height: 42px;
+  border-radius: $r-sm;
 }
 
-.caption {
-  width: 236px; // "Official ODI player rankings"
+.seg2 {
+  width: 150px;
 }
 
-// --- Filter rail -----------------------------------------------------------
-// Mirrors FilterSelect's trigger: py-2 px-3 around 14px/600 plus the caret.
-
-.trigger {
-  height: 38px;
-  border-radius: $radius-xl;
-  flex-shrink: 0;
+.seg3 {
+  width: 180px;
 }
 
-.triggerSm {
-  width: 78px; // Men / ODI
+.seg3w {
+  width: 260px;
 }
 
-.triggerMd {
-  width: 100px; // Players
+.pos {
+  width: 28px;
+  height: 28px;
 }
 
-.triggerLg {
-  width: 118px; // Batting
+.posLg {
+  width: 48px;
+  height: 48px;
 }
 
-// --- Podium ----------------------------------------------------------------
-
-.stepRank {
-  width: 34px;
-  height: 34px;
-
-  @include tablet {
-    width: 40px;
-    height: 40px;
-  }
+.rating {
+  width: 64px;
+  height: 26px;
+  margin-top: auto;
 }
 
-.stepEyebrow {
-  width: 54px;
+.ratingLg {
+  width: 140px;
+  height: 56px;
 }
 
-.stepName {
-  width: min(80%, 220px);
-  margin-block: 2px;
+.bar {
+  width: 100%;
+  height: 4px;
 }
-
-.stepSub {
-  width: 88px;
-}
-
-.stepRating {
-  width: 78px;
-  height: 32px;
-  border-radius: $radius-md;
-}
-
-// --- Standings table ------------------------------------------------------
-// A grid rather than a <table>: same columns and rhythm as .table's cells
-// (padding $space-3, rank left, rating right) without faking table semantics
-// for content that isn't there yet.
 
 .row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1.7fr) minmax(0, 1fr) 68px;
-  align-items: center;
+  grid-template-columns: 34px minmax(0, 1fr) 56px;
   gap: $space-3;
-  padding: $space-3 0;
+  align-items: center;
+  min-height: 60px;
+  padding: $space-2-5 $space-4;
 
-  &:not(:last-child) {
-    border-bottom: 1px solid $card-border;
+  & + & {
+    border-top: 1px solid $line;
   }
-}
 
-.headRow {
-  padding-block: $space-2;
-}
-
-.right {
-  margin-left: auto;
+  @include tablet {
+    grid-template-columns: 44px minmax(0, 1fr) 64px;
+    min-height: 52px;
+    padding-inline: $space-5;
+  }
 }

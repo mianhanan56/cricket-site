@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { Match } from '@/types';
+import type { Match, PointsTableRow } from '@/types';
 import {
   getCrexMatchList,
   getCrexSeriesLeaders,
@@ -13,36 +13,31 @@ import {
 } from '../../../lib/crex';
 import { pickParam } from '../../../lib/queryParams';
 import PointsTable from '../../../components/series/PointsTable';
-import { SeriesKeyStats } from '../../../components/series/SeriesLeaders';
+import { LeaderFigure, SeriesLeadersBoard, rankedLeaders } from '../../../components/series/SeriesLeaders';
 import SeriesTabs, { type SeriesTab } from '../../../components/series/SeriesTabs';
+import { ProgressRail, seriesSpan, seriesState } from '../../../components/series/SeriesCard';
+import MatchTile from '../../../components/match/MatchTile';
+import UpcomingRail from '../../../components/home/UpcomingRail';
+import ResultList from '../../../components/home/ResultList';
+import StateChip from '../../../components/live/StateChip';
+import FollowButton from '../../../components/follow/FollowButton';
+import TeamBadge from '../../../components/ui/TeamBadge';
 import LocalTime from '../../../components/ui/LocalTime';
-import { SERVER_ZONE, formatInZone } from '../../../lib/datetime';
+import EmptyState from '../../../components/ui/EmptyState';
 import BackButton from '../../../components/ui/BackButton';
+import { PageHeader, SectionHead } from '../../../components/ui/Section';
 import styles from './seriesDetail.module.scss';
 
-// Ids here are crex series keys ("2AW", "2E2") — the same ones SeriesCard links
-// with. Two sources, because neither is enough on its own:
-//
-//   /series/matches  the whole competition — every fixture, its date, its result.
-//                    This is what the header's span and total are built from.
-//   /matches/live    which of those matches is on right now. Only used to
-//                    correct the schedule's statuses — the live scores
-//                    themselves belong on the match page.
-//
-// Freshness is set per-fetch rather than with a page-level `revalidate`: making
-// the route ISR-cached would also cache the notFound() path, turning an unknown
-// id into a soft 404 (the not-found page served with a 200). Same reasoning as
-// /matches/[id].
+// Freshness is per-fetch rather than a page-level `revalidate`: ISR would also
+// cache the notFound() path and turn an unknown id into a soft 404.
 const REVALIDATE = 300;
-/** The live feed moves in seconds, so it is not cached to the schedule's window. */
 const LIVE_REVALIDATE = 15;
 
-// The page's two sections, read off `?tab=`. Server-rendered rather than
-// switched in the client so the standings stay in the HTML — same reasoning as
-// the filters on /series and /fixtures. The stat rankings are not a third tab:
-// each one is a page of its own under /series/[id]/stats, opened from the rail.
-const TAB_KEYS = ['matches', 'table'] as const;
+const TAB_KEYS = ['matches', 'table', 'stats'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
+
+const UPCOMING_FIRST = 10;
+const RESULTS_FIRST = 8;
 
 async function loadSchedule(id: string): Promise<SeriesSchedule | null> {
   return getCrexSeriesSchedule(id, { revalidate: REVALIDATE }).catch(() => null);
@@ -60,53 +55,65 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   };
 }
 
-// A series' span is a calendar range, not an instant — it is compared with ===
-// to decide whether the two ends are the same day, and it must read identically
-// on both sides of a render. So it is formatted in SERVER_ZONE rather than
-// through <LocalTime>; a start *time*, which the reader plans around, is not.
-function fmtDate(iso: string, withYear = true): string {
-  return formatInZone(iso, withYear ? 'date' : 'dateShort', SERVER_ZONE);
+// The schedule carries no scores; a feed match (when the feed has it) does.
+function toMatch(row: SeriesScheduleMatch, series: { id: string; name: string }): Match {
+  const n = Number(row.matchNo);
+  return {
+    id: row.id,
+    homeTeam: row.homeTeam,
+    awayTeam: row.awayTeam,
+    series,
+    format: row.format,
+    status: row.status,
+    venue: row.venue,
+    venueId: row.venueId,
+    startTime: row.startTime,
+    result: row.result,
+    matchNumber: Number.isInteger(n) ? n : null,
+  };
 }
 
-/**
- * One row of the schedule. Deliberately not a MatchCard: the schedule endpoint
- * carries no scores, so a card shaped like a scorecard would sit permanently
- * empty. What it does carry — number, sides, time, result — is a list.
- */
-function ScheduleRow({ match }: { match: SeriesScheduleMatch }) {
-  const body = (
-    <>
-      <span className={styles.rowNo}>{match.matchNo ?? '—'}</span>
+type NodeState = 'finished' | 'void' | 'live' | 'upcoming';
 
-      <span className={styles.rowMain}>
-        <span className={styles.rowTeams}>
-          {match.homeTeam.shortName} <span className={styles.rowVs}>vs</span>{' '}
-          {match.awayTeam.shortName}
-        </span>
-        <span className={styles.rowMeta}>
-          <LocalTime iso={match.startTime} format="dayTime" /> · {match.venue}
-        </span>
-      </span>
+function nodeState(m: SeriesScheduleMatch): NodeState {
+  if (m.status === 'LIVE') return 'live';
+  if (m.status === 'UPCOMING') return 'upcoming';
+  return /abandon|no result|cancel/i.test(m.result ?? '') ? 'void' : 'finished';
+}
 
-      {/* A result when there is one, the state when there isn't. */}
-      {match.status === 'COMPLETED' && match.result ? (
-        <span className={styles.rowResult}>{match.result}</span>
-      ) : (
-        <span className={styles.rowStatus} data-status={match.status}>
-          {match.status === 'LIVE' && <span className={styles.dot} aria-hidden="true" />}
-          {match.status}
-        </span>
-      )}
-    </>
-  );
+/** "Qualifier 1" → "Q1", "Final" → "F", "12" → "12". */
+function nodeLabel(no: string | null, i: number): string {
+  if (!no) return String(i + 1);
+  if (/^\d+$/.test(no)) return no;
+  const letters = no.match(/\b[A-Za-z]/g)?.join('').toUpperCase().slice(0, 2) ?? '';
+  const digits = no.match(/\d+/)?.[0] ?? '';
+  return (letters.slice(0, digits ? 1 : 2) + digits) || String(i + 1);
+}
 
-  // Every row opens, including a fixture crex has not allocated a match key to
-  // yet: `match.id` is that key where there is one and the fixture's preview id
-  // where there is not (see scheduledMatchId), and /matches/[id] takes both.
+const LEGEND: Record<NodeState, string> = {
+  finished: 'Played',
+  void: 'No result',
+  live: 'Live',
+  upcoming: 'To play',
+};
+
+const NODE_WORD: Record<NodeState, string> = {
+  finished: 'finished',
+  void: 'no result',
+  live: 'live',
+  upcoming: 'upcoming',
+};
+
+function leaderOf(rows: PointsTableRow[]): PointsTableRow | null {
+  return rows.reduce<PointsTableRow | null>((top, r) => (!top || (r.rank && r.rank < top.rank) ? r : top), null);
+}
+
+function More({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Link href={`/matches/${match.id}`} className={styles.row}>
-      {body}
-    </Link>
+    <details className={styles.more}>
+      <summary className={styles.moreSummary}>{label}</summary>
+      <div className={styles.moreBody}>{children}</div>
+    </details>
   );
 }
 
@@ -120,126 +127,232 @@ export default async function SeriesDetailPage({
   const [schedule, feed, table, leaders] = await Promise.all([
     loadSchedule(params.id),
     getCrexMatchList({ revalidate: LIVE_REVALIDATE }).catch(() => [] as Match[]),
-    // Empty for a bilateral tour, which is most series — the standings section
-    // is simply absent there rather than rendering an empty table.
+    // Empty for a bilateral tour; the standings section is then absent.
     getCrexSeriesTable(params.id, { revalidate: REVALIDATE }).catch(() => []),
-    // Null before a ball is bowled, and on any series crex has no leaders for.
-    // The stats tab is absent there rather than empty.
     getCrexSeriesLeaders(params.id, { revalidate: REVALIDATE }).catch(() => null),
   ]);
 
-  // With the schedule endpoint unreachable, fall back to the feed's narrower view
-  // rather than 404-ing a series that plainly exists. Only when neither source
-  // knows the key is this really not a page.
+  // Schedule endpoint down: fall back to the feed's narrower view before 404-ing.
   const base = schedule ?? seriesScheduleFromMatches(params.id, feed);
   if (!base) notFound();
 
   const series = withFeedStatuses(base, feed);
+  const ref = { id: series.id, name: series.name };
+  const span = seriesSpan(series.startDate, series.endDate);
 
-  // The two ends of the span. The year prints on the end, and on the start only
-  // when the span actually crosses one.
-  const crossesYear =
-    new Date(series.startDate).getFullYear() !== new Date(series.endDate).getFullYear();
-  const start0 = fmtDate(series.startDate, crossesYear);
-  const end0 = fmtDate(series.endDate);
-  const oneDay = fmtDate(series.startDate) === end0;
+  const feedById = new Map(feed.map((m) => [m.id, m]));
+  const asMatch = (row: SeriesScheduleMatch) => feedById.get(row.id) ?? toMatch(row, ref);
 
-  // Only the sections that have something in them. Matches is always first and
-  // is therefore the default — a series always has a schedule, and a tour with
-  // neither table nor leaders shows no rail at all.
+  const liveRows = series.matches.filter((m) => m.status === 'LIVE');
+  const upcoming = series.matches.filter((m) => m.status === 'UPCOMING').map(asMatch);
+  const results = series.matches
+    .filter((m) => m.status === 'COMPLETED')
+    .reverse()
+    .map(asMatch);
+  const live = liveRows.map(asMatch);
+  const next = series.matches.find((m) => m.status === 'UPCOMING') ?? null;
+  const total = series.matches.length || series.matchCount;
+  const played = results.length;
+
+  const shownLeaders = leaders ? rankedLeaders(leaders) : [];
+  const topRuns = shownLeaders.find((l) => l.kind === 'RUNS');
+  const topWickets = shownLeaders.find((l) => l.kind === 'WICKETS');
+  const league = table.length === 1 && table[0].tournament ? table[0] : null;
+  const topTeam = league ? leaderOf(league.rows) : null;
+  const hasFigures = Boolean(topTeam || topRuns || topWickets);
+
   const tabs: SeriesTab[] = [
     { key: 'matches', label: 'Matches', count: series.matchCount },
-    ...(table.length > 0
-      ? [
-          {
-            key: 'table',
-            label: 'Points table',
-            count: table.length > 1 ? table.length : null,
-          },
-        ]
-      : []),
+    ...(table.length > 0 ? [{ key: 'table', label: 'Points table', count: table.length > 1 ? table.length : null }] : []),
+    ...(shownLeaders.length > 0 ? [{ key: 'stats', label: 'Top performers' }] : []),
   ];
 
-  // A tab named in the URL that this series has no section for falls back rather
-  // than 404-ing: ?tab=stats is a perfectly good link that stops meaning
-  // anything when a tour ends and crex drops its leaders.
+  // A tab this series has no section for falls back rather than 404-ing.
   const requested = pickParam<TabKey>(searchParams?.tab, TAB_KEYS, 'matches');
   const tab = tabs.some((t) => t.key === requested) ? requested : 'matches';
 
   return (
     <div className={styles.page}>
-      <BackButton fallback="/series" />
+      <BackButton fallback="/series" className={styles.back} />
 
-      <header className={styles.head}>
-        <h1 className={styles.heading}>{series.name}</h1>
+      <PageHeader
+        eyebrow={`${series.format} series`}
+        title={series.name}
+        aside={<FollowButton kind="series" entity={ref} />}
+      >
+        <div className={styles.meta}>
+          <StateChip state={seriesState(series.status)} />
+          <span className={styles.dates}>
+            {span.oneDay ? (
+              <time dateTime={series.startDate}>{span.end}</time>
+            ) : (
+              <>
+                <time dateTime={series.startDate}>{span.start}</time>
+                <span aria-hidden="true"> → </span>
+                <time dateTime={series.endDate}>{span.end}</time>
+              </>
+            )}
+          </span>
+        </div>
+      </PageHeader>
 
-        {/* When it runs, and nothing else. The played-count went with the live
-            strip: the tab rail already says how many matches there are, and the
-            schedule under it says which of them have been played and how. */}
-        <dl className={styles.facts}>
-          <div className={styles.fact}>
-            <dt className={styles.factLabel}>Schedule</dt>
-            <dd className={`${styles.factValue} ${styles.factDates}`}>
-              {oneDay ? (
-                <time dateTime={series.startDate}>{end0}</time>
-              ) : (
-                <>
-                  <time dateTime={series.startDate}>{start0}</time>
-                  <span className={styles.factArrow} aria-hidden="true">
-                    →
-                  </span>
-                  <time dateTime={series.endDate}>{end0}</time>
-                </>
+      <section className={styles.control} data-figures={hasFigures || undefined} aria-label="Tournament progress">
+        <div className={styles.progress}>
+          <div className={styles.readoutRow}>
+            <div className={styles.readout}>
+              <span className={styles.label}>Played</span>
+              <span className={styles.big}>
+                {played}
+                <span className={styles.of}>/{total}</span>
+              </span>
+            </div>
+            <dl className={styles.counts}>
+              {live.length > 0 && (
+                <div data-kind="live">
+                  <dt>Live</dt>
+                  <dd>{live.length}</dd>
+                </div>
               )}
-            </dd>
+              <div>
+                <dt>To play</dt>
+                <dd>{upcoming.length}</dd>
+              </div>
+            </dl>
           </div>
 
-        </dl>
-      </header>
+          <ProgressRail played={played} total={total} live={live.length > 0} className={styles.rail} />
 
-      {/* Two columns from the laptop band up: the sections on the left, the
-          tournament's key stats in the right rail. Each rail card opens the full
-          ranking behind it — the top ten, with the figures that produced it. */}
-      <div className={styles.body} data-rail={leaders ? 'true' : undefined}>
-        <div className={styles.main}>
-          <SeriesTabs base={`/series/${series.id}`} tabs={tabs} active={tab} />
+          {series.matches.length > 1 && (
+            <ol className={styles.nodes} aria-label="Every match">
+              {series.matches.map((m, i) => {
+                const state = nodeState(m);
+                const title = `${m.matchNo && /^\d+$/.test(m.matchNo) ? `Match ${m.matchNo}` : (m.matchNo ?? `Match ${i + 1}`)}: ${m.homeTeam.shortName} v ${m.awayTeam.shortName}, ${m.result ?? NODE_WORD[state]}`;
+                return (
+                  <li key={m.key}>
+                    <Link href={`/matches/${m.id}`} className={styles.node} data-state={state} title={title} aria-label={title}>
+                      {nodeLabel(m.matchNo, i)}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
 
-          {tab === 'matches' && (
-            <section className={styles.section}>
-              <h2 className={styles.sectionTitle}>
-                Full schedule
-                <span className={styles.sectionCount}>{series.matchCount}</span>
-              </h2>
-              <div className={styles.schedule}>
-                {series.matches.map((m) => (
-                  <ScheduleRow match={m} key={m.key} />
+          {(next || series.matches.length > 1) && (
+            <div className={styles.progressFoot}>
+              {next && (
+                <Link href={`/matches/${next.id}`} className={styles.next}>
+                  <span className={styles.label}>Next</span>
+                  <span className={styles.nextTeams}>
+                    {next.homeTeam.shortName} <span className={styles.vs}>v</span> {next.awayTeam.shortName}
+                  </span>
+                  <LocalTime iso={next.startTime} format="dayTime" className={styles.nextTime} />
+                </Link>
+              )}
+              {series.matches.length > 1 && (
+                <ul className={styles.legend} aria-hidden="true">
+                  {(['finished', 'void', 'live', 'upcoming'] as const)
+                    .filter((k) => series.matches.some((m) => nodeState(m) === k))
+                    .map((k) => (
+                      <li key={k}>
+                        <span className={styles.legendNode} data-state={k} />
+                        {LEGEND[k]}
+                      </li>
+                    ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+
+        {hasFigures && (
+          <div className={styles.figures}>
+            {topTeam && (
+              <Link href={`/series/${series.id}?tab=table`} scroll={false} className={styles.teamFigure}>
+                <span className={styles.label}>Top of table</span>
+                <span className={styles.teamBody}>
+                  <TeamBadge name={topTeam.team.name} shortName={topTeam.team.shortName} logo={topTeam.team.logo} size="sm" />
+                  <span className={styles.teamWho}>
+                    <span className={styles.teamName}>{topTeam.team.name}</span>
+                    {topTeam.netRunRate && (
+                      <span className={styles.nrr} data-sign={topTeam.netRunRate.startsWith('-') ? 'neg' : 'pos'}>
+                        NRR {topTeam.netRunRate}
+                      </span>
+                    )}
+                  </span>
+                  <span className={styles.pts}>
+                    {topTeam.points}
+                    <span className={styles.ptsUnit}>pts</span>
+                  </span>
+                </span>
+              </Link>
+            )}
+            {topRuns && <LeaderFigure leader={topRuns} seriesId={series.id} />}
+            {topWickets && <LeaderFigure leader={topWickets} seriesId={series.id} />}
+          </div>
+        )}
+      </section>
+
+      <SeriesTabs base={`/series/${series.id}`} tabs={tabs} active={tab} />
+
+      {tab === 'matches' && (
+        <div className={styles.sections}>
+          {live.length > 0 && (
+            <section>
+              <SectionHead title="Live now" count={live.length} level={3} />
+              <div className={styles.grid}>
+                {live.map((m) => (
+                  <MatchTile key={m.id} match={m} showSeries={false} />
                 ))}
               </div>
             </section>
           )}
 
-          {tab === 'table' && (
-            <section className={styles.section}>
-              {/* "Standings", not "Points table" again: the tab above it already
-              says that, and a heading that repeats its own tab is furniture. */}
-              <h2 className={styles.sectionTitle}>
-                Standings
-                {table.length > 1 && (
-                  <span className={styles.sectionCount}>{table.length} groups</span>
+          <div className={styles.split} data-single={upcoming.length === 0 || results.length === 0 || undefined}>
+            {upcoming.length > 0 && (
+              <section>
+                <SectionHead title="Coming up" count={upcoming.length} level={3} />
+                <UpcomingRail matches={upcoming.slice(0, UPCOMING_FIRST)} />
+                {upcoming.length > UPCOMING_FIRST && (
+                  <More label={`${upcoming.length - UPCOMING_FIRST} more fixtures`}>
+                    <UpcomingRail matches={upcoming.slice(UPCOMING_FIRST)} />
+                  </More>
                 )}
-              </h2>
-              <PointsTable groups={table} />
-            </section>
+              </section>
+            )}
+
+            {results.length > 0 && (
+              <section>
+                <SectionHead title="Results" count={results.length} level={3} />
+                <ResultList matches={results.slice(0, RESULTS_FIRST)} />
+                {results.length > RESULTS_FIRST && (
+                  <More label={`${results.length - RESULTS_FIRST} earlier results`}>
+                    <ResultList matches={results.slice(RESULTS_FIRST)} />
+                  </More>
+                )}
+              </section>
+            )}
+          </div>
+
+          {upcoming.length === 0 && results.length === 0 && live.length === 0 && (
+            <EmptyState icon="calendar" title="No matches listed yet" action={{ label: 'All series', href: '/series' }} />
           )}
-
         </div>
+      )}
 
-        {leaders && (
-          <aside className={styles.aside}>
-            <SeriesKeyStats leaders={leaders} seriesId={series.id} />
-          </aside>
-        )}
-      </div>
+      {tab === 'table' && (
+        <section>
+          <SectionHead title="Standings" count={table.length > 1 ? table.length : undefined} level={3} />
+          <PointsTable groups={table} />
+        </section>
+      )}
+
+      {tab === 'stats' && leaders && (
+        <section>
+          <SectionHead title="Top performers" level={3} />
+          <SeriesLeadersBoard leaders={leaders} seriesId={series.id} />
+        </section>
+      )}
     </div>
   );
 }

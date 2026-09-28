@@ -1,0 +1,144 @@
+@use 'component' as *;
+
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'flow controls'
+    'sentence sentence'
+    'meta meta';
+  gap: $space-3;
+  padding: $space-4;
+  @include panel;
+  opacity: 0.72;
+  transition: opacity $dur-2 $ease-out, border-color $dur-2 $ease-out;
+}
+
+.on {
+  opacity: 1;
+  border-color: color-mix(in oklab, var(--signal) 25%, var(--line));
+}
+
+.flow {
+  grid-area: flow;
+  display: flex;
+  align-items: center;
+  gap: $space-1-5;
+}
+
+.chip {
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: $text-3;
+
+  .on & {
+    color: $signal-text;
+  }
+}
+
+.arrow {
+  width: 14px;
+  height: 1px;
+  background: $line-3;
+}
+
+.sentence {
+  grid-area: sentence;
+  font-size: $fs-base;
+  font-weight: 600;
+  line-height: $leading-snug;
+}
+
+.meta {
+  grid-area: meta;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2 $space-3;
+}
+
+.kind {
+  @include chip;
+  height: 22px;
+  color: $text-2;
+}
+
+.live {
+  color: $signal-text;
+}
+
+.moment {
+  color: $data;
+}
+
+.alert {
+  color: $warn;
+}
+
+.stat {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.controls {
+  grid-area: controls;
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  height: 34px;
+  padding-inline: $space-2;
+  border-radius: $r-sm;
+  font-size: $fs-sm;
+  color: $text-2;
+  @include focus-ring;
+}
+
+.track {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: $r-pill;
+  background: $surface-3;
+  border: 1px solid $line-2;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: $text-2;
+    transition: transform $dur-2 $ease-out;
+  }
+
+  .on & {
+    background: $signal;
+
+    &::after {
+      transform: translateX(14px);
+      background: $signal-ink;
+    }
+  }
+}
+
+.remove {
+  @include icon-button;
+  width: 34px;
+  height: 34px;
+
+  &:hover {
+    color: $wicket;
+  }
+}

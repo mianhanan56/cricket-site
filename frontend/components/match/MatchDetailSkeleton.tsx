@@ -1,108 +1,51 @@
 import Skeleton, { stagger, staggerRows } from '../ui/Skeleton';
-import md from './MatchDetail.module.scss';
+import SyncIndicator from '../ui/SyncIndicator';
+import mc from './matchCenter.module.scss';
 import s from './MatchDetailSkeleton.module.scss';
 
-const DETAIL_ROWS = ['Date', 'Time', 'Venue', 'Format', 'Series'];
-
-/** Ragged line widths so stacked bars read as text, not as a wireframe. */
 const NAME_WIDTHS: Array<'60' | '70' | '80' | '90'> = ['80', '60', '90', '70', '70', '60'];
 
-/**
- * The batting/bowling card as a phased row grid.
- *
- * Used twice: inside the route-level skeleton below, and inside MatchDetail's
- * Scorecard tab while a crex match's card is still in flight — without it that
- * tab claims "No batting data yet" during a load it is actively doing.
- */
 export function ScorecardSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className={`${md.tableWrap} ${s.inert}`}>
-      <div className={`${s.tableSk} ${staggerRows}`}>
-        <div className={s.batRow}>
-          <Skeleton width="60" className={s.headCell} />
-          <Skeleton width="50" className={s.headCell} />
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton width="70" className={`${s.headCell} ${s.right}`} key={i} />
+    <div className={`${mc.tableWrap} ${s.table} ${staggerRows}`} aria-hidden="true">
+      {Array.from({ length: rows + 1 }, (_, i) => (
+        <div className={s.row} key={i}>
+          <Skeleton variant="body" width={NAME_WIDTHS[i % NAME_WIDTHS.length]} />
+          {[0, 1, 2, 3, 4].map((c) => (
+            <Skeleton variant="body" key={c} className={s.cell} />
           ))}
         </div>
-        {Array.from({ length: rows }, (_, i) => (
-          <div className={`${s.batRow} ${s.zebra}`} key={i}>
-            <Skeleton variant="body" width={NAME_WIDTHS[i % NAME_WIDTHS.length]} />
-            <Skeleton variant="text" width={i % 2 === 0 ? '80' : '60'} />
-            {[0, 1, 2, 3, 4].map((c) => (
-              <Skeleton variant="body" width="80" className={s.right} key={c} />
-            ))}
-          </div>
-        ))}
-      </div>
+      ))}
     </div>
   );
 }
 
-/** The bowling card — one column fewer than batting. */
 export function BowlingSkeleton({ rows = 4 }: { rows?: number }) {
-  return (
-    <div className={`${md.tableWrap} ${s.inert}`}>
-      <div className={`${s.tableSk} ${staggerRows}`}>
-        <div className={s.bowlRow}>
-          <Skeleton width="50" className={s.headCell} />
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton width="60" className={`${s.headCell} ${s.right}`} key={i} />
-          ))}
-        </div>
-        {Array.from({ length: rows }, (_, i) => (
-          <div className={`${s.bowlRow} ${s.zebra}`} key={i}>
-            <Skeleton variant="body" width={NAME_WIDTHS[i % NAME_WIDTHS.length]} />
-            {[0, 1, 2, 3, 4].map((c) => (
-              <Skeleton variant="body" width="80" className={s.right} key={c} />
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <ScorecardSkeleton rows={rows} />;
 }
 
-/**
- * Ball-by-ball placeholder — an over's card and the deliveries under it, in the
- * geometry the real feed loads into.
- *
- * Used twice: for a feed that has not arrived at all, and — with `card` off — as
- * the tail of a list that is being walked further back, where an over card would
- * promise an over the walk has not reached yet.
- */
-export function CommentarySkeleton({
-  balls = 6,
-  card = true,
-}: {
-  balls?: number;
-  /** Lead with an over-card placeholder. Off for a tail loader. */
-  card?: boolean;
-}) {
+export function CommentarySkeleton({ balls = 6, card = true }: { balls?: number; card?: boolean }) {
   return (
-    <div className={`${md.commentary} ${s.inert}`}>
+    <div className={s.feed} aria-hidden="true">
       {card && (
-        <div className={md.overCard}>
-          <div className={md.overCardHead}>
-            <Skeleton variant="body" className={s.overHeader} />
-            <Skeleton variant="text" className={s.ballRuns} />
-          </div>
-          <div className={md.overCardBalls}>
+        <div className={s.overCard}>
+          <Skeleton variant="body" className={s.overTitle} />
+          <div className={s.overBalls}>
             {Array.from({ length: 6 }, (_, i) => (
-              <Skeleton className={s.overCardBall} key={i} />
+              <Skeleton key={i} variant="circle" size="26" />
             ))}
           </div>
         </div>
       )}
       <ul className={staggerRows}>
         {Array.from({ length: balls }, (_, i) => (
-          <li className={md.ballRow} key={i}>
-            <Skeleton className={s.ballMarker} />
-            <span className={s.ballText}>
-              <Skeleton variant="body" width="100" />
-              <Skeleton variant="body" width={i % 2 === 0 ? '60' : '80'} />
+          <li className={s.ball} key={i}>
+            <Skeleton variant="text" className={s.at} />
+            <span className={s.node} />
+            <span className={s.text}>
+              <Skeleton variant="text" width="20" />
+              <Skeleton variant="body" width={i % 2 === 0 ? '90' : '70'} />
             </span>
-            <Skeleton variant="text" className={s.ballRuns} />
           </li>
         ))}
       </ul>
@@ -110,88 +53,29 @@ export function CommentarySkeleton({
   );
 }
 
-/**
- * Route-level skeleton for /matches/[id]. Placeholder throughout: the header's
- * back control belongs to the resolved page, not to the loading state.
- */
 export default function MatchDetailSkeleton() {
   return (
-    <div
-      className={`${md.page} ${stagger}`}
-      role="status"
-      aria-busy="true"
-      aria-label="Loading match centre"
-    >
-      {/* Header — status, both sides with scores, series/venue line */}
-      <header className={`${md.header} ${s.inert}`}>
-        <div className={md.statusRow}>
-          <Skeleton className={s.statusBadge} />
-          <Skeleton variant="text" className={s.headerSeries} />
-        </div>
-
-        <div className={md.teams}>
-          <div className={md.team}>
-            <Skeleton variant="body" className={s.teamName} />
-            <Skeleton variant="text" className={s.teamShort} />
-            <Skeleton variant="title" className={s.score} />
-            <Skeleton variant="text" className={s.scoreOvers} />
-          </div>
-          <span className={md.vs}>
-            <Skeleton variant="text" className={s.vs} />
-          </span>
-          <div className={`${md.team} ${md.right}`}>
-            <Skeleton variant="body" className={s.teamName} />
-            <Skeleton variant="text" className={s.teamShort} />
-            <Skeleton variant="title" className={s.score} />
-            <Skeleton variant="text" className={s.scoreOvers} />
-          </div>
-        </div>
-
-        <div className={md.headerMeta}>
-          <Skeleton variant="text" className={s.headerMeta} />
-        </div>
-      </header>
-
-      {/* Sticky tab rail */}
-      <nav className={`${md.tabs} ${s.inert}`}>
-        {[0, 1, 2].map((i) => (
-          <span className={s.tabCell} key={i}>
-            <Skeleton variant="body" className={s.tabBar} />
-          </span>
-        ))}
-      </nav>
-
-      {/* Match Info panel — the tab that opens by default */}
-      <div className={md.panel}>
-        <section className={`${md.block} ${s.inert}`}>
-          <h2 className={md.blockTitle}>
-            <Skeleton variant="body" className={s.blockTitle} />
-          </h2>
+    <div className={`${s.page} ${stagger}`} role="status" aria-busy="true" aria-label="Loading match centre">
+      <div className={s.header}>
+        <SyncIndicator label="Syncing match" />
+        <div className={s.teams}>
           {[0, 1].map((i) => (
-            <div className={md.formRow} key={i}>
-              <Skeleton variant="body" className={s.formTeam} />
-              <div className={md.formChips}>
-                {[0, 1, 2, 3, 4].map((c) => (
-                  <Skeleton variant="circle" size="26" key={c} />
-                ))}
-              </div>
+            <div key={i} className={s.side}>
+              <Skeleton variant="body" className={s.team} />
+              <Skeleton className={s.score} />
             </div>
           ))}
-        </section>
-
-        <section className={`${md.block} ${s.inert}`}>
-          <h2 className={md.blockTitle}>
-            <Skeleton variant="body" className={s.blockTitle} />
-          </h2>
-          <dl className={`${md.details} ${staggerRows}`}>
-            {DETAIL_ROWS.map((label, i) => (
-              <div className={md.detailRow} key={label}>
-                <Skeleton variant="text" width="70" />
-                <Skeleton variant="body" width={NAME_WIDTHS[i % NAME_WIDTHS.length]} />
-              </div>
-            ))}
-          </dl>
-        </section>
+        </div>
+        <span className={s.crease} />
+      </div>
+      <div className={s.rail}>
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} variant="body" className={s.tab} />
+        ))}
+      </div>
+      <div className={s.body}>
+        <Skeleton className={s.block} />
+        <Skeleton className={s.block} />
       </div>
     </div>
   );

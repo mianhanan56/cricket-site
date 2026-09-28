@@ -9,18 +9,11 @@ export interface FilterOption<T extends string> {
 }
 
 export interface FilterSelectProps<T extends string> {
-  /**
-   * Accessible name for the control, e.g. "Type". Not rendered: the selected
-   * value ("All cricket") already says what the filter is, so printing the
-   * category next to it is a label doing no work. Screen readers still get it
-   * through aria-label on the trigger and the listbox.
-   */
+  /** Accessible name, e.g. "Type". Not rendered — the selected value already says it. */
   label: string;
   value: T;
   options: readonly FilterOption<T>[];
   onChange: (value: T) => void;
-  /** Align the menu to the trigger's right edge (the default, since the
-   *  control lives at the right end of a toolbar). */
   align?: 'left' | 'right';
 }
 
@@ -32,15 +25,7 @@ function CaretIcon() {
   );
 }
 
-/**
- * Listbox dropdown for a small, fixed set of filter values.
- *
- * A native <select> was the cheaper option and is rejected here: it cannot carry
- * the glass surface or the selected-row dot, and its rendering is the OS's, not
- * the design system's. The cost of that choice is the keyboard contract below,
- * which is implemented rather than assumed — arrows move, Enter/Space commit,
- * Escape and outside-pointer close, and focus returns to the trigger on close.
- */
+/** Listbox dropdown for a small, fixed set of filter values, with the full listbox keyboard contract. */
 export default function FilterSelect<T extends string>({
   label,
   value,
@@ -61,8 +46,7 @@ export default function FilterSelect<T extends string>({
     if (refocus) triggerRef.current?.focus();
   }, []);
 
-  // Pointer-down (not click) so the menu closes before a click lands on
-  // whatever is underneath it.
+  // Pointer-down so the menu closes before a click lands underneath it.
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {

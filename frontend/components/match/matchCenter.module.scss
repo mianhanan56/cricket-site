@@ -1,0 +1,180 @@
+@use 'component' as *;
+
+// Blocks shared by every match-center panel.
+
+.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-8;
+  padding-top: $space-6;
+}
+
+.block {
+  min-width: 0;
+}
+
+.blockHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $space-3;
+  margin-bottom: $space-3;
+}
+
+.blockTitle {
+  font-size: $fs-lg;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: $space-3;
+
+  .blockHead & {
+    margin-bottom: 0;
+  }
+}
+
+.blockMeta {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.surface {
+  @include panel;
+  padding: $space-4;
+
+  @include tablet {
+    padding: $space-5;
+  }
+}
+
+.empty {
+  padding: $space-6 $space-4;
+  border: 1px dashed $line-2;
+  border-radius: $r-md;
+  text-align: center;
+  font-size: $fs-md;
+  color: $text-2;
+}
+
+.emptyLink {
+  color: $text;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.playerLink {
+  border-radius: 2px;
+  @include focus-ring;
+
+  &:hover {
+    text-decoration: underline;
+    text-decoration-color: $line-3;
+    text-underline-offset: 3px;
+  }
+}
+
+// ---------------------------------------------------------------- Tables
+
+.tableWrap {
+  @include panel;
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $fs-md;
+
+  th {
+    @include eyebrow;
+    height: 36px;
+    padding-inline: $space-2;
+    text-align: right;
+    white-space: nowrap;
+    background: $bg-raise;
+    border-bottom: 1px solid $line;
+  }
+
+  td {
+    height: 46px;
+    padding-inline: $space-2;
+    border-bottom: 1px solid $line;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    transition: background-color $dur-1 $ease-out;
+
+    &:hover {
+      background: $surface-2;
+    }
+  }
+
+  th:first-child,
+  td:first-child {
+    padding-left: $space-4;
+  }
+
+  th:last-child,
+  td:last-child {
+    padding-right: $space-4;
+  }
+}
+
+.left {
+  text-align: left !important;
+}
+
+.num {
+  @include data-num;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.strong {
+  color: $text;
+  font-weight: 700;
+}
+
+// ---------------------------------------------------------------- Definition lists
+
+.details {
+  @include panel;
+  overflow: hidden;
+}
+
+.detailRow {
+  display: grid;
+  grid-template-columns: minmax(96px, 30%) minmax(0, 1fr);
+  gap: $space-3;
+  padding: $space-3 $space-4;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+
+  dt {
+    @include eyebrow;
+    padding-top: 2px;
+  }
+
+  dd {
+    font-size: $fs-md;
+    @include fluid-text;
+  }
+}
+
+.detailLink {
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: $line-3;
+  text-underline-offset: 3px;
+  @include focus-ring;
+
+  &:hover {
+    text-decoration-color: $text;
+  }
+}

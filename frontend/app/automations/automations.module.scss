@@ -1,0 +1,137 @@
+@use 'component' as *;
+
+.page {
+  @include container;
+  padding-bottom: $space-16;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  height: 40px;
+  padding-inline: $space-4;
+  border-radius: $r-pill;
+  border: 1px solid $line-2;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.statusNum {
+  @include data-num;
+  font-size: $fs-base;
+  font-weight: 700;
+  color: $text;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: $text-3;
+}
+
+.dotOn {
+  background: $signal;
+
+  @include motion {
+    animation: live-pulse $dur-pulse ease-out infinite;
+  }
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-10;
+
+  @include desktop {
+    grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+    align-items: start;
+  }
+}
+
+.main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-10;
+  min-width: 0;
+}
+
+.side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-10;
+  min-width: 0;
+
+  @include desktop {
+    position: sticky;
+    top: calc(#{$navbar-height} + #{$space-6});
+  }
+}
+
+.templates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+.template {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  min-height: 40px;
+  padding: $space-2 $space-3;
+  border-radius: $r-sm;
+  border: 1px dashed $line-3;
+  font-size: $fs-sm;
+  color: $text-2;
+  text-align: left;
+  transition: color $dur-2 $ease-out, border-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+    border-style: solid;
+    border-color: $signal;
+  }
+}
+
+.list {
+  display: grid;
+  gap: $space-2;
+}
+
+.settingList {
+  @include panel;
+  overflow: hidden;
+
+  > div {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: $space-3;
+    padding: $space-3 $space-4;
+
+    & + div {
+      border-top: 1px solid $line;
+    }
+  }
+
+  dt {
+    @include eyebrow;
+    padding-top: 2px;
+  }
+
+  dd {
+    font-size: $fs-sm;
+    color: $text-2;
+  }
+}
+
+.inline {
+  margin-left: $space-2;
+  font-weight: 600;
+  color: $text;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  @include focus-ring;
+}

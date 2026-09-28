@@ -1,176 +1,188 @@
 @use 'component' as *;
 
-// ===========================================================================
-// SeriesLeaders — the tournament's honours, as cards in the series page's rail.
-//
-// Nothing new is invented: the Aurora glass card, the Sora/Manrope pairing and
-// the mint/amber/violet tokens are the app's. What this adds:
-//
-//   * a card per honour, each a door into that ranking's own page,
-//   * the amber/violet tint on runs and wickets — the two that decide a
-//     tournament — with the rest left mint, so the rail has a hierarchy without
-//     needing a second size of card.
-// ===========================================================================
+// ---- control-center figure
 
-// ===========================================================================
-// The right rail — the same four honours, a quarter of the size.
-//
-// Its own block rather than a variant of the hero: the rail's job is to fill a
-// column beside a table, so it reads down (label, who, figure on the right)
-// where the hero reads across. The two caps keep their amber and violet tint so
-// the rail and the full board are recognisably the same set of facts.
-// ===========================================================================
-
-.rail {
+.figure {
   display: flex;
   flex-direction: column;
-  gap: $space-2;
+  gap: $space-2-5;
+  padding: $space-4;
   min-width: 0;
-}
-
-.railHead {
-  @include flex-between;
-  gap: $space-2;
-  margin-bottom: $space-1;
-}
-
-.railTitle {
-  font-family: $font-display;
-  font-size: $text-base;
-  font-weight: 700;
-}
-
-.railMore {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-1;
-  flex-shrink: 0;
-  font-size: $text-xs;
-  font-weight: 600;
-  color: $text-muted;
-  transition:
-    color 0.15s ease,
-    gap 0.15s ease;
+  transition: background-color $dur-2 $ease-out;
+  @include focus-ring;
 
   &:hover {
-    color: $accent;
-    gap: $space-1-5;
+    background: $surface-2;
   }
 
   &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 2px;
-    border-radius: $radius-sm;
+    outline-offset: -2px;
   }
 }
 
-.railCard {
-  @include card;
-  --tint: var(--accent-green);
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-  padding: $space-3;
-  min-width: 0;
-
-  &[data-kind='RUNS'] {
-    --tint: var(--amber);
-  }
-
-  &[data-kind='WICKETS'] {
-    --tint: var(--accent-purple);
-  }
-
-  &:hover {
-    border-color: color-mix(in oklab, var(--tint) 45%, transparent);
-    transform: translateY(-2px);
-  }
-
-  &:focus-visible {
-    outline: 2px solid $accent;
-    outline-offset: 2px;
-  }
+.figureLabel {
+  @include eyebrow;
 }
 
-// A quiet eyebrow, not a heading: the card below it is the statement.
-.railLabel {
-  font-size: $text-2xs;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: $text-muted;
-}
-
-.railBody {
+.figureBody {
   display: flex;
   align-items: center;
   gap: $space-3;
   min-width: 0;
 }
 
-// The tint ring, around PlayerPortrait's own `sm` box. The box is asked for at
-// 44px rather than scaled down here: a transform would leave the 88px layout
-// slot behind and the name beside it would sit on the player's face.
-.railHalo {
-  position: relative;
-  display: flex;
-  flex-shrink: 0;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 50%;
-    border: 2px solid color-mix(in oklab, var(--tint) 55%, transparent);
-  }
+.figureValue {
+  @include display-num;
+  margin-left: auto;
+  font-size: $fs-2xl;
+  color: $text;
+  white-space: nowrap;
 }
 
-.railWho {
+.who {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: $space-1;
   min-width: 0;
-  flex: 1;
 }
 
-.railName {
-  @include truncate(1);
-  min-width: 0;
-  font-family: $font-display;
-  font-size: $text-sm;
+.name {
   font-weight: 700;
-  color: $text-primary;
+  font-size: $fs-md;
+  color: $text;
+  @include truncate;
+}
 
-  .railCard:hover & {
-    color: $accent;
+.team {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  min-width: 0;
+  font-size: $fs-xs;
+  color: $text-3;
+  @include truncate;
+}
+
+// ---- honours board
+
+.board {
+  display: grid;
+  gap: $space-6;
+}
+
+.grid {
+  display: grid;
+  gap: $space-3;
+
+  @include sm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include desktop {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
   }
 }
 
-.railTeam {
-  @include truncate(1);
-  min-width: 0;
-  font-size: $text-2xs;
-  color: $text-muted;
-}
-
-// The figure closes the row, right-aligned, so four cards stacked in a column
-// line their numbers up down the rail.
-.railFigure {
-  @include score-number;
+.card {
+  @include panel;
+  @include panel-interactive;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  flex-shrink: 0;
-  font-size: $text-2xl;
-  line-height: 1;
-  color: $text-primary;
+  gap: $space-4;
+  padding: $space-5;
+  min-width: 0;
+  @include focus-ring;
+
+  @include desktop {
+    grid-column: span 4;
+  }
+
+  &[data-featured] {
+    @include desktop {
+      grid-column: span 6;
+    }
+  }
 }
 
-.railUnit {
-  font-family: $font-primary;
-  font-size: $text-2xs;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: $text-muted;
+.cardLabel {
+  @include eyebrow;
+}
+
+.value {
+  @include display-num;
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  font-size: clamp(40px, 9vw, 56px);
+  color: $text;
+
+  .card[data-featured] & {
+    @include desktop {
+      font-size: 72px;
+    }
+  }
+}
+
+.unit {
+  @include eyebrow;
+  font-size: $fs-xs;
+  letter-spacing: $tracking-label;
+}
+
+.cardWho {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  min-width: 0;
+}
+
+.support {
+  @include data-num;
+  margin-top: auto;
+  padding-top: $space-3;
+  border-top: 1px solid $line;
+  font-size: $fs-xs;
+  color: $text-2;
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-4 $space-8;
+}
+
+.totals {
+  display: flex;
+  gap: $space-8;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: $space-1;
+  }
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include display-num;
+    font-size: $fs-xl;
+    color: $text;
+  }
+}
+
+.more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+
+  @include tablet {
+    margin-left: auto;
+  }
+}
+
+.moreLink {
+  @include button-secondary;
 }

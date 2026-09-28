@@ -1,0 +1,119 @@
+@use 'component' as *;
+
+.stack {
+  position: fixed;
+  z-index: $z-toast;
+  left: $space-3;
+  right: $space-3;
+  top: calc(#{$navbar-height} + #{$space-2});
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  pointer-events: none;
+
+  @include tablet {
+    left: auto;
+    top: auto;
+    right: $space-5;
+    bottom: calc(#{$dock-height} + #{$space-4});
+    width: 360px;
+  }
+
+  @include desktop {
+    bottom: $space-6;
+  }
+}
+
+.toast {
+  --tone: var(--text-2);
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+  border-radius: $r-md;
+  background: $surface;
+  box-shadow: $shadow-pop;
+  pointer-events: auto;
+
+  @include motion {
+    animation: toast-in $dur-3 $ease-snap;
+  }
+}
+
+.live {
+  --tone: var(--signal);
+}
+
+.moment {
+  --tone: var(--data);
+}
+
+.alert {
+  --tone: var(--warn);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding: $space-3 $space-2 $space-3 $space-4;
+  text-align: left;
+  @include focus-ring;
+}
+
+.kind {
+  @include eyebrow;
+  color: var(--tone);
+}
+
+:global([data-theme='light']) .live .kind {
+  color: $signal-text;
+}
+
+.title {
+  font-weight: 600;
+  line-height: $leading-snug;
+}
+
+.text {
+  font-size: $fs-sm;
+  color: $text-3;
+  @include truncate;
+}
+
+.x {
+  @include icon-button;
+  width: 32px;
+  height: 32px;
+  margin: $space-2 $space-2 0 0;
+}
+
+// Remaining time, drawn as a crease that runs out.
+.timer {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--tone);
+  transform-origin: left;
+
+  @include motion {
+    animation: run-out 6.5s linear forwards;
+  }
+}
+
+@keyframes run-out {
+  to {
+    transform: scaleX(0);
+  }
+}

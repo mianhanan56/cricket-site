@@ -1,29 +1,35 @@
 @use 'component' as *;
 
-// Matches the original's theme button: p-2 rounded-lg bg-surface-elevated
-// border border-border, 16px icon.
 .toggle {
-  @include flex-center;
-  padding: $space-2; // p-2 (8px) → 32px square with a 16px icon
-  // Floor the square at a comfortable tap target on touch screens; the visual
-  // box is unchanged from tablet up.
-  min-width: 36px;
-  min-height: 36px;
-  flex-shrink: 0;
-  border-radius: $radius-lg; // rounded-lg (14px)
-  background: $surface-elevated;
-  border: 1px solid $card-border;
-  color: $text-muted; // text-muted-foreground
-  transition:
-    color 0.15s ease,
-    border-color 0.15s ease;
+  @include icon-button;
+}
 
-  svg {
-    width: 16px; // w-4
-    height: 16px; // h-4
-  }
+.row {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+  min-height: 48px;
+  padding-inline: $space-3;
+  border-radius: $r-sm;
+  font-size: $fs-base;
+  color: $text-2;
+  @include focus-ring;
 
   &:hover {
-    color: $text-primary; // hover:text-foreground
+    color: $text;
+    background: $surface-2;
   }
+}
+
+.icon {
+  display: inline-flex;
+
+  @include motion {
+    transition: transform $dur-3 $ease-out;
+  }
+}
+
+.toggle:hover .icon {
+  transform: rotate(-20deg);
 }

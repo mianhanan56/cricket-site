@@ -1,26 +1,23 @@
 @use 'component' as *;
 
-// The portrait is the one figurative element on an otherwise typographic page,
-// so it sits in a soft mint well rather than floating: crex's illustrations are
-// cut out on transparency and read as unfinished on the aurora background.
+// crex's illustrations are cut out on transparency, so they sit in a well rather than floating.
 .portrait {
   position: relative;
   display: grid;
   place-items: end center;
   flex-shrink: 0;
-  width: 88px;
-  height: 88px;
-  border-radius: 50%;
+  width: 84px;
+  height: 84px;
+  border-radius: $r-lg;
   overflow: hidden;
-  background: radial-gradient(circle at 50% 120%, var(--accent-green-soft), transparent 70%),
-    $surface-elevated;
-  border: 1px solid $card-border;
+  background:
+    radial-gradient(90% 70% at 50% 110%, $signal-soft, transparent 70%),
+    $surface-2;
+  border: 1px solid $line-2;
 
   img {
     display: block;
-    // The illustrations are head-and-shoulders on a tall canvas, so they are
-    // scaled past the well and anchored to its foot — centring them leaves the
-    // head floating with a band of empty canvas underneath.
+    // Head-and-shoulders on a tall canvas: scaled past the well and anchored to its foot.
     width: 118%;
     height: auto;
     object-fit: contain;
@@ -32,45 +29,31 @@
   }
 
   @include tablet {
-    width: 132px;
-    height: 132px;
+    width: 148px;
+    height: 148px;
   }
 }
 
-// The rail variant: one size at every band, because it sits in a 300px column
-// beside a name and a figure rather than at the head of a profile.
 .sm {
-  width: 44px;
-  height: 44px;
-
-  @include sm {
+  &,
+  &.portrait {
     width: 44px;
     height: 44px;
-  }
-
-  @include tablet {
-    width: 44px;
-    height: 44px;
+    border-radius: $r-sm;
   }
 
   &.fallback {
-    font-size: $text-sm;
-
-    @include tablet {
-      font-size: $text-sm;
-    }
+    font-size: $fs-md;
   }
 }
 
 .fallback {
   place-items: center;
-  font-family: $font-display;
-  font-weight: 700;
-  font-size: $text-2xl;
-  letter-spacing: -0.02em;
-  color: $accent;
+  @include display-num;
+  font-size: $fs-2xl;
+  color: $text-2;
 
   @include tablet {
-    font-size: $text-3xl;
+    font-size: 40px;
   }
 }
