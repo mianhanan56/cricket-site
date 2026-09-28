@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { HeadToHead as H2H } from '@/types';
 import LocalTime from '../ui/LocalTime';
 import styles from './HeadToHead.module.scss';
+import { venueText } from '@/lib/venue';
 
 /**
  * The record between the two sides in this match.
@@ -71,7 +72,7 @@ export default function HeadToHead({ record }: { record: H2H }) {
                 <span className={styles.meetingResult}>{m.result}</span>
                 <span className={styles.meetingMeta}>
                   <LocalTime iso={m.startTime} format="date" />
-                  {m.venue !== 'TBD' && ` · ${m.venue}`}
+                  {` · ${venueText(m.venue)}`}
                 </span>
               </span>
               <span className={styles.meetingFormat}>{m.format}</span>

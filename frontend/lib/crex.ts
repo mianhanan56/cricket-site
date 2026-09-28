@@ -76,6 +76,7 @@ import {
   inningsBallLimit,
   oversFrom,
 } from './overs';
+import { cleanVenueName } from './venue';
 
 // The home page has no other source now, so this falls back to the deployed
 // Worker rather than to '' — an unset env var used to mean "no crex", which now
@@ -425,24 +426,6 @@ const CACHE_LIMIT: Record<CrexMapKind, number> = {
  * is the right trade here: entries are cheap to re-fetch and the limit is high
  * enough that eviction is rare.
  */
-const VENUE_UNKNOWN = /^(tbd|tba|to be (decided|announced|confirmed))$/i;
-
-/**
- * A venue name as crex's mapping should have sent it: no control, format or
- * private-use characters (a stray box glyph opened "JB Marks Oval"), no doubled
- * spaces, no dangling separators, and every flavour of "not decided" read as TBD.
- */
-export function cleanVenueName(raw: string | undefined | null): string {
-  const text = (raw ?? '')
-    .replace(/[\p{C}\u{FFFD}]/gu, '')
-    .replace(/\s+/g, ' ')
-    .replace(/\s+([,;:])/g, '$1')
-    .replace(/^[\s,;:.·|/\-–—]+/, '')
-    .replace(/[\s,;:·|/\-–—]+$/, '')
-    .trim();
-  return !text || VENUE_UNKNOWN.test(text) ? 'TBD' : text;
-}
-
 function remember(kind: CrexMapKind, entry: CrexMapEntry): void {
   if (kind === 'v') entry = { ...entry, n: cleanVenueName(entry.n) };
   const bucket = nameCache[kind];
@@ -3792,10 +3775,15 @@ export async function getCrexPlayerProfile(
     bats: joinTrait(basic.bts, basic.bp),
     bowls: joinTrait(basic.bwl, bowlingStyle(basic.bs)),
     popularShot: basic.ps?.trim() || null,
-    teams: (basic.tm ?? '')
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean),
+    // crex repeats a franchise it signed the player to more than once.
+    teams: [
+      ...new Set(
+        (basic.tm ?? '')
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      ),
+    ],
     countryKey,
     countryShortName: countryKey
       ? names.t.get(countryKey)?.sn ?? names.t.get(countryKey)?.n ?? null

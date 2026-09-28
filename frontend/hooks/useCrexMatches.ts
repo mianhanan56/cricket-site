@@ -19,6 +19,7 @@ import {
   getCrexScorecard,
 } from '@/lib/crex';
 import type { StoppageWatch } from '@/lib/crex';
+import { keepNewest } from '@/lib/liveScore';
 
 // crex has no push channel we can use — their live scores come off a Firebase
 // stream we deliberately don't touch (see worker-crex/README) — so the only
@@ -140,7 +141,7 @@ async function poll(): Promise<void> {
     const landed = new Date();
     channel.failures = 0;
     emit({
-      matches: clearResumedStoppages(next, channel.stoppages, landed.getTime()),
+      matches: clearResumedStoppages(keepNewest(channel.state.matches, next), channel.stoppages, landed.getTime()),
       lastUpdated: landed,
       error: null,
       isRefreshing: false,

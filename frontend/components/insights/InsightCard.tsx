@@ -18,6 +18,7 @@ import PulseTrace from '../live/PulseTrace';
 import Ticker from '../live/Ticker';
 import LocalTime from '../ui/LocalTime';
 import styles from './InsightCard.module.scss';
+import { venueText } from '@/lib/venue';
 
 const CARD_INTERVAL_MS = 15_000;
 
@@ -108,7 +109,7 @@ export default function InsightCard({ match }: { match: Match }) {
         <>
           <p className={styles.where}>
             <LocalTime iso={match.startTime} format="dayTime" />
-            {match.venue && <span className={styles.venue}>{match.venue}</span>}
+            <span className={styles.venue}>{venueText(match.venue)}</span>
           </p>
           {(weather?.temperature || weather?.rainChance || ground?.averages[0] != null || ground?.wonBattingFirst != null) && (
             <dl className={styles.figs}>

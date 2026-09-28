@@ -10,6 +10,7 @@ import { SectionHead } from '../../../components/ui/Section';
 import UpcomingRail from '../../../components/home/UpcomingRail';
 import FollowButton from '../../../components/follow/FollowButton';
 import styles from './team.module.scss';
+import { venueText } from '@/lib/venue';
 
 // Per-fetch freshness rather than page-level `revalidate`: ISR would cache the
 // notFound() path too, serving an unknown key as a soft 404.
@@ -118,7 +119,7 @@ function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string
           <LocalTime iso={match.startTime} format="date" />
           <span className={styles.fmt}>{match.format}</span>
           <span className={styles.series}>{match.series}</span>
-          {match.venue !== 'TBD' && <span className={styles.venue}>{match.venue}</span>}
+          <span className={styles.venue}>{venueText(match.venue)}</span>
         </span>
       </span>
     </>

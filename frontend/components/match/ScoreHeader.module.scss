@@ -59,7 +59,7 @@
 
 .connecting {
   @include eyebrow;
-  color: $warn;
+  color: $text-3;
 }
 
 .age {
@@ -89,6 +89,17 @@
 .venue {
   @include fluid-text;
   @include focus-ring;
+}
+
+// Phones give the ground its own line, so it never opens on a separator.
+.meta > .venue {
+  @include phone-only {
+    flex-basis: 100%;
+
+    &::before {
+      content: none;
+    }
+  }
 }
 
 a.series,

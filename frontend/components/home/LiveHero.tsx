@@ -24,6 +24,7 @@ import BallTimeline from '../live/BallTimeline';
 import LastBallAge from '../live/LastBallAge';
 import Skeleton from '../ui/Skeleton';
 import styles from './LiveHero.module.scss';
+import { venueText } from '@/lib/venue';
 
 const HERO_INTERVAL_MS = 5_000;
 
@@ -146,7 +147,7 @@ export default function LiveHero({ match }: { match: Match }) {
           {!inn && (
             <p className={styles.where}>
               <LocalTime iso={match.startTime} format="dayTime" />
-              {match.venue && <span className={styles.whereVenue}>{match.venue}</span>}
+              <span className={styles.whereVenue}>{venueText(match.venue)}</span>
             </p>
           )}
 

@@ -243,7 +243,7 @@ export default function MatchDetail({
           situation={situation}
           stand={stand}
           progress={state.alive ? inningsProgress(match, crexExtras.innings.length ? crexExtras.innings : undefined) : null}
-          connecting={isLive && !isConnected}
+          connecting={isLive && !isConnected && !crexExtras.fetchedAt}
           perOver={perOver}
         />
       </div>

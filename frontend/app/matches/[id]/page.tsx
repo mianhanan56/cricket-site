@@ -10,6 +10,7 @@ import {
 } from '../../../lib/crex';
 import { headToHead } from '../../../lib/headToHead';
 import MatchDetail from '../../../components/match/MatchDetail';
+import { VENUE_TBD } from '@/lib/venue';
 
 // Ids here are crex keys ("ZLN", "13BS") — the same ones the home page, fixtures
 // and search link with. This used to try our own backend first and fall through
@@ -44,7 +45,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   const verb = m.status === 'LIVE' ? 'Live Score' : m.status === 'UPCOMING' ? 'Preview' : 'Result';
   return {
     title: `${m.homeTeam.shortName} vs ${m.awayTeam.shortName} ${verb} — ${m.format} ${year}`,
-    description: `${m.homeTeam.name} vs ${m.awayTeam.name}, ${m.series.name}. ${m.format} ${verb.toLowerCase()} at ${m.venue}.`,
+    description: `${m.homeTeam.name} vs ${m.awayTeam.name}, ${m.series.name}. ${m.format} ${verb.toLowerCase()}${m.venue === VENUE_TBD ? '' : ` at ${m.venue}`}.`,
   };
 }
 

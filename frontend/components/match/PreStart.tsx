@@ -8,6 +8,7 @@ import LocalTime from '../ui/LocalTime';
 import Countdown from '../live/Countdown';
 import mc from './matchCenter.module.scss';
 import styles from './PreStart.module.scss';
+import { venueText } from '@/lib/venue';
 
 /** The Live tab before the first ball: what is known about the start, from the feed. */
 export default function PreStart({ match, state }: { match: Match; state: MatchStateView }) {
@@ -43,10 +44,10 @@ export default function PreStart({ match, state }: { match: Match; state: MatchS
           {match.venue &&
             (match.venueId ? (
               <Link href={`/venues/${match.venueId}`} className={styles.venue}>
-                {match.venue}
+                {venueText(match.venue)}
               </Link>
             ) : (
-              <span className={styles.venue}>{match.venue}</span>
+              <span className={styles.venue}>{venueText(match.venue)}</span>
             ))}
         </p>
         {figures.length > 0 && (

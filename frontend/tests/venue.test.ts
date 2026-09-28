@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { cleanVenueName } from '../lib/crex';
+import { cleanVenueName, venueText } from '../lib/venue';
 
 describe('cleanVenueName', () => {
   it('strips invisible and private-use characters', () => {
@@ -15,6 +15,11 @@ describe('cleanVenueName', () => {
 
   it('reads every undecided venue as TBD', () => {
     for (const raw of ['', '   ', 'tbd', 'TBA', 'To be decided', undefined, null]) assert.equal(cleanVenueName(raw), 'TBD');
+  });
+
+  it('reads TBD as "Venue TBD" in running text', () => {
+    assert.equal(venueText('TBA'), 'Venue TBD');
+    assert.equal(venueText('Kingsmead, Durban'), 'Kingsmead, Durban');
   });
 
   it('leaves a valid name alone', () => {

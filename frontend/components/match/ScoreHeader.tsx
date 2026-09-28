@@ -14,6 +14,7 @@ import Ticker from '../live/Ticker';
 import Countdown from '../live/Countdown';
 import PlayerLink from './PlayerLink';
 import styles from './ScoreHeader.module.scss';
+import { venueText } from '@/lib/venue';
 
 export interface ScoreParts {
   runs: string;
@@ -113,7 +114,7 @@ export default function ScoreHeader({
 
       <div className={styles.top}>
         <StateChip state={state} full={!state.alive && state.key !== 'FINISHED'} />
-        {connecting && <span className={styles.connecting}>Connecting</span>}
+        {connecting && <span className={styles.connecting}>Updating</span>}
         {lastBall?.timestamp && <LastBallAge iso={lastBall.timestamp} className={styles.age} />}
         <span className={styles.meta}>
           <Link href={`/series/${match.series.id}`} className={styles.series}>
@@ -124,10 +125,10 @@ export default function ScoreHeader({
           ))}
           {match.venueId ? (
             <Link href={`/venues/${match.venueId}`} className={styles.venue}>
-              {match.venue}
+              {venueText(match.venue)}
             </Link>
           ) : (
-            <span className={styles.venue}>{match.venue}</span>
+            <span className={styles.venue}>{venueText(match.venue)}</span>
           )}
         </span>
       </div>

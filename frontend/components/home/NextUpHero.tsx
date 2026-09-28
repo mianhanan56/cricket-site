@@ -8,6 +8,7 @@ import Countdown from '../live/Countdown';
 import CreaseLine from '../live/CreaseLine';
 import StateChip from '../live/StateChip';
 import styles from './NextUpHero.module.scss';
+import { venueText } from '@/lib/venue';
 
 /** The stage when nothing is live: the next first ball, counting down. */
 export default function NextUpHero({ match }: { match: Match }) {
@@ -47,7 +48,7 @@ export default function NextUpHero({ match }: { match: Match }) {
         <span className={styles.meta}>
           <span className={styles.format}>{match.format}</span>
           <span>{match.series.name}</span>
-          <span className={styles.venue}>{match.venue}</span>
+          <span className={styles.venue}>{venueText(match.venue)}</span>
         </span>
         <Link href={`/matches/${match.id}`} className={styles.open}>
           Match preview
