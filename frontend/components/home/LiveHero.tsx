@@ -22,6 +22,7 @@ import PulseTrace from '../live/PulseTrace';
 import MatchPulse from '../live/MatchPulse';
 import BallTimeline from '../live/BallTimeline';
 import LastBallAge from '../live/LastBallAge';
+import Skeleton from '../ui/Skeleton';
 import styles from './LiveHero.module.scss';
 
 const HERO_INTERVAL_MS = 5_000;
@@ -249,7 +250,15 @@ export default function LiveHero({ match }: { match: Match }) {
                   )}
                 </ul>
               ) : (
-                <p className={styles.muted}>{extras.loaded ? 'Waiting for the next ball' : 'Syncing the card'}</p>
+                extras.loaded ? (
+                  <p className={styles.muted}>Waiting for the next ball</p>
+                ) : (
+                  <div className={styles.creaseLoading} aria-busy="true" aria-label="Loading the crease">
+                    <Skeleton variant="body" width="70" />
+                    <Skeleton variant="body" width="60" />
+                    <Skeleton variant="body" width="50" />
+                  </div>
+                )
               )}
             </div>
 

@@ -63,7 +63,10 @@ function Row({
           {latest && <span className={styles.overs}>{formatProgressShort(latest.overs, match.ballsPerOver)}</span>}
         </span>
       ) : (
-        <span className={styles.noScore}>{match.status === 'UPCOMING' ? '' : 'Yet to bat'}</span>
+        <span className={styles.noScore}>
+          {/* Only true of a side still waiting in a live match — not of an abandoned one or before the toss. */}
+          {match.status === 'LIVE' && (match.scorecard?.innings ?? []).some((i) => !i.notStarted) ? 'Yet to bat' : ''}
+        </span>
       )}
     </div>
   );

@@ -97,7 +97,7 @@ function SquadColumn({ team, players }: { team: Team; players: SquadPlayer[] }) 
                 </abbr>
               )}
             </span>
-            <span className={`${styles.role} ${ROLE_CLASS[p.role]}`}>{ROLE_LABELS[p.role]}</span>
+            {p.role && <span className={`${styles.role} ${ROLE_CLASS[p.role]}`}>{ROLE_LABELS[p.role]}</span>}
           </li>
         ))}
       </ul>

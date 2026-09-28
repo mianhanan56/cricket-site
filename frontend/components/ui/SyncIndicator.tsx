@@ -1,7 +1,7 @@
 import styles from './States.module.scss';
 
 /** The branded loading signal: three beats travelling along a crease. */
-export default function SyncIndicator({ label = 'Syncing live data' }: { label?: string }) {
+export default function SyncIndicator({ label = 'Updating' }: { label?: string }) {
   return (
     <span className={styles.sync} role="status">
       <span className={styles.syncBeats} aria-hidden="true">

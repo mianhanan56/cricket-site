@@ -119,7 +119,7 @@ export default function SearchClient() {
 
   return (
     <div className={styles.page}>
-      <PageHeader eyebrow="Search" title={term.length >= 2 ? `“${term}”` : 'Find anything'} />
+      <PageHeader eyebrow="Search" title={term.length >= 2 ? `“${term}”` : 'Search cricket'} />
 
       <div className={styles.field}>
         <Icon name="search" size={20} className={styles.fieldIcon} />
@@ -134,7 +134,7 @@ export default function SearchClient() {
           autoFocus
           autoComplete="off"
           spellCheck={false}
-          placeholder="Teams, players, series, venues"
+          placeholder="Search players, teams, series or matches"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -162,7 +162,8 @@ export default function SearchClient() {
       {!loading && nothing && (
         <EmptyState
           icon="search"
-          title={`Nothing matches “${term}”`}
+          title="No results found"
+          body={`Nothing matches “${term}”. Try a different name, team or series.`}
           action={{ label: 'Browse fixtures', href: '/fixtures' }}
           secondary={{ label: 'Ranked players', href: '/players' }}
         />
@@ -171,7 +172,7 @@ export default function SearchClient() {
       {!loading && !searched && !term && (
         <EmptyState
           icon="search"
-          title="What are you looking for?"
+          title="Search players, teams, series or matches"
           action={{ label: 'Browse fixtures', href: '/fixtures' }}
           secondary={{ label: 'Ranked players', href: '/players' }}
           compact

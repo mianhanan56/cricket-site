@@ -91,6 +91,12 @@
   flex: 1;
 }
 
+.creaseLoading {
+  display: grid;
+  gap: $space-3;
+  padding-block: $space-1;
+}
+
 .age {
   @include data-num;
   font-size: $fs-2xs;

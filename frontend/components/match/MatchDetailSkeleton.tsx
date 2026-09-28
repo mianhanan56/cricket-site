@@ -57,7 +57,7 @@ export default function MatchDetailSkeleton() {
   return (
     <div className={`${s.page} ${stagger}`} role="status" aria-busy="true" aria-label="Loading match centre">
       <div className={s.header}>
-        <SyncIndicator label="Syncing match" />
+        <SyncIndicator label="Loading match" />
         <div className={s.teams}>
           {[0, 1].map((i) => (
             <div key={i} className={s.side}>

@@ -212,3 +212,14 @@
     font-size: $fs-2xl;
   }
 }
+
+.loadingBalls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.loadingPulse {
+  display: grid;
+  gap: $space-3;
+}

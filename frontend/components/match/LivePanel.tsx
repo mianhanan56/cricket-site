@@ -17,6 +17,7 @@ import WinProbability from './WinProbability';
 import MomentumGraph from './MomentumGraph';
 import PlayerLink from './PlayerLink';
 import PreStart from './PreStart';
+import Skeleton from '../ui/Skeleton';
 import { fmtOvers } from './ScorecardPanel';
 import mc from './matchCenter.module.scss';
 import styles from './LivePanel.module.scss';
@@ -145,7 +146,15 @@ export default function LivePanel({
               {groups.length ? (
                 <BallTimeline groups={groups} perOver={perOver} />
               ) : (
-                <p className={styles.muted}>{pending ? 'Syncing deliveries' : 'No deliveries yet'}</p>
+                pending ? (
+                  <div className={styles.loadingBalls} aria-busy="true" aria-label="Loading the current over">
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <Skeleton key={i} variant="circle" size="26" />
+                    ))}
+                  </div>
+                ) : (
+                  <p className={styles.muted}>No deliveries yet</p>
+                )
               )}
             </div>
           </section>
@@ -161,7 +170,15 @@ export default function LivePanel({
                   <MatchPulse readings={readings} window={Math.min(window.length, PULSE_WINDOW)} />
                 </>
               ) : (
-                <p className={styles.muted}>{pending ? 'Syncing deliveries' : 'Waiting for deliveries'}</p>
+                pending ? (
+                  <div className={styles.loadingPulse} aria-busy="true" aria-label="Loading the pulse">
+                    <Skeleton variant="block" />
+                    <Skeleton variant="body" width="80" />
+                    <Skeleton variant="body" width="60" />
+                  </div>
+                ) : (
+                  <p className={styles.muted}>Waiting for deliveries</p>
+                )
               )}
             </div>
           </section>

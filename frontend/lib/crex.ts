@@ -425,7 +425,26 @@ const CACHE_LIMIT: Record<CrexMapKind, number> = {
  * is the right trade here: entries are cheap to re-fetch and the limit is high
  * enough that eviction is rare.
  */
+const VENUE_UNKNOWN = /^(tbd|tba|to be (decided|announced|confirmed))$/i;
+
+/**
+ * A venue name as crex's mapping should have sent it: no control, format or
+ * private-use characters (a stray box glyph opened "JB Marks Oval"), no doubled
+ * spaces, no dangling separators, and every flavour of "not decided" read as TBD.
+ */
+export function cleanVenueName(raw: string | undefined | null): string {
+  const text = (raw ?? '')
+    .replace(/[\p{C}\u{FFFD}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .replace(/\s+([,;:])/g, '$1')
+    .replace(/^[\s,;:.·|/\-–—]+/, '')
+    .replace(/[\s,;:·|/\-–—]+$/, '')
+    .trim();
+  return !text || VENUE_UNKNOWN.test(text) ? 'TBD' : text;
+}
+
 function remember(kind: CrexMapKind, entry: CrexMapEntry): void {
+  if (kind === 'v') entry = { ...entry, n: cleanVenueName(entry.n) };
   const bucket = nameCache[kind];
   bucket.delete(entry.f_key);
   bucket.set(entry.f_key, entry);
@@ -1898,7 +1917,7 @@ interface CrexMatchInfo {
   fo?: string;
 }
 
-/** `tb`'s role field. Anything unrecognised falls back to batter. */
+/** `tb`'s role field. Anything unrecognised is left unknown rather than called a batter. */
 const SQUAD_ROLES: Record<string, PlayerRole> = {
   '1': 'BATSMAN',
   '2': 'BOWLER',
@@ -2074,7 +2093,7 @@ export async function getCrexMatchInfo(
 
     out[teamKey] = side.map((fields) => {
       const key = cleanKey(fields[SQUAD_KEY_INDEX]);
-      const role = SQUAD_ROLES[fields[SQUAD_ROLE_INDEX]] ?? 'BATSMAN';
+      const role = SQUAD_ROLES[fields[SQUAD_ROLE_INDEX]] ?? null;
 
       return {
         id: key,
@@ -4674,11 +4693,10 @@ export function getCrexSeriesSquads(
 /**
  * One side's named squad for a series, or an empty list where crex has none.
  *
- * Roles come from the flags rather than from a role field — crex sends the keeper
- * in `iw` and says nothing about anyone else's discipline here, so everyone else
- * is `BATSMAN` by default. That is a real limitation, and the page prints the
- * squad as a list of names rather than as a batting/bowling split because of it:
- * grouping by a role we have not been told would be inventing the grouping.
+ * The series list marks only the keepers (`iw`); every other discipline is read
+ * from the squads of this side's own matches in the series, which carry a role
+ * per player. A player neither source names keeps a null role rather than a
+ * guessed one.
  */
 export async function getCrexTeamSquad(
   seriesKey: string,
@@ -4700,7 +4718,7 @@ export async function getCrexTeamSquad(
   const keepers = new Set((mine.iw ?? []).map(cleanKey));
   const names = await resolveKeys({ p: mine.pf }, opts);
 
-  return mine.pf
+  const named = mine.pf
     .map((raw) => {
       const id = cleanKey(raw);
       const name = names.p.get(id)?.n;
@@ -4710,33 +4728,45 @@ export async function getCrexTeamSquad(
       const player: SquadPlayer = {
         id,
         name,
-        role: keepers.has(id) ? 'WK' : 'BATSMAN',
+        role: keepers.has(id) ? 'WK' : null,
         isCaptain: captains.has(id) || undefined,
       };
       return player;
     })
     .filter((p): p is SquadPlayer => p !== null);
+
+  const roles = await seriesRoles(seriesKey, want, opts);
+  return named.map((p) => (p.role === null ? { ...p, role: roles.get(p.id) ?? null } : p));
 }
 
+// Two matches name nearly every player a tour uses; more is requests for little.
+const ROLE_SOURCE_MATCHES = 2;
+
 /**
- * A series squad with each player's discipline filled in from a match of that
- * series. The series list names only the keepers; the match's own squad (`tb`)
- * carries a role per player, so the two together are a real batting/bowling split.
+ * Each player's discipline for one side, from its own match squads in a series.
+ * Upcoming matches first — crex prunes a squad once play starts — then the latest played.
  */
-async function withMatchRoles(
-  squad: SquadPlayer[],
-  teamKey: string,
-  matchKey: string | null,
-  opts: FetchOpts
-): Promise<SquadPlayer[]> {
-  if (!squad.length || !matchKey) return squad;
-  const info = await getCrexMatchInfo(matchKey, opts).catch(() => null);
-  const roles = new Map((info?.squads[cleanKey(teamKey)] ?? []).map((p) => [p.id, p.role]));
-  if (!roles.size) return squad;
-  return squad.map((p) => {
-    const role = roles.get(p.id);
-    return role && p.role !== 'WK' ? { ...p, role } : p;
-  });
+async function seriesRoles(seriesKey: string, teamKey: string, opts: FetchOpts): Promise<Map<string, PlayerRole>> {
+  const schedule = await getCrexSeriesSchedule(seriesKey, opts).catch(() => null);
+  const mine = (schedule?.matches ?? []).filter(
+    (m) => m.matchKey && (m.homeTeam.id === teamKey || m.awayTeam.id === teamKey)
+  );
+  const keys = [
+    ...mine.filter((m) => m.status === 'UPCOMING'),
+    ...mine.filter((m) => m.status !== 'UPCOMING').reverse(),
+  ]
+    .slice(0, ROLE_SOURCE_MATCHES)
+    .map((m) => m.matchKey as string);
+
+  const roles = new Map<string, PlayerRole>();
+  const infos = await Promise.all(keys.map((k) => getCrexMatchInfo(k, opts).catch(() => null)));
+  for (const info of infos) {
+    for (const p of info?.squads[teamKey] ?? []) {
+      // A keeper is marked over the role in a match squad, so it says nothing about discipline.
+      if (p.role && p.role !== 'WK' && !roles.has(p.id)) roles.set(p.id, p.role);
+    }
+  }
+  return roles;
 }
 
 /**
@@ -5056,15 +5086,9 @@ export async function getCrexTeamProfile(
   const squadSeriesKey =
     upcoming.find((m) => m.series.id)?.series.id ?? mine.sort(byNewest)[0]?.series.id ?? null;
 
-  const named = squadSeriesKey
+  const squad = squadSeriesKey
     ? await getCrexTeamSquad(squadSeriesKey, key, opts).catch(() => [])
     : [];
-  const squad = await withMatchRoles(
-    named,
-    key,
-    [...upcoming, ...mine].find((m) => m.series.id === squadSeriesKey && m.id)?.id ?? null,
-    opts
-  );
 
   const squadSeriesName = squadSeriesKey
     ? (upcoming.find((m) => m.series.id === squadSeriesKey)?.series.name ??

@@ -24,7 +24,6 @@ import ScoreTicker from './ScoreTicker';
 import UpcomingRail from './UpcomingRail';
 import ResultList from './ResultList';
 import MyCricketBand from './MyCricketBand';
-import WhatMatters from './WhatMatters';
 import MatchTile from '../match/MatchTile';
 import Segmented from '../ui/Segmented';
 import EmptyState from '../ui/EmptyState';
@@ -131,8 +130,6 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
           />
         )}
       </div>
-
-      {hasData && <WhatMatters live={liveList} results={finishedList} />}
 
       <MyCricketBand matches={matches} />
 

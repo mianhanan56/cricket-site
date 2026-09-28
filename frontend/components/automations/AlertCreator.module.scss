@@ -31,9 +31,19 @@
 }
 
 .question {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-1 $space-2;
   font-size: $fs-base;
   font-weight: 700;
   color: $text;
+}
+
+.hint {
+  font-size: $fs-sm;
+  font-weight: 500;
+  color: $text-3;
 }
 
 .presets {

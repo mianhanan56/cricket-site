@@ -29,8 +29,12 @@ export default function InsightsView() {
   const follows = useFollows();
 
   const live = useMemo(
-    () => rankLive(matches.filter((m) => m.status === 'LIVE'), new Set(follows.teams.map((t) => t.id))),
-    [matches, follows.teams]
+    () =>
+      rankLive(
+        matches.filter((m) => m.status === 'LIVE'),
+        new Set(follows.teams.map((t) => t.id)),
+      ),
+    [matches, follows.teams],
   );
 
   const vitals = useMemo(() => {
@@ -54,30 +58,32 @@ export default function InsightsView() {
           return t !== null && t > 0.8 && t < 1.6;
         })
         .sort((a, b) => Math.abs((tension(a) ?? 0) - 1) - Math.abs((tension(b) ?? 0) - 1)),
-    [live]
+    [live],
   );
 
   return (
     <div className={styles.page}>
       <PageHeader eyebrow="Live intelligence" title="Insights" />
 
-      <dl className={styles.vitals}>
-        {(
-          [
-            ['Live', vitals.live, 'signal'],
-            ['Ball in play', vitals.inPlay, 'signal'],
-            ['Chases on', vitals.chases, 'data'],
-            ['Behind the rate', vitals.tight, 'warn'],
-            ['Play stopped', vitals.stopped, 'data'],
-            ['Finished today', vitals.finished, 'text'],
-          ] as const
-        ).map(([label, value, tone]) => (
-          <div key={label} className={`${styles.vital} ${styles[tone]}`}>
-            <dt>{label}</dt>
-            <dd>{isLoading && !matches.length ? '–' : value}</dd>
-          </div>
-        ))}
-      </dl>
+      {live.length > 0 && (
+        <dl className={styles.vitals}>
+          {(
+            [
+              ['Live', vitals.live, 'signal'],
+              ['Ball in play', vitals.inPlay, 'signal'],
+              ['Chases on', vitals.chases, 'data'],
+              ['Behind the rate', vitals.tight, 'warn'],
+              ['Play stopped', vitals.stopped, 'data'],
+              ['Finished today', vitals.finished, 'text'],
+            ] as const
+          ).map(([label, value, tone]) => (
+            <div key={label} className={`${styles.vital} ${styles[tone]}`}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
 
       {isLoading && !matches.length ? (
         <div className={styles.loading}>
@@ -110,7 +116,7 @@ export default function InsightsView() {
         <EmptyState
           icon="insight"
           title="No live insights right now"
-          body="Chases, momentum swings and stoppages show up here as soon as a match is under way."
+          body="We’ll surface important match situations here when there’s something worth watching."
           action={{ label: 'See what’s next', href: '/?tab=upcoming' }}
         />
       )}

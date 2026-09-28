@@ -93,7 +93,8 @@ export default function PulseTrace({ points, label, still }: { points: TracePoin
         <svg className={styles.trace} width={w} height={H} viewBox={`0 0 ${w} ${H}`} aria-hidden="true">
           <line className={styles.crease} x1="0" x2={w} y1={MID} y2={MID} />
           {shown !== null && <line className={styles.guide} x1={xAt(shown)} x2={xAt(shown)} y1="0" y2={H} />}
-          <path key={last.id} className={styles.path} d={d} pathLength={1} />
+          {/* Drawn in once; re-keying per ball replayed the draw and left the markers floating past a half line. */}
+          <path className={styles.path} d={d} pathLength={1} />
           {marks.map((m) => (
             <circle key={m.id} className={`${styles.mark} ${styles[m.kind]}`} cx={m.x} cy={m.y} r="3.5" />
           ))}

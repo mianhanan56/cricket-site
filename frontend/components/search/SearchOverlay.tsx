@@ -196,7 +196,7 @@ function SearchDialog() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Players, teams, matches, series, venues"
+            placeholder="Search players, teams, series or matches"
             role="combobox"
             aria-expanded="true"
             aria-controls="search-results"
@@ -230,7 +230,8 @@ function SearchDialog() {
               </div>
             ) : (
               <div className={styles.none}>
-                <p className={styles.noneTitle}>Nothing matches “{trimmed}”</p>
+                <p className={styles.noneTitle}>No results found</p>
+                <p className={styles.noneBody}>Try a different name, team or series.</p>
                 <button
                   type="button"
                   className={styles.noneAction}
@@ -271,7 +272,7 @@ function SearchDialog() {
                 </section>
               ) : (
                 <div className={styles.status}>
-                  <SyncIndicator label="Syncing live data" />
+                  <SyncIndicator label="Loading suggestions" />
                 </div>
               )}
             </>

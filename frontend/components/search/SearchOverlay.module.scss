@@ -281,6 +281,11 @@
   color: $text-2;
 }
 
+.noneBody {
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
 .noneAction {
   @include button-secondary;
 }

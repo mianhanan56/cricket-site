@@ -5,7 +5,7 @@ import s from './HomeSkeleton.module.scss';
 
 export function HeroSkeleton() {
   return (
-    <div className={s.hero} role="status" aria-label="Syncing live data">
+    <div className={s.hero} role="status" aria-label="Loading live cricket">
       <div className={s.heroTop}>
         <SyncIndicator />
       </div>

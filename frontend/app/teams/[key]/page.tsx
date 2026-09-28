@@ -145,13 +145,11 @@ const ROLE_LABEL: Record<PlayerRole, string> = {
   BOWLER: 'Bowlers',
 };
 
-// Roles come from a match of the series; without one only keepers are marked and
-// everyone else arrives as BATSMAN, so that group is only "Batters" when roles are real.
+// A player no source names a discipline for is listed, not filed under a guessed role.
 function squadGroups(squad: SquadPlayer[]) {
-  const hasRealRoles = squad.some((p) => p.role === 'BOWLER' || p.role === 'ALL_ROUNDER');
-  return ROLE_ORDER.map((role) => ({
-    role,
-    label: role === 'BATSMAN' && !hasRealRoles ? 'Players' : ROLE_LABEL[role],
+  return [...ROLE_ORDER, null].map((role) => ({
+    role: role ?? 'OTHER',
+    label: role ? ROLE_LABEL[role] : 'Squad',
     players: squad
       .filter((p) => p.role === role)
       .sort((a, b) => Number(!!b.isCaptain) - Number(!!a.isCaptain)),

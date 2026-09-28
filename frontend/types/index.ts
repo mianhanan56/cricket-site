@@ -125,7 +125,8 @@ export interface MatchSquads {
 export interface SquadPlayer {
   id: string;
   name: string;
-  role: PlayerRole;
+  /** Null where the source names no discipline — shown as nothing, never guessed as batter. */
+  role: PlayerRole | null;
   /** Leads the side. Marked on the name rather than in `role`, which a captain shares with the rest of the XI. */
   isCaptain?: boolean;
 }
