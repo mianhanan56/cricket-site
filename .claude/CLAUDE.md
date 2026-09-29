@@ -6,8 +6,6 @@ Before ANY UI/design task, read and follow:
 
 ## Project Structure
 - Frontend: Next.js 14 App Router + SCSS Modules
-- Backend: Node.js + Express
-- Database: PostgreSQL (Neon.tech) + Prisma
 - Monorepo: npm workspaces
 
 ## Key Rules

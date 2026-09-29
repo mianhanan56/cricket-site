@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { dayDate, formatDayLong } from '@/lib/fixtureDays';
+import {
+  dayDate,
+  describeSelection,
+  formatDayLong,
+  rangeSelection,
+  selectionDays,
+  selectionRange,
+} from '@/lib/fixtureDays';
 import { LOCALE } from '@/lib/datetime';
 import Icon from '../ui/Icon';
 import styles from './FixtureCalendar.module.scss';
@@ -25,18 +32,27 @@ function monthGrid(month: string): Array<string | null> {
 }
 
 export interface FixtureCalendarProps {
-  /** Selected day key, or '' for every upcoming day. */
+  /** The ?date= selection — a day, a range or a list — or '' for the coming week. */
   value: string;
-  onChange: (key: string) => void;
+  onChange: (selection: string) => void;
   /** Fixtures per day key — the calendar only offers days that have any. */
   counts: Map<string, number>;
   /** The reader's today, or '' before the client has said what it is. */
   todayKey: string;
 }
 
-/** Month grid over the days the schedule covers; each offered day is shaded by how much cricket is on it. */
+/**
+ * Month grid over the days the schedule covers; each offered day is shaded by how
+ * much cricket is on it. One tap picks a day, a second tap on another day turns it
+ * into a range, and the same day twice keeps just that day.
+ */
 export default function FixtureCalendar({ value, onChange, counts, todayKey }: FixtureCalendarProps) {
   const [open, setOpen] = useState(false);
+  // The first end of a range still waiting for its second.
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const picked = useMemo(() => new Set(selectionDays(value)), [value]);
+  const range = selectionRange(value);
+  const firstPicked = selectionDays(value)[0] ?? '';
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
@@ -47,12 +63,16 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
     return [...set].sort();
   }, [counts]);
 
-  const [month, setMonth] = useState(() => monthKey(value || months[0] || todayKey || '1970-01'));
+  const [month, setMonth] = useState(() => monthKey(firstPicked || months[0] || todayKey || '1970-01'));
 
   // Follow a selection made elsewhere (the day strip, or a ?date= link).
   useEffect(() => {
-    if (value) setMonth(monthKey(value));
-  }, [value]);
+    if (firstPicked) setMonth(monthKey(firstPicked));
+  }, [firstPicked]);
+
+  useEffect(() => {
+    if (!open) setAnchor(null);
+  }, [open]);
 
   // A format filter can empty the shown month; fall back to one with cricket in it.
   useEffect(() => {
@@ -84,12 +104,23 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
   const prevMonth = index > 0 ? months[index - 1] : null;
   const nextMonth = index >= 0 && index < months.length - 1 ? months[index + 1] : null;
 
-  const pick = (key: string) => {
-    onChange(key);
+  const finish = (selection: string) => {
+    onChange(selection);
     close(true);
   };
 
-  const label = value ? formatDayLong(value) : 'the coming week';
+  const pick = (key: string) => {
+    if (anchor === null) {
+      setAnchor(key);
+      onChange(key);
+    } else if (anchor === key) {
+      finish(key);
+    } else {
+      finish(rangeSelection(anchor, key));
+    }
+  };
+
+  const label = value ? describeSelection(value) : 'the coming week';
   const max = Math.max(1, ...counts.values());
 
   return (
@@ -153,9 +184,14 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
                 <button
                   key={key}
                   type="button"
-                  className={`${styles.day} ${key === value ? styles.daySelected : ''} ${
-                    key === todayKey ? styles.dayToday : ''
-                  }`}
+                  className={`${styles.day} ${
+                    picked.has(key) && (!range || key === range[0] || key === range[1])
+                      ? styles.daySelected
+                      : picked.has(key)
+                        ? styles.dayInRange
+                        : ''
+                  } ${key === todayKey ? styles.dayToday : ''}`}
+                  aria-pressed={picked.has(key)}
                   disabled={!count}
                   data-level={level || undefined}
                   aria-current={key === todayKey ? 'date' : undefined}
@@ -170,16 +206,11 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
           </div>
 
           <div className={styles.foot}>
-            <button
-              type="button"
-              className={styles.clear}
-              onClick={() => pick('')}
-              disabled={!value}
-            >
+            <button type="button" className={styles.clear} onClick={() => finish('')} disabled={!value}>
               Coming week
             </button>
             {todayKey && counts.get(todayKey) ? (
-              <button type="button" className={styles.clear} onClick={() => pick(todayKey)}>
+              <button type="button" className={styles.clear} onClick={() => finish(todayKey)}>
                 Today
               </button>
             ) : null}

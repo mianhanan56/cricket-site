@@ -66,8 +66,77 @@ export const isRelativeDay = (key: string, todayKey: string): boolean =>
 export const formatDayLong = (key: string): string =>
   dayDate(key).toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
 
+// ?date= carries a selection of days, in one of three shapes:
+//   "2026-10-01"                   one day
+//   "2026-10-01..2026-10-11"       a range, both ends included
+//   "2026-10-02,2026-10-04"        separate days
+// '' is the coming week. Anything else is ignored rather than half-read.
+
+/** The longest range a link may expand to — two months of schedule. */
+const MAX_RANGE_DAYS = 62;
+
+const RANGE = '..';
+
+/** The days a selection covers, in order. */
+export function selectionDays(selection: string): string[] {
+  if (!selection) return [];
+  if (selection.includes(RANGE)) {
+    const [from, to] = selection.split(RANGE);
+    const days: string[] = [];
+    for (let key = from; key <= to && days.length < MAX_RANGE_DAYS; key = addDays(key, 1)) days.push(key);
+    return days;
+  }
+  return selection.split(',');
+}
+
+/** Days as the shortest selection that says the same thing. */
+export function daysSelection(days: Iterable<string>): string {
+  return [...new Set(days)]
+    .filter((d) => DAY_KEY_PATTERN.test(d))
+    .sort()
+    .join(',');
+}
+
+/** The range between two days, whichever order they were picked in. */
+export function rangeSelection(a: string, b: string): string {
+  if (a === b) return a;
+  return a < b ? `${a}${RANGE}${b}` : `${b}${RANGE}${a}`;
+}
+
+/** Add a day to a selection, or take it out if it is already there. */
+export function toggleDay(selection: string, key: string): string {
+  const days = new Set(selectionDays(selection));
+  if (days.has(key)) days.delete(key);
+  else days.add(key);
+  return daysSelection(days);
+}
+
+/** "2026-10-01..2026-10-11" -> the start and end, or null for any other shape. */
+export function selectionRange(selection: string): [string, string] | null {
+  if (!selection.includes(RANGE)) return null;
+  const [from, to] = selection.split(RANGE);
+  return [from, to];
+}
+
 /** A ?date= value, or '' for the unfiltered view. */
 export function pickDayParam(raw: string | string[] | undefined | null): string {
-  const first = Array.isArray(raw) ? raw[0] : raw;
-  return first && DAY_KEY_PATTERN.test(first) ? first : '';
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value) return '';
+  if (value.includes(RANGE)) {
+    const [from, to, extra] = value.split(RANGE);
+    return extra === undefined && DAY_KEY_PATTERN.test(from) && DAY_KEY_PATTERN.test(to)
+      ? rangeSelection(from, to)
+      : '';
+  }
+  const days = value.split(',');
+  return days.every((d) => DAY_KEY_PATTERN.test(d)) ? daysSelection(days) : '';
+}
+
+/** How a selection reads in a sentence: "on Monday 12 October", "from 1 Oct to 11 Oct". */
+export function describeSelection(selection: string): string {
+  const range = selectionRange(selection);
+  const short = (key: string) => dayDate(key).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
+  if (range) return `from ${short(range[0])} to ${short(range[1])}`;
+  const days = selectionDays(selection);
+  return days.length === 1 ? `on ${formatDayLong(days[0])}` : `on the ${days.length} days picked`;
 }

@@ -34,6 +34,11 @@ export interface Env {
 // Stale scores beat a broken page.
 const STALE_GRACE_SECONDS = 300;
 
+// crex's live list has hung rather than failed. Without a ceiling the call never
+// settles, and every request joined to it in `inFlight` hangs with it. Kept under
+// the frontend's own 15s so the caller gets this Worker's 502, not its own abort.
+const UPSTREAM_TIMEOUT_MS = 10_000;
+
 /**
  * Upstream calls this isolate currently has open, keyed by the cache key.
  *
@@ -177,7 +182,11 @@ function fetchUpstream(route: RouteDef, params: Record<string, ParamValue>): Pro
 
   if (route.method === 'GET') {
     const query = canonicalQuery(params);
-    return fetch(`${base}${route.path}${query ? `?${query}` : ''}`, { headers, cf });
+    return fetch(`${base}${route.path}${query ? `?${query}` : ''}`, {
+      headers,
+      cf,
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    });
   }
 
   headers['Content-Type'] = 'application/json';
@@ -186,6 +195,7 @@ function fetchUpstream(route: RouteDef, params: Record<string, ParamValue>): Pro
     headers,
     body: JSON.stringify({ ...route.bodyDefaults, ...(route.buildBody ? route.buildBody(params) : params) }),
     cf,
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
 }
 
@@ -231,7 +241,9 @@ function fetchAndStore(
       return { ok: true, stored: await store(cacheKey, fresh, route.ttl, cache, ctx) };
     } catch (err) {
       // status 0 is "never got a reply", which is a 502 rather than a passthrough.
-      return { ok: false, status: 0, detail: String(err) };
+      const timedOut = err instanceof Error && err.name === 'TimeoutError';
+      const detail = timedOut ? `No reply within ${UPSTREAM_TIMEOUT_MS / 1000}s` : String(err);
+      return { ok: false, status: 0, detail };
     }
   })().finally(() => inFlight.delete(cacheKey.url));
 

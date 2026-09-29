@@ -8,3 +8,8 @@
     padding-top: $space-6;
   }
 }
+
+// The live hero is the page's visual lead; the heading is there for the outline.
+.title {
+  @include visually-hidden;
+}

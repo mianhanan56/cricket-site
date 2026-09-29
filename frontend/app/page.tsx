@@ -22,6 +22,7 @@ export default function HomePage({
 
   return (
     <div className={styles.page}>
+      <h1 className={styles.title}>Live cricket scores, fixtures and results</h1>
       <HomeMatches initialTab={tab} initialType={type} />
     </div>
   );

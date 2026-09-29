@@ -1,18 +1,28 @@
 @use 'component' as *;
 
 .footer {
-  margin-top: $space-20;
+  margin-top: $space-8;
   border-top: 1px solid $line;
   background: $bg-raise;
+
+  @include tablet {
+    margin-top: $space-12;
+  }
+
+  @include desktop {
+    margin-top: $space-20;
+  }
 }
 
 .inner {
   @include container;
   display: grid;
-  gap: $space-8;
-  padding-block: $space-10 $space-8;
+  gap: $space-5;
+  padding-block: $space-6 $space-5;
 
   @include tablet {
+    gap: $space-8;
+    padding-block: $space-10 $space-8;
     grid-template-columns: 1fr 2fr;
     align-items: start;
   }
@@ -21,7 +31,11 @@
 .brand {
   display: flex;
   flex-direction: column;
-  gap: $space-3;
+  gap: $space-2;
+
+  @include tablet {
+    gap: $space-3;
+  }
 }
 
 .logo {
@@ -39,11 +53,11 @@
 
 .columns {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: $space-6;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: $space-4;
 
-  @include sm {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  @include tablet {
+    gap: $space-6;
   }
 }
 
@@ -55,7 +69,11 @@
 
 .colTitle {
   @include eyebrow;
-  margin-bottom: $space-2;
+  margin-bottom: $space-1;
+
+  @include tablet {
+    margin-bottom: $space-2;
+  }
 }
 
 .link {
@@ -68,6 +86,12 @@
 
   &:hover {
     color: $text;
+  }
+}
+
+.docked {
+  @include below-desktop {
+    display: none;
   }
 }
 

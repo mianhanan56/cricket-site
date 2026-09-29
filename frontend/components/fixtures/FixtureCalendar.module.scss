@@ -160,6 +160,12 @@
   border-color: $line-3;
 }
 
+// Between the two ends of a range: part of the pick, quieter than its ends.
+.dayInRange {
+  background: color-mix(in oklab, var(--signal) 28%, var(--surface-2));
+  color: $text;
+}
+
 .daySelected {
   background: $signal;
   color: $signal-ink;

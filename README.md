@@ -29,7 +29,7 @@ cricket/
 
 ```bash
 npm install
-npm run dev --workspace=@crex/frontend      # :3000
+npm run dev --workspace=@crex/frontend      # :3005
 ```
 
 That is the entire setup. No database, no migrations, no seeding, no secrets —

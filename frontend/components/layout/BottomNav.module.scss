@@ -61,7 +61,8 @@
 .sheetWrap {
   position: fixed;
   inset: 0;
-  z-index: $z-overlay;
+  // Under the dock, so More stays in reach to close it; over the header.
+  z-index: $z-dock - 1;
 
   @include desktop {
     display: none;

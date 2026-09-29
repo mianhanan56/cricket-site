@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
+import { useScrollFade } from '@/hooks/useScrollFade';
 import styles from './Segmented.module.scss';
 
 export interface SegmentOption<T extends string> {
@@ -31,6 +32,7 @@ export default function Segmented<T extends string>({
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  useScrollFade(ref);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;

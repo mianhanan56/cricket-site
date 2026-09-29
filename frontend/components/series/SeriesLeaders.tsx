@@ -19,16 +19,7 @@ export const STAT_SLUG: Record<SeriesStatKind, string> = {
 };
 
 // Dot balls and fantasy points have no ranking page behind them, so they are left off.
-const ORDER = [
-  'RUNS',
-  'WICKETS',
-  'HIGHEST_SCORE',
-  'BEST_FIGURES',
-  'SIXES',
-  'FOURS',
-  'STRIKE_RATE',
-  'ECONOMY',
-] as const;
+const ORDER = ['RUNS', 'WICKETS', 'HIGHEST_SCORE', 'BEST_FIGURES', 'SIXES', 'FOURS', 'STRIKE_RATE', 'ECONOMY'] as const;
 
 const UNIT: Partial<Record<SeriesLeader['kind'], string>> = {
   RUNS: 'runs',
@@ -37,15 +28,8 @@ const UNIT: Partial<Record<SeriesLeader['kind'], string>> = {
   FOURS: 'fours',
 };
 
-const EXTRA: Array<{ kind: SeriesStatKind; label: string }> = [
-  { kind: 'FIFTIES', label: 'Most fifties' },
-  { kind: 'HUNDREDS', label: 'Most hundreds' },
-];
-
 export function rankedLeaders(leaders: Leaders): SeriesLeader[] {
-  return ORDER.map((kind) => leaders.leaders.find((l) => l.kind === kind)).filter((l): l is SeriesLeader =>
-    Boolean(l)
-  );
+  return ORDER.map((kind) => leaders.leaders.find((l) => l.kind === kind)).filter((l): l is SeriesLeader => Boolean(l));
 }
 
 function hrefFor(seriesId: string, kind: SeriesLeader['kind']): string {
@@ -73,7 +57,15 @@ export function LeaderFigure({ leader, seriesId }: { leader: SeriesLeader; serie
 }
 
 /** The tournament's honours board; every card opens its full ranking. */
-export function SeriesLeadersBoard({ leaders, seriesId }: { leaders: Leaders; seriesId: string }) {
+export function SeriesLeadersBoard({
+  leaders,
+  seriesId,
+  children,
+}: {
+  leaders: Leaders;
+  seriesId: string;
+  children?: React.ReactNode;
+}) {
   const shown = rankedLeaders(leaders);
   if (!shown.length) return null;
 
@@ -121,8 +113,8 @@ export function SeriesLeadersBoard({ leaders, seriesId }: { leaders: Leaders; se
         ))}
       </div>
 
-      <div className={styles.foot}>
-        {(leaders.fours !== null || leaders.sixes !== null) && (
+      {(leaders.fours !== null || leaders.sixes !== null) && (
+        <div className={styles.foot}>
           <dl className={styles.totals}>
             {leaders.fours !== null && (
               <div>
@@ -137,16 +129,10 @@ export function SeriesLeadersBoard({ leaders, seriesId }: { leaders: Leaders; se
               </div>
             )}
           </dl>
-        )}
+        </div>
+      )}
 
-        <nav className={styles.more} aria-label="More rankings">
-          {EXTRA.map((x) => (
-            <Link key={x.kind} href={`/series/${seriesId}/stats/${STAT_SLUG[x.kind]}`} className={styles.moreLink}>
-              {x.label}
-            </Link>
-          ))}
-        </nav>
-      </div>
+      {children}
     </div>
   );
 }

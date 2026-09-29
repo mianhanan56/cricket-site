@@ -4,24 +4,6 @@
   @include icon-button;
 }
 
-.row {
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  width: 100%;
-  min-height: 48px;
-  padding-inline: $space-3;
-  border-radius: $r-sm;
-  font-size: $fs-base;
-  color: $text-2;
-  @include focus-ring;
-
-  &:hover {
-    color: $text;
-    background: $surface-2;
-  }
-}
-
 .icon {
   display: inline-flex;
 

@@ -7,7 +7,7 @@ export function HeroSkeleton() {
   return (
     <div className={s.hero} role="status" aria-label="Loading live cricket">
       <div className={s.heroTop}>
-        <SyncIndicator />
+        <SyncIndicator label="Loading matches" />
       </div>
       <div className={s.heroMain}>
         <div className={s.heroScore}>

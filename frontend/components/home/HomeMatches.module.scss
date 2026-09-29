@@ -27,6 +27,17 @@
 
 .typeFilter {
   margin-left: auto;
+
+  @include phone-only {
+    order: 2;
+    flex-basis: 100%;
+    margin-left: 0;
+
+    > * {
+      flex: 1 0 auto;
+      justify-content: center;
+    }
+  }
 }
 
 .tabs {

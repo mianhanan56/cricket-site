@@ -93,6 +93,18 @@
   min-width: 0;
   @include focus-ring;
 
+  // Phones read the board as a list: label and player left, the figure right.
+  @include mobile-only {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'label value'
+      'who value'
+      'support support';
+    gap: $space-2 $space-3;
+    padding: $space-4;
+  }
+
   @include desktop {
     grid-column: span 4;
   }
@@ -106,15 +118,21 @@
 
 .cardLabel {
   @include eyebrow;
+  grid-area: label;
 }
 
 .value {
   @include display-num;
+  grid-area: value;
   display: flex;
   align-items: baseline;
   gap: $space-2;
   font-size: clamp(26px, 4vw, 32px);
   color: $text;
+
+  @include mobile-only {
+    align-self: center;
+  }
 
   .card[data-featured] & {
     @include desktop {
@@ -130,6 +148,7 @@
 }
 
 .cardWho {
+  grid-area: who;
   display: flex;
   align-items: center;
   gap: $space-3;
@@ -138,6 +157,7 @@
 
 .support {
   @include data-num;
+  grid-area: support;
   margin-top: auto;
   padding-top: $space-3;
   border-top: 1px solid $line;
@@ -173,16 +193,3 @@
   }
 }
 
-.more {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $space-2;
-
-  @include tablet {
-    margin-left: auto;
-  }
-}
-
-.moreLink {
-  @include button-secondary;
-}

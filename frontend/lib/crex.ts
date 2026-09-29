@@ -264,10 +264,21 @@ interface FetchOpts {
 /** An innings of The Hundred, in balls. */
 const HUNDRED_BALLS = 100;
 
+// crex's live list has been seen to hang rather than fail; without a ceiling a
+// server render waits on it indefinitely and a client poll never retries.
+const CREX_TIMEOUT_MS = 15_000;
+
+function withTimeout(signal: AbortSignal | undefined): AbortSignal | undefined {
+  if (typeof AbortSignal === 'undefined' || typeof AbortSignal.timeout !== 'function') return signal;
+  const timeout = AbortSignal.timeout(CREX_TIMEOUT_MS);
+  if (!signal) return timeout;
+  return typeof AbortSignal.any === 'function' ? AbortSignal.any([signal, timeout]) : signal;
+}
+
 async function crexGet<T>(path: string, opts: FetchOpts = {}): Promise<T> {
   const res = await fetch(`${CREX_WORKER_URL.replace(/\/$/, '')}${path}`, {
     headers: { Accept: 'application/json' },
-    signal: opts.signal,
+    signal: withTimeout(opts.signal),
     next: opts.revalidate !== undefined ? { revalidate: opts.revalidate } : undefined,
   });
 
@@ -4478,19 +4489,11 @@ export function seriesStatLabel(kind: SeriesStatKind): string {
 
 export const SERIES_STAT_KINDS = Object.keys(STAT_SPECS) as SeriesStatKind[];
 
-/**
- * One ranking for one series — the top `limit` players, with the batting or
- * bowling totals behind the figure.
- *
- * Returns null where the series has no completed card to read, which is every
- * series before its first result.
- */
-export async function getCrexSeriesStatTable(
+/** Every player's series totals, read once off the cards. Null before the first card. */
+async function seriesStatRows(
   seriesKey: string,
-  kind: SeriesStatKind,
-  opts: FetchOpts & { limit?: number } = {}
-): Promise<SeriesStatTable | null> {
-  const limit = opts.limit ?? 10;
+  opts: FetchOpts = {}
+): Promise<{ rows: SeriesStatRow[]; matchesCounted: number } | null> {
   const schedule = await getCrexSeriesSchedule(seriesKey, {
     revalidate: STAT_REVALIDATE,
     ...opts,
@@ -4582,8 +4585,6 @@ export async function getCrexSeriesStatTable(
 
   if (!players.size) return null;
 
-  const spec = STAT_SPECS[kind];
-
   const rows: SeriesStatRow[] = [...players.values()].map((acc) => {
     const dismissals = acc.bat.innings - acc.bat.notOuts;
 
@@ -4630,6 +4631,16 @@ export async function getCrexSeriesStatTable(
     };
   });
 
+  return { rows, matchesCounted };
+}
+
+function rankStat(
+  kind: SeriesStatKind,
+  rows: SeriesStatRow[],
+  matchesCounted: number,
+  limit: number
+): SeriesStatTable | null {
+  const spec = STAT_SPECS[kind];
   const ranked = rows
     .filter(spec.qualifies)
     .sort((a, b) => {
@@ -4653,6 +4664,34 @@ export async function getCrexSeriesStatTable(
     matchesCounted,
     qualifier: spec.qualifier,
   };
+}
+
+/**
+ * One ranking for one series — the top `limit` players, with the batting or
+ * bowling totals behind the figure.
+ *
+ * Returns null where the series has no completed card to read, which is every
+ * series before its first result.
+ */
+export async function getCrexSeriesStatTable(
+  seriesKey: string,
+  kind: SeriesStatKind,
+  opts: FetchOpts & { limit?: number } = {}
+): Promise<SeriesStatTable | null> {
+  const totals = await seriesStatRows(seriesKey, opts);
+  return totals ? rankStat(kind, totals.rows, totals.matchesCounted, opts.limit ?? 10) : null;
+}
+
+/** Several rankings off one read of the cards, rather than one read each. */
+export async function getCrexSeriesStatTables(
+  seriesKey: string,
+  kinds: SeriesStatKind[],
+  opts: FetchOpts & { limit?: number } = {}
+): Promise<Partial<Record<SeriesStatKind, SeriesStatTable | null>>> {
+  const totals = await seriesStatRows(seriesKey, opts);
+  return Object.fromEntries(
+    kinds.map((kind) => [kind, totals ? rankStat(kind, totals.rows, totals.matchesCounted, opts.limit ?? 10) : null])
+  );
 }
 
 // ---------------------------------------------------------------------------

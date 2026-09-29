@@ -1,4 +1,8 @@
+'use client';
+
 import Link from 'next/link';
+import { useRef } from 'react';
+import { useScrollFade } from '@/hooks/useScrollFade';
 import styles from './SeriesTabs.module.scss';
 
 export interface SeriesTab {
@@ -21,11 +25,13 @@ export default function SeriesTabs({
   tabs: SeriesTab[];
   active: string;
 }) {
+  const groupRef = useRef<HTMLDivElement>(null);
+  useScrollFade(groupRef);
   if (tabs.length < 2) return null;
 
   return (
     <nav className={styles.rail} aria-label="Series sections">
-      <div className={styles.group}>
+      <div ref={groupRef} className={styles.group}>
         {tabs.map((tab) => {
           const current = tab.key === active;
           return (

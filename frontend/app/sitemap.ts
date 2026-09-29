@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { getCrexMatchList, seriesFromMatches } from '../lib/crex';
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3005';
 
 /**
  * Rebuild the sitemap hourly.

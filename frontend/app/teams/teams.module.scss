@@ -2,7 +2,7 @@
 
 .page {
   @include container;
-  padding-bottom: $space-16;
+  @include page-end;
 }
 
 .srOnly {
@@ -98,7 +98,7 @@
 .tileText {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: $space-1-5;
   min-width: 0;
 }
 
@@ -112,25 +112,50 @@
 .ranks {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px $space-3;
+  gap: $space-1;
 }
 
+// Format and position as one small two-part chip; the side's best format is tinted.
 .rank {
   @include data-num;
-  font-size: $fs-2xs;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: $text-3;
+  display: inline-flex;
+  align-items: stretch;
+  height: 20px;
+  border: 1px solid $line-2;
+  border-radius: $r-xs;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1;
 
   b {
+    display: grid;
+    place-items: center;
+    padding-inline: 5px;
+    background: $surface-2;
+    border-left: 1px solid $line-2;
     font-size: $fs-xs;
     font-weight: 700;
-    color: $text-2;
+    color: $text;
   }
 }
 
-.top b {
-  color: $signal-text;
+.rankFmt {
+  display: grid;
+  place-items: center;
+  padding-inline: 5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $text-3;
+}
+
+.top {
+  border-color: color-mix(in oklab, var(--signal) 45%, var(--line-2));
+
+  b {
+    background: $signal-soft;
+    border-left-color: color-mix(in oklab, var(--signal) 45%, var(--line-2));
+    color: $signal-text;
+  }
 }
 
 .follow {

@@ -17,6 +17,7 @@ import { matchStateOf } from '@/lib/matchState';
 import { inningsProgress, liveEquation } from '@/lib/telemetry';
 import { creaseFromCard } from '@/lib/crease';
 import { groupBalls, reachedByCard, toBallEntry, type BallEntry } from '@/lib/balls';
+import { useScrollFade } from '@/hooks/useScrollFade';
 import PointsTable from '../series/PointsTable';
 import BackButton from '../ui/BackButton';
 import FollowButton from '../follow/FollowButton';
@@ -220,6 +221,8 @@ export default function MatchDetail({
 
   const railInn = eq?.innings;
   const panelRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useScrollFade(tabsRef);
   const pick = (next: TabKey) => {
     setTab(next);
     if (compact) panelRef.current?.scrollIntoView({ block: 'start' });
@@ -268,7 +271,7 @@ export default function MatchDetail({
             )}
           </span>
         )}
-        <div className={styles.tabs} role="tablist">
+        <div ref={tabsRef} className={styles.tabs} role="tablist">
           {tabs.map((t) => (
             <button
               key={t.key}

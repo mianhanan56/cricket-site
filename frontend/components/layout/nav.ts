@@ -9,9 +9,10 @@ export interface NavLink {
 }
 
 export const PRIMARY_NAV: NavLink[] = [
-  { href: '/', label: 'Matches', icon: 'live', also: ['/matches', '/fixtures', '/venues'] },
+  { href: '/', label: 'Matches', icon: 'live', also: ['/matches', '/venues'] },
   { href: '/series', label: 'Series', icon: 'trophy' },
   { href: '/rankings', label: 'Rankings', icon: 'rankings', also: ['/players'] },
+  { href: '/fixtures', label: 'Fixtures', icon: 'calendar' },
   { href: '/teams', label: 'Teams', icon: 'teams' },
   { href: '/insights', label: 'Insights', icon: 'insight' },
 ];

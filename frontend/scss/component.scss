@@ -232,6 +232,15 @@ $gutter-wide: $space-8;
   }
 }
 
+// The space a page leaves above the footer; phones already give up height to the dock.
+@mixin page-end {
+  padding-bottom: $space-8;
+
+  @include desktop {
+    padding-bottom: $space-16;
+  }
+}
+
 @mixin motion {
   @media (prefers-reduced-motion: no-preference) {
     @content;
@@ -262,6 +271,24 @@ $gutter-wide: $space-8;
 
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+// Shades the edge of a horizontal scroller that still hides content (see useScrollFade).
+@mixin scroll-fade($size: 28px) {
+  &[data-fade='end'] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - #{$size}), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - #{$size}), transparent);
+  }
+
+  &[data-fade='start'] {
+    -webkit-mask-image: linear-gradient(to left, #000 calc(100% - #{$size}), transparent);
+    mask-image: linear-gradient(to left, #000 calc(100% - #{$size}), transparent);
+  }
+
+  &[data-fade='both'] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 #{$size}, #000 calc(100% - #{$size}), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 #{$size}, #000 calc(100% - #{$size}), transparent);
   }
 }
 

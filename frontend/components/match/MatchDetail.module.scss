@@ -3,7 +3,7 @@
 .page {
   @include container;
   padding-top: $space-3;
-  padding-bottom: $space-16;
+  @include page-end;
 
   @include desktop {
     padding-top: $space-5;
@@ -103,6 +103,7 @@
   gap: $space-1;
   min-width: 0;
   @include scroll-x;
+  @include scroll-fade;
 }
 
 .tab {

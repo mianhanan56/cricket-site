@@ -3,7 +3,7 @@
 .page {
   @include container;
   padding-top: $space-6;
-  padding-bottom: $space-16;
+  @include page-end;
   min-width: 0;
 }
 

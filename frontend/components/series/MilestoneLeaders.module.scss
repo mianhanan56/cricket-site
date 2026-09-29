@@ -1,0 +1,101 @@
+@use 'component' as *;
+
+.wrap {
+  display: grid;
+  gap: $space-3;
+  justify-items: start;
+
+  > * {
+    max-width: 100%;
+  }
+}
+
+.card {
+  @include panel;
+  display: grid;
+  gap: $space-3;
+  width: 100%;
+  padding: $space-4;
+
+  @include tablet {
+    max-width: 560px;
+    padding: $space-5;
+  }
+}
+
+.title {
+  @include eyebrow;
+}
+
+.list {
+  display: grid;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: $space-3;
+  padding-block: $space-2-5;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+}
+
+.rank {
+  @include data-num;
+  font-size: $fs-md;
+  color: $text-3;
+}
+
+.who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 700;
+  font-size: $fs-md;
+  color: $text;
+  @include truncate;
+}
+
+.team {
+  display: flex;
+  align-items: center;
+  gap: $space-1-5;
+  min-width: 0;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.teamName {
+  @include truncate;
+}
+
+.value {
+  @include display-num;
+  display: flex;
+  align-items: baseline;
+  gap: $space-1;
+  font-size: $fs-xl;
+  color: $text;
+
+  small {
+    @include eyebrow;
+    font-size: $fs-2xs;
+    text-transform: none;
+  }
+}
+
+.empty {
+  font-size: $fs-md;
+  color: $text-3;
+}
+
+.full {
+  @include button-secondary;
+  justify-self: start;
+}

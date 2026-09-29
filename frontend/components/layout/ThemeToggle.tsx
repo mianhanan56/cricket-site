@@ -32,21 +32,20 @@ export function useTheme(): Theme | null {
   return theme;
 }
 
-export default function ThemeToggle({ withLabel = false }: { withLabel?: boolean }) {
+export default function ThemeToggle() {
   const theme = useTheme();
   const next: Theme = theme === 'light' ? 'dark' : 'light';
 
   return (
     <button
       type="button"
-      className={withLabel ? styles.row : styles.toggle}
+      className={styles.toggle}
       onClick={() => setTheme(next)}
       aria-label={`Switch to ${next} mode`}
     >
       <span className={styles.icon} data-theme-icon={theme ?? 'dark'}>
         <Icon name={theme === 'light' ? 'moon' : 'sun'} size={18} />
       </span>
-      {withLabel && <span>{next === 'light' ? 'Day mode' : 'Night mode'}</span>}
     </button>
   );
 }

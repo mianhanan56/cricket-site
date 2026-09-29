@@ -10,7 +10,7 @@
 
 .title {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: $space-2;
   font-size: $fs-lg;
   font-stretch: $stretch-display;
@@ -24,18 +24,27 @@
 
 .titleSm {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: $space-2;
   font-size: $fs-lg;
   font-weight: 700;
 }
 
+// A tally, not a footnote: a pill centred on the heading.
 .count {
   @include data-num;
-  font-size: $fs-md;
-  font-weight: 500;
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 22px;
+  padding-inline: $space-2;
+  border-radius: $r-pill;
+  border: 1px solid $line-2;
+  background: $surface-2;
+  font-size: $fs-xs;
+  font-weight: 600;
   letter-spacing: 0;
-  color: $text-3;
+  color: $text-2;
 }
 
 .controls {

@@ -83,9 +83,7 @@ export default function Navbar() {
             {unread > 0 && <span className={styles.badge}>{unread > 9 ? '9+' : unread}</span>}
           </button>
 
-          <span className={styles.desktopOnly}>
-            <ThemeToggle />
-          </span>
+          <ThemeToggle />
 
           <div className={`${styles.profile} ${styles.desktopOnly}`} ref={profileRef}>
             <button
@@ -108,10 +106,6 @@ export default function Navbar() {
                 <Link href="/automations" className={styles.menuItem} role="menuitem">
                   <Icon name="bolt" size={17} />
                   <span>Alerts</span>
-                </Link>
-                <Link href="/fixtures" className={styles.menuItem} role="menuitem">
-                  <Icon name="calendar" size={17} />
-                  <span>Fixtures</span>
                 </Link>
               </div>
             )}

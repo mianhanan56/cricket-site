@@ -2,7 +2,7 @@
 
 .page {
   @include container;
-  padding-bottom: $space-16;
+  @include page-end;
 }
 
 .vitals {
@@ -56,9 +56,7 @@
 }
 
 .loading {
-  display: flex;
-  justify-content: center;
-  padding: $space-16 0;
+  margin-top: $space-8;
 }
 
 .section {

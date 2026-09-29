@@ -159,30 +159,6 @@ export default function LivePanel({
             </div>
           </section>
 
-          <section className={`${mc.block} ${styles.cellPulse}`}>
-            <div className={mc.blockHead}>
-              <h2 className={mc.blockTitle}>Live pulse</h2>
-            </div>
-            <div className={mc.surface}>
-              {readings ? (
-                <>
-                  <PulseTrace points={trace} label={`Last ${window.length} deliveries`} still={!state.alive} />
-                  <MatchPulse readings={readings} window={Math.min(window.length, PULSE_WINDOW)} />
-                </>
-              ) : (
-                pending ? (
-                  <div className={styles.loadingPulse} aria-busy="true" aria-label="Loading the pulse">
-                    <Skeleton variant="block" />
-                    <Skeleton variant="body" width="80" />
-                    <Skeleton variant="body" width="60" />
-                  </div>
-                ) : (
-                  <p className={styles.muted}>Waiting for deliveries</p>
-                )
-              )}
-            </div>
-          </section>
-
           {crease && (
             <section className={`${mc.block} ${styles.cellCrease}`}>
               <div className={mc.blockHead}>
@@ -238,6 +214,30 @@ export default function LivePanel({
               </div>
             </section>
           )}
+
+          <section className={`${mc.block} ${styles.cellPulse}`}>
+            <div className={mc.blockHead}>
+              <h2 className={mc.blockTitle}>Live pulse</h2>
+            </div>
+            <div className={mc.surface}>
+              {readings ? (
+                <>
+                  <PulseTrace points={trace} label={`Last ${window.length} deliveries`} still={!state.alive} />
+                  <MatchPulse readings={readings} window={Math.min(window.length, PULSE_WINDOW)} />
+                </>
+              ) : (
+                pending ? (
+                  <div className={styles.loadingPulse} aria-busy="true" aria-label="Loading the pulse">
+                    <Skeleton variant="block" />
+                    <Skeleton variant="body" width="80" />
+                    <Skeleton variant="body" width="60" />
+                  </div>
+                ) : (
+                  <p className={styles.muted}>Waiting for deliveries</p>
+                )
+              )}
+            </div>
+          </section>
         </div>
       )}
 

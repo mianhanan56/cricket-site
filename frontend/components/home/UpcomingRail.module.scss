@@ -142,6 +142,7 @@
 .code {
   font-weight: 700;
   font-stretch: $stretch-wide;
+  @include truncate;
 }
 
 .full {
@@ -280,6 +281,34 @@
     grid-template-columns: 60px 16px minmax(0, 1fr) auto;
     align-items: center;
     padding-block: $space-2;
+
+    // Narrow phones put the countdown under the time, as the full list does, so the sides keep their room.
+    @include mobile-only {
+      grid-template-columns: 60px 16px minmax(0, 1fr);
+      grid-template-areas:
+        'time node body'
+        'tick node body';
+    }
+  }
+
+  @include mobile-only {
+    .time {
+      grid-area: time;
+    }
+
+    .node {
+      grid-area: node;
+    }
+
+    .body {
+      grid-area: body;
+    }
+
+    .tick,
+    .state {
+      grid-area: tick;
+      justify-self: end;
+    }
   }
 
   .time time {

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Match, PointsTableRow } from '@/types';
@@ -20,6 +21,7 @@ import UpcomingRail from '../../../components/home/UpcomingRail';
 import ResultList from '../../../components/home/ResultList';
 import StateChip from '../../../components/live/StateChip';
 import LiveSeriesTiles from '../../../components/series/LiveSeriesTiles';
+import SeriesMilestones, { MilestonesSkeleton } from '../../../components/series/SeriesMilestones';
 import FollowButton from '../../../components/follow/FollowButton';
 import TeamBadge from '../../../components/ui/TeamBadge';
 import LocalTime from '../../../components/ui/LocalTime';
@@ -351,7 +353,11 @@ export default async function SeriesDetailPage({
       {tab === 'stats' && leaders && (
         <section>
           <SectionHead title="Top performers" level={3} />
-          <SeriesLeadersBoard leaders={leaders} seriesId={series.id} />
+          <SeriesLeadersBoard leaders={leaders} seriesId={series.id}>
+            <Suspense fallback={<MilestonesSkeleton />}>
+              <SeriesMilestones seriesId={series.id} />
+            </Suspense>
+          </SeriesLeadersBoard>
         </section>
       )}
     </div>

@@ -109,6 +109,12 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Switching tabs asks the server again instead of replaying the router's copy
+    // of a page for up to 30s (5 min if static). The server's per-fetch revalidate
+    // still decides whether crex is actually called, so nothing is over-fetched.
+    staleTimes: { dynamic: 0, static: 30 },
+  },
   eslint: {
     // `next lint` and the build's lint pass only cover app/, components/, lib/
     // and pages/ by default, which silently skipped these three. Listed so the

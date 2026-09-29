@@ -2,6 +2,6 @@
 
 .page {
   @include container;
-  padding-bottom: $space-16;
+  @include page-end;
   min-width: 0;
 }

@@ -18,15 +18,46 @@ export interface PulseNotification {
 }
 
 const MAX_KEPT = 100;
+const KINDS: ReadonlySet<string> = new Set<NotificationKind>(['live', 'moment', 'alert', 'result']);
 
-export const notificationsStore = createPersisted<PulseNotification[]>(
-  'pc.notifications',
-  [],
-  (raw) =>
-    Array.isArray(raw)
-      ? (raw.filter((n) => isRecord(n) && typeof n.id === 'string') as PulseNotification[])
-      : null
-);
+/**
+ * Stored notifications, minus anything that would break the panel: an entry
+ * with no id or title, a time no Date can hold (it throws on render), a
+ * duplicate id or event, and fields of the wrong type. One bad row is skipped,
+ * never the whole list.
+ */
+export function parseNotifications(raw: unknown): PulseNotification[] | null {
+  if (!Array.isArray(raw)) return null;
+
+  const seen = new Set<string>();
+  const kept: PulseNotification[] = [];
+  for (const n of raw) {
+    if (!isRecord(n) || typeof n.id !== 'string' || typeof n.title !== 'string') continue;
+    if (typeof n.at !== 'number' || !Number.isFinite(new Date(n.at).getTime())) continue;
+
+    const eventKey = typeof n.eventKey === 'string' ? n.eventKey : undefined;
+    if (seen.has(`id:${n.id}`) || (eventKey && seen.has(`event:${eventKey}`))) continue;
+    seen.add(`id:${n.id}`);
+    if (eventKey) seen.add(`event:${eventKey}`);
+
+    kept.push({
+      id: n.id,
+      kind: typeof n.kind === 'string' && KINDS.has(n.kind) ? (n.kind as NotificationKind) : 'alert',
+      title: n.title,
+      body: typeof n.body === 'string' ? n.body : '',
+      // Only in-app links: the panel hands this straight to the router.
+      href: typeof n.href === 'string' && n.href.startsWith('/') ? n.href : undefined,
+      at: n.at,
+      read: n.read === true,
+      automationId: typeof n.automationId === 'string' ? n.automationId : undefined,
+      eventKey,
+    });
+    if (kept.length === MAX_KEPT) break;
+  }
+  return kept;
+}
+
+export const notificationsStore = createPersisted<PulseNotification[]>('pc.notifications', [], parseNotifications);
 
 export const useNotifications = notificationsStore.use;
 
