@@ -197,6 +197,11 @@ export interface MatchNote {
    * bowled contradicts it outright — see `isStaleStoppage`.
    */
   preToss?: boolean;
+  /**
+   * Came from crex's free-text `res` with no status code beside it. That text
+   * outlives the break it names more often than the code does.
+   */
+  fromText?: boolean;
 }
 
 /** Where an innings sits in the match. Tests are the only format with four. */

@@ -16,10 +16,10 @@ import PointsTable from '../../../components/series/PointsTable';
 import { LeaderFigure, SeriesLeadersBoard, rankedLeaders } from '../../../components/series/SeriesLeaders';
 import SeriesTabs, { type SeriesTab } from '../../../components/series/SeriesTabs';
 import { ProgressRail, seriesSpan, seriesState } from '../../../components/series/SeriesCard';
-import MatchTile from '../../../components/match/MatchTile';
 import UpcomingRail from '../../../components/home/UpcomingRail';
 import ResultList from '../../../components/home/ResultList';
 import StateChip from '../../../components/live/StateChip';
+import LiveSeriesTiles from '../../../components/series/LiveSeriesTiles';
 import FollowButton from '../../../components/follow/FollowButton';
 import TeamBadge from '../../../components/ui/TeamBadge';
 import LocalTime from '../../../components/ui/LocalTime';
@@ -305,11 +305,7 @@ export default async function SeriesDetailPage({
           {live.length > 0 && (
             <section>
               <SectionHead title="Live now" count={live.length} level={3} />
-              <div className={styles.grid}>
-                {live.map((m) => (
-                  <MatchTile key={m.id} match={m} showSeries={false} />
-                ))}
-              </div>
+              <LiveSeriesTiles matches={live} className={styles.grid} />
             </section>
           )}
 

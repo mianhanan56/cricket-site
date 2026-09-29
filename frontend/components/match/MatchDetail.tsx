@@ -16,7 +16,7 @@ import { isStaleStoppage, attributeResult } from '@/lib/crex';
 import { matchStateOf } from '@/lib/matchState';
 import { inningsProgress, liveEquation } from '@/lib/telemetry';
 import { creaseFromCard } from '@/lib/crease';
-import { groupBalls, toBallEntry, type BallEntry } from '@/lib/balls';
+import { groupBalls, reachedByCard, toBallEntry, type BallEntry } from '@/lib/balls';
 import PointsTable from '../series/PointsTable';
 import BackButton from '../ui/BackButton';
 import FollowButton from '../follow/FollowButton';
@@ -147,8 +147,12 @@ export default function MatchDetail({
   const homeScore = scoreParts(inningsFor(match, match.homeTeam), perOver, multiInnings);
   const awayScore = scoreParts(inningsFor(match, match.awayTeam), perOver, multiInnings);
 
+  const cardDots = useMemo(
+    () => (isLive ? reachedByCard(dots, crexExtras.innings, perOver) : dots),
+    [isLive, dots, crexExtras.innings, perOver]
+  );
   // Not while play is stopped: the newest delivery then belongs to an innings that has ended.
-  const lastBall = isLive && state.alive ? dots[dots.length - 1] ?? null : null;
+  const lastBall = isLive && state.alive ? cardDots[cardDots.length - 1] ?? null : null;
 
   // Rates and crease read the fetched card — only it returns innings in innings order.
   const eq = useMemo(
@@ -177,8 +181,9 @@ export default function MatchDetail({
     const byId = new Map<string, BallEntry>();
     for (const b of commentary) byId.set(b.id, b);
     for (const b of history.balls) byId.set(b.id, toBallEntry(b));
-    return [...byId.values()].sort((a, b) => (b.inning ?? 0) - (a.inning ?? 0) || b.over - a.over || b.ball - a.ball);
-  }, [commentary, history.balls]);
+    const sorted = [...byId.values()].sort((a, b) => (b.inning ?? 0) - (a.inning ?? 0) || b.over - a.over || b.ball - a.ball);
+    return isLive ? reachedByCard(sorted, crexExtras.innings, perOver) : sorted;
+  }, [commentary, history.balls, isLive, crexExtras.innings, perOver]);
 
   const feedOvers = useMemo(() => {
     const byId = new Map<string, OverSummary>();
@@ -187,7 +192,7 @@ export default function MatchDetail({
     return [...byId.values()].sort((a, b) => b.inning - a.inning || b.over - a.over);
   }, [crexExtras.overs, history.overs]);
 
-  const ballGroups = useMemo(() => groupBalls(dots, perOver, commentary, state.alive), [dots, commentary, perOver, state.alive]);
+  const ballGroups = useMemo(() => groupBalls(cardDots, perOver, commentary, state.alive), [cardDots, commentary, perOver, state.alive]);
 
   const winnerId =
     match.status === 'COMPLETED' ? attributeResult(match.result, match.homeTeam, match.awayTeam).winnerKey : null;

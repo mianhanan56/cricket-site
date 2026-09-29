@@ -106,6 +106,8 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
 
   const typeNote = type === 'ALL' ? '' : `${type.toLowerCase()} `;
   const hasData = matches.length > 0;
+  // Before the feed answers there is nothing to count, and 0 would read as a fact.
+  const count = (n: number) => (hasData || (!isLoading && !error) ? n : undefined);
 
   return (
     <>
@@ -151,10 +153,10 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
             value={tab}
             options={[
               { value: 'overview', label: 'Overview' },
-              { value: 'live', label: 'Live', count: liveList.length, live: liveList.length > 0 },
-              { value: 'upcoming', label: 'Upcoming', count: upcomingList.length },
-              { value: 'finished', label: 'Results', count: finishedList.length },
-              { value: 'all', label: 'All', count: allList.length },
+              { value: 'live', label: 'Live', count: count(liveList.length), live: liveList.length > 0 },
+              { value: 'upcoming', label: 'Upcoming', count: count(upcomingList.length) },
+              { value: 'finished', label: 'Results', count: count(finishedList.length) },
+              { value: 'all', label: 'All', count: count(allList.length) },
             ]}
             onChange={setTab}
             className={styles.tabs}

@@ -40,7 +40,7 @@ function Side({
 }: {
   team: Team;
   score: ScoreParts | null;
-  /** Anyone has batted — before that, an empty score slot says nothing. */
+  /** A live match where someone has batted — otherwise an empty score slot says nothing. */
   started: boolean;
   batting: boolean;
   won: boolean;
@@ -139,7 +139,7 @@ export default function ScoreHeader({
           score={home}
           batting={live && battingId === match.homeTeam.id}
           won={winnerId === match.homeTeam.id}
-          started={Boolean(home || away)}
+          started={live && Boolean(home || away)}
           dim={(live && Boolean(battingId) && battingId !== match.homeTeam.id) || (Boolean(winnerId) && winnerId !== match.homeTeam.id)}
           align="left"
         />
@@ -172,7 +172,7 @@ export default function ScoreHeader({
           score={away}
           batting={live && battingId === match.awayTeam.id}
           won={winnerId === match.awayTeam.id}
-          started={Boolean(home || away)}
+          started={live && Boolean(home || away)}
           dim={(live && Boolean(battingId) && battingId !== match.awayTeam.id) || (Boolean(winnerId) && winnerId !== match.awayTeam.id)}
           align="right"
         />

@@ -82,7 +82,9 @@ export default function UpcomingRail({
                       <time dateTime={m.startTime} suppressHydrationWarning>
                         {formatInZone(m.startTime, 'time', zone)}
                       </time>
-                      {!compact && <Countdown iso={m.startTime} className={styles.countdown} soonClassName={styles.soon} />}
+                      {!compact && m.status === 'UPCOMING' && (
+                        <Countdown iso={m.startTime} className={styles.countdown} soonClassName={styles.soon} />
+                      )}
                     </span>
                     <span className={styles.node} aria-hidden="true" />
                     <span className={styles.body}>

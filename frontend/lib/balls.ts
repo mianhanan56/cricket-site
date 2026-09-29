@@ -1,5 +1,5 @@
-import type { BallExtra, CommentaryBall } from '@/types';
-import { HUNDRED_BALLS_PER_OVER } from './overs';
+import type { BallExtra, CommentaryBall, InningsScore } from '@/types';
+import { HUNDRED_BALLS_PER_OVER, ballsFrom } from './overs';
 
 /**
  * A delivery as the UI renders it — the feed's ball minus fields nothing reads.
@@ -114,6 +114,28 @@ export function ballTitle(b: BallEntry): string {
 }
 
 /** The last legal ball of an over reads as the next over's start: "66.0", never "65.6". */
+/**
+ * Deliveries the scorecard has caught up with. The card and the ball feed are
+ * separate Worker cache entries and the card can trail by a few seconds, so
+ * without this the last ball reads 46.0 over a score still at 45.5.
+ */
+export function reachedByCard<T extends Pick<BallEntry, 'over' | 'ball' | 'extra' | 'inning'>>(
+  balls: T[],
+  innings: InningsScore[],
+  perOver: number
+): T[] {
+  const batted = innings.filter((i) => !i.notStarted);
+  if (!batted.length) return balls;
+  const current = batted.length - 1;
+  const limit = ballsFrom(batted[current].overs, perOver);
+  return balls.filter((b) => {
+    const inn = b.inning ?? current;
+    if (inn !== current) return inn < current;
+    // A wide or no ball carries the number of the delivery still to come.
+    return b.over * perOver + (isIllegal(b) ? b.ball - 1 : b.ball) <= limit;
+  });
+}
+
 export function ballPosition(b: BallEntry, perOver: number): string {
   if (!isIllegal(b) && b.ball >= perOver) return `${b.over + 1}.0`;
   return `${b.over}.${b.ball}`;

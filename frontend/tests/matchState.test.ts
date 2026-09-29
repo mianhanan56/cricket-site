@@ -314,6 +314,18 @@ describe('a stoppage the score plays through', () => {
     now += 400_000;
     assert.equal(clearResumedStoppages([match(12.3, lunch)], watch, now)[0].note, null);
   });
+
+  it('holds back a text-only break until the score has stood still', () => {
+    const textLunch: MatchNote = { ...lunch, fromText: true };
+    const watch = new Map<string, StoppageWatch>();
+    let now = 1_000_000;
+
+    assert.equal(clearResumedStoppages([match(12, textLunch)], watch, now)[0].note, null);
+    now += 60_000;
+    assert.equal(clearResumedStoppages([match(12, textLunch)], watch, now)[0].note, null);
+    now += 100_000;
+    assert.equal(clearResumedStoppages([match(12, textLunch)], watch, now)[0].note?.kind, 'BREAK');
+  });
 });
 
 // --- what crex sent, decoded ------------------------------------------------
@@ -360,6 +372,14 @@ describe('the raw feed', () => {
 
     assert.equal(note?.kind, 'DELAY');
     assert.equal(note?.preToss, true);
+  });
+
+  it('drops a qualifier the status label already states', () => {
+    const repeated = decodeMatchNote({ ...atStumps, a: '$w', ac: '(wet outfield)' });
+    const extra = decodeMatchNote({ ...atStumps, a: '$f', ac: '(wet outfield)' });
+
+    assert.equal(repeated?.detail, null);
+    assert.equal(extra?.detail, '(wet outfield)');
   });
 
   // crex sends this one as prose as often as as a code — the wording in the feed

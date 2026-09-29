@@ -821,10 +821,12 @@ export function decodeMatchNote(
     const letter = raw.startsWith('$') ? raw.slice(1) : raw;
     const spec = letter.length === 1 ? NOTE_CODES[letter.toLowerCase()] : undefined;
     if (spec) {
+      // "Toss delayed due to wet outfield" already carries the "(wet outfield)" qualifier.
+      const said = detail && spec.label.toLowerCase().includes(detail.replace(/[()]/g, '').trim().toLowerCase());
       return {
         label: spec.label,
         kind: spec.kind,
-        detail,
+        detail: said ? null : detail,
         paused: spec.paused,
         ...(spec.betweenInnings ? { betweenInnings: true } : null),
         ...(spec.preToss ? { preToss: true } : null),
@@ -841,6 +843,7 @@ export function decodeMatchNote(
     kind,
     detail,
     paused: !TERMINAL_KINDS.has(kind),
+    fromText: true,
     // The plain-text path carries the same flag as the code table, and has to:
     // crex sends the innings break it latches longest as `res` text with no code
     // beside it, which is the exact shape the contradiction test is for.
@@ -1150,6 +1153,8 @@ export interface StoppageWatch {
   movedAt: number | null;
   /** How many separate times it moved. */
   moves: number;
+  /** When the score was last seen to change, or the watch began. */
+  stillSince: number;
 }
 
 // One move can be the ball the note was called on, arriving a poll late; this
@@ -1204,18 +1209,23 @@ export function clearResumedStoppages(
 
     // A stoppage we have not seen before — or a different one — starts its own
     // watch. Nothing yet contradicts it.
+    // A text-only status has to be borne out by the score holding still first:
+    // on first sight nothing says whether it is current or hours old.
+    const unconfirmed = (stillSince: number) => Boolean(match.note!.fromText) && now - stillSince < PLAY_RESUMED_MS;
+
     if (!seen || seen.label !== label) {
-      watch.set(match.id, { label, signature, movedAt: null, moves: 0 });
-      return match;
+      watch.set(match.id, { label, signature, movedAt: null, moves: 0, stillSince: now });
+      return unconfirmed(now) ? { ...match, note: null } : match;
     }
 
     const moved = seen.signature !== signature;
     const movedAt = moved ? now : seen.movedAt;
     const moves = seen.moves + (moved ? 1 : 0);
-    watch.set(match.id, { label, signature, movedAt, moves });
+    const stillSince = moved ? now : seen.stillSince;
+    watch.set(match.id, { label, signature, movedAt, moves, stillSince });
 
     const latched = moves >= LATCHED_AFTER_MOVES;
-    return latched || (movedAt !== null && now - movedAt < PLAY_RESUMED_MS)
+    return latched || (movedAt !== null && now - movedAt < PLAY_RESUMED_MS) || unconfirmed(stillSince)
       ? { ...match, note: null }
       : match;
   });

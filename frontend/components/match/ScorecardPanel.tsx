@@ -59,6 +59,7 @@ export default function ScorecardPanel({
   const extras = current?.extras ?? (isLatest ? match.scorecard?.extras : undefined);
   const extrasBreakdown = current?.extrasBreakdown ?? (isLatest ? match.scorecard?.extrasBreakdown : undefined);
   const yetToBat = current?.yetToBat ?? [];
+  const inProgress = match.status === 'LIVE' && isLatest && !match.note?.betweenInnings;
   const fallOfWickets = current?.fallOfWickets ?? [];
   const partnerships = current?.partnerships ?? [];
 
@@ -178,7 +179,7 @@ export default function ScorecardPanel({
 
         {yetToBat.length > 0 && (
           <div className={styles.yetToBat}>
-            <h3 className={styles.subTitle}>{batting.length ? 'Yet to bat' : 'Playing XI'}</h3>
+            <h3 className={styles.subTitle}>{!batting.length ? 'Playing XI' : inProgress ? 'Yet to bat' : 'Did not bat'}</h3>
             <ol className={styles.ytbList}>
               {yetToBat.map((p, i) => (
                 <li key={p.playerId}>
