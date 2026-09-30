@@ -16,6 +16,7 @@ import {
 } from '@/lib/fixtureDays';
 import { LOCALE } from '@/lib/datetime';
 import {
+  MATCH_TYPE_KEY_OPTIONS,
   MATCH_TYPE_OPTIONS,
   filterByMatchType,
   matchTypeKey,
@@ -25,6 +26,7 @@ import {
 } from '@/lib/matchType';
 import { FIXTURE_FORMAT_TABS, type FixtureFormatKey } from '@/lib/tabs';
 import Segmented from '../ui/Segmented';
+import FilterSheet from '../ui/FilterSheet';
 import EmptyState from '../ui/EmptyState';
 import UpcomingRail from '../home/UpcomingRail';
 import FixtureCalendar from './FixtureCalendar';
@@ -200,6 +202,17 @@ export default function FixturesFilter({
         />
       </div>
 
+      <FilterSheet
+        groups={() => [
+          { key: 'format', label: 'Format', options: FIXTURE_FORMAT_TABS.map((t) => ({ value: t.key, label: t.label })) },
+          { key: 'type', label: 'Competition', options: MATCH_TYPE_KEY_OPTIONS },
+        ]}
+        value={{ format, type }}
+        defaults={{ format: 'all', type: 'all' }}
+        onApply={(next) => setQuery(next)}
+        className={styles.mobileFilter}
+      />
+
       <div className={styles.dayBar}>
         <FixtureCalendar
           value={date}
@@ -219,7 +232,7 @@ export default function FixturesFilter({
 
       {visibleMatches.length ? (
         <div className={styles.list}>
-          <UpcomingRail matches={visibleMatches} />
+          <UpcomingRail matches={visibleMatches} timeline />
           {hasMore && <div ref={sentinelRef} aria-hidden="true" />}
         </div>
       ) : (

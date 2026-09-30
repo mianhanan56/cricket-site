@@ -73,22 +73,3 @@
   display: grid;
   gap: $space-2;
 }
-
-.advanced {
-  display: grid;
-  gap: $space-4;
-}
-
-.advancedToggle {
-  @include button-secondary;
-  justify-self: start;
-  min-height: 44px;
-}
-
-.chevron {
-  transition: transform $dur-2 $ease-out;
-}
-
-.chevronUp {
-  transform: rotate(180deg);
-}

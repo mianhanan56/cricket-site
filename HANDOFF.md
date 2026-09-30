@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-09-29. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-09-30. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -12,30 +12,37 @@ All data comes from crex.com's undocumented internal APIs through a Cloudflare W
 
 ## Current objective
 
-A UI polish pass is sitting uncommitted on `main` (34 modified files + 3 new):
+A strict UX / mobile audit of production was completed on 2026-09-29 (no code changed). Findings
+are queued in TODO.md by priority; the user decides which to fix. The earlier UI pass (dock,
+footer, page-end spacing, milestones board, scroll fades) is committed (68cd364, cf291e1).
 
-- `components/layout/BottomNav.tsx` — dock is now Matches / Series / Rankings / Fixtures + More
-  (Teams, Players, Insights, My Cricket, Alerts). Search button and theme row removed from dock.
-- `components/layout/Navbar.tsx`, `ThemeToggle.tsx` — toggle always shown; `withLabel` variant removed.
-- `components/layout/Footer.tsx` — `docked` links hidden on phones.
-- `scss/component.scss` — new `page-end` mixin; applied across ~15 page modules.
-- `components/ui/Section.module.scss` — heading count is a pill.
-- `app/teams/TeamsDirectory.tsx` + `teams.module.scss` — rank chip restyle.
-- `components/match/LivePanel.tsx` — "Live pulse" block moved after "At the crease".
-- Series stats: `SeriesLeaders.tsx` drops the fifties/hundreds footer links and accepts `children`;
-  `app/series/[id]/page.tsx` streams `<SeriesMilestones>` (new) inside `<Suspense>`;
-  `MilestoneLeaders.tsx` (new, client) toggles Most fifties / Most hundreds via `Segmented`.
-  `lib/crex.ts` split `getCrexSeriesStatTable` into `seriesStatRows` + `rankStat` and added
-  `getCrexSeriesStatTables` (several kinds, one read of the cards).
-- `next.config.js` — `experimental.staleTimes { dynamic: 0, static: 30 }`.
+Uncommitted: the phone filter sheet (`components/ui/FilterSheet.*`, wired into HomeMatches,
+FixturesFilter, SeriesFilter, RankingsView, PlayersDirectory, CommentaryFeed; `filter` icon;
+`MATCH_TYPE_KEY_OPTIONS` in `lib/matchType.ts`). Verified in an isolated copy at 320–1440.
 
-State: typechecks clean, 77/77 tests pass. Not yet visually verified by an agent.
+Uncommitted: the live WebSocket layer — `worker-crex/src/live.ts` (hub), `src/upstream.ts`
+(shared fetch), `wrangler.toml` (DO binding + `v1` migration); frontend `lib/live/{socket,frames}.ts`,
+socket wiring in `hooks/useCrexMatches.ts`, `AutomationEngine.tsx` (per-event dedupe),
+`NavigationTracker.tsx` (back/forward refresh), `MatchDetail`/`ScoreHeader` ("Reconnecting"),
+parser splits in `lib/crex.ts`, `tests/liveFrames.test.ts`. Until the Worker is deployed the
+frontend reads `/health`, sees no hub, and polls exactly as before.
+
+Uncommitted: Home tabs without Overview (`HomeMatches.tsx`, `Segmented` scroll-to-active) and the
+Alerts rework — `triggers[]` model + migration in `lib/automations.ts`, `lib/alertSuggestions.ts`,
+`AlertCreator` (Select all, edit mode), `AutomationCard` (Edit/Delete), `EntityPicker` (current
+chips), `components/ui/ConfirmDialog.*`, `edit`/`minus` icons, `tests/alerts.test.ts`; `AutomationBuilder.*`
+deleted (picker styles moved to `EntityPicker.module.scss`). Mobile pass + key moments:
+`lib/keyMoments.ts` (+ test), `useActiveInView` in `hooks/useScrollFade.ts`, scorecard/commentary/
+key-events/upcoming-rail style changes.
+
+Other uncommitted local edits not from the audit: `LiveHero` drops the "Last ball" stamp and
+`Toaster.module.scss` moves toasts top-right. Leave them to their owner.
 
 ## Recommended next step
 
-Visually verify the in-progress changes at phone and desktop widths (from an isolated copy — see
-below), in particular that search is still reachable on phones and the milestones board renders
-for a series with completed matches. Then hand back to the user to commit.
+Wait for the user's pick from TODO.md. Start with the High rows: scorecard table clipping on
+phones, removing the Advanced alert builder plus alert/notification dedupe, the series stat value
+column, the insights score clipping, and team-page results.
 
 ## Environment setup
 
@@ -86,7 +93,7 @@ cd worker-crex && npm run typecheck
 
 ## Known bugs / blockers
 
-- No known functional bugs. Documentation drift listed in TODO.md (README workspace commands, CricLive leftovers, tracked PWA build artifact).
+- Functional bugs from the 2026-09-29 audit are in TODO.md (High rows: scorecard clipping on phones, duplicate alerts → duplicate notifications). Documentation drift also listed there (README workspace commands, CricLive leftovers, tracked PWA build artifact).
 - `reasoning-operating-manual.md` is referenced in the user's agent instructions but does not exist
   in the repo.
 

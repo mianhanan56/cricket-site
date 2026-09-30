@@ -32,20 +32,9 @@
   > * {
     max-width: 100%;
   }
-}
 
-// Phones: each group spans the row so four roles fit at 320px without a hidden scroll.
-.filters .segment {
-  @include mobile-only {
-    display: flex;
-    width: 100%;
-
-    > button {
-      flex: 1 1 auto;
-      justify-content: center;
-      padding-inline: $space-2;
-      font-size: $fs-sm;
-    }
+  @include phone-only {
+    display: none;
   }
 }
 

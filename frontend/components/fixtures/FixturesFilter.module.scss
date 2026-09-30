@@ -9,6 +9,14 @@
   > * {
     max-width: 100%;
   }
+
+  @include phone-only {
+    display: none;
+  }
+}
+
+.mobileFilter {
+  margin-bottom: $space-3;
 }
 
 .dayBar {

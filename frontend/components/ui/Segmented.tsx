@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { useScrollFade } from '@/hooks/useScrollFade';
+import { useActiveInView, useScrollFade } from '@/hooks/useScrollFade';
 import styles from './Segmented.module.scss';
 
 export interface SegmentOption<T extends string> {
@@ -33,6 +33,9 @@ export default function Segmented<T extends string>({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useScrollFade(ref);
+
+  // Counts arriving later widen the row, so they re-check too.
+  useActiveInView(ref, `${value}|${options.map((o) => `${o.label}${o.count ?? ''}`).join()}`);
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;

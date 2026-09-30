@@ -1,11 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { Match } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import {
+  MATCH_TYPE_KEY_OPTIONS,
   MATCH_TYPE_OPTIONS,
   filterByMatchType,
   matchTypeKey,
@@ -26,8 +26,8 @@ import ResultList from './ResultList';
 import MyCricketBand from './MyCricketBand';
 import MatchTile from '../match/MatchTile';
 import Segmented from '../ui/Segmented';
+import FilterSheet from '../ui/FilterSheet';
 import EmptyState from '../ui/EmptyState';
-import Icon from '../ui/Icon';
 import ErrorState from '../ui/ErrorState';
 import { SectionHead } from '../ui/Section';
 import { HeroSkeleton, BoardSkeleton } from './HomeSkeleton';
@@ -37,13 +37,10 @@ import styles from './HomeMatches.module.scss';
 const isAtStumps = (m: Match) => m.note?.kind === 'STUMPS';
 
 const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
-// The overview is a summary: the next few and the last few, the rest a click away.
-const UPCOMING_PREVIEW = 5;
-const RESULTS_PREVIEW = 5;
 const SERIES_PREVIEW = 4;
 
 export interface HomeMatchesProps {
-  /** Active tab from the URL; '' means the overview. */
+  /** Active tab from the URL; '' means none picked yet. */
   initialTab: HomeTab | '';
   initialType: MatchTypeKey;
 }
@@ -101,8 +98,12 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
     );
   }, [scoped]);
 
-  const tab: HomeTab | 'overview' = picked || 'overview';
-  const setTab = (next: HomeTab | 'overview') => setQuery({ tab: next === 'overview' ? '' : next });
+  // With no tab in the URL, open on what's happening: live if anything is, else what's next.
+  // Fixed once the feed first answers, so a match ending doesn't pull the page to another tab.
+  const [landing, setLanding] = useState<HomeTab | null>(null);
+  if (!landing && matches.length) setLanding(liveList.length ? 'live' : upcomingList.length ? 'upcoming' : 'all');
+  const tab: HomeTab = picked || landing || 'live';
+  const setTab = (next: HomeTab) => setQuery({ tab: next });
 
   const typeNote = type === 'ALL' ? '' : `${type.toLowerCase()} `;
   const hasData = matches.length > 0;
@@ -148,11 +149,17 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
             onChange={(next: MatchType) => setQuery({ type: matchTypeKey(next) })}
             className={styles.typeFilter}
           />
+          <FilterSheet
+            groups={() => [{ key: 'type', label: 'Competition', options: MATCH_TYPE_KEY_OPTIONS }]}
+            value={{ type: matchTypeKey(type) }}
+            defaults={{ type: 'all' }}
+            onApply={(next) => setQuery(next)}
+            className={styles.mobileFilter}
+          />
           <Segmented
             label="Match status"
             value={tab}
             options={[
-              { value: 'overview', label: 'Overview' },
               { value: 'live', label: 'Live', count: count(liveList.length), live: liveList.length > 0 },
               { value: 'upcoming', label: 'Upcoming', count: count(upcomingList.length) },
               { value: 'finished', label: 'Results', count: count(finishedList.length) },
@@ -165,39 +172,6 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
 
         {(isLoading || error) && !hasData ? (
           <BoardSkeleton />
-        ) : tab === 'overview' ? (
-          <div className={styles.split}>
-            <section aria-labelledby="next-title">
-              <SectionHead title="Coming up" id="next-title" count={upcomingList.length} level={3} />
-              {upcomingList.length ? (
-                <>
-                  <UpcomingRail matches={upcomingList} limit={UPCOMING_PREVIEW} variant="compact" />
-                  <Link href="/fixtures" className={styles.more}>
-                    All fixtures
-                    <Icon name="arrowRight" size={16} />
-                  </Link>
-                </>
-              ) : (
-                <EmptyState compact icon="calendar" title={`No ${typeNote}fixtures in the feed`} action={{ label: 'Open fixtures', href: '/fixtures' }} />
-              )}
-            </section>
-            <section aria-labelledby="results-title">
-              <SectionHead title="Results" id="results-title" count={finishedList.length} level={3} />
-              {finishedList.length ? (
-                <>
-                  <ResultList matches={finishedList.slice(0, RESULTS_PREVIEW)} variant="compact" />
-                  {finishedList.length > RESULTS_PREVIEW && (
-                    <button type="button" className={styles.more} onClick={() => setTab('finished')}>
-                      All {finishedList.length} results
-                      <Icon name="arrowRight" size={16} />
-                    </button>
-                  )}
-                </>
-              ) : (
-                <EmptyState compact icon="flag" title={`No ${typeNote}results this week`} />
-              )}
-            </section>
-          </div>
         ) : tab === 'live' ? (
           liveList.length ? (
             <div className={styles.grid}>
@@ -214,7 +188,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
           )
         ) : tab === 'upcoming' ? (
           upcomingList.length ? (
-            <UpcomingRail matches={upcomingList} />
+            <UpcomingRail matches={upcomingList} timeline />
           ) : (
             <EmptyState icon="calendar" title={`No ${typeNote}upcoming matches in the feed`} action={{ label: 'Open fixtures', href: '/fixtures' }} />
           )

@@ -97,13 +97,6 @@
   padding-block: $space-1;
 }
 
-.age {
-  @include data-num;
-  font-size: $fs-2xs;
-  color: $text-3;
-  white-space: nowrap;
-}
-
 .format {
   @include chip;
   height: 22px;

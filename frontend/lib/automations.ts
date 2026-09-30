@@ -37,7 +37,8 @@ export interface AutomationAction {
 
 export interface Automation {
   id: string;
-  trigger: TriggerKind;
+  /** One or more moments; any of them fires the alert. */
+  triggers: TriggerKind[];
   scope: AutomationScope;
   action: AutomationAction;
   enabled: boolean;
@@ -49,6 +50,8 @@ export interface Automation {
 export interface TriggerSpec {
   kind: TriggerKind;
   label: string;
+  /** "Wicket" — for a card that names several moments at once. */
+  short: string;
   /** "a wicket falls" — completes "When …". */
   phrase: string;
   /** Needs the ball feed rather than the match list. */
@@ -61,16 +64,16 @@ export interface TriggerSpec {
 const MATCH_SCOPES: ScopeKind[] = ['ANY', 'FOLLOWED', 'TEAM', 'SERIES'];
 
 export const TRIGGERS: TriggerSpec[] = [
-  { kind: 'MATCH_START', label: 'Match starts', phrase: 'a match starts', feed: false, scopes: MATCH_SCOPES, notification: 'live', available: true },
-  { kind: 'WICKET', label: 'Wicket falls', phrase: 'a wicket falls', feed: false, scopes: MATCH_SCOPES, notification: 'moment', available: true },
-  { kind: 'SIX', label: 'Six is hit', phrase: 'a six is hit', feed: true, scopes: MATCH_SCOPES, notification: 'moment', available: true },
-  { kind: 'FOUR', label: 'Four is hit', phrase: 'a four is hit', feed: true, scopes: MATCH_SCOPES, notification: 'moment', available: true },
-  { kind: 'FIFTY', label: 'Fifty reached', phrase: 'a batter reaches 50', feed: true, scopes: ['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'PLAYER'], notification: 'moment', available: true },
-  { kind: 'HUNDRED', label: 'Century reached', phrase: 'a batter reaches 100', feed: true, scopes: ['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'PLAYER'], notification: 'moment', available: true },
-  { kind: 'CLOSE_CHASE', label: 'Chase gets tight', phrase: 'the required rate passes the current rate', feed: false, scopes: MATCH_SCOPES, notification: 'alert', available: true },
-  { kind: 'STOPPAGE', label: 'Play stops', phrase: 'play stops for rain, bad light or a break', feed: false, scopes: MATCH_SCOPES, notification: 'alert', available: true },
-  { kind: 'RESULT', label: 'Match finishes', phrase: 'a match finishes', feed: false, scopes: MATCH_SCOPES, notification: 'result', available: true },
-  { kind: 'TOURNAMENT_MILESTONE', label: 'Tournament milestone', phrase: 'a player reaches 1,000 tournament runs', feed: false, scopes: ['SERIES', 'PLAYER'], notification: 'moment', available: false },
+  { kind: 'MATCH_START', label: 'Match starts', short: 'Match start', phrase: 'a match starts', feed: false, scopes: MATCH_SCOPES, notification: 'live', available: true },
+  { kind: 'WICKET', label: 'Wicket falls', short: 'Wicket', phrase: 'a wicket falls', feed: false, scopes: MATCH_SCOPES, notification: 'moment', available: true },
+  { kind: 'SIX', label: 'Six is hit', short: 'Six', phrase: 'a six is hit', feed: true, scopes: MATCH_SCOPES, notification: 'moment', available: true },
+  { kind: 'FOUR', label: 'Four is hit', short: 'Four', phrase: 'a four is hit', feed: true, scopes: MATCH_SCOPES, notification: 'moment', available: true },
+  { kind: 'FIFTY', label: 'Fifty reached', short: 'Fifty', phrase: 'a batter reaches 50', feed: true, scopes: ['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'PLAYER'], notification: 'moment', available: true },
+  { kind: 'HUNDRED', label: 'Century reached', short: 'Century', phrase: 'a batter reaches 100', feed: true, scopes: ['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'PLAYER'], notification: 'moment', available: true },
+  { kind: 'CLOSE_CHASE', label: 'Chase gets tight', short: 'Close chase', phrase: 'the required rate passes the current rate', feed: false, scopes: MATCH_SCOPES, notification: 'alert', available: true },
+  { kind: 'STOPPAGE', label: 'Play stops', short: 'Play stops', phrase: 'play stops for rain, bad light or a break', feed: false, scopes: MATCH_SCOPES, notification: 'alert', available: true },
+  { kind: 'RESULT', label: 'Match finishes', short: 'Result', phrase: 'a match finishes', feed: false, scopes: MATCH_SCOPES, notification: 'result', available: true },
+  { kind: 'TOURNAMENT_MILESTONE', label: 'Tournament milestone', short: 'Milestone', phrase: 'a player reaches 1,000 tournament runs', feed: false, scopes: ['SERIES', 'PLAYER'], notification: 'moment', available: false },
 ];
 
 export const triggerSpec = (kind: TriggerKind): TriggerSpec =>
@@ -91,27 +94,68 @@ export function scopePhrase(scope: AutomationScope): string {
   }
 }
 
-export function describeAutomation(a: Pick<Automation, 'trigger' | 'scope'>): string {
-  const spec = triggerSpec(a.trigger);
-  if (a.scope.kind === 'PLAYER' && (a.trigger === 'FIFTY' || a.trigger === 'HUNDRED')) {
-    return `When ${a.scope.name ?? 'this player'} reaches ${a.trigger === 'FIFTY' ? 50 : 100}`;
-  }
-  return `When ${spec.phrase} ${scopePhrase(a.scope)}`;
+/** "a wicket falls, a six is hit or a match finishes" */
+function joinPhrases(parts: string[]): string {
+  return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} or ${parts[parts.length - 1]}`;
 }
+
+export function describeAutomation(a: Pick<Automation, 'triggers' | 'scope'>): string {
+  if (a.scope.kind === 'PLAYER') {
+    const marks = a.triggers.filter((t) => t === 'FIFTY' || t === 'HUNDRED').map((t) => (t === 'FIFTY' ? '50' : '100'));
+    return `When ${a.scope.name ?? 'this player'} reaches ${joinPhrases(marks)}`;
+  }
+  return `When ${joinPhrases(a.triggers.map((t) => triggerSpec(t).phrase))} ${scopePhrase(a.scope)}`;
+}
+
+/** Every moment the simple creator offers under this scope. */
+export function triggersForScope(kind: ScopeKind): TriggerKind[] {
+  return TRIGGERS.filter((t) => t.available && t.scopes.includes(kind)).map((t) => t.kind);
+}
+
+/** "Wicket + Fifty + Century", or "All match events" once nothing is left out. */
+export function summarizeTriggers(a: Pick<Automation, 'triggers' | 'scope'>): string {
+  const all = triggersForScope(a.scope.kind);
+  if (all.length > 2 && all.every((t) => a.triggers.includes(t))) return 'All match events';
+  const names = TRIGGERS.filter((t) => a.triggers.includes(t.kind)).map((t) => t.short);
+  return names.length > 3 ? `${names.slice(0, 2).join(' + ')} + ${names.length - 2} more` : names.join(' + ');
+}
+
+export function scopeLabel(scope: AutomationScope): string {
+  switch (scope.kind) {
+    case 'ANY':
+      return 'Any match';
+    case 'FOLLOWED':
+      return 'What I follow';
+    default:
+      return scope.name ?? 'Unnamed';
+  }
+}
+
+export const sameScope = (a: AutomationScope, b: AutomationScope) => a.kind === b.kind && (a.id ?? '') === (b.id ?? '');
 
 const VALID_TRIGGERS = new Set(TRIGGERS.map((t) => t.kind));
 
-export const automationsStore = createPersisted<Automation[]>('pc.automations', [], (raw) =>
-  Array.isArray(raw)
-    ? (raw.filter(
-        (a) => isRecord(a) && typeof a.id === 'string' && VALID_TRIGGERS.has(a.trigger as TriggerKind)
-      ) as Automation[])
-    : null
-);
+// Alerts saved before an alert could hold several moments carry a single `trigger`.
+export function parseAutomations(raw: unknown): Automation[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out: Automation[] = [];
+  for (const a of raw) {
+    if (!isRecord(a) || typeof a.id !== 'string') continue;
+    const listed = Array.isArray(a.triggers) ? a.triggers : [a.trigger];
+    const triggers = [...new Set(listed)].filter((t): t is TriggerKind => VALID_TRIGGERS.has(t as TriggerKind));
+    if (!triggers.length) continue;
+    const item = { ...a, triggers } as Record<string, unknown>;
+    delete item.trigger;
+    out.push(item as unknown as Automation);
+  }
+  return out;
+}
+
+export const automationsStore = createPersisted<Automation[]>('pc.automations', [], parseAutomations);
 
 export const useAutomations = automationsStore.use;
 
-export function addAutomation(input: Pick<Automation, 'trigger' | 'scope' | 'action'>): Automation {
+export function addAutomation(input: Pick<Automation, 'triggers' | 'scope' | 'action'>): Automation {
   const item: Automation = {
     ...input,
     id: newId(),
@@ -135,15 +179,6 @@ export function recordFire(id: string) {
     prev.map((a) => (a.id === id ? { ...a, fired: a.fired + 1, lastFiredAt: Date.now() } : a))
   );
 }
-
-/** Ready-made rules, one tap to add. */
-export const TEMPLATES: Array<Pick<Automation, 'trigger' | 'scope'>> = [
-  { trigger: 'MATCH_START', scope: { kind: 'FOLLOWED' } },
-  { trigger: 'WICKET', scope: { kind: 'FOLLOWED' } },
-  { trigger: 'CLOSE_CHASE', scope: { kind: 'ANY' } },
-  { trigger: 'HUNDRED', scope: { kind: 'ANY' } },
-  { trigger: 'RESULT', scope: { kind: 'FOLLOWED' } },
-];
 
 // ---------------------------------------------------------------- Evaluation
 

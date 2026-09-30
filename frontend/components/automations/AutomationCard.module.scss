@@ -2,62 +2,54 @@
 
 .card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    'kind controls'
-    'sentence sentence'
-    'stat stat';
-  gap: $space-3;
-  padding: $space-4;
+  gap: $space-1;
+  padding: $space-3 $space-4 $space-2;
   @include panel;
-  opacity: 0.72;
-  transition: opacity $dur-2 $ease-out, border-color $dur-2 $ease-out;
+  transition: border-color $dur-2 $ease-out;
 }
 
 .on {
-  opacity: 1;
   border-color: color-mix(in oklab, var(--signal) 25%, var(--line));
 }
 
-.sentence {
-  grid-area: sentence;
+.editing {
+  border-color: color-mix(in oklab, var(--signal) 70%, transparent);
+}
+
+.title {
   font-size: $fs-base;
-  font-weight: 600;
+  font-weight: 700;
   line-height: $leading-snug;
+  overflow-wrap: anywhere;
+
+  .card:not(.on) & {
+    color: $text-2;
+  }
 }
 
-.kind {
-  grid-area: kind;
-  justify-self: start;
-  align-self: center;
-  @include chip;
-  height: 22px;
+.who {
+  font-size: $fs-md;
+  font-weight: 500;
   color: $text-2;
+  overflow-wrap: anywhere;
 }
 
-.live {
-  color: $signal-text;
-}
-
-.moment {
-  color: $data;
-}
-
-.alert {
-  color: $warn;
-}
-
-.stat {
-  grid-area: stat;
-  @include data-num;
-  font-size: $fs-xs;
+.meta {
+  font-size: $fs-sm;
   color: $text-3;
 }
 
 .controls {
-  grid-area: controls;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+  margin-top: $space-1;
+  margin-inline: -#{$space-2};
+}
+
+.actions {
+  display: flex;
   gap: $space-1;
 }
 
@@ -65,7 +57,7 @@
   display: inline-flex;
   align-items: center;
   gap: $space-2;
-  height: 34px;
+  height: 36px;
   padding-inline: $space-2;
   border-radius: $r-sm;
   font-size: $fs-sm;
@@ -103,12 +95,14 @@
   }
 }
 
-.remove {
-  @include icon-button;
-  width: 34px;
-  height: 34px;
+.action {
+  @include button-ghost;
+  min-height: 36px;
+  padding-inline: $space-2;
+  gap: $space-1-5;
+  font-size: $fs-sm;
+}
 
-  &:hover {
-    color: $wicket;
-  }
+.remove:hover:not(:disabled) {
+  color: $wicket;
 }

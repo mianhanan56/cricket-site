@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Match } from '@/types';
 import { HIDDEN_INTERVAL_MS, useCrexMatches } from '@/hooks/useCrexMatches';
-import { getCrexMatchFeed } from '@/lib/crex';
+import { feedFromRows, getCrexMatchFeed, type CrexFeedRow } from '@/lib/crex';
+import { isTopicLive, subscribeLive } from '@/lib/live/socket';
 import {
   feedFirings,
   listFirings,
@@ -22,6 +23,8 @@ import { useNotificationPermission } from './useNotificationPermission';
 
 const LIST_INTERVAL_MS = 15_000;
 const FEED_INTERVAL_MS = 20_000;
+// With the socket delivering each ball, the poll only has to catch a missed frame.
+const SOCKET_FEED_INTERVAL_MS = 60_000;
 const MAX_FEED_MATCHES = 6;
 // A tab frozen, asleep or parked longer than this saw nothing happen live; what
 // changed meanwhile is history, not an alert.
@@ -64,7 +67,7 @@ function useEngineLock(wanted: boolean): boolean {
  */
 export default function AutomationEngine() {
   const automations = useAutomations();
-  const active = automations.filter((a) => a.enabled && triggerSpec(a.trigger).available);
+  const active = automations.filter((a) => a.enabled && a.triggers.some((t) => triggerSpec(t).available));
   const held = useEngineLock(active.length > 0);
 
   const [permission] = useNotificationPermission();
@@ -92,23 +95,25 @@ function Runner({ rules, background }: { rules: Automation[]; background: boolea
   const ctxRef = useRef(ctx);
   ctxRef.current = ctx;
 
+  // One event, one notification: two alerts that both cover a wicket still send it once.
   const deliver = (firing: Firing & { player?: string }, m: Match) => {
-    for (const rule of rulesRef.current) {
-      if (rule.trigger !== firing.trigger) continue;
-      if (!matchInScope(rule.scope, m, ctxRef.current)) continue;
-      if (rule.scope.kind === 'PLAYER' && !playerMatches(rule.scope.name, firing.player)) continue;
-      if (!claimEvent(`${rule.id}:${firing.key}`)) continue;
-      recordFire(rule.id);
-      pushNotification({
-        kind: triggerSpec(rule.trigger).notification,
-        title: firing.title,
-        body: firing.body,
-        href: firing.href,
-        automationId: rule.id,
-        eventKey: `${rule.id}:${firing.key}`,
-        system: rule.action.system,
-      });
-    }
+    const matched = rulesRef.current.filter(
+      (rule) =>
+        rule.triggers.includes(firing.trigger) &&
+        matchInScope(rule.scope, m, ctxRef.current) &&
+        (rule.scope.kind !== 'PLAYER' || playerMatches(rule.scope.name, firing.player))
+    );
+    if (!matched.length || !claimEvent(`event:${firing.key}`)) return;
+    matched.forEach((rule) => recordFire(rule.id));
+    pushNotification({
+      kind: triggerSpec(firing.trigger).notification,
+      title: firing.title,
+      body: firing.body,
+      href: firing.href,
+      automationId: matched[0].id,
+      eventKey: firing.key,
+      system: matched.some((rule) => rule.action.system),
+    });
   };
 
   useEffect(() => {
@@ -126,7 +131,7 @@ function Runner({ rules, background }: { rules: Automation[]; background: boolea
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matches]);
 
-  const feedRules = rules.filter((r) => triggerSpec(r.trigger).feed);
+  const feedRules = rules.filter((r) => r.triggers.some((t) => triggerSpec(t).feed));
   const feedTargets = useMemo(
     () =>
       feedRules.length
@@ -172,6 +177,19 @@ function FeedWatcher({
     let readAt = 0;
     let reading = false;
 
+    const topic = `feed:${match.id}`;
+
+    // Socket frames and polls land here alike; the seen sets make a repeat of either a no-op.
+    const consume = (feed: Pick<Awaited<ReturnType<typeof getCrexMatchFeed>>, 'balls' | 'events'>) => {
+      // A long gap means these balls are old news: learn them, don't announce them.
+      if (Date.now() - readAt > STALE_GAP_MS) baseline = true;
+      const found = feedFirings(matchRef.current, feed.balls, feed.events, seenBalls, seenEvents);
+      // The first read only learns what is already on the feed.
+      if (!baseline) found.forEach((f) => fireRef.current(f, matchRef.current));
+      baseline = false;
+      readAt = Date.now();
+    };
+
     const run = async () => {
       // One chain only: a return-to-tab read must not start a second one beside the timer's.
       if (reading) return;
@@ -181,20 +199,19 @@ function FeedWatcher({
         try {
           const feed = await getCrexMatchFeed(match.id, { minBalls: 6, maxPages: 1 });
           if (cancelled) return;
-          // A long gap means these balls are old news: learn them, don't announce them.
-          if (Date.now() - readAt > STALE_GAP_MS) baseline = true;
-          const found = feedFirings(matchRef.current, feed.balls, feed.events, seenBalls, seenEvents);
-          // The first read only learns what is already on the feed.
-          if (!baseline) found.forEach((f) => fireRef.current(f, matchRef.current));
-          baseline = false;
-          readAt = Date.now();
+          consume(feed);
         } catch {
           // Try again next tick.
         }
       }
       reading = false;
-      if (!cancelled) timer = setTimeout(run, isHidden() ? HIDDEN_INTERVAL_MS : FEED_INTERVAL_MS);
+      const every = isTopicLive(topic) ? SOCKET_FEED_INTERVAL_MS : FEED_INTERVAL_MS;
+      if (!cancelled) timer = setTimeout(run, isHidden() ? Math.max(HIDDEN_INTERVAL_MS, every) : every);
     };
+
+    const offLive = subscribeLive(topic, (frame) => {
+      if (Array.isArray(frame.data)) consume(feedFromRows(frame.data as CrexFeedRow[]));
+    });
 
     // Back on screen: read now rather than wait out a hidden-tab interval.
     const onVisible = () => !isHidden() && void run();
@@ -204,6 +221,7 @@ function FeedWatcher({
       cancelled = true;
       if (timer) clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
+      offLive();
     };
   }, [match.id]);
 

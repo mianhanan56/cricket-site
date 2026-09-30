@@ -163,9 +163,7 @@ export default function SearchClient() {
         <EmptyState
           icon="search"
           title="No results found"
-          body={`Nothing matches “${term}”. Try a different name, team or series.`}
-          action={{ label: 'Browse fixtures', href: '/fixtures' }}
-          secondary={{ label: 'Ranked players', href: '/players' }}
+          body="Try searching for a player, team, series or match."
         />
       )}
 

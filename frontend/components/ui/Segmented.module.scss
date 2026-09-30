@@ -36,6 +36,11 @@
   height: 28px;
   padding-inline: $space-2-5;
   font-size: $fs-sm;
+
+  // Compact on a desktop pointer, still a comfortable tap on a phone.
+  @include phone-only {
+    height: 34px;
+  }
 }
 
 .on {

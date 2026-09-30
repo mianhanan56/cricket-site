@@ -7,6 +7,7 @@ import type { Crease } from '@/lib/crease';
 import type { BallEntry, BallGroup } from '@/lib/balls';
 import { PULSE_WINDOW, matchPulse, pulseTrace, recentInningsBalls } from '@/lib/pulse';
 import { axisMoments, inningsWorms } from '@/lib/momentum';
+import { keyMoments } from '@/lib/keyMoments';
 import { SCHEDULED_OVERS, inningsBallLimit } from '@/lib/overs';
 import MatchPulse from '../live/MatchPulse';
 import PulseTrace from '../live/PulseTrace';
@@ -94,6 +95,7 @@ export default function LivePanel({
   const trace = useMemo(() => pulseTrace(window), [window]);
   const worms = useMemo(() => inningsWorms(innings, overs, balls, perOver), [innings, overs, balls, perOver]);
   const moments = useMemo(() => axisMoments(events), [events]);
+  const keyEvents = useMemo(() => keyMoments(events, innings), [events, innings]);
 
   const batted = innings.filter((i) => !i.notStarted);
   const ballLimit =
@@ -258,7 +260,7 @@ export default function LivePanel({
         <div className={mc.blockHead}>
           <h2 className={mc.blockTitle}>Key moments</h2>
         </div>
-        <MatchEvents events={events} pending={pending} limit={10} />
+        <MatchEvents events={keyEvents} pending={pending} limit={10} />
         <PlayerSituations innings={innings} />
       </section>
     </div>

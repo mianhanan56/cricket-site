@@ -41,7 +41,6 @@ export function CommentarySkeleton({ balls = 6, card = true }: { balls?: number;
         {Array.from({ length: balls }, (_, i) => (
           <li className={s.ball} key={i}>
             <Skeleton variant="text" className={s.at} />
-            <span className={s.node} />
             <span className={s.text}>
               <Skeleton variant="text" width="20" />
               <Skeleton variant="body" width={i % 2 === 0 ? '90' : '70'} />

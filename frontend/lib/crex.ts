@@ -83,7 +83,7 @@ import { cleanVenueName } from './venue';
 // means "no matches at all". Override it to point at a local `wrangler dev`.
 const DEFAULT_WORKER_URL = 'https://pulsecrease-crex.pulse-cricket.workers.dev';
 
-const CREX_WORKER_URL = process.env.NEXT_PUBLIC_CREX_WORKER_URL ?? DEFAULT_WORKER_URL;
+export const CREX_WORKER_URL = process.env.NEXT_PUBLIC_CREX_WORKER_URL ?? DEFAULT_WORKER_URL;
 
 /** crex serves team badges off Akamai, keyed by the same f_key as the match. */
 const TEAM_LOGO_BASE = 'https://cricketvectors.akamaized.net/Teams';
@@ -1391,7 +1391,11 @@ export async function getCrexMatch(id: string, opts: FetchOpts = {}): Promise<Ma
  * are new, and hand back finished `Match` objects sorted newest-first.
  */
 export async function getCrexMatchList(opts: FetchOpts = {}): Promise<Match[]> {
-  const raw = await getCrexMatches(opts);
+  return matchListFromRaw(await getCrexMatches(opts), opts);
+}
+
+/** The same list from a body already in hand — a poll's, or the live socket's. */
+export async function matchListFromRaw(raw: CrexMatchesResponse, opts: FetchOpts = {}): Promise<Match[]> {
   // Stubs are dropped before names are resolved, so they cost neither a card nor
   // a mapping lookup.
   const entries = Object.entries(raw).filter(([, m]) => isRenderableMatch(m));
@@ -1734,13 +1738,21 @@ export async function getCrexScorecard(
   matchKey: string,
   opts: FetchOpts & { ballsPerOver?: number; status?: MatchStatus } = {}
 ): Promise<InningsScore[]> {
+  const raw = await crexGet<CrexScorecardBody>(`/match/scorecard?key=${encodeURIComponent(matchKey)}`, {
+    revalidate: 5,
+    ...opts,
+  });
+  return scorecardFromRaw(raw, opts);
+}
+
+export type CrexScorecardBody = CrexScorecardInnings[] | Record<string, CrexScorecardInnings>;
+
+/** A scorecard body already in hand, decoded the same way a fetched one is. */
+export async function scorecardFromRaw(
+  raw: CrexScorecardBody,
+  opts: FetchOpts & { ballsPerOver?: number; status?: MatchStatus } = {}
+): Promise<InningsScore[]> {
   const perOver = opts.ballsPerOver || DEFAULT_BALLS_PER_OVER;
-
-  const raw = await crexGet<CrexScorecardInnings[] | Record<string, CrexScorecardInnings>>(
-    `/match/scorecard?key=${encodeURIComponent(matchKey)}`,
-    { revalidate: 5, ...opts }
-  );
-
   const innings = Array.isArray(raw) ? raw : Object.values(raw ?? {});
   if (!innings.length) return [];
 
@@ -2534,6 +2546,13 @@ export async function getCrexMatchFeed(
     }
   }
 
+  return { ...feedFromRows(feed), oldest: oldest === null ? null : String(oldest), exhausted };
+}
+
+export type CrexFeedRow = CrexBallFeed;
+
+/** Deliveries, events and over cards from feed rows already in hand — one walk's, or the live socket's page. */
+export function feedFromRows(feed: CrexBallFeed[]): Pick<CrexMatchFeed, 'balls' | 'events' | 'overs'> {
   const balls = feed
     .filter(isDelivery)
     .map((f) => {
@@ -2574,13 +2593,7 @@ export async function getCrexMatchFeed(
     .map(toOverSummary)
     .filter((o): o is OverSummary => o !== null);
 
-  return {
-    balls,
-    events,
-    overs,
-    oldest: oldest === null ? null : String(oldest),
-    exhausted,
-  };
+  return { balls, events, overs };
 }
 
 // ---------------------------------------------------------------------------

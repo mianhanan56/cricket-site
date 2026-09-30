@@ -5,6 +5,7 @@ import type { Match, MatchStatus, SeriesSummary } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import { seriesFromMatches } from '@/lib/crex';
 import {
+  MATCH_TYPE_KEY_OPTIONS,
   MATCH_TYPE_OPTIONS,
   filterByMatchType,
   matchTypeKey,
@@ -14,6 +15,7 @@ import {
 } from '@/lib/matchType';
 import { SERIES_STATUS_TABS, type SeriesStatusKey } from '@/lib/tabs';
 import Segmented from '../ui/Segmented';
+import FilterSheet from '../ui/FilterSheet';
 import EmptyState from '../ui/EmptyState';
 import { SectionHead } from '../ui/Section';
 import SeriesCard from './SeriesCard';
@@ -112,6 +114,21 @@ export default function SeriesFilter({ matches, totals, initialStatus, initialTy
           className={styles.type}
         />
       </div>
+
+      <FilterSheet
+        groups={() => [
+          {
+            key: 'status',
+            label: 'Status',
+            options: SERIES_STATUS_TABS.map((t) => ({ value: t.key, label: t.label, count: counts[t.key] })),
+          },
+          { key: 'type', label: 'Competition', options: MATCH_TYPE_KEY_OPTIONS },
+        ]}
+        value={{ status, type }}
+        defaults={{ status: 'all', type: 'all' }}
+        onApply={(next) => setQuery(next)}
+        className={styles.mobileFilter}
+      />
 
       {sections.length === 0 ? (
         <EmptyState

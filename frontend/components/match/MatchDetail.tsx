@@ -9,6 +9,7 @@ import {
   useCrexMatchExtras,
   useCrexMatchSquads,
 } from '@/hooks/useCrexMatches';
+import { useLiveStatus } from '@/lib/live/socket';
 import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
 import { battedInnings, formatTeamScore, inningsFor } from '@/lib/innings';
 import { creaseContext, matchSituation, type MatchSituation } from '@/lib/situation';
@@ -17,7 +18,7 @@ import { matchStateOf } from '@/lib/matchState';
 import { inningsProgress, liveEquation } from '@/lib/telemetry';
 import { creaseFromCard } from '@/lib/crease';
 import { groupBalls, reachedByCard, toBallEntry, type BallEntry } from '@/lib/balls';
-import { useScrollFade } from '@/hooks/useScrollFade';
+import { useActiveInView, useScrollFade } from '@/hooks/useScrollFade';
 import PointsTable from '../series/PointsTable';
 import BackButton from '../ui/BackButton';
 import FollowButton from '../follow/FollowButton';
@@ -79,7 +80,7 @@ export default function MatchDetail({
   // Polling is not gated on LIVE: a page opened before the toss has to keep
   // asking to learn the match has started. Status sets the cadence; a finished
   // match is terminal and stops.
-  const { match: polled, lastUpdated } = useCrexMatch(matchId, {
+  const { match: polled, lastUpdated, error: listError } = useCrexMatch(matchId, {
     initial,
     enabled: !preview && match.status !== 'COMPLETED',
     intervalMs: isLive ? undefined : IDLE_INTERVAL_MS,
@@ -125,6 +126,9 @@ export default function MatchDetail({
   }, [crexExtras.commentary]);
 
   const isConnected = Boolean(lastUpdated);
+  const liveStatus = useLiveStatus();
+  // Both routes down: the score on screen is the last one known, and says so.
+  const interrupted = isLive && Boolean(listError) && liveStatus !== 'open';
   const innings = match.scorecard?.innings ?? [];
   const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
 
@@ -223,6 +227,7 @@ export default function MatchDetail({
   const panelRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   useScrollFade(tabsRef);
+  useActiveInView(tabsRef, `${tab}|${tabs.length}`);
   const pick = (next: TabKey) => {
     setTab(next);
     if (compact) panelRef.current?.scrollIntoView({ block: 'start' });
@@ -252,6 +257,7 @@ export default function MatchDetail({
           stand={stand}
           progress={state.alive ? inningsProgress(match, crexExtras.innings.length ? crexExtras.innings : undefined) : null}
           connecting={isLive && !isConnected && !crexExtras.fetchedAt}
+          interrupted={interrupted}
           perOver={perOver}
         />
       </div>

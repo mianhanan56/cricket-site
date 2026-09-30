@@ -4,9 +4,12 @@ import { useState } from 'react';
 import {
   addAutomation,
   describeAutomation,
+  sameScope,
   scopePhrase,
   triggerSpec,
+  updateAutomation,
   useAutomations,
+  type Automation,
   type AutomationScope,
   type ScopeKind,
   type TriggerKind,
@@ -27,23 +30,32 @@ const BROWSER_NOTE: Partial<Record<SystemPermission, string>> = {
 export const NEW_ALERT_ID = 'new-alert';
 
 const SCOPE_ORDER = Object.keys(SCOPE_LABEL) as ScopeKind[];
+const PRESET_ORDER = PRESETS.map((p) => p.trigger);
+const inOrder = (list: TriggerKind[]) => PRESET_ORDER.filter((t) => list.includes(t));
 
-/** "a wicket falls, a six is hit or a match finishes" */
-function joinPhrases(parts: string[]): string {
-  return parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} or ${parts[parts.length - 1]}`;
-}
-
-export default function AlertCreator() {
+export default function AlertCreator({
+  editing = null,
+  notice = null,
+  onDone,
+}: {
+  /** The alert being changed; null for a new one. */
+  editing?: Automation | null;
+  /** A message carried over from the last save, shown until the form is touched. */
+  notice?: string | null;
+  onDone?: (message: string | null) => void;
+}) {
   const automations = useAutomations();
   const follows = useFollows();
   const [permission, requestPermission] = useNotificationPermission();
-  const [triggers, setTriggers] = useState<TriggerKind[]>(['WICKET']);
-  const [scopeKind, setScopeKind] = useState<ScopeKind | null>(null);
-  const [entity, setEntity] = useState<PickedEntity | null>(null);
-  const [browser, setBrowser] = useState(false);
-  const [created, setCreated] = useState(0);
+  const [triggers, setTriggers] = useState<TriggerKind[]>(editing?.triggers ?? ['WICKET']);
+  const [scopeKind, setScopeKind] = useState<ScopeKind | null>(editing?.scope.kind ?? null);
+  const [entity, setEntity] = useState<PickedEntity | null>(
+    editing?.scope.id ? { id: editing.scope.id, name: editing.scope.name ?? editing.scope.id } : null
+  );
+  const [browser, setBrowser] = useState(editing?.action.system ?? false);
+  const [done, setDone] = useState<string | null>(notice);
 
-  // Several moments make one alert each; "Who?" offers only what every chosen moment supports.
+  // "Who?" offers only what every chosen moment supports.
   const scopes = triggers.length
     ? SCOPE_ORDER.filter((sc) => triggers.every((t) => triggerSpec(t).scopes.includes(sc)))
     : triggerSpec(PRESETS[0].trigger).scopes;
@@ -52,70 +64,81 @@ export default function AlertCreator() {
   const needsEntity = kind === 'TEAM' || kind === 'SERIES' || kind === 'PLAYER';
   const scope: AutomationScope = needsEntity ? { kind, id: entity?.id, name: entity?.name } : { kind };
   const system = browser && permission === 'granted';
-  const exists = (t: TriggerKind) =>
-    automations.some((a) => a.trigger === t && a.scope.kind === kind && a.scope.id === scope.id);
-  const fresh = triggers.filter((t) => !exists(t));
-  const ready = triggers.length > 0 && (!needsEntity || Boolean(entity)) && fresh.length > 0;
 
-  const toggleTrigger = (t: TriggerKind) => {
-    const next = triggers.includes(t) ? triggers.filter((x) => x !== t) : [...triggers, t];
+  const allOn = PRESET_ORDER.every((t) => triggers.includes(t));
+  const covered = automations.some(
+    (a) => a.id !== editing?.id && sameScope(a.scope, scope) && triggers.every((t) => a.triggers.includes(t))
+  );
+  const changed =
+    !editing ||
+    inOrder(triggers).join() !== inOrder(editing.triggers).join() ||
+    !sameScope(editing.scope, scope) ||
+    editing.action.system !== system;
+  const created = done !== null && done !== notice;
+  const ready = triggers.length > 0 && (!needsEntity || Boolean(entity)) && !covered && changed;
+
+  const pickTriggers = (next: TriggerKind[]) => {
     setTriggers(next);
-    setCreated(0);
+    setDone(null);
     if (next.some((x) => !triggerSpec(x).scopes.includes(kind))) {
       setScopeKind(null);
       setEntity(null);
     }
   };
 
+  const toggleTrigger = (t: TriggerKind) =>
+    pickTriggers(triggers.includes(t) ? triggers.filter((x) => x !== t) : [...triggers, t]);
+
   const pickScope = (next: ScopeKind) => {
     setScopeKind(next);
     setEntity(null);
-    setCreated(0);
+    setDone(null);
   };
 
   const pickEntity = (next: PickedEntity | null) => {
     setEntity(next);
-    setCreated(0);
+    setDone(null);
   };
 
   const toggleBrowser = async () => {
-    setCreated(0);
+    setDone(null);
     if (system) return setBrowser(false);
     const next = permission === 'default' ? await requestPermission() : permission;
     setBrowser(next === 'granted');
   };
 
-  const create = () => {
+  const save = () => {
     if (!ready) return;
-    // Added in reverse: the list shows newest first, so this keeps the order they were picked.
-    for (const t of [...fresh].reverse()) addAutomation({ trigger: t, scope, action: { inApp: true, system } });
-    setCreated(fresh.length);
+    const input = { triggers: inOrder(triggers), scope, action: { inApp: true, system } };
+    if (editing) {
+      updateAutomation(editing.id, input);
+      onDone?.('Changes saved.');
+      return;
+    }
+    addAutomation(input);
+    setDone('Alert created. You’ll find it under Your alerts.');
     setEntity(null);
   };
 
-  const sentence =
-    triggers.length === 1
-      ? describeAutomation({ trigger: triggers[0], scope })
-      : kind === 'PLAYER'
-        ? `When ${scope.name ?? 'this player'} reaches ${joinPhrases(triggers.map((t) => (t === 'FIFTY' ? '50' : '100')))}`
-        : `When ${joinPhrases(triggers.map((t) => triggerSpec(t).phrase))} ${scopePhrase(scope)}`;
-  const skipped = triggers.length - fresh.length;
-  const status = created
-    ? `${created === 1 ? 'Alert' : `${created} alerts`} created. You’ll find ${created === 1 ? 'it' : 'them'} under Your alerts.`
+  const status = done
+    ? done
     : !triggers.length
       ? 'Pick at least one moment.'
-      : !fresh.length
-        ? `You already have ${triggers.length === 1 ? 'this alert' : 'these alerts'}.`
-        : needsEntity && !entity
-          ? `Pick ${kind === 'PLAYER' ? 'a player' : kind === 'TEAM' ? 'a team' : 'a series'} to finish ${fresh.length === 1 ? 'this alert' : 'these alerts'}.`
-          : `You’ll get an alert ${sentence.charAt(0).toLowerCase()}${sentence.slice(1)}.${
-              skipped ? ` ${skipped} you already have ${skipped === 1 ? 'is' : 'are'} skipped.` : ''
-            }`;
+      : needsEntity && !entity
+        ? `Pick ${kind === 'PLAYER' ? 'a player' : kind === 'TEAM' ? 'a team' : 'a series'} to finish this alert.`
+        : covered
+          ? 'One of your alerts already covers this.'
+          : allOn
+            ? `You’ll get an alert for every match event ${scopePhrase(scope)}.`
+            : (() => {
+                const sentence = describeAutomation({ triggers: inOrder(triggers), scope });
+                return `You’ll get an alert ${sentence.charAt(0).toLowerCase()}${sentence.slice(1)}.`;
+              })();
 
   return (
     <section id={NEW_ALERT_ID} className={styles.creator} aria-labelledby="new-alert-title">
       <h2 id="new-alert-title" className={styles.title}>
-        New alert
+        {editing ? 'Edit alert' : 'New alert'}
       </h2>
 
       <div className={styles.step}>
@@ -123,6 +146,18 @@ export default function AlertCreator() {
           What do you want to know?
           <span className={styles.hint}>Pick one or more</span>
         </h3>
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={allOn ? true : triggers.length ? 'mixed' : false}
+          className={`${styles.selectAll} ${triggers.length ? styles.selectAllOn : ''}`}
+          onClick={() => pickTriggers(allOn ? [] : PRESET_ORDER)}
+        >
+          <span className={styles.box} aria-hidden="true">
+            {allOn ? <Icon name="check" size={14} strokeWidth={2.4} /> : triggers.length ? <Icon name="minus" size={14} strokeWidth={2.4} /> : null}
+          </span>
+          Select all
+        </button>
         <div className={styles.presets} role="group" aria-labelledby="alert-what">
           {PRESETS.map((p) => {
             const on = triggers.includes(p.trigger);
@@ -200,10 +235,17 @@ export default function AlertCreator() {
         <p className={styles.status} aria-live="polite">
           {status}
         </p>
-        <button type="button" className={styles.create} onClick={create} disabled={!ready}>
-          <Icon name={created ? 'check' : 'plus'} size={17} />
-          {created ? (created === 1 ? 'Alert created' : `${created} alerts created`) : fresh.length > 1 ? `Create ${fresh.length} alerts` : 'Create alert'}
-        </button>
+        <div className={styles.actions}>
+          {editing && (
+            <button type="button" className={styles.cancel} onClick={() => onDone?.(null)}>
+              Cancel
+            </button>
+          )}
+          <button type="button" className={styles.create} onClick={save} disabled={!ready}>
+            <Icon name={editing || created ? 'check' : 'plus'} size={17} />
+            {editing ? 'Save changes' : created ? 'Alert created' : 'Create alert'}
+          </button>
+        </div>
       </div>
     </section>
   );

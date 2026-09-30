@@ -2,6 +2,8 @@
 
 .ticker {
   display: inline-block;
+  // Clipping is for the vertical roll; a squeezed flex row must never cut the score itself.
+  flex-shrink: 0;
   overflow: hidden;
   vertical-align: bottom;
   line-height: inherit;

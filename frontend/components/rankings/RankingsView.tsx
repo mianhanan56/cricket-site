@@ -12,6 +12,7 @@ import type {
 import type { RankingsData, TeamRankingsData } from '@/lib/rankings';
 import { PageHeader } from '../ui/Section';
 import Segmented, { type SegmentOption } from '../ui/Segmented';
+import FilterSheet from '../ui/FilterSheet';
 import EmptyState from '../ui/EmptyState';
 import RankingCrest from './RankingCrest';
 import styles from './RankingsView.module.scss';
@@ -184,6 +185,21 @@ export default function RankingsView({ data, teams, asOf, initial }: RankingsVie
           />
         )}
       </div>
+
+      <FilterSheet
+        groups={(d) => [
+          { key: 'group', label: 'Ranking', options: GROUPS },
+          { key: 'gender', label: 'Gender', options: GENDERS },
+          { key: 'format', label: 'Format', options: d.gender === 'women' ? FORMATS.filter((f) => f.value !== 'test') : FORMATS },
+          ...(d.group === 'teams' ? [] : [{ key: 'category', label: 'Discipline', options: CATEGORIES }]),
+        ]}
+        value={{ group, gender, format, category }}
+        defaults={{ group: 'players', gender: 'men', format: 'odi', category: 'batting' }}
+        normalize={(d) => (d.gender === 'women' && d.format === 'test' ? { ...d, format: 'odi' as const } : d)}
+        onApply={(next) => setQuery(next)}
+        chips={false}
+        className={styles.mobileFilter}
+      />
 
       {rows.length ? (
         <div key={listKey} className={styles.board}>

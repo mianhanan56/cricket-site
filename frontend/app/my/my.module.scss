@@ -141,6 +141,11 @@
 .picker {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+
+  // Two columns on a small phone leave a one-word name ("Bangladesh") cut mid-word.
+  @include mobile-only {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
   gap: $space-2;
 }
 

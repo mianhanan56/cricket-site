@@ -11,6 +11,7 @@ import {
 } from '@/lib/playersDirectory';
 import type { PlayersFormatKey, PlayersRoleKey, RankingsGender } from '@/lib/tabs';
 import Segmented, { type SegmentOption } from '../ui/Segmented';
+import FilterSheet from '../ui/FilterSheet';
 import TeamBadge from '../ui/TeamBadge';
 import EmptyState from '../ui/EmptyState';
 import Icon from '../ui/Icon';
@@ -146,7 +147,6 @@ export default function PlayersDirectory({ rows, initial }: { rows: DirectoryRow
         <div className={styles.filters}>
           <Segmented
             label="Gender"
-            className={styles.segment}
             value={gender}
             onChange={changeGender}
             options={[
@@ -156,14 +156,12 @@ export default function PlayersDirectory({ rows, initial }: { rows: DirectoryRow
           />
           <Segmented
             label="Role"
-            className={styles.segment}
             value={role}
             onChange={(r) => setQuery({ role: r })}
             options={ROLES}
           />
           <Segmented
             label="Format"
-            className={styles.segment}
             value={format}
             onChange={(f) => setQuery({ format: f })}
             options={formats}
@@ -182,6 +180,24 @@ export default function PlayersDirectory({ rows, initial }: { rows: DirectoryRow
             spellCheck={false}
           />
         </label>
+        <FilterSheet
+          groups={(d) => [
+            {
+              key: 'gender',
+              label: 'Gender',
+              options: [
+                { value: 'men', label: 'Men', count: counts.men },
+                { value: 'women', label: 'Women', count: counts.women },
+              ],
+            },
+            { key: 'role', label: 'Role', options: ROLES },
+            { key: 'format', label: 'Format', options: d.gender === 'women' ? FORMATS.filter((f) => f.value !== 'test') : FORMATS },
+          ]}
+          value={filters}
+          defaults={DEFAULTS}
+          normalize={(d) => (d.gender === 'women' && d.format === 'test' ? { ...d, format: 'all' as const } : d)}
+          onApply={(next) => setQuery(next)}
+        />
       </div>
 
       {sections.length === 0 ? (

@@ -19,11 +19,11 @@ import styles from './my.module.scss';
 
 const RANK: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
 
-const TEAM_ALERTS: Array<Pick<Automation, 'trigger' | 'scope'>> = [
-  { trigger: 'MATCH_START', scope: { kind: 'FOLLOWED' } },
-  { trigger: 'WICKET', scope: { kind: 'FOLLOWED' } },
-  { trigger: 'CLOSE_CHASE', scope: { kind: 'FOLLOWED' } },
-  { trigger: 'RESULT', scope: { kind: 'FOLLOWED' } },
+const TEAM_ALERTS: Array<Pick<Automation, 'triggers' | 'scope'>> = [
+  { triggers: ['MATCH_START'], scope: { kind: 'FOLLOWED' } },
+  { triggers: ['WICKET'], scope: { kind: 'FOLLOWED' } },
+  { triggers: ['CLOSE_CHASE'], scope: { kind: 'FOLLOWED' } },
+  { triggers: ['RESULT'], scope: { kind: 'FOLLOWED' } },
 ];
 
 export default function MyCricketView() {
@@ -60,7 +60,7 @@ export default function MyCricketView() {
   }, [index, matches, follows.teams, total]);
 
   const missingAlerts = TEAM_ALERTS.filter(
-    (t) => !automations.some((a) => a.trigger === t.trigger && a.scope.kind === 'FOLLOWED')
+    (t) => !automations.some((a) => a.triggers.includes(t.triggers[0]) && a.scope.kind === 'FOLLOWED')
   );
 
   return (
@@ -166,7 +166,7 @@ export default function MyCricketView() {
           <SectionHead title="Alerts for your teams" level={3} action={{ href: '/automations', label: 'All alerts' }} />
           <ul className={styles.alerts}>
             {missingAlerts.map((t) => (
-              <li key={t.trigger}>
+              <li key={t.triggers[0]}>
                 <button type="button" className={styles.alert} onClick={() => addAutomation({ ...t, action: { inApp: true, system: false } })}>
                   <Icon name="bolt" size={16} />
                   {describeAutomation(t)}

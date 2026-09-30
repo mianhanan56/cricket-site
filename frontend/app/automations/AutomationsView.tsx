@@ -1,14 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useAutomations } from '@/lib/automations';
+import { removeAutomation, useAutomations } from '@/lib/automations';
 import { PageHeader, SectionHead } from '@/components/ui/Section';
 import AlertCreator, { NEW_ALERT_ID } from '@/components/automations/AlertCreator';
-import AutomationBuilder from '@/components/automations/AutomationBuilder';
 import AutomationCard from '@/components/automations/AutomationCard';
 import BrowserNotifications from '@/components/automations/BrowserNotifications';
+import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
-import Icon from '@/components/ui/Icon';
 import styles from './automations.module.scss';
 
 const goToCreator = () => {
@@ -19,8 +18,29 @@ const goToCreator = () => {
 
 export default function AutomationsView() {
   const automations = useAutomations();
-  const [advanced, setAdvanced] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const active = automations.filter((a) => a.enabled).length;
+  // Gone from the list (deleted here or in another tab) means there is nothing left to edit.
+  const editing = automations.find((a) => a.id === editingId) ?? null;
+
+  const edit = (id: string) => {
+    setEditingId(id);
+    setNotice(null);
+    requestAnimationFrame(goToCreator);
+  };
+
+  const finishEdit = (message: string | null) => {
+    setEditingId(null);
+    setNotice(message);
+  };
+
+  const confirmDelete = () => {
+    if (deletingId) removeAutomation(deletingId);
+    if (deletingId === editingId) setEditingId(null);
+    setDeletingId(null);
+  };
 
   return (
     <div className={styles.page}>
@@ -38,24 +58,7 @@ export default function AutomationsView() {
 
       <div className={styles.layout}>
         <div className={styles.main}>
-          <AlertCreator />
-
-          <div className={styles.advanced}>
-            <button
-              type="button"
-              className={styles.advancedToggle}
-              aria-expanded={advanced}
-              aria-controls="advanced-builder"
-              onClick={() => setAdvanced((v) => !v)}
-            >
-              <Icon name="settings" size={17} />
-              Advanced options
-              <Icon name="chevronDown" size={16} className={`${styles.chevron} ${advanced ? styles.chevronUp : ''}`} />
-            </button>
-            <div id="advanced-builder" hidden={!advanced}>
-              <AutomationBuilder />
-            </div>
-          </div>
+          <AlertCreator key={editing?.id ?? 'new'} editing={editing} notice={notice} onDone={finishEdit} />
         </div>
 
         <aside className={styles.side}>
@@ -64,7 +67,13 @@ export default function AutomationsView() {
             {automations.length ? (
               <ul className={styles.list}>
                 {automations.map((a) => (
-                  <AutomationCard key={a.id} automation={a} />
+                  <AutomationCard
+                    key={a.id}
+                    automation={a}
+                    editing={a.id === editing?.id}
+                    onEdit={() => edit(a.id)}
+                    onDelete={() => setDeletingId(a.id)}
+                  />
                 ))}
               </ul>
             ) : (
@@ -81,6 +90,15 @@ export default function AutomationsView() {
           <BrowserNotifications />
         </aside>
       </div>
+
+      <ConfirmDialog
+        open={deletingId !== null}
+        title="Delete this alert?"
+        body="You will stop receiving notifications for this alert."
+        confirmLabel="Delete alert"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeletingId(null)}
+      />
     </div>
   );
 }

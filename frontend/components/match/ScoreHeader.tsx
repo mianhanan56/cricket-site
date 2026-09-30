@@ -82,6 +82,7 @@ export default function ScoreHeader({
   stand,
   progress,
   connecting,
+  interrupted = false,
   perOver,
 }: {
   match: Match;
@@ -96,6 +97,8 @@ export default function ScoreHeader({
   stand: CreaseContext;
   progress: number | null;
   connecting: boolean;
+  /** Neither the API nor the live socket is answering. */
+  interrupted?: boolean;
   perOver: number;
 }) {
   const live = match.status === 'LIVE';
@@ -114,7 +117,11 @@ export default function ScoreHeader({
 
       <div className={styles.top}>
         <StateChip state={state} full={!state.alive && state.key !== 'FINISHED'} />
-        {connecting && <span className={styles.connecting}>Updating</span>}
+        {(connecting || interrupted) && (
+          <span className={styles.connecting} role="status">
+            {interrupted ? 'Reconnecting' : 'Updating'}
+          </span>
+        )}
         {lastBall?.timestamp && <LastBallAge iso={lastBall.timestamp} className={styles.age} />}
         <span className={styles.meta}>
           <Link href={`/series/${match.series.id}`} className={styles.series}>

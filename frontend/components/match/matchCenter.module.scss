@@ -79,7 +79,9 @@
 
 .tableWrap {
   @include panel;
-  overflow: hidden;
+  // Phones fit every column (see the mobile-only rules below); scrolling is only the fallback.
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
 }
 
 .table {
@@ -121,6 +123,24 @@
   th:last-child,
   td:last-child {
     padding-right: $space-4;
+  }
+
+  @include mobile-only {
+    th,
+    td {
+      padding-inline: $space-1-5;
+    }
+
+    th:first-child,
+    td:first-child {
+      padding-left: $space-3;
+      white-space: normal;
+    }
+
+    th:last-child,
+    td:last-child {
+      padding-right: $space-3;
+    }
   }
 }
 

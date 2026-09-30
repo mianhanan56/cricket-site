@@ -1,39 +1,14 @@
 @use 'component' as *;
 
 .list {
-  position: relative;
   display: grid;
-
-  &::before {
-    content: '';
-    position: absolute;
-    left: 7px;
-    top: 10px;
-    bottom: 10px;
-    width: 1px;
-    background: $line-2;
-  }
 }
 
 .item {
   --tone: var(--text-3);
-  position: relative;
-  display: grid;
-  grid-template-columns: 15px minmax(0, 1fr);
-  gap: $space-3;
   padding-block: $space-2-5;
 }
 
-.node {
-  position: relative;
-  z-index: 1;
-  width: 15px;
-  height: 15px;
-  margin-top: 1px;
-  border-radius: 50%;
-  background: $bg;
-  border: 2px solid var(--tone);
-}
 
 .body {
   display: flex;
@@ -69,11 +44,6 @@
 .wicket {
   --tone: var(--wicket);
 
-  .node {
-    border-radius: 3px;
-    background: var(--wicket);
-  }
-
   .text {
     color: $text;
   }
@@ -81,10 +51,6 @@
 
 .milestone {
   --tone: var(--signal);
-
-  .node {
-    background: var(--signal);
-  }
 }
 
 :global([data-theme='light']) .milestone {

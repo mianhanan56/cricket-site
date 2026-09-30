@@ -169,7 +169,36 @@ export default function ScorecardPanel({
           </TableScroll>
         ) : pending ? (
           <ScorecardSkeleton />
-        ) : yetToBat.length ? null : (
+        ) : yetToBat.length ? (
+          // Before the first ball the lineup reads as the card it will become.
+          <TableScroll className={mc.tableWrap} label={`${current?.teamShortName ?? ''} playing XI`.trim()}>
+            <table className={mc.table}>
+              <thead>
+                <tr>
+                  <th scope="col" className={mc.left}>Batter</th>
+                  <th scope="col">R</th>
+                  <th scope="col">B</th>
+                  <th scope="col">4s</th>
+                  <th scope="col">6s</th>
+                  <th scope="col">SR</th>
+                </tr>
+              </thead>
+              <tbody>
+                {yetToBat.map((p) => (
+                  <tr key={p.playerId}>
+                    <td className={`${mc.left} ${styles.batter}`}>
+                      <PlayerLink id={p.playerId} name={p.name} className={styles.batterName} />
+                      <span className={styles.dismissal}>Yet to bat</span>
+                    </td>
+                    {[0, 1, 2, 3, 4].map((c) => (
+                      <td key={c} className={`${mc.num} ${styles.blank}`}>–</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
+        ) : (
           <p className={mc.empty}>
             {current
               ? `No batting card for this innings — total ${current.runs}/${current.wickets} (${formatProgressShort(current.overs, perOver)}).`
@@ -177,9 +206,9 @@ export default function ScorecardPanel({
           </p>
         )}
 
-        {yetToBat.length > 0 && (
+        {batting.length > 0 && yetToBat.length > 0 && (
           <div className={styles.yetToBat}>
-            <h3 className={styles.subTitle}>{!batting.length ? 'Playing XI' : inProgress ? 'Yet to bat' : 'Did not bat'}</h3>
+            <h3 className={styles.subTitle}>{inProgress ? 'Yet to bat' : 'Did not bat'}</h3>
             <ol className={styles.ytbList}>
               {yetToBat.map((p, i) => (
                 <li key={p.playerId}>

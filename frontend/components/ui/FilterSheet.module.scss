@@ -1,0 +1,215 @@
+@use 'component' as *;
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+
+  @include tablet {
+    display: none;
+  }
+}
+
+.trigger {
+  @include button-secondary;
+  min-height: 44px;
+  padding-inline: $space-3 $space-4;
+
+  svg {
+    color: $text-2;
+  }
+}
+
+.triggerOn {
+  border-color: color-mix(in oklab, var(--signal) 55%, transparent);
+
+  svg {
+    color: $signal-text;
+  }
+}
+
+.count {
+  @include data-num;
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding-inline: $space-1-5;
+  border-radius: $r-pill;
+  background: $signal;
+  color: $signal-ink;
+  font-size: $fs-xs;
+  font-weight: 700;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  min-height: 36px;
+  max-width: 100%;
+  padding-inline: $space-3 $space-2;
+  border-radius: $r-pill;
+  border: 1px solid $line-2;
+  background: $surface;
+  font-size: $fs-sm;
+  font-weight: 500;
+  color: $text;
+  @include focus-ring;
+
+  svg {
+    flex-shrink: 0;
+    color: $text-3;
+  }
+
+  &:hover svg {
+    color: $text;
+  }
+}
+
+.layer {
+  position: fixed;
+  inset: 0;
+  z-index: $z-modal;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  cursor: default;
+
+  @include motion {
+    animation: fade-in $dur-2 $ease-out;
+  }
+}
+
+.sheet {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 85dvh;
+  border-radius: $r-lg $r-lg 0 0;
+  background: $surface;
+  border-top: 1px solid $line-2;
+
+  @include motion {
+    animation: sheet-up $dur-3 $ease-out;
+  }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  padding: $space-3 $space-2 $space-2 $space-5;
+}
+
+.title {
+  font-size: $fs-lg;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.close {
+  @include icon-button;
+  width: 44px;
+  height: 44px;
+}
+
+.body {
+  display: grid;
+  gap: $space-5;
+  padding: $space-2 $space-5 $space-5;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.group {
+  display: grid;
+  gap: $space-2-5;
+}
+
+.groupLabel {
+  @include eyebrow;
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  min-height: 44px;
+  padding-inline: $space-4;
+  border-radius: $r-sm;
+  border: 1px solid $line-2;
+  background: $surface-2;
+  font-size: $fs-md;
+  font-weight: 500;
+  color: $text-2;
+  transition:
+    border-color $dur-2 $ease-out,
+    color $dur-2 $ease-out,
+    background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+  }
+}
+
+.on {
+  color: $text;
+  border-color: color-mix(in oklab, var(--signal) 55%, transparent);
+  background: color-mix(in oklab, var(--signal) 8%, var(--surface));
+}
+
+.optionCount {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+
+  .on & {
+    color: $text-2;
+  }
+}
+
+.foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: $space-3;
+  padding: $space-3 $space-5 calc(#{$space-3} + env(safe-area-inset-bottom));
+  border-top: 1px solid $line;
+}
+
+.reset {
+  @include button-secondary;
+  min-height: 48px;
+}
+
+.apply {
+  @include button-primary;
+  min-height: 48px;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OverSummary } from '@/types';
 import { ballKind, runsLabel, type BallEntry, type BallKind } from '@/lib/balls';
 import Segmented from '../ui/Segmented';
+import FilterSheet from '../ui/FilterSheet';
 import PlayerLink from './PlayerLink';
 import { CommentarySkeleton } from './MatchDetailSkeleton';
 import mc from './matchCenter.module.scss';
@@ -78,7 +79,6 @@ function BallEvent({ b }: { b: BallEntry }) {
       <span className={styles.at}>
         {b.over}.{b.ball}
       </span>
-      <span className={styles.node} aria-hidden="true" />
       <div className={styles.content}>
         <div className={styles.line1}>
           <span className={styles.word}>{word(b, kind)}</span>
@@ -267,6 +267,30 @@ export default function CommentaryFeed({
             />
           )}
         </div>
+        <FilterSheet
+          groups={() => [
+            { key: 'filter', label: 'Show', options: BALL_FILTERS },
+            ...(innings.length > 1
+              ? [
+                  {
+                    key: 'inning',
+                    label: 'Innings',
+                    options: [
+                      { value: 'all', label: 'All innings' },
+                      ...innings.map((n) => ({ value: String(n), label: `Inn ${n + 1}` })),
+                    ],
+                  },
+                ]
+              : []),
+          ]}
+          value={{ filter, inning }}
+          defaults={{ filter: 'all', inning: 'all' }}
+          onApply={(next) => {
+            setFilter(next.filter);
+            setInning(next.inning);
+          }}
+          className={styles.mobileFilter}
+        />
 
         {rows.length ? (
           <ol className={styles.feed}>

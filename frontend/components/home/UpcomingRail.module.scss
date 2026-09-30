@@ -1,6 +1,7 @@
 @use 'component' as *;
 
 .rail {
+  --node-w: 16px;
   container: rail / inline-size;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -47,13 +48,26 @@
   }
 }
 
+// Only the schedule views draw the timeline; elsewhere the list is a plain list.
+.plain {
+  --node-w: 0px;
+
+  .list::before {
+    content: none;
+  }
+
+  .node {
+    visibility: hidden;
+  }
+}
+
 .item + .item {
   border-top: 1px solid $line;
 }
 
 .link {
   display: grid;
-  grid-template-columns: 64px 16px minmax(0, 1fr);
+  grid-template-columns: 64px var(--node-w) minmax(0, 1fr);
   align-items: start;
   column-gap: $space-2;
   padding: $space-3 $space-2 $space-3 0;
@@ -71,7 +85,7 @@
   }
 
   @include tablet {
-    grid-template-columns: 88px 16px minmax(0, 1fr) auto;
+    grid-template-columns: 88px var(--node-w) minmax(0, 1fr) auto;
     align-items: center;
   }
 }
@@ -88,6 +102,12 @@
     font-size: $fs-md;
     font-weight: 600;
     color: $text;
+    white-space: nowrap;
+
+    // "10:45 pm" must fit the 64px column on one line.
+    @include mobile-only {
+      font-size: $fs-sm;
+    }
   }
 }
 
@@ -217,7 +237,7 @@
 @container rail (min-width: 840px) {
   .rail:not(.compact) {
     .link {
-      grid-template-columns: 88px 16px minmax(0, 1.25fr) minmax(0, 1fr) auto;
+      grid-template-columns: 88px var(--node-w) minmax(0, 1.25fr) minmax(0, 1fr) auto;
     }
 
     .body {
@@ -278,13 +298,13 @@
   }
 
   .link {
-    grid-template-columns: 60px 16px minmax(0, 1fr) auto;
+    grid-template-columns: 60px var(--node-w) minmax(0, 1fr) auto;
     align-items: center;
     padding-block: $space-2;
 
     // Narrow phones put the countdown under the time, as the full list does, so the sides keep their room.
     @include mobile-only {
-      grid-template-columns: 60px 16px minmax(0, 1fr);
+      grid-template-columns: 60px var(--node-w) minmax(0, 1fr);
       grid-template-areas:
         'time node body'
         'tick node body';

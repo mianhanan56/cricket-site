@@ -1,0 +1,80 @@
+@use 'component' as *;
+
+.dialog {
+  width: min(400px, calc(100vw - #{$space-8}));
+  max-width: none;
+  margin: auto;
+  padding: 0;
+  border: 1px solid $line-2;
+  border-radius: $r-lg;
+  background: $surface;
+  color: $text;
+  box-shadow: $shadow-pop;
+
+  &::backdrop {
+    background: rgb(0 0 0 / 55%);
+  }
+
+  @include motion {
+    &[open] {
+      animation: dialog-in $dur-3 $ease-out;
+    }
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.panel {
+  display: grid;
+  gap: $space-3;
+  padding: $space-5;
+}
+
+.title {
+  @include heading;
+  font-size: $fs-lg;
+  font-weight: 700;
+}
+
+.body {
+  font-size: $fs-md;
+  line-height: $leading-normal;
+  color: $text-2;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: $space-2;
+  margin-top: $space-2;
+
+  > * {
+    flex: 1 1 0;
+
+    @include sm {
+      flex: 0 0 auto;
+    }
+  }
+}
+
+.cancel {
+  @include button-secondary;
+  min-height: 44px;
+}
+
+.confirm {
+  @include button-base;
+  min-height: 44px;
+  border: 1px solid color-mix(in oklab, var(--wicket) 55%, transparent);
+  background: $wicket-soft;
+  color: $wicket;
+
+  &:hover {
+    background: color-mix(in oklab, var(--wicket) 24%, transparent);
+  }
+}

@@ -13,14 +13,9 @@
 
   @include tablet {
     left: auto;
-    top: auto;
+    top: calc(#{$navbar-height} + #{$space-3});
     right: $space-5;
-    bottom: calc(#{$dock-height} + #{$space-4});
     width: 360px;
-  }
-
-  @include desktop {
-    bottom: $space-6;
   }
 }
 
@@ -55,7 +50,7 @@
 @keyframes toast-in {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.98);
+    transform: translateY(-8px) scale(0.98);
   }
 }
 

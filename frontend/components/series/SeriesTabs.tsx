@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRef } from 'react';
-import { useScrollFade } from '@/hooks/useScrollFade';
+import { useActiveInView, useScrollFade } from '@/hooks/useScrollFade';
 import styles from './SeriesTabs.module.scss';
 
 export interface SeriesTab {
@@ -27,6 +27,7 @@ export default function SeriesTabs({
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
   useScrollFade(groupRef);
+  useActiveInView(groupRef, `${active}|${tabs.length}`);
   if (tabs.length < 2) return null;
 
   return (

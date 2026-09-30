@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { pushNavigation } from '@/lib/navigationDepth';
 
 /**
@@ -19,9 +19,22 @@ import { pushNavigation } from '@/lib/navigationDepth';
  */
 export default function NavigationTracker() {
   const pathname = usePathname();
+  const router = useRouter();
   // The first run is this document's own entry, not a navigation away from
   // something. Counting it would make every cold landing look poppable.
   const first = useRef(true);
+  const traversedAt = useRef(0);
+
+  // Back and forward replay the router's copy of a page without asking the
+  // server. Links already fetch fresh (staleTimes.dynamic is 0); a traversal
+  // keeps showing its copy and revalidates behind it.
+  useEffect(() => {
+    const onPop = () => {
+      traversedAt.current = Date.now();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   useEffect(() => {
     if (first.current) {
@@ -29,7 +42,12 @@ export default function NavigationTracker() {
       return;
     }
     pushNavigation();
-  }, [pathname]);
+    // A traversal that only changed the query leaves no pathname change to consume it.
+    if (Date.now() - traversedAt.current < 1_000) {
+      traversedAt.current = 0;
+      router.refresh();
+    }
+  }, [pathname, router]);
 
   return null;
 }

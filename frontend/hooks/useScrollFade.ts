@@ -35,3 +35,20 @@ export function useScrollFade(ref: RefObject<HTMLElement>): void {
     };
   }, [ref]);
 }
+
+/**
+ * Keeps a scroller's selected child (`aria-checked` / `aria-selected` / `aria-current`) in view,
+ * so a tab picked at a faded edge, or the last one on a phone, isn't left half hidden.
+ * `key` changes whenever the selection or the row's width might have.
+ */
+export function useActiveInView(ref: RefObject<HTMLElement>, key: string): void {
+  useEffect(() => {
+    const row = ref.current;
+    const on = row?.querySelector<HTMLElement>('[aria-checked="true"], [aria-selected="true"], [aria-current="page"]');
+    if (!row || !on || row.scrollWidth <= row.clientWidth) return;
+    const r = row.getBoundingClientRect();
+    const o = on.getBoundingClientRect();
+    if (o.left < r.left + 16) row.scrollLeft -= r.left - o.left + 32;
+    else if (o.right > r.right - 16) row.scrollLeft += o.right - r.right + 32;
+  }, [ref, key]);
+}

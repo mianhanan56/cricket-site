@@ -19,7 +19,6 @@ export function EventsSkeleton({ rows = 4 }: { rows?: number }) {
     <ol className={`${styles.list} ${staggerRows}`} role="status" aria-busy="true" aria-label="Loading key moments">
       {Array.from({ length: rows }, (_, i) => (
         <li className={styles.item} key={i}>
-          <span className={styles.node} />
           <span className={styles.body}>
             <Skeleton variant="text" width="20" />
             <Skeleton variant="body" width={i % 2 ? '70' : '90'} />
@@ -49,7 +48,6 @@ export default function MatchEvents({
     <ol className={styles.list}>
       {shown.map((event) => (
         <li key={event.id} className={`${styles.item} ${KIND_CLASS[event.kind] ?? ''}`}>
-          <span className={styles.node} aria-hidden="true" />
           <span className={styles.body}>
             <span className={styles.head}>
               <span className={styles.kind}>{event.label}</span>

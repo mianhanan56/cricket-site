@@ -108,6 +108,13 @@ export const MATCH_TYPE_OPTIONS: { value: MatchType; label: string }[] = [
   { value: 'DOMESTIC', label: 'Domestic' },
 ];
 
+/** The same options keyed by their URL value, for filters that work in URL terms. */
+export const MATCH_TYPE_KEY_OPTIONS: { value: MatchTypeKey; label: string }[] = [
+  { value: 'all', label: 'All cricket' },
+  { value: 'international', label: 'International' },
+  { value: 'domestic', label: 'Domestic' },
+];
+
 /** URL value -> MatchType. Anything unrecognised reads as the unfiltered view. */
 export function parseMatchType(raw: string | null | undefined): MatchType {
   const v = (raw ?? '').toUpperCase();

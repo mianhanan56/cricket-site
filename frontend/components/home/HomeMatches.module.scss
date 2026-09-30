@@ -16,6 +16,11 @@
   flex-wrap: wrap;
   gap: $space-2 $space-4;
   margin-bottom: $space-5;
+
+  @include phone-only {
+    row-gap: $space-3;
+    margin-bottom: $space-4;
+  }
 }
 
 .boardTitle {
@@ -29,15 +34,13 @@
   margin-left: auto;
 
   @include phone-only {
-    order: 2;
-    flex-basis: 100%;
-    margin-left: 0;
-
-    > * {
-      flex: 1 0 auto;
-      justify-content: center;
-    }
+    display: none;
   }
+}
+
+.mobileFilter {
+  margin-left: auto;
+  justify-content: flex-end;
 }
 
 .tabs {

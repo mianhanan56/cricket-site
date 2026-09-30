@@ -31,13 +31,23 @@
   color: $text-3;
 }
 
+// Stays a real table cell (flex here would drop the row's divider under the other columns).
 .batter {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 1px;
+  vertical-align: middle;
   min-width: 180px;
   height: 56px !important;
+
+  > * {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  // A long name wraps under itself rather than pushing SR off the card (a cell's height is only a minimum).
+  @include mobile-only {
+    min-width: 0;
+    padding-block: $space-2;
+  }
 }
 
 .batterName {
@@ -50,6 +60,7 @@
 }
 
 .dismissal {
+  margin-top: 1px;
   font-size: $fs-xs;
   color: $text-3;
   white-space: normal;
@@ -87,6 +98,11 @@
   @include data-num;
   font-size: $fs-xs;
   color: $text-3;
+
+  @include mobile-only {
+    display: block;
+    margin-left: 0;
+  }
 }
 
 .totalRow td {
@@ -119,6 +135,10 @@
     border: 1px solid $line;
     font-size: $fs-sm;
   }
+}
+
+.blank {
+  color: $text-3;
 }
 
 .ytbNum {

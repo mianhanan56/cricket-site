@@ -190,6 +190,7 @@
 
 .next {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: $space-2-5;
   min-width: 0;
@@ -202,6 +203,7 @@
 }
 
 .nextTeams {
+  white-space: nowrap;
   font-weight: 700;
   font-stretch: $stretch-wide;
   color: $text;

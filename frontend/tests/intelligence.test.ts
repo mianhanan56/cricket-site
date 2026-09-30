@@ -214,9 +214,9 @@ describe('automation triggers', () => {
 
   it('describes a rule in plain words', () => {
     assert.equal(
-      describeAutomation({ trigger: 'WICKET', scope: { kind: 'TEAM', id: 'PAK', name: 'Pakistan' } }),
+      describeAutomation({ triggers: ['WICKET'], scope: { kind: 'TEAM', id: 'PAK', name: 'Pakistan' } }),
       'When a wicket falls in Pakistan’s matches'
     );
-    assert.equal(describeAutomation({ trigger: 'FIFTY', scope: { kind: 'PLAYER', id: 'x', name: 'Babar Azam' } }), 'When Babar Azam reaches 50');
+    assert.equal(describeAutomation({ triggers: ['FIFTY'], scope: { kind: 'PLAYER', id: 'x', name: 'Babar Azam' } }), 'When Babar Azam reaches 50');
   });
 });

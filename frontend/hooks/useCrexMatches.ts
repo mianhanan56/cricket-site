@@ -13,21 +13,32 @@ import type {
 } from '@/types';
 import {
   clearResumedStoppages,
+  feedFromRows,
+  getCrexMatches,
   getCrexMatchFeed,
   getCrexMatchInfo,
-  getCrexMatchList,
   getCrexScorecard,
+  matchListFromRaw,
+  scorecardFromRaw,
 } from '@/lib/crex';
-import type { StoppageWatch } from '@/lib/crex';
+import type { CrexFeedRow, CrexMatchesResponse, CrexScorecardBody, StoppageWatch } from '@/lib/crex';
 import { keepNewest } from '@/lib/liveScore';
+import { applyMatchesFrame, mergeFeedItems, type FrameVerdict, type LiveFrame } from '@/lib/live/frames';
+import { isTopicLive, onLiveChange, onLiveResync, subscribeLive } from '@/lib/live/socket';
 
-// crex has no push channel we can use — their live scores come off a Firebase
-// stream we deliberately don't touch (see worker-crex/README) — so the only
-// option is polling.
-//
-// 2s is matched to the Worker's edge TTL on /matches/live. The two numbers have
-// to move together: polling faster than the TTL just serves the same cached body.
+// The Worker's live socket pushes changes when it is up (lib/live/socket). The
+// poll stays underneath it: every 2s without the socket — matched to the
+// Worker's edge TTL on /matches/live — and at a slow reconcile rate with it.
 const DEFAULT_INTERVAL_MS = 2_000;
+
+/** Poll cadence while the socket is delivering — a check on it, not the feed. */
+export const RECONCILE_MS = 30_000;
+
+// Components mounting together on one page share a single entry revalidation.
+const ENTRY_DEDUPE_MS = 1_000;
+
+/** Enough history for the strips and the momentum walk; MatchDetail merges deeper history itself. */
+const FEED_CAP = { balls: 360, events: 120, overs: 60 };
 
 /**
  * The cadence for a match that is not being played — fast enough to notice a
@@ -103,6 +114,12 @@ const channel = {
   // What each match's reported break looked like last poll — see `clearResumedStoppages`.
   stoppages: new Map<string, StoppageWatch>(),
   visibilityBound: false,
+  /** The last /matches/live body, poll's or socket's — the base socket diffs apply to. */
+  raw: null as CrexMatchesResponse | null,
+  deriving: 0,
+  lastPollAt: 0,
+  entryTimer: null as ReturnType<typeof setTimeout> | null,
+  unsubscribeLive: null as (() => void) | null,
 };
 
 function emit(patch: Partial<ChannelState>) {
@@ -114,7 +131,11 @@ const isHidden = () => typeof document !== 'undefined' && document.visibilitySta
 
 function wantedInterval(): number | null {
   const subs = [...channel.subscribers.values()];
-  if (!isHidden()) return subs.length ? Math.min(...subs.map((s) => s.interval)) : null;
+  if (!isHidden()) {
+    if (!subs.length) return null;
+    const fastest = Math.min(...subs.map((s) => s.interval));
+    return isTopicLive('matches') ? Math.max(fastest, RECONCILE_MS) : fastest;
+  }
   const background = subs.filter((s) => s.background);
   return background.length ? Math.max(HIDDEN_INTERVAL_MS, Math.min(...background.map((s) => s.interval))) : null;
 }
@@ -140,21 +161,18 @@ async function poll(): Promise<void> {
   channel.abort?.abort();
   const controller = new AbortController();
   channel.abort = controller;
+  channel.lastPollAt = Date.now();
   emit({ isRefreshing: true });
 
   try {
-    const next = await getCrexMatchList({ signal: controller.signal });
+    const raw = await getCrexMatches({ signal: controller.signal });
+    const next = await matchListFromRaw(raw, { signal: controller.signal });
     if (controller.signal.aborted) return;
 
-    const landed = new Date();
+    channel.raw = raw;
+    channel.deriving += 1;
     channel.failures = 0;
-    emit({
-      matches: clearResumedStoppages(keepNewest(channel.state.matches, next), channel.stoppages, landed.getTime()),
-      lastUpdated: landed,
-      error: null,
-      isRefreshing: false,
-      settled: true,
-    });
+    land(next, { isRefreshing: false });
     schedule(wantedInterval() ?? interval);
   } catch (err) {
     if (controller.signal.aborted) return;
@@ -168,12 +186,43 @@ async function poll(): Promise<void> {
   }
 }
 
+/** A fresh list from either source; one that went backwards keeps the newer copy. */
+function land(next: Match[], patch: Partial<ChannelState> = {}) {
+  const landed = new Date();
+  emit({
+    matches: clearResumedStoppages(keepNewest(channel.state.matches, next), channel.stoppages, landed.getTime()),
+    lastUpdated: landed,
+    error: null,
+    settled: true,
+    ...patch,
+  });
+}
+
+function onMatchesFrame(frame: LiveFrame, verdict: FrameVerdict) {
+  const raw = applyMatchesFrame(channel.raw, frame);
+  // A diff with nothing to apply it to, or after a missed one: the API has the whole list.
+  if (!raw || verdict === 'gap') refreshMatches();
+  if (!raw) return;
+  channel.raw = raw;
+  const run = ++channel.deriving;
+  matchListFromRaw(raw)
+    .then((next) => {
+      // A later frame or poll already started; it lands instead.
+      if (run === channel.deriving) land(next);
+    })
+    .catch(() => undefined);
+}
+
 /** Poll now if the data is older than the wanted interval, else when it will be. */
 function reschedule() {
   const interval = wantedInterval();
   if (interval === null) {
     clearTimer();
+    // An aborted poll never reaches the line that clears the flag, and a flag
+    // left set would stop the next page's poll from ever starting.
     channel.abort?.abort();
+    channel.abort = null;
+    if (channel.state.isRefreshing) emit({ isRefreshing: false });
     return;
   }
   if (channel.state.isRefreshing) return;
@@ -184,21 +233,49 @@ function reschedule() {
 function bindVisibility() {
   if (channel.visibilityBound) return;
   channel.visibilityBound = true;
+  // Nothing proves a hidden tab got every frame, so coming back reconciles with the API.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible' || !channel.subscribers.size) return;
     channel.failures = 0;
     clearTimer();
     void poll();
   });
+  onLiveChange(() => {
+    if (channel.subscribers.size) reschedule();
+  });
+  onLiveResync(() => {
+    if (channel.subscribers.size) refreshMatches();
+  });
+}
+
+/**
+ * A page that shows the list asks the API when it opens, even with a live
+ * socket and a recent list in hand: the cached list renders at once and the
+ * answer replaces it. Everything mounting in the same pass shares one request.
+ */
+function revalidateOnEntry() {
+  if (channel.entryTimer) return;
+  channel.entryTimer = setTimeout(() => {
+    channel.entryTimer = null;
+    if (!channel.subscribers.size || channel.state.isRefreshing) return;
+    if (Date.now() - channel.lastPollAt < ENTRY_DEDUPE_MS) return;
+    refreshMatches();
+  }, 0);
 }
 
 function register(intervalMs: number, background: boolean): () => void {
   const id = channel.nextId++;
   channel.subscribers.set(id, { interval: intervalMs, background });
   bindVisibility();
+  if (!channel.unsubscribeLive) channel.unsubscribeLive = subscribeLive('matches', onMatchesFrame);
   reschedule();
+  revalidateOnEntry();
   return () => {
     channel.subscribers.delete(id);
+    if (!channel.subscribers.size && channel.unsubscribeLive) {
+      channel.unsubscribeLive();
+      channel.unsubscribeLive = null;
+    }
     reschedule();
   };
 }
@@ -349,27 +426,54 @@ export function useCrexMatchExtras(
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
 
   const active = enabled && Boolean(matchKey);
+  const inningsRef = useRef<InningsScore[]>([]);
+  const keyRef = useRef(matchKey);
 
   useEffect(() => {
     if (!active) return;
+    // Held items are merged into, so another match's must not carry over.
+    if (keyRef.current !== matchKey) {
+      keyRef.current = matchKey;
+      inningsRef.current = [];
+      setInnings([]);
+      setCommentary([]);
+      setEvents([]);
+      setOvers([]);
+      setLoaded(false);
+    }
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let failures = 0;
     const controller = new AbortController();
+    const cardTopic = `card:${matchKey}`;
+    const feedTopic = `feed:${matchKey}`;
+    const socketLive = () => isTopicLive(cardTopic) && isTopicLive(feedTopic);
+    let wasLive = false;
 
     const clear = () => {
       if (timer) clearTimeout(timer);
       timer = null;
     };
 
+    // A card from a cache a few seconds behind must not undo one already shown.
+    const takeCard = (card: InningsScore[]) => {
+      if (!card.length || cardProgress(card) < cardProgress(inningsRef.current)) return;
+      inningsRef.current = card;
+      setInnings(card);
+    };
+    const takeFeed = (feed: Pick<UseCrexMatchExtrasResult, 'commentary' | 'events' | 'overs'>) => {
+      setCommentary((prev) => mergeFeedItems(prev, feed.commentary, FEED_CAP.balls));
+      setEvents((prev) => mergeFeedItems(prev, feed.events, FEED_CAP.events));
+      setOvers((prev) => mergeFeedItems(prev, feed.overs, FEED_CAP.overs));
+      setFetchedAt(Date.now());
+    };
+
     async function run(): Promise<void> {
+      clear();
       // Same as the list poll: park the chain rather than re-arm a throttled
       // timer, and let the visibility listener below resume it.
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        clear();
-        return;
-      }
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
       const [card, feed] = await Promise.all([
         getCrexScorecard(matchKey, {
@@ -386,13 +490,8 @@ export function useCrexMatchExtras(
 
       // Only overwrite on success — a failed poll keeps the last good card
       // rather than emptying the tab.
-      if (card) setInnings(card);
-      if (feed) {
-        setCommentary(feed.balls);
-        setEvents(feed.events);
-        setOvers(feed.overs);
-        setFetchedAt(Date.now());
-      }
+      if (card) takeCard(card);
+      if (feed) takeFeed({ commentary: feed.balls, events: feed.events, overs: feed.overs });
       if (card || feed) setLoaded(true);
 
       // Both halves failing is the signal to slow down — the same exponential
@@ -401,31 +500,64 @@ export function useCrexMatchExtras(
       failures = card || feed ? 0 : failures + 1;
 
       if (!repeat) return;
-      timer = setTimeout(
-        run,
-        failures ? Math.min(intervalMs * 2 ** failures, MAX_BACKOFF_MS) : intervalMs
-      );
+      const every = socketLive() ? Math.max(intervalMs, RECONCILE_MS) : intervalMs;
+      timer = setTimeout(run, failures ? Math.min(every * 2 ** failures, MAX_BACKOFF_MS) : every);
     }
 
     void run();
 
     const onVisible = () => {
-      if (repeat && document.visibilityState === 'visible') {
-        clear();
-        void run();
-      }
+      if (repeat && document.visibilityState === 'visible') void run();
     };
     document.addEventListener('visibilitychange', onVisible);
+
+    // A finished match's card is final; only a live one is worth a socket topic.
+    const offLive = repeat
+      ? [
+          subscribeLive(cardTopic, (frame) => {
+            scorecardFromRaw(frame.data as CrexScorecardBody, { ballsPerOver, status })
+              .then((card) => {
+                if (cancelled) return;
+                takeCard(card);
+                setLoaded(true);
+              })
+              .catch(() => undefined);
+          }),
+          subscribeLive(feedTopic, (frame) => {
+            if (!Array.isArray(frame.data)) return;
+            const feed = feedFromRows(frame.data as CrexFeedRow[]);
+            takeFeed({ commentary: feed.balls, events: feed.events, overs: feed.overs });
+            setLoaded(true);
+          }),
+          onLiveResync(() => void run()),
+          onLiveChange(() => {
+            const now = socketLive();
+            if (now !== wasLive && timer) {
+              // Losing the socket puts the fast poll straight back; gaining it slows the poll to a check.
+              clear();
+              timer = now ? setTimeout(run, Math.max(intervalMs, RECONCILE_MS)) : null;
+              if (!now) void run();
+            }
+            wasLive = now;
+          }),
+        ]
+      : [];
 
     return () => {
       cancelled = true;
       controller.abort();
       clear();
       document.removeEventListener('visibilitychange', onVisible);
+      offLive.forEach((off) => off());
     };
   }, [active, matchKey, intervalMs, repeat, ballsPerOver, status]);
 
   return { innings, commentary, events, overs, loaded, fetchedAt };
+}
+
+/** How far a card has got, so a stale one can be recognised: balls bowled, then runs. */
+function cardProgress(card: InningsScore[]): number {
+  return card.reduce((n, i) => n + (i.notStarted ? 0 : Math.round(i.overs * 10) * 1_000 + i.runs), 0);
 }
 
 /**

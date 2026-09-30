@@ -19,6 +19,8 @@ const PATHS = {
   check: 'M4 12.5l5 5L20 6.5',
   star: 'M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.8-5.2 2.8 1-5.8-4.3-4.1 5.9-.9L12 3.5z',
   plus: 'M12 5v14M5 12h14',
+  minus: 'M5 12h14',
+  edit: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 14h10l1-14',
   bolt: 'M13 2L4 14h7l-1 8 9-12h-7l1-8z',
   arrowRight: 'M4 12h16M14 6l6 6-6 6',
@@ -30,6 +32,7 @@ const PATHS = {
   refresh: 'M20 11a8 8 0 0 0-14.3-4.9L4 8M4 4v4h4M4 13a8 8 0 0 0 14.3 4.9L20 16M20 20v-4h-4',
   signal: 'M4 20v-3M9 20v-7M14 20V9M19 20V4',
   cloud: 'M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 9.5a4.2 4.2 0 0 1-.5 8.5H7z',
+  filter: 'M4 6h9M17 6h3M15 4v4M4 12h3M11 12h9M9 10v4M4 18h11M19 18h1M17 16v4',
   history: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2',
 } as const;
 

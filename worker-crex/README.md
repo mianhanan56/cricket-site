@@ -283,6 +283,43 @@ npm run deploy
 Then add your production domain to `ALLOWED_ORIGINS` in `wrangler.toml`. Logs:
 `npm run tail`.
 
+The first deploy with the live hub applies the `v1` migration in `wrangler.toml`,
+which creates the `LiveHub` Durable Object class (SQLite-backed, so it works on
+the free plan).
+
+## Live hub (`/live`)
+
+A WebSocket endpoint served by one Durable Object (`src/live.ts`). The browser
+opens one socket and subscribes to topics; the hub polls crex once per topic for
+every connected socket and sends only what changed.
+
+| Topic | Source | Sent |
+| --- | --- | --- |
+| `matches` | `/matches/live` | a snapshot on subscribe, then per-match diffs (`changed`, `removed`) |
+| `card:<matchKey>` | `/match/scorecard` | the whole body, when it changes |
+| `feed:<matchKey>` | `/match/commentary` (newest page) | the whole page, when it changes |
+
+```text
+client → {"type":"subscribe","topics":["matches","card:14NE"]}
+client → {"type":"unsubscribe","topics":["card:14NE"]}
+client → {"type":"ping"}                       ← answered {"type":"pong"} without waking the object
+hub    → {"type":"hello","v":1,"epoch":"…","ts":…}
+hub    → {"type":"matches:update","topic":"matches","epoch":"…","seq":42,"prev":38,"ts":…,"changed":{…},"removed":[]}
+```
+
+`seq` only rises, across all topics; a diff's `prev` is the seq it follows, so a
+client can tell a missed diff from topics interleaving. `epoch` changes when the
+object restarts. A topic polls every 2s while it keeps changing, then 10s and
+30s once quiet, and stops when nothing subscribes. The Origin header is checked
+against `ALLOWED_ORIGINS` by hand, since WebSockets skip CORS. `/health` lists
+`live`, which the frontend reads before dialling so a Worker without the hub is
+never tried.
+
+Cost: while anyone is connected, the hub wakes on an alarm about every 2s, which
+is up to ~43k alarms a day and close to continuous Durable Object duration. That
+fits the free plan's daily limits but not with much room; watch the Durable
+Objects usage graph after deploying.
+
 ## Adding an endpoint
 
 Probe it first — the probe script talks to the upstream directly, so you can
@@ -337,12 +374,12 @@ like a body you have not guessed yet. It is not — player profiles live on
 
 ## Caveats
 
-**Live scores are not here.** crex streams live score updates out of a Firebase
-Realtime Database (`cricket-exchange.firebaseio.com`) using credentials embedded
-in their JS bundle. Proxying their public HTTP endpoints is one thing;
-authenticating into their Firebase project with keys lifted from their frontend
-is another, so this Worker does not do it. `/matches/live` polls the REST
-endpoint instead — fine at a 15s TTL, but it is a snapshot, not a stream.
+**Not crex's own stream.** crex pushes live scores out of a Firebase Realtime
+Database (`cricket-exchange.firebaseio.com`) using credentials embedded in their
+JS bundle. Proxying their public HTTP endpoints is one thing; authenticating into
+their Firebase project with keys lifted from their frontend is another, so this
+Worker does not do it. The live hub's socket is ours: it polls the same REST
+endpoints every 2s and pushes the changes, so it is only as fresh as they are.
 
 **`/mapping` is a lookup, not a dump.** Nothing from `/matches/live` renders
 without it — `"b":"11"` is a team, `"v":"BK"` a venue, `"q":"^1JK"` a series.

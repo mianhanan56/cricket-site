@@ -66,7 +66,7 @@ export default function InsightCard({ match }: { match: Match }) {
       <header className={styles.head}>
         <span className={styles.series}>
           <span className={styles.format}>{match.format}</span>
-          {match.series.name}
+          <span className={styles.seriesName}>{match.series.name}</span>
         </span>
         <StateChip state={state} />
       </header>

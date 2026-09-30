@@ -19,5 +19,14 @@ ALLOWED_ORIGINS = "http://localhost:3005,https://pulsecrease.vercel.app"
 [dev]
 port = 8788
 
+# One hub holds every live WebSocket and polls crex once for all of them (src/live.ts).
+[[durable_objects.bindings]]
+name = "LIVE_HUB"
+class_name = "LiveHub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LiveHub"]
+
 [observability]
 enabled = true

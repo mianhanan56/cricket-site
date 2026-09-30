@@ -65,6 +65,12 @@ commands inside `frontend/` or `worker-crex/`.
   `/series/overview` 5m · `/team/matches` 5m. Full detail and wire formats: `worker-crex/README.md`
   and `worker-crex/src/routes.ts`.
 - Responses use single-letter keys; team/series/venue/player f_keys resolve through `/mapping`.
+- **Live hub** (`src/live.ts`, Durable Object `LiveHub`, one instance): `/live` upgrades to a
+  WebSocket. Topics `matches` (snapshot, then per-match diffs), `card:<key>`, `feed:<key>` (whole
+  scorecard / newest commentary page when changed). One crex poll per topic for all sockets:
+  2s while changing, 10s/30s when quiet, stops with no subscribers. Frames carry `epoch` + a
+  global rising `seq`; diffs carry `prev`. Origin checked against `ALLOWED_ORIGINS`. Upstream
+  fetch shared with the HTTP path via `src/upstream.ts`.
 
 ## Frontend modules (`frontend/lib`)
 
@@ -83,6 +89,13 @@ commands inside `frontend/` or `worker-crex/`.
 `hooks/useCrexMatches.ts` is **one shared poll** of the match list: every subscriber reads the
 same snapshot and it runs at the fastest interval any subscriber requests.
 
+`lib/live/socket.ts` is **one shared WebSocket** to the hub per page (module level, outside React;
+refcounted topics, heartbeat, 1→30s backoff, resync listeners after a reconnect, closes 20s after
+the last topic goes). It asks `/health` once and never dials a Worker without `live`. Pure frame
+rules (ordering, gap detection, list diffs, feed merging) are in `lib/live/frames.ts` and tested.
+The list store and `useCrexMatchExtras` apply frames through the same parsers as HTTP
+(`matchListFromRaw`, `scorecardFromRaw`, `feedFromRows`), guarded by `keepNewest` / card progress.
+
 ## Pages (`frontend/app`)
 
 `/` home · `/fixtures` · `/matches/[id]` · `/series` · `/series/[id]` (tabs incl. stats) ·
@@ -92,20 +105,31 @@ same snapshot and it runs at the fastest interval any subscriber requests.
 
 ## Caching / freshness
 
-Three layers: Worker edge TTL (per route) → Next.js per-fetch `revalidate` (ISR) → client polling
-for live views (home 15s, match detail 5s while live, insights 2s list / 15s per card).
-`next.config.js` sets `experimental.staleTimes { dynamic: 0, static: 30 }` so tab switches ask
-the server again; per-fetch revalidate still decides whether crex is hit.
+Worker edge TTL (per route) → Next.js per-fetch `revalidate` (ISR) → client data: live socket
+first, polling underneath. With a healthy topic the list and match-extras polls slow to a 30s
+reconcile (alert feed watcher 60s); without the socket they poll as before (2s list, 2s extras).
+Entry: a page that shows the list revalidates it on mount (components mounting together share one
+request); `useCrexMatchExtras` fetches on mount. Visibility return and socket reconnect both
+revalidate over HTTP. `next.config.js` sets `experimental.staleTimes { dynamic: 0, static: 30 }`:
+dynamic routes fetch on every link navigation; static ISR routes (`/teams`) may reuse a prefetch
+made within 30s. Back/forward replays the router copy, so `NavigationTracker` calls
+`router.refresh()` after a traversal.
 PWA service worker uses **NetworkFirst** for the Worker origin (SWR would render the previous
 poll's body). The origin pattern must be a RegExp — Workbox serialises matchers with `toString()`.
 
 ## Automations
 
-Rules in `lib/automations.ts`, evaluated by `components/automations/AutomationEngine.tsx` against
+Rules in `lib/automations.ts`: each alert holds `triggers: TriggerKind[]` (one or more moments),
+one scope and one delivery; alerts saved with the old single `trigger` are read as a one-item list
+(`parseAutomations`). The Alerts page (simple creator only; the advanced builder was removed) creates one alert per submit (Select all included), edits in
+place (`updateAutomation`) and deletes behind a confirm dialog (`components/ui/ConfirmDialog`, a
+native `<dialog>`). The team/series picker offers current names from the live list
+(`lib/alertSuggestions.ts`). Rules are evaluated by `components/automations/AutomationEngine.tsx` against
 consecutive live snapshots (match start, wicket, tight chase, stoppage, result from the list;
 sixes/fours/50/100 from ball feeds). Nothing fires on the first snapshot; a shared ledger dedupes
-across tabs. Delivered to the notification center and, with permission, the system tray — only
-while a tab is open.
+across tabs, keyed per event (`event:<firing key>`), so overlapping rules send one notification.
+Feed watchers also read `feed:<key>` socket frames. Delivered to the notification center and,
+with permission, the system tray — only while a tab is open.
 
 ## Styling conventions
 
@@ -116,6 +140,12 @@ while a tab is open.
   layout is `scss/{component,global,main}.scss` + per-component modules. Follow the repo.
 - Banned patterns (CLAUDE.md): accent bars beside headings; tiny muted "View all"-style links;
   explanatory/provenance captions beside labels.
+- Filters on phones (< 768px): each page keeps its inline `Segmented` filters for tablet and up
+  (hidden with `phone-only`) and renders `components/ui/FilterSheet` beside them — a "Filters"
+  button with an active count and removable chips, opening a bottom sheet with Reset / Apply. Used
+  on Home (competition only; status tabs stay visible), Fixtures (format, competition; the day strip
+  stays), Series, Rankings (no chips — the title states the selection), Players (search stays) and
+  match Commentary.
 - Server Components by default; `'use client'` only when needed. Few comments — only non-obvious *why*.
 
 ## Key design decisions

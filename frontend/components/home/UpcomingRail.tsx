@@ -32,10 +32,13 @@ export default function UpcomingRail({
   matches,
   limit,
   variant = 'full',
+  timeline = false,
 }: {
   matches: Match[];
   limit?: number;
   variant?: 'full' | 'compact';
+  /** Draw the time rail — the schedule views only. */
+  timeline?: boolean;
 }) {
   const [zone, setZone] = useState(SERVER_ZONE);
   useEffect(() => setZone(readerZone()), []);
@@ -61,7 +64,7 @@ export default function UpcomingRail({
   }, [matches, zone, limit]);
 
   return (
-    <div className={`${styles.rail} ${compact ? styles.compact : ''}`}>
+    <div className={`${styles.rail} ${compact ? styles.compact : ''} ${timeline ? '' : styles.plain}`}>
       {days.map((day) => (
         <section key={day.key} className={styles.day} aria-label={day.heading}>
           <header className={styles.dayHead}>

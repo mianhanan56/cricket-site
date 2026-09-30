@@ -21,7 +21,6 @@ import Ticker from '../live/Ticker';
 import PulseTrace from '../live/PulseTrace';
 import MatchPulse from '../live/MatchPulse';
 import BallTimeline from '../live/BallTimeline';
-import LastBallAge from '../live/LastBallAge';
 import Skeleton from '../ui/Skeleton';
 import styles from './LiveHero.module.scss';
 import { venueText } from '@/lib/venue';
@@ -91,7 +90,6 @@ export default function LiveHero({ match }: { match: Match }) {
             {match.series.name}
           </Link>
         </span>
-        {state.alive && balls[0]?.timestamp && <LastBallAge iso={balls[0].timestamp} className={styles.age} />}
       </header>
 
       <div className={`${styles.main} ${inn ? '' : styles.solo}`}>
