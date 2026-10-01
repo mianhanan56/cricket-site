@@ -97,6 +97,10 @@
   grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   overflow: hidden;
   margin-bottom: $space-10;
+
+  > li {
+    display: grid;
+  }
 }
 
 .rank {
@@ -106,6 +110,12 @@
   padding: $space-3;
   // Hairline between tiles without doubling at the wrap.
   box-shadow: -1px 0 0 $line, 0 -1px 0 $line;
+  transition: background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:is(a):hover {
+    background: $surface-2;
+  }
 
   @include sm {
     padding: $space-4;

@@ -20,9 +20,17 @@
   }
 }
 
+.figureHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+}
+
 .figureLabel {
   @include eyebrow;
 }
+
 
 .figureBody {
   display: flex;
@@ -33,6 +41,9 @@
 
 .figureValue {
   @include display-num;
+  display: inline-flex;
+  align-items: baseline;
+  gap: $space-1-5;
   margin-left: auto;
   font-size: $fs-2xl;
   color: $text;
@@ -51,6 +62,15 @@
   font-size: $fs-md;
   color: $text;
   @include truncate;
+
+  // Beside a figure and its unit a phone has room for a name only if it wraps.
+  .figure & {
+    @include mobile-only {
+      @include truncate(2);
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+  }
 }
 
 .team {
@@ -116,9 +136,17 @@
   }
 }
 
+.cardHead {
+  grid-area: label;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-1 $space-3;
+}
+
 .cardLabel {
   @include eyebrow;
-  grid-area: label;
 }
 
 .value {

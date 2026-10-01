@@ -112,6 +112,39 @@
   height: 6px;
 }
 
+.nodeRuns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3 $space-6;
+}
+
+.nodeRun {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  min-width: 0;
+}
+
+.runLabel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: 2px;
+  min-width: 36px;
+  font-family: $font-mono;
+  font-size: $fs-xs;
+  font-weight: 700;
+  letter-spacing: $tracking-label;
+  color: $text;
+}
+
+.runCount {
+  @include data-num;
+  font-size: $fs-2xs;
+  font-weight: 500;
+  color: $text-3;
+}
+
 .nodes {
   display: flex;
   flex-wrap: wrap;
@@ -123,13 +156,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 30px;
-  height: 30px;
-
-  @include tablet {
-    min-width: 34px;
-    height: 34px;
-  }
+  min-width: 34px;
+  height: 34px;
 
   padding-inline: $space-1;
   border-radius: $r-xs;
@@ -288,72 +316,6 @@
       border-top: 1px solid $line;
     }
   }
-}
-
-.teamFigure {
-  display: flex;
-  flex-direction: column;
-  gap: $space-2-5;
-  padding: $space-4;
-  min-width: 0;
-  transition: background-color $dur-2 $ease-out;
-  @include focus-ring;
-
-  &:hover {
-    background: $surface-2;
-  }
-
-  &:focus-visible {
-    outline-offset: -2px;
-  }
-}
-
-.teamBody {
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  min-width: 0;
-}
-
-.teamWho {
-  display: flex;
-  flex-direction: column;
-  gap: $space-1;
-  min-width: 0;
-}
-
-.teamName {
-  font-weight: 700;
-  font-size: $fs-md;
-  color: $text;
-  @include truncate;
-}
-
-.nrr {
-  @include data-num;
-  font-size: $fs-xs;
-
-  &[data-sign='pos'] {
-    color: $signal-text;
-  }
-
-  &[data-sign='neg'] {
-    color: $wicket;
-  }
-}
-
-.pts {
-  @include display-num;
-  display: inline-flex;
-  align-items: baseline;
-  gap: $space-1;
-  margin-left: auto;
-  font-size: $fs-2xl;
-  color: $text;
-}
-
-.ptsUnit {
-  @include eyebrow;
 }
 
 // ---- sections

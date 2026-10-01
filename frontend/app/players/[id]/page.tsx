@@ -5,6 +5,7 @@ import type {
   PlayerBowlingCareer,
   PlayerFormEntry,
   PlayerProfile,
+  PlayerRanking,
 } from '@/types';
 import { getCrexPlayerProfile, teamLogoUrl } from '@/lib/crex';
 import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
@@ -14,6 +15,7 @@ import BackButton from '@/components/ui/BackButton';
 import TeamBadge from '@/components/ui/TeamBadge';
 import FollowButton from '@/components/follow/FollowButton';
 import { SectionHead } from '@/components/ui/Section';
+import { RANKINGS_FORMAT_KEYS, type RankingsFormat } from '@/lib/tabs';
 import styles from './player.module.scss';
 
 // Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
@@ -325,6 +327,15 @@ function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
 
 // ---------------------------------------------------------------- Page
 
+const RANK_CATEGORY = { Batter: 'batting', Bowler: 'bowling', 'All Rounder': 'all-rounder' } as const;
+
+/** The rankings list a profile's position comes from, when it is one /rankings shows. */
+function rankingHref(r: PlayerRanking, gender: PlayerProfile['gender']): string | null {
+  const format = r.format.toLowerCase().replace(/^t20$/, 't20i') as RankingsFormat;
+  if (!RANKINGS_FORMAT_KEYS.includes(format)) return null;
+  return `/rankings?group=players&format=${format}&gender=${gender === 'Female' ? 'women' : 'men'}&category=${RANK_CATEGORY[r.discipline]}`;
+}
+
 export default async function PlayerPage({ params }: { params: { id: string } }) {
   const player = await loadPlayer(params.id);
   if (!player) notFound();
@@ -380,16 +391,32 @@ export default async function PlayerPage({ params }: { params: { id: string } })
 
       {player.rankings.length > 0 && (
         <ul className={styles.ranks} aria-label="ICC rankings">
-          {player.rankings.map((r) => (
-            <li key={`${r.format}-${r.discipline}`} className={styles.rank} data-best={r.position === bestRank || undefined}>
-              <span className={styles.rankLabel}>ICC {r.format}</span>
-              <span className={styles.rankPos}>
-                <span className={styles.rankHash}>#</span>
-                {r.position}
-              </span>
-              <span className={styles.rankRole}>{r.discipline}</span>
-            </li>
-          ))}
+          {player.rankings.map((r) => {
+            const href = rankingHref(r, player.gender);
+            const body = (
+              <>
+                <span className={styles.rankLabel}>ICC {r.format}</span>
+                <span className={styles.rankPos}>
+                  <span className={styles.rankHash}>#</span>
+                  {r.position}
+                </span>
+                <span className={styles.rankRole}>{r.discipline}</span>
+              </>
+            );
+            return (
+              <li key={`${r.format}-${r.discipline}`}>
+                {href ? (
+                  <Link href={href} className={styles.rank} data-best={r.position === bestRank || undefined}>
+                    {body}
+                  </Link>
+                ) : (
+                  <span className={styles.rank} data-best={r.position === bestRank || undefined}>
+                    {body}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 

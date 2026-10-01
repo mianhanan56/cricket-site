@@ -1,0 +1,17 @@
+@use 'component' as *;
+
+.cue {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  flex-shrink: 0;
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: $text-2;
+  white-space: nowrap;
+  transition: color $dur-2 $ease-out;
+
+  :global(a):hover & {
+    color: $text;
+  }
+}

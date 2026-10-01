@@ -16,27 +16,17 @@ A strict UX / mobile audit of production was completed on 2026-09-29 (no code ch
 are queued in TODO.md by priority; the user decides which to fix. The earlier UI pass (dock,
 footer, page-end spacing, milestones board, scroll fades) is committed (68cd364, cf291e1).
 
-Uncommitted: the phone filter sheet (`components/ui/FilterSheet.*`, wired into HomeMatches,
-FixturesFilter, SeriesFilter, RankingsView, PlayersDirectory, CommentaryFeed; `filter` icon;
-`MATCH_TYPE_KEY_OPTIONS` in `lib/matchType.ts`). Verified in an isolated copy at 320–1440.
+Committed in 2575206: the phone filter sheet, the live WebSocket layer (Worker hub is deployed and
+answering from pulsecrease.vercel.app), Home tabs without Overview, the Alerts rework (multi-moment
+alerts, Select all, Edit/Delete, advanced builder removed), key moments from fall of wickets, and
+the first mobile pass.
 
-Uncommitted: the live WebSocket layer — `worker-crex/src/live.ts` (hub), `src/upstream.ts`
-(shared fetch), `wrangler.toml` (DO binding + `v1` migration); frontend `lib/live/{socket,frames}.ts`,
-socket wiring in `hooks/useCrexMatches.ts`, `AutomationEngine.tsx` (per-event dedupe),
-`NavigationTracker.tsx` (back/forward refresh), `MatchDetail`/`ScoreHeader` ("Reconnecting"),
-parser splits in `lib/crex.ts`, `tests/liveFrames.test.ts`. Until the Worker is deployed the
-frontend reads `/health`, sees no hub, and polls exactly as before.
-
-Uncommitted: Home tabs without Overview (`HomeMatches.tsx`, `Segmented` scroll-to-active) and the
-Alerts rework — `triggers[]` model + migration in `lib/automations.ts`, `lib/alertSuggestions.ts`,
-`AlertCreator` (Select all, edit mode), `AutomationCard` (Edit/Delete), `EntityPicker` (current
-chips), `components/ui/ConfirmDialog.*`, `edit`/`minus` icons, `tests/alerts.test.ts`; `AutomationBuilder.*`
-deleted (picker styles moved to `EntityPicker.module.scss`). Mobile pass + key moments:
-`lib/keyMoments.ts` (+ test), `useActiveInView` in `hooks/useScrollFade.ts`, scorecard/commentary/
-key-events/upcoming-rail style changes.
-
-Other uncommitted local edits not from the audit: `LiveHero` drops the "Last ball" stamp and
-`Toaster.module.scss` moves toasts top-right. Leave them to their owner.
+Uncommitted (2026-09-30, final mobile QA): series match strip split per format
+(`app/series/[id]/page.tsx`), 16px phone inputs (Teams filter, alert picker), 34px series nodes on
+phones, `TableScroll` scroll-fade (`TableScroll.module.scss`), series stat player column width on
+phones. Match tiles (`MatchTile`) now link the series name to `/series/[id]`: the tile is an
+`<article>` with a full-cover match link (`.cover`) and the series link stacked above it, since
+anchors can't nest.
 
 ## Recommended next step
 

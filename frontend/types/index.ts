@@ -38,6 +38,8 @@ export interface ISeriesSummary extends ISeries {
    * way to know what happened before its window.
    */
   playedCount?: number;
+  /** Every format the series contains, in the order it plays them; `format` is only the most common. */
+  formats?: MatchFormat[];
 }
 
 // The player entity and its batting/bowling stat blocks lived here, describing
@@ -945,6 +947,8 @@ export interface HeadToHeadMatch {
    * quietly filing those as draws.
    */
   winnerKey: string | null;
+  /** The two sides, so a team's own list can name the opponent. */
+  sides?: [Pick<ITeam, 'id' | 'shortName' | 'name'>, Pick<ITeam, 'id' | 'shortName' | 'name'>];
 }
 
 export interface HeadToHead {

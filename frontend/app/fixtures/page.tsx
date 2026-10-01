@@ -2,7 +2,7 @@ import { pickParam } from '@/lib/queryParams';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '@/lib/matchType';
 import { FIXTURE_FORMAT_KEYS, type FixtureFormatKey } from '@/lib/tabs';
 import { dayKeyOf, pickDayParam } from '@/lib/fixtureDays';
-import { getCrexFixtureList, type Fixture } from '@/lib/crex';
+import { getCrexFixtureSchedule, type Fixture } from '@/lib/crex';
 import FixturesFilter from '@/components/fixtures/FixturesFilter';
 import EmptyState from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/Section';
@@ -26,11 +26,13 @@ export default async function FixturesPage({
   const date = pickDayParam(searchParams?.date);
 
   let fixtures: Fixture[] = [];
+  let coveredUntil: string | null = null;
   let failed = false;
   try {
     // The schedule endpoint, not the live feed — the feed is only two or three days deep.
-    const all = await getCrexFixtureList({ revalidate });
-    fixtures = all.filter((m) => m.status === 'UPCOMING');
+    const schedule = await getCrexFixtureSchedule({ revalidate });
+    fixtures = schedule.fixtures.filter((m) => m.status === 'UPCOMING');
+    coveredUntil = schedule.coveredUntil;
   } catch {
     failed = true;
   }
@@ -48,6 +50,7 @@ export default async function FixturesPage({
       ) : (
         <FixturesFilter
           fixtures={fixtures}
+          coveredUntil={coveredUntil}
           initialFormat={format}
           initialType={type}
           initialDate={date}

@@ -22,6 +22,11 @@
   border: 1px solid $line-2;
   background: $bg;
   font-size: $fs-md;
+
+  // Under 16px, iOS Safari zooms the page on focus.
+  @include phone-only {
+    font-size: $fs-body;
+  }
   outline: none;
   transition: border-color $dur-2 $ease-out;
 

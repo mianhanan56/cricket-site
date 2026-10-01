@@ -117,6 +117,10 @@ made within 30s. Back/forward replays the router copy, so `NavigationTracker` ca
 PWA service worker uses **NetworkFirst** for the Worker origin (SWR would render the previous
 poll's body). The origin pattern must be a RegExp — Workbox serialises matchers with `toString()`.
 
+## Fixtures
+
+`/fixtures` (ISR 300s) calls `getCrexFixtureSchedule`: Worker `/fixtures?wise=1&page=N` (edge TTL 300s, 20 rows a page), batches of 8 pages until the schedule reaches 30 days ahead (max 40 pages; stops early when crex runs out). All rows go to the client in one payload; `FixturesFilter` filters by format/type client-side and reveals 4 days at a time on scroll. The last, partly-read day is held back via `coveredUntil`. Team/venue/head-to-head pages use the separate `getCrexFixtureRange` corpus (45 back / 12 forward, 30-minute cache).
+
 ## Automations
 
 Rules in `lib/automations.ts`: each alert holds `triggers: TriggerKind[]` (one or more moments),

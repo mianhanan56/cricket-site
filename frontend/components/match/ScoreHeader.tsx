@@ -105,6 +105,8 @@ export default function ScoreHeader({
   const sentence = eq && state.alive ? equationSentence(eq) : null;
   const tight = eq?.rrr != null && eq.crr != null && eq.rrr > eq.crr;
   const kind = lastBall ? ballKind(lastBall) : null;
+  // Only the note that set the state may qualify it — a drinks break read off the feed is not "(wet outfield)".
+  const detail = match.note?.detail && match.note.label === state.label ? match.note.detail : null;
 
   const meta = [
     match.matchNumber ? `${ordinal(match.matchNumber)} ${FORMAT_LABEL[match.format]}` : match.format,
@@ -158,6 +160,15 @@ export default function ScoreHeader({
               <Countdown iso={match.startTime} className={styles.clock} pastLabel="Any moment" />
               <LocalTime iso={match.startTime} format="dayTime" className={styles.clockWhen} />
             </div>
+          ) : live && !state.alive ? (
+            <div className={styles.pause} role="status">
+              <span className={styles.pauseLabel}>{state.label}</span>
+              {lastBall && (
+                <span className={styles.lastBallAt}>
+                  <span className={styles.lastBallLabel}>Last ball</span> {ballPosition(lastBall, perOver)}
+                </span>
+              )}
+            </div>
           ) : lastBall && kind ? (
             <div className={styles.lastBall}>
               <span
@@ -167,7 +178,9 @@ export default function ScoreHeader({
               >
                 {shortLabel(lastBall)}
               </span>
-              <span className={styles.lastBallAt}>{ballPosition(lastBall, perOver)}</span>
+              <span className={styles.lastBallAt}>
+                <span className={styles.lastBallLabel}>Last ball</span> {ballPosition(lastBall, perOver)}
+              </span>
             </div>
           ) : (
             <span className={styles.vs}>vs</span>
@@ -187,12 +200,16 @@ export default function ScoreHeader({
 
       {sentence && <p className={`${styles.headline} ${tight ? styles.tight : ''}`}>{sentence}</p>}
       {match.result && <p className={styles.headline}>{match.result}</p>}
-      {!state.alive && !match.result && state.family !== 'upcoming' && (
-        <p className={`${styles.headline} ${styles.stateLine}`}>
-          {state.label}
-          {match.note?.detail && <span className={styles.detail}> {match.note.detail}</span>}
-        </p>
-      )}
+      {!state.alive && !match.result && state.family !== 'upcoming' &&
+        // Live, the centre already names the stoppage; only the detail is left to say.
+        (live ? (
+          detail && <p className={styles.sub}>{detail}</p>
+        ) : (
+          <p className={`${styles.headline} ${styles.stateLine}`}>
+            {state.label}
+            {detail && <span className={styles.detail}> {detail}</span>}
+          </p>
+        ))}
       {(state.key === 'TOSS' || (live && !home && !away && match.note?.kind === 'TOSS')) && match.note && (
         <p className={styles.sub}>{match.note.label}</p>
       )}

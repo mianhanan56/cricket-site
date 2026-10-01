@@ -28,7 +28,7 @@ function TeamTile({ team }: { team: DirectoryTeam }) {
                 rank && (
                   <span key={f} className={`${styles.rank} ${rank.position === team.best.position ? styles.top : ''}`}>
                     <span className={styles.rankFmt}>{FORMAT_LABEL[f]}</span>
-                    <b>{rank.position}</b>
+                    <b>#{rank.position}</b>
                   </span>
                 )
               );

@@ -89,11 +89,24 @@ export default function MatchTile({ match, showSeries = true }: { match: Match; 
         : null;
 
   return (
-    <Link href={`/matches/${match.id}`} className={`${styles.tile} ${styles[state.family]}`}>
+    <article className={`${styles.tile} ${styles[state.family]}`}>
+      {/* Cover link instead of wrapping the tile, so the series link can sit inside without nesting anchors. */}
+      <Link
+        href={`/matches/${match.id}`}
+        className={styles.cover}
+        aria-label={`${match.homeTeam.name} v ${match.awayTeam.name}`}
+      />
       <div className={styles.head}>
         <span className={styles.meta}>
           <span className={styles.format}>{match.format}</span>
-          {showSeries && <span className={styles.series}>{match.series.name}</span>}
+          {showSeries &&
+            (match.series.id ? (
+              <Link href={`/series/${match.series.id}`} className={`${styles.series} ${styles.seriesLink}`}>
+                {match.series.name}
+              </Link>
+            ) : (
+              <span className={styles.series}>{match.series.name}</span>
+            ))}
         </span>
         <StateChip state={state} />
       </div>
@@ -125,6 +138,6 @@ export default function MatchTile({ match, showSeries = true }: { match: Match; 
           </span>
         )}
       </div>
-    </Link>
+    </article>
   );
 }

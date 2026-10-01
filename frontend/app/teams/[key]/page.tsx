@@ -7,7 +7,8 @@ import LocalTime from '../../../components/ui/LocalTime';
 import BackButton from '../../../components/ui/BackButton';
 import EmptyState from '../../../components/ui/EmptyState';
 import { SectionHead } from '../../../components/ui/Section';
-import UpcomingRail from '../../../components/home/UpcomingRail';
+import TeamUpcoming from './TeamUpcoming';
+import TeamResults from './TeamResults';
 import FollowButton from '../../../components/follow/FollowButton';
 import styles from './team.module.scss';
 import { venueText } from '@/lib/venue';
@@ -48,9 +49,6 @@ const RESULTS_SHOWN = 8;
 const rankingsHref = (r: TeamRankingPosition) =>
   `/rankings?group=teams&format=${r.format.toLowerCase()}&gender=${r.gender.toLowerCase()}`;
 
-function ShownOf({ shown, total }: { shown: number; total: number }) {
-  return <span className={styles.shown}>{shown < total ? `${shown} of ${total}` : total}</span>;
-}
 
 /** The club's own colours as an SVG wash — attributes, not inline style. */
 function ColourWash({ primary, secondary }: { primary: string | null; secondary: string | null }) {
@@ -107,6 +105,7 @@ function ResultText({ text }: { text: string }) {
 // neutral mark instead of being filed as a loss.
 function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string }) {
   const outcome = match.winnerKey ? (match.winnerKey === teamKey ? 'W' : 'L') : 'N';
+  const opponent = match.sides?.find((s) => s.id !== teamKey);
   const body = (
     <>
       <span className={styles.token} data-result={outcome} data-size="lg">
@@ -116,6 +115,7 @@ function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string
       <span className={styles.resultMain}>
         <ResultText text={match.result} />
         <span className={styles.resultMeta}>
+          {opponent && <span className={styles.opponent}>v {opponent.shortName}</span>}
           <LocalTime iso={match.startTime} format="date" />
           <span className={styles.fmt}>{match.format}</span>
           <span className={styles.series}>{match.series}</span>
@@ -163,9 +163,9 @@ export default async function TeamPage({ params }: { params: { key: string } }) 
 
   const { team, colors, rankings, upcoming, recent, form, squad, squadSeries } = profile;
 
-  // Counted three ways: an unattributable result is neither a win nor a loss.
-  const won = recent.filter((m) => m.winnerKey === team.id).length;
-  const lost = recent.filter((m) => m.winnerKey && m.winnerKey !== team.id).length;
+  // Counted over the strip itself, so the caption describes the pills beside it; N is neither.
+  const won = form.filter((f) => f === 'W').length;
+  const lost = form.filter((f) => f === 'L').length;
   const hasStrip = rankings.length > 0 || form.length > 0;
   const groups = squadGroups(squad);
 
@@ -209,7 +209,7 @@ export default async function TeamPage({ params }: { params: { key: string } }) 
                 <span className={styles.cellLabel}>Form</span>
                 <FormStrip form={form} />
                 <span className={styles.cellSub}>
-                  {won}–{lost} in last {recent.length}
+                  {won}–{lost} in last {form.length}
                 </span>
               </div>
             )}
@@ -220,25 +220,16 @@ export default async function TeamPage({ params }: { params: { key: string } }) 
       {(upcoming.length > 0 || recent.length > 0) && (
         <div className={styles.columns}>
           {upcoming.length > 0 && (
-            <section className={styles.section} aria-labelledby="team-upcoming">
-              <SectionHead id="team-upcoming" title="Upcoming">
-                <ShownOf shown={Math.min(upcoming.length, FIXTURES_SHOWN)} total={upcoming.length} />
-              </SectionHead>
-              <UpcomingRail matches={upcoming} limit={FIXTURES_SHOWN} />
-            </section>
+            <TeamUpcoming matches={upcoming} initial={FIXTURES_SHOWN} />
           )}
 
           {recent.length > 0 && (
-            <section className={styles.section} aria-labelledby="team-results">
-              <SectionHead id="team-results" title="Results">
-                <ShownOf shown={Math.min(recent.length, RESULTS_SHOWN)} total={recent.length} />
-              </SectionHead>
-              <ul className={styles.results}>
-                {recent.slice(0, RESULTS_SHOWN).map((m) => (
-                  <ResultRow match={m} teamKey={team.id} key={m.key} />
-                ))}
-              </ul>
-            </section>
+            <TeamResults
+              rows={recent.map((m) => (
+                <ResultRow match={m} teamKey={team.id} key={m.key} />
+              ))}
+              initial={RESULTS_SHOWN}
+            />
           )}
         </div>
       )}

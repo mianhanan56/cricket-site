@@ -100,6 +100,11 @@ function ResultRow({ match }: { match: HeadToHeadMatch }) {
       <span className={styles.rowMain}>
         <span className={styles.rowResult}>{match.result}</span>
         <span className={styles.rowMeta}>
+          {match.sides && (
+            <span className={styles.rowSides}>
+              {match.sides[0].shortName} v {match.sides[1].shortName}
+            </span>
+          )}
           <LocalTime iso={match.startTime} format="date" />
           <span className={styles.rowSeries}>{match.series}</span>
         </span>

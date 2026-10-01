@@ -248,6 +248,14 @@
   @include tablet {
     width: 100%;
   }
+
+  // A fixed, wrapping name column leaves the headline figure in view on a phone.
+  @include mobile-only {
+    width: 148px;
+    min-width: 148px;
+    max-width: 148px;
+    white-space: normal;
+  }
 }
 
 .table tr[data-lead] .rankCol {

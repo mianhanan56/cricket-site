@@ -42,6 +42,11 @@
   font: inherit;
   font-size: $fs-md;
 
+  // Under 16px, iOS Safari zooms the page on focus.
+  @include phone-only {
+    font-size: $fs-body;
+  }
+
   &::placeholder {
     color: $text-3;
   }

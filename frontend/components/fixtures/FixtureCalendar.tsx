@@ -32,7 +32,7 @@ function monthGrid(month: string): Array<string | null> {
 }
 
 export interface FixtureCalendarProps {
-  /** The ?date= selection — a day, a range or a list — or '' for the coming week. */
+  /** The ?date= selection — a day, a range or a list — or '' for every day. */
   value: string;
   onChange: (selection: string) => void;
   /** Fixtures per day key — the calendar only offers days that have any. */
@@ -120,7 +120,7 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
     }
   };
 
-  const label = value ? describeSelection(value) : 'the coming week';
+  const label = value ? describeSelection(value) : 'every day';
   const max = Math.max(1, ...counts.values());
 
   return (

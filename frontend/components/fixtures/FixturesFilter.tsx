@@ -32,10 +32,8 @@ import UpcomingRail from '../home/UpcomingRail';
 import FixtureCalendar from './FixtureCalendar';
 import styles from './FixturesFilter.module.scss';
 
-/** Days revealed per step in the default view. */
+/** Days revealed per step as the list scrolls. */
 const DAYS_PER_PAGE = 4;
-/** The default view covers a week; the calendar and day strip reach past it. */
-const WEEK_DAYS = 7;
 
 interface DayGroup {
   key: string;
@@ -44,9 +42,11 @@ interface DayGroup {
 
 export interface FixturesFilterProps {
   fixtures: Fixture[];
+  /** Where the schedule read stops mid-day (see `FixtureSchedule`); null when every day is whole. */
+  coveredUntil: string | null;
   initialFormat: FixtureFormatKey;
   initialType: MatchTypeKey;
-  /** Selected day ("2026-08-20"), or '' for the coming week. */
+  /** Selected day ("2026-08-20"), or '' for every day. */
   initialDate: string;
   serverToday: string;
 }
@@ -56,14 +56,16 @@ function DayStrip({
   groups,
   picked,
   todayKey,
-  weekCount,
+  spanDays,
+  total,
   onToggle,
   onReset,
 }: {
   groups: DayGroup[];
   picked: ReadonlySet<string>;
   todayKey: string;
-  weekCount: number;
+  spanDays: number;
+  total: number;
   onToggle: (key: string) => void;
   onReset: () => void;
 }) {
@@ -82,8 +84,8 @@ function DayStrip({
     <div className={styles.strip} ref={ref} role="group" aria-label="Choose a day">
       <button type="button" className={styles.chip} aria-pressed={!picked.size} onClick={onReset}>
         <span className={styles.chipDay}>Next</span>
-        <span className={styles.chipDate}>7d</span>
-        <span className={styles.chipCount}>{weekCount}</span>
+        <span className={styles.chipDate}>{spanDays}d</span>
+        <span className={styles.chipCount}>{total}</span>
       </button>
       {groups.map((g) => {
         const d = dayDate(g.key);
@@ -116,6 +118,7 @@ function DayStrip({
 
 export default function FixturesFilter({
   fixtures,
+  coveredUntil,
   initialFormat,
   initialType,
   initialDate,
@@ -135,10 +138,17 @@ export default function FixturesFilter({
   useEffect(() => setTodayKey(dayKeyOf(new Date())), []);
 
   // Format and type narrow the list; the date only picks a day of it, so day counts describe the filtered list.
+  // The read's last day is only partly listed, so it waits for the next read rather than showing short.
+  const whole = useMemo(() => {
+    if (!coveredUntil) return fixtures;
+    const cut = dayKey(coveredUntil);
+    return fixtures.filter((f) => dayKey(f.startTime) < cut);
+  }, [fixtures, coveredUntil]);
+
   const filtered = useMemo(() => {
-    const byType = filterByMatchType(fixtures, matchType);
+    const byType = filterByMatchType(whole, matchType);
     return active.format ? byType.filter((f) => f.format === active.format) : byType;
-  }, [fixtures, matchType, active.format]);
+  }, [whole, matchType, active.format]);
 
   // Fixtures arrive sorted, so appending in order keeps days and matches in time order.
   const groups = useMemo<DayGroup[]>(() => {
@@ -157,13 +167,14 @@ export default function FixturesFilter({
   // A stale ?date= shows its own empty state rather than silently resetting.
   const picked = useMemo(() => new Set(selectionDays(date)), [date]);
   const pickedGroups = useMemo(() => groups.filter((g) => picked.has(g.key)), [groups, picked]);
-  const week = useMemo(() => groups.slice(0, WEEK_DAYS), [groups]);
-  const weekCount = week.reduce((n, g) => n + g.fixtures.length, 0);
+  const total = filtered.length;
+  const lastKey = groups[groups.length - 1]?.key;
+  const spanDays = lastKey ? Math.max(1, Math.round((+dayDate(lastKey) - +dayDate(todayKey)) / 86_400_000) + 1) : 0;
 
   const [shownDays, setShownDays] = useState(DAYS_PER_PAGE);
   useEffect(() => setShownDays(DAYS_PER_PAGE), [format, type, date]);
 
-  const shownFrom = date ? pickedGroups : week;
+  const shownFrom = date ? pickedGroups : groups;
   const visibleGroups = useMemo(() => shownFrom.slice(0, shownDays), [shownFrom, shownDays]);
   const hasMore = shownFrom.length > visibleGroups.length;
   const visibleMatches = useMemo(() => visibleGroups.flatMap((g) => g.fixtures), [visibleGroups]);
@@ -224,7 +235,8 @@ export default function FixturesFilter({
           groups={groups}
           picked={picked}
           todayKey={todayKey}
-          weekCount={weekCount}
+          spanDays={spanDays}
+          total={total}
           onToggle={(key) => setQuery({ date: toggleDay(date, key) })}
           onReset={() => setQuery({ date: '' })}
         />
@@ -243,7 +255,7 @@ export default function FixturesFilter({
           }`}
           action={
             date
-              ? { label: 'Show the coming week', onClick: () => setQuery({ date: '' }) }
+              ? { label: 'Show every day', onClick: () => setQuery({ date: '' }) }
               : filtersOn
                 ? { label: 'Show all cricket', onClick: () => setQuery({ format: 'all', type: 'all' }) }
                 : { label: 'Live matches', href: '/' }

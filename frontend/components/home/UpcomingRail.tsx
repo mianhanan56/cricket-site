@@ -17,10 +17,11 @@ function dayKeyIn(iso: string, zone: string): string {
   );
 }
 
-function dayHeading(key: string, today: string, tomorrow: string, zone: string): string {
+function dayHeading(key: string, today: string, tomorrow: string): string {
   if (key === today) return 'Today';
   if (key === tomorrow) return 'Tomorrow';
-  return formatInZone(`${key}T12:00:00Z`, 'dayDate', zone).replace(/\s\d{4}$/, '');
+  // `key` is already the reader's date; read it back in UTC, as noon UTC is tomorrow east of +12.
+  return formatInZone(`${key}T12:00:00Z`, 'dayDate', 'UTC').replace(/\s\d{4}$/, '');
 }
 
 /**
@@ -58,7 +59,7 @@ export default function UpcomingRail({
     }
     return [...groups.entries()].map(([key, items]) => ({
       key,
-      heading: dayHeading(key, today, tomorrow, zone),
+      heading: dayHeading(key, today, tomorrow),
       items,
     }));
   }, [matches, zone, limit]);

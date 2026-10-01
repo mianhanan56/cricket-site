@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { SeriesLeader, SeriesLeaders as Leaders, SeriesStatKind } from '@/types';
 import PlayerPortrait from '../player/PlayerPortrait';
 import TeamBadge from '../ui/TeamBadge';
+import ViewAllCue from '../ui/ViewAllCue';
 import styles from './SeriesLeaders.module.scss';
 
 /** Kept here rather than imported from the route, so a page module stays out of this component. */
@@ -40,7 +41,10 @@ function hrefFor(seriesId: string, kind: SeriesLeader['kind']): string {
 export function LeaderFigure({ leader, seriesId }: { leader: SeriesLeader; seriesId: string }) {
   return (
     <Link href={hrefFor(seriesId, leader.kind)} className={styles.figure}>
-      <span className={styles.figureLabel}>{leader.label}</span>
+      <span className={styles.figureHead}>
+        <span className={styles.figureLabel}>{leader.label}</span>
+        <ViewAllCue />
+      </span>
       <span className={styles.figureBody}>
         <PlayerPortrait name={leader.playerName} src={leader.playerImage} size="sm" />
         <span className={styles.who}>
@@ -50,7 +54,10 @@ export function LeaderFigure({ leader, seriesId }: { leader: SeriesLeader; serie
             {leader.team.shortName}
           </span>
         </span>
-        <span className={styles.figureValue}>{leader.value}</span>
+        <span className={styles.figureValue}>
+          {leader.value}
+          {UNIT[leader.kind] && <span className={styles.unit}>{UNIT[leader.kind]}</span>}
+        </span>
       </span>
     </Link>
   );
@@ -79,7 +86,10 @@ export function SeriesLeadersBoard({
             data-featured={leader.kind === 'RUNS' || leader.kind === 'WICKETS' ? '' : undefined}
             key={leader.kind}
           >
-            <span className={styles.cardLabel}>{leader.label}</span>
+            <span className={styles.cardHead}>
+              <span className={styles.cardLabel}>{leader.label}</span>
+              <ViewAllCue />
+            </span>
 
             <span className={styles.value}>
               {leader.value}

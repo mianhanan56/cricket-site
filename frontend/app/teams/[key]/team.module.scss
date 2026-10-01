@@ -208,6 +208,12 @@
   color: $text-3;
 }
 
+.showAll {
+  @include button-secondary;
+  width: 100%;
+  margin-top: $space-3;
+}
+
 .columns {
   @include desktop {
     display: grid;
@@ -283,6 +289,11 @@
   font-size: $fs-sm;
   color: $text-3;
   min-width: 0;
+}
+
+.opponent {
+  font-weight: 600;
+  color: $text-2;
 }
 
 .fmt {

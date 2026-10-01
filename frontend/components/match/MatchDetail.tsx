@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { HeadToHead, InningsScore, Match, OverSummary, PointsTableGroup } from '@/types';
+import type { HeadToHead, InningsScore, Match, OverSummary, PointsTableGroup, SeriesLeaders } from '@/types';
 import {
   IDLE_INTERVAL_MS,
   useCrexCommentaryHistory,
@@ -15,11 +15,13 @@ import { battedInnings, formatTeamScore, inningsFor } from '@/lib/innings';
 import { creaseContext, matchSituation, type MatchSituation } from '@/lib/situation';
 import { isStaleStoppage, attributeResult } from '@/lib/crex';
 import { matchStateOf } from '@/lib/matchState';
+import { breakFromFeed } from '@/lib/feedBreak';
 import { inningsProgress, liveEquation } from '@/lib/telemetry';
 import { creaseFromCard } from '@/lib/crease';
 import { groupBalls, reachedByCard, toBallEntry, type BallEntry } from '@/lib/balls';
 import { useActiveInView, useScrollFade } from '@/hooks/useScrollFade';
 import PointsTable from '../series/PointsTable';
+import { SeriesLeadersBoard, rankedLeaders } from '../series/SeriesLeaders';
 import BackButton from '../ui/BackButton';
 import FollowButton from '../follow/FollowButton';
 import StateChip from '../live/StateChip';
@@ -32,7 +34,7 @@ import InfoPanel from './InfoPanel';
 import mc from './matchCenter.module.scss';
 import styles from './MatchDetail.module.scss';
 
-type TabKey = 'live' | 'scorecard' | 'commentary' | 'info' | 'table';
+type TabKey = 'live' | 'scorecard' | 'commentary' | 'info' | 'table' | 'stats';
 
 const MAX_COMMENTARY = 60;
 // Three overs of recent balls — two is too short to read the shape of a spell.
@@ -56,6 +58,7 @@ export default function MatchDetail({
   preview = false,
   headToHead,
   seriesTable,
+  seriesLeaders,
 }: {
   matchId: string;
   initial: Match;
@@ -63,6 +66,8 @@ export default function MatchDetail({
   preview?: boolean;
   headToHead?: HeadToHead | null;
   seriesTable?: PointsTableGroup[];
+  /** The series' leaders, for the Stats tab; null where crex has none yet. */
+  seriesLeaders?: SeriesLeaders | null;
 }) {
   const [match, setMatch] = useState<Match>(initial);
   const hasSummary = !preview && initial.status !== 'UPCOMING';
@@ -146,7 +151,11 @@ export default function MatchDetail({
     })
       ? null
       : match.note;
-  const state = matchStateOf(match, note);
+  // An interval the commentary has just called, which the list feed cannot report fresh.
+  // A stoppage the list does report as stopping play (rain, stumps) still wins over it.
+  const feedBreak = isLive ? breakFromFeed(crexExtras.events, commentary[0]?.timestamp) : null;
+  const listStoppage = Boolean(note?.paused && note.kind !== 'BREAK');
+  const state = matchStateOf(match, feedBreak && !listStoppage ? feedBreak : note);
 
   const multiInnings = match.format === 'TEST';
   const homeScore = scoreParts(inningsFor(match, match.homeTeam), perOver, multiInnings);
@@ -204,12 +213,14 @@ export default function MatchDetail({
   const battingId = eq?.battingTeam.id ?? null;
 
   const hasTable = Boolean(seriesTable?.length);
+  const hasStats = Boolean(seriesLeaders && rankedLeaders(seriesLeaders).length);
   const tabs: Array<{ key: TabKey; label: string }> = [
     ...(hasSummary || match.status !== 'UPCOMING' ? [{ key: 'live' as const, label: isLive ? 'Live' : 'Summary' }] : []),
     { key: 'scorecard', label: 'Scorecard' },
     { key: 'commentary', label: 'Commentary' },
     { key: 'info', label: match.status === 'UPCOMING' ? 'Preview' : 'Info' },
     ...(hasTable ? [{ key: 'table' as const, label: 'Table' }] : []),
+    ...(hasStats ? [{ key: 'stats' as const, label: 'Stats' }] : []),
   ];
 
   // The rail carries the score once the header has scrolled away.
@@ -336,6 +347,11 @@ export default function MatchDetail({
         {tab === 'table' && seriesTable && (
           <div className={mc.panel}>
             <PointsTable groups={seriesTable} highlight={[match.homeTeam.id, match.awayTeam.id]} />
+          </div>
+        )}
+        {tab === 'stats' && seriesLeaders && (
+          <div className={mc.panel}>
+            <SeriesLeadersBoard leaders={seriesLeaders} seriesId={match.series.id} />
           </div>
         )}
       </div>

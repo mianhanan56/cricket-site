@@ -17,7 +17,7 @@
 // on it, which is worse than no number.
 // ============================================================================
 
-import type { Match, Team, VenueProfile } from '@/types';
+import type { HeadToHeadMatch, Match, Team, VenueProfile } from '@/types';
 import { attributeResult } from './crex';
 
 /** Sides listed as playing here regularly. A ground's tenants, not its visitors. */
@@ -68,7 +68,7 @@ export function venueProfile(
   let defended = 0;
   let inconclusive = 0;
 
-  const played = finished.map((m) => {
+  const played = finished.map((m): HeadToHeadMatch => {
     const { winnerKey, method } = attributeResult(m.result, m.homeTeam, m.awayTeam);
     // A win with no readable margin counts as inconclusive rather than being
     // assigned to either column — the same rule as the head-to-head record.
@@ -85,6 +85,10 @@ export function venueProfile(
       series: m.series.name,
       result: m.result ?? '',
       winnerKey,
+      sides: [
+        { id: m.homeTeam.id, shortName: m.homeTeam.shortName, name: m.homeTeam.name },
+        { id: m.awayTeam.id, shortName: m.awayTeam.shortName, name: m.awayTeam.name },
+      ],
     };
   });
 

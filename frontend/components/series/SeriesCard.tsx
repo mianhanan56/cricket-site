@@ -2,6 +2,7 @@ import Link from 'next/link';
 import type { MatchStatus, SeriesSummary } from '@/types';
 import type { MatchStateView } from '@/lib/matchState';
 import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
+import { seriesFormatChip } from '@/lib/seriesFormat';
 import StateChip from '../live/StateChip';
 import Icon from '../ui/Icon';
 import styles from './SeriesCard.module.scss';
@@ -67,7 +68,7 @@ export default function SeriesCard({ series }: { series: SeriesSummary }) {
 
   return (
     <Link href={`/series/${series.id}`} className={styles.row} data-status={series.status}>
-      <span className={styles.format}>{series.format}</span>
+      <span className={styles.format}>{seriesFormatChip(series)}</span>
 
       <span className={styles.main}>
         <span className={styles.name}>{series.name}</span>

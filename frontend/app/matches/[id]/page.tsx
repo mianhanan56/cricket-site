@@ -1,10 +1,11 @@
 import { notFound, redirect } from 'next/navigation';
-import type { HeadToHead, PointsTableGroup } from '@/types';
+import type { HeadToHead, PointsTableGroup, SeriesLeaders } from '@/types';
 import {
   getCrexFixtureRange,
   getCrexMatch,
   getCrexMatchSeriesSquads,
   getCrexScheduledMatch,
+  getCrexSeriesLeaders,
   getCrexSeriesTable,
   parseScheduledMatchId,
 } from '../../../lib/crex';
@@ -87,7 +88,7 @@ export default async function MatchDetailPage({ params }: { params: { id: string
   // the standings below already make, and because it is static: a squad does not
   // change while a reader is on the page. Where crex *does* announce an XI the
   // component still prefers it — this is the floor, not the ceiling.
-  const [record, table, squads] = await Promise.all([
+  const [record, table, squads, leaders] = await Promise.all([
     getCrexFixtureRange()
       .then((corpus): HeadToHead | null =>
         headToHead(match.homeTeam, match.awayTeam, corpus, { exclude: params.id })
@@ -99,6 +100,10 @@ export default async function MatchDetailPage({ params }: { params: { id: string
     match.status === 'UPCOMING' && !match.squads
       ? getCrexMatchSeriesSquads(match).catch(() => null)
       : Promise.resolve(null),
+    // The series' honours board for the Stats tab — the same cached call the series page makes.
+    match.series.id
+      ? getCrexSeriesLeaders(match.series.id).catch(() => null)
+      : Promise.resolve(null as SeriesLeaders | null),
   ]);
 
   return (
@@ -108,6 +113,7 @@ export default async function MatchDetailPage({ params }: { params: { id: string
       initial={squads ? { ...match, squads } : match}
       headToHead={record}
       seriesTable={table}
+      seriesLeaders={leaders}
     />
   );
 }

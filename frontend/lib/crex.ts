@@ -2629,6 +2629,12 @@ function dominantFormat(matches: Array<{ format: MatchFormat }>): MatchFormat {
   return [...tally.entries()].sort((a, b) => b[1] - a[1])[0][0];
 }
 
+/** Each format a list contains, in the order they first appear — a tour of ODIs then Tests is both. */
+function formatsIn(matches: Array<{ format: MatchFormat; startTime: string }>): MatchFormat[] {
+  const ordered = [...matches].sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime));
+  return [...new Set(ordered.map((m) => m.format))];
+}
+
 /** How many of a list are finished — the other half of "12 of 34". */
 const playedCount = (matches: Array<{ status: MatchStatus }>): number =>
   matches.filter((m) => m.status === 'COMPLETED').length;
@@ -2665,6 +2671,7 @@ export function seriesFromMatches(matches: Match[]): SeriesSummary[] {
       id,
       name: list[0].series.name,
       format: dominantFormat(list),
+      formats: formatsIn(list),
       status: seriesStatus(list),
       matchCount: list.length,
       startDate: new Date(Math.min(...times)).toISOString(),
@@ -3050,6 +3057,7 @@ export async function getCrexSeriesSchedule(
     id,
     name: names.s.get(id)?.n ?? opts.fallback?.name ?? 'Cricket',
     format: dominantFormat(matches),
+    formats: formatsIn(matches),
     status: seriesStatus(matches),
     matchCount: matches.length,
     playedCount: playedCount(matches),
@@ -3140,9 +3148,9 @@ export function withFeedStatuses(schedule: SeriesSchedule, feed: Match[]): Serie
 //
 // /matches/live is a rolling window — live now, next up, just gone — so the
 // upcoming slice of it is a couple of days deep at best. /fixtures is crex's own
-// schedule page: date-wise, 20 matches a page, page 0 starting today and each
-// further page another two or three days forward. Fetching a handful of pages is
-// what turns "the next eight matches" into a real fixtures list.
+// schedule page: date-wise, 20 matches a page, page 0 starting today. A page is
+// a day or less of busy weeks and several days of quiet ones, and crex keeps
+// going for months, so the fixtures page reads forward by date, not page count.
 
 /** One scheduled match as /fixtures (wise=1) sends it. */
 export interface CrexFixtureRow {
@@ -3202,8 +3210,10 @@ export function getCrexFixtures(page = 0, opts: FetchOpts = {}): Promise<CrexFix
   });
 }
 
-/** 20 rows a page, and crex 400s well before this — see the Worker's route. */
-const FIXTURE_PAGES = 12;
+/** How far ahead the fixtures page reads: a month, plus whatever its last batch of pages carries. */
+const FIXTURE_HORIZON_DAYS = 30;
+/** A stop for a schedule busier than any seen; the Worker allows 60, and past crex's end a page wraps round. */
+const FIXTURE_MAX_PAGES = 40;
 
 /** An innings of The Hundred, in balls per over. `ft` 5 is the only signal here. */
 const HUNDRED_FORMAT = 5;
@@ -3239,20 +3249,51 @@ function toFixture(row: CrexFixtureRow, names: typeof nameCache): Fixture {
   };
 }
 
+export interface FixtureSchedule {
+  /** Every match read, earliest first. */
+  fixtures: Fixture[];
+  /**
+   * Start of the last match read, when the schedule carries on past it. The day
+   * it falls on is only partly read (pages end mid-day), so a list shows up to
+   * the day before. Null when crex ran out first and every listed day is whole.
+   */
+  coveredUntil: string | null;
+}
+
 /**
- * The schedule ahead: every match crex lists from today forward, earliest first.
+ * The schedule ahead: at least FIXTURE_HORIZON_DAYS of it, earliest first.
  *
- * Pages are fetched in parallel and each is independently edge-cached, so a page
- * that fails costs its own 20 rows and not the list. Rows are deduped on the way
- * out — page boundaries fall mid-day, and crex repeats a day's tail on the next
- * page often enough to matter.
+ * Pages go out in batches of FIXTURE_FETCH_WIDTH and stop once a batch reaches
+ * the horizon — one read per cache period however many visitors, rather than
+ * a request per day. Each page is edge-cached on its own, so a page that fails
+ * costs its own 20 rows and not the list.
  */
-export function getCrexFixtureList(opts: FetchOpts & { pages?: number } = {}): Promise<Fixture[]> {
-  const pages = opts.pages ?? FIXTURE_PAGES;
-  return fixturesFromPages(
-    Array.from({ length: pages }, (_, page) => page),
-    opts
-  );
+export async function getCrexFixtureSchedule(opts: FetchOpts = {}): Promise<FixtureSchedule> {
+  const horizon = Date.now() + FIXTURE_HORIZON_DAYS * 86_400_000;
+  const pages: CrexFixtureRow[][] = [];
+  let latest = 0;
+  let ended = false;
+
+  for (let start = 0; start < FIXTURE_MAX_PAGES && !ended && latest < horizon; start += FIXTURE_FETCH_WIDTH) {
+    const batch = Array.from({ length: Math.min(FIXTURE_FETCH_WIDTH, FIXTURE_MAX_PAGES - start) }, (_, i) => start + i);
+    const settled = await Promise.all(batch.map((page) => getCrexFixtures(page, opts).catch(() => null)));
+    for (const rows of settled) {
+      if (rows === null) continue;
+      const times = rows.map((r) => r.t ?? 0).filter(Boolean);
+      // An empty page, or one that jumps back in time, is crex past the end of its schedule.
+      if (!times.length || (latest && Math.min(...times) < latest - 86_400_000)) {
+        ended = true;
+        break;
+      }
+      pages.push(rows);
+      latest = Math.max(latest, ...times);
+    }
+  }
+
+  return {
+    fixtures: await fixturesFromRows(pages.flat(), opts),
+    coveredUntil: ended || !latest ? null : new Date(latest).toISOString(),
+  };
 }
 
 /**
@@ -3321,12 +3362,15 @@ async function fixturesFromPages(pages: number[], opts: FetchOpts = {}): Promise
   const settled = await inWidth(pages, FIXTURE_FETCH_WIDTH, (page) =>
     getCrexFixtures(page, opts).catch(() => [] as CrexFixtureRow[])
   );
+  return fixturesFromRows(settled.flat(), opts);
+}
 
+async function fixturesFromRows(all: CrexFixtureRow[], opts: FetchOpts = {}): Promise<Fixture[]> {
   // Both keys are needed: `id` is crex's row id and `mf` the match key, and a row
   // can arrive on two pages carrying one of them and then both.
   const seen = new Set<string>();
   const rows: CrexFixtureRow[] = [];
-  for (const row of settled.flat()) {
+  for (const row of all) {
     if (!row?.t || !cleanKey(row.t1f) || !cleanKey(row.t2f)) continue;
     const key = cleanKey(row.mf) || `id-${row.id}`;
     if (seen.has(key)) continue;
@@ -5018,6 +5062,10 @@ function toHeadToHeadMatch(m: Fixture | Match, key: string): HeadToHeadMatch {
     series: m.series.name,
     result: m.result ?? '',
     winnerKey: attributeResult(m.result, m.homeTeam, m.awayTeam).winnerKey,
+    sides: [
+      { id: m.homeTeam.id, shortName: m.homeTeam.shortName, name: m.homeTeam.name },
+      { id: m.awayTeam.id, shortName: m.awayTeam.shortName, name: m.awayTeam.name },
+    ],
   };
 }
 

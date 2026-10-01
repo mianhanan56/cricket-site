@@ -376,10 +376,39 @@ a.venue {
   border-style: dashed;
 }
 
+.pause {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-2;
+  text-align: center;
+}
+
+.pauseLabel {
+  max-width: 88px;
+  font-size: $fs-base;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  line-height: $leading-tight;
+  color: $warn;
+
+  // Beside both scores on a phone it wraps; with the centre column to itself it can be large.
+  @include tablet {
+    max-width: none;
+    font-size: $fs-xl;
+  }
+}
+
 .lastBallAt {
   @include data-num;
   font-size: $fs-xs;
   color: $text-3;
+  white-space: nowrap;
+}
+
+.lastBallLabel {
+  @include eyebrow;
+  font-size: $fs-2xs;
 }
 
 @keyframes impact-in {

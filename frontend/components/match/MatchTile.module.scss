@@ -1,6 +1,8 @@
 @use 'component' as *;
 
 .tile {
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: $space-3;
@@ -8,11 +10,18 @@
   padding: $space-4;
   @include panel;
   @include panel-interactive;
-  @include focus-ring;
 
   &:hover .series {
     color: $text-2;
   }
+}
+
+.cover {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  @include focus-ring;
 }
 
 .live,
@@ -48,6 +57,18 @@
   color: $text-3;
   @include truncate;
   transition: color $dur-2 $ease-out;
+}
+
+.seriesLink {
+  position: relative;
+  z-index: 2;
+  text-underline-offset: 3px;
+  @include focus-ring;
+
+  .tile &:hover {
+    color: $text;
+    text-decoration: underline;
+  }
 }
 
 .rows {

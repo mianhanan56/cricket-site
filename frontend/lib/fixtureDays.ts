@@ -70,7 +70,7 @@ export const formatDayLong = (key: string): string =>
 //   "2026-10-01"                   one day
 //   "2026-10-01..2026-10-11"       a range, both ends included
 //   "2026-10-02,2026-10-04"        separate days
-// '' is the coming week. Anything else is ignored rather than half-read.
+// '' is every day. Anything else is ignored rather than half-read.
 
 /** The longest range a link may expand to — two months of schedule. */
 const MAX_RANGE_DAYS = 62;

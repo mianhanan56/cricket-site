@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import type { Match, PointsTableRow } from '@/types';
+import type { Match } from '@/types';
 import {
   getCrexMatchList,
   getCrexSeriesLeaders,
@@ -13,6 +13,7 @@ import {
   type SeriesScheduleMatch,
 } from '../../../lib/crex';
 import { pickParam } from '../../../lib/queryParams';
+import { seriesFormatPhrase } from '../../../lib/seriesFormat';
 import PointsTable from '../../../components/series/PointsTable';
 import { LeaderFigure, SeriesLeadersBoard, rankedLeaders } from '../../../components/series/SeriesLeaders';
 import SeriesTabs, { type SeriesTab } from '../../../components/series/SeriesTabs';
@@ -23,7 +24,6 @@ import StateChip from '../../../components/live/StateChip';
 import LiveSeriesTiles from '../../../components/series/LiveSeriesTiles';
 import SeriesMilestones, { MilestonesSkeleton } from '../../../components/series/SeriesMilestones';
 import FollowButton from '../../../components/follow/FollowButton';
-import TeamBadge from '../../../components/ui/TeamBadge';
 import LocalTime from '../../../components/ui/LocalTime';
 import EmptyState from '../../../components/ui/EmptyState';
 import BackButton from '../../../components/ui/BackButton';
@@ -51,7 +51,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 
   return {
     title: `${series.name} — Fixtures & Results`,
-    description: `All ${series.matchCount} ${series.format} ${
+    description: `All ${series.matchCount} ${seriesFormatPhrase(series)} ${
       series.matchCount === 1 ? 'match' : 'matches'
     } in ${series.name}: fixtures, live scores and results.`,
   };
@@ -92,6 +92,17 @@ function nodeLabel(no: string | null, i: number): string {
   return (letters.slice(0, digits ? 1 : 2) + digits) || String(i + 1);
 }
 
+/** Back-to-back matches of one format: a tour of three ODIs then five T20s is two runs. */
+function formatRuns(matches: SeriesScheduleMatch[]): Array<{ format: string; items: Array<{ m: SeriesScheduleMatch; i: number }> }> {
+  const runs: Array<{ format: string; items: Array<{ m: SeriesScheduleMatch; i: number }> }> = [];
+  matches.forEach((m, i) => {
+    const last = runs[runs.length - 1];
+    if (last && last.format === m.format) last.items.push({ m, i });
+    else runs.push({ format: m.format, items: [{ m, i }] });
+  });
+  return runs;
+}
+
 const LEGEND: Record<NodeState, string> = {
   finished: 'Played',
   void: 'No result',
@@ -106,9 +117,6 @@ const NODE_WORD: Record<NodeState, string> = {
   upcoming: 'upcoming',
 };
 
-function leaderOf(rows: PointsTableRow[]): PointsTableRow | null {
-  return rows.reduce<PointsTableRow | null>((top, r) => (!top || (r.rank && r.rank < top.rank) ? r : top), null);
-}
 
 function More({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -164,9 +172,7 @@ export default async function SeriesDetailPage({
   const shownLeaders = leaders ? rankedLeaders(leaders) : [];
   const topRuns = shownLeaders.find((l) => l.kind === 'RUNS');
   const topWickets = shownLeaders.find((l) => l.kind === 'WICKETS');
-  const league = table.length === 1 && table[0].tournament ? table[0] : null;
-  const topTeam = league ? leaderOf(league.rows) : null;
-  const hasFigures = Boolean(topTeam || topRuns || topWickets);
+  const hasFigures = Boolean(topRuns || topWickets);
 
   const tabs: SeriesTab[] = [
     { key: 'matches', label: 'Matches', count: series.matchCount },
@@ -183,7 +189,7 @@ export default async function SeriesDetailPage({
       <BackButton fallback="/series" className={styles.back} />
 
       <PageHeader
-        eyebrow={`${formats.length > 1 ? formats.join(' · ') : series.format} series`}
+        eyebrow={`${seriesFormatPhrase(series)} series`}
         title={series.name}
         aside={<FollowButton kind="series" entity={ref} />}
       >
@@ -230,19 +236,35 @@ export default async function SeriesDetailPage({
           <ProgressRail played={played} total={total} live={live.length > 0} className={styles.rail} />
 
           {series.matches.length > 1 && (
-            <ol className={styles.nodes} aria-label="Every match">
-              {series.matches.map((m, i) => {
-                const state = nodeState(m);
-                const title = `${m.matchNo && /^\d+$/.test(m.matchNo) ? `Match ${m.matchNo}` : (m.matchNo ?? `Match ${i + 1}`)}: ${m.homeTeam.shortName} v ${m.awayTeam.shortName}, ${m.result ?? NODE_WORD[state]}`;
-                return (
-                  <li key={m.key}>
-                    <Link href={`/matches/${m.id}`} className={styles.node} data-state={state} title={title} aria-label={title}>
-                      {nodeLabel(m.matchNo, i)}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ol>
+            // A multi-format tour numbers each format from 1, so each gets its own labelled row.
+            <div className={styles.nodeRuns}>
+              {(formats.length > 1 ? formatRuns(series.matches) : [{ format: '', items: series.matches.map((m, i) => ({ m, i })) }]).map((run, r) => (
+                <div key={`${run.format}-${r}`} className={styles.nodeRun}>
+                  {run.format && (
+                    <span className={styles.runLabel}>
+                      {run.format}
+                      <span className={styles.runCount}>
+                        {run.items.filter(({ m }) => m.status === 'COMPLETED').length}/{run.items.length}
+                      </span>
+                    </span>
+                  )}
+                  <ol className={styles.nodes} aria-label={run.format ? `${run.format} matches` : 'Every match'}>
+                    {run.items.map(({ m, i }) => {
+                      const state = nodeState(m);
+                      const no = m.matchNo && /^\d+$/.test(m.matchNo) ? `Match ${m.matchNo}` : (m.matchNo ?? `Match ${i + 1}`);
+                      const title = `${run.format ? `${run.format} ` : ''}${no}: ${m.homeTeam.shortName} v ${m.awayTeam.shortName}, ${m.result ?? NODE_WORD[state]}`;
+                      return (
+                        <li key={m.key}>
+                          <Link href={`/matches/${m.id}`} className={styles.node} data-state={state} title={title} aria-label={title}>
+                            {nodeLabel(m.matchNo, run.format ? run.items.findIndex((x) => x.m === m) : i)}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </div>
+              ))}
+            </div>
           )}
 
           {(next || series.matches.length > 1) && (
@@ -274,26 +296,6 @@ export default async function SeriesDetailPage({
 
         {hasFigures && (
           <div className={styles.figures}>
-            {topTeam && (
-              <Link href={`/series/${series.id}?tab=table`} scroll={false} className={styles.teamFigure}>
-                <span className={styles.label}>Top of table</span>
-                <span className={styles.teamBody}>
-                  <TeamBadge name={topTeam.team.name} shortName={topTeam.team.shortName} logo={topTeam.team.logo} size="sm" />
-                  <span className={styles.teamWho}>
-                    <span className={styles.teamName}>{topTeam.team.name}</span>
-                    {topTeam.netRunRate && (
-                      <span className={styles.nrr} data-sign={topTeam.netRunRate.startsWith('-') ? 'neg' : 'pos'}>
-                        NRR {topTeam.netRunRate}
-                      </span>
-                    )}
-                  </span>
-                  <span className={styles.pts}>
-                    {topTeam.points}
-                    <span className={styles.ptsUnit}>pts</span>
-                  </span>
-                </span>
-              </Link>
-            )}
             {topRuns && <LeaderFigure leader={topRuns} seriesId={series.id} />}
             {topWickets && <LeaderFigure leader={topWickets} seriesId={series.id} />}
           </div>
