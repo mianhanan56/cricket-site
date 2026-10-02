@@ -1,11 +1,13 @@
 # TODO — PulseCrease
 
-Last updated: 2026-09-30
+Last updated: 2026-10-02
 
 UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before any fix.
 
 | Priority | Status | Task | Notes |
 | --- | --- | --- | --- |
+| High | Pending | Deploy the Worker for player series performance (`cd worker-crex && npm run deploy`) | Adds `/player/matches`. Until deployed, the player page omits the section (verified). |
+| Low | Pending | Format filter "Test" on player series includes first-class (County Championship) | crex files both under `ft=3`; their own filter does the same. Group chip reads "First class". Decide whether to split. |
 | High | Done | Scorecard batting/bowling tables clipped on phones | `matchCenter.module.scss` `.tableWrap` is `overflow: hidden`; batting table 426px in a 326px box at 360 (6s/SR unreachable up to 414px). Needs `overflow-x: auto` + scroll cue, or a phone column set. |
 | High | Done | Deploy the Worker (`cd worker-crex && npm run deploy`) | Adds `/live` and the `LiveHub` Durable Object (`v1` migration). Watch DO usage: ~43k alarms/day while anyone is connected. |
 | High | Done | Series stat pages: stat value column cut at the right edge on phones | e.g. `/series/2N8/stats/most-runs` at 360 shows half of "221". Put the stat column first after the player, or make it sticky. |

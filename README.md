@@ -53,7 +53,7 @@ NEXT_PUBLIC_CREX_WORKER_URL=http://localhost:8788
 | `/series/[id]` | Worker `/series/matches` + `/series/table` + `/matches/live` | ISR 300s |
 | `/teams/[key]` | Worker `/team/matches` + `/series/squads` + `/rankings` + the schedule corpus | ISR 1800s |
 | `/venues/[key]` | the schedule corpus only | ISR 1800s |
-| `/players/[id]` | Worker `/player/overview` | ISR 1h |
+| `/players/[id]` | Worker `/player/overview`; series performance from `/player/matches` | ISR 1h |
 | `/rankings` | Worker `/rankings/players` × 15 lists + `/mapping` | ISR 1h |
 | `/search` | client-side over the match list + `/api/search-index` | 60s corpus cache |
 | `/teams`, `/players` | the live ICC ranking lists (`lib/directory.ts`) | ISR 1h |

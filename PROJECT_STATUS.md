@@ -1,6 +1,6 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-09-30
+Last updated: 2026-10-02
 
 ## Current milestone
 
@@ -34,19 +34,28 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Series name on match tiles links to the series detail page (cover-link pattern in `MatchTile`,
   hit-tested in headless Chrome: series name → `/series/[id]`, rest of tile → `/matches/[id]`).
 
+## Recently completed (uncommitted, 2026-10-02)
+
+- Player page "Series performance": pick a series (searchable, newest first, Load older series),
+  filter by format, see batting (runs, inns, avg, SR, HS, 50s, 100s, not outs) and bowling
+  (wickets, overs, runs, econ, avg, best, 4W, 5W) for that series plus every innings linked to its
+  match. New Worker route `/player/matches` — **needs `npm run deploy` in worker-crex**; until then
+  the section is simply absent in production.
+
 ## Pending
 
 See TODO.md.
 
 ## Testing status
 
-- `npm test` (frontend): **107/107 pass** (2026-09-30).
+- `npm test` (frontend): **111/111 pass** (2026-10-02).
+- Series performance: decoded/summed figures equal crex's own totals on 471 series×format groups (36 players incl. Tests, The Hundred, county); 320–1280px no overflow; select → format → load older → match → Back → reload flow verified (2026-10-02).
 - `tsc --noEmit`: frontend clean, worker clean (2026-09-30). Lint clean.
 - UI pass visually verified at 320–1440px from an isolated copy; search reachable from the header on phones (2026-09-29).
 
 ## Build status
 
-Production `next build` passes from an isolated copy (2026-09-30).
+Production `next build` passes from an isolated copy (2026-10-02).
 
 ## Deployment status
 

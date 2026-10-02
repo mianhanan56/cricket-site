@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-09-30. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-10-02. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -27,6 +27,10 @@ phones, `TableScroll` scroll-fade (`TableScroll.module.scss`), series stat playe
 phones. Match tiles (`MatchTile`) now link the series name to `/series/[id]`: the tile is an
 `<article>` with a full-cover match link (`.cover`) and the series link stacked above it, since
 anchors can't nest.
+
+Uncommitted (2026-10-02): player "Series performance" (see ARCHITECTURE.md › Player series
+performance). Adds Worker route `/player/matches`; the Worker must be deployed before it shows in
+production.
 
 ## Recommended next step
 

@@ -1,0 +1,213 @@
+@use 'component' as *;
+
+.root {
+  position: relative;
+  min-width: 0;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+  min-height: 52px;
+  padding: $space-2 $space-3 $space-2 $space-4;
+  border: 1px solid $line-2;
+  border-radius: $r-md;
+  background: $surface;
+  text-align: left;
+  cursor: pointer;
+  @include focus-ring;
+
+  @include motion {
+    transition:
+      border-color $dur-2 $ease-out,
+      background-color $dur-2 $ease-out;
+  }
+
+  &:hover,
+  &.triggerOpen {
+    border-color: $line-3;
+    background: $surface-2;
+  }
+}
+
+.triggerText {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.triggerLabel {
+  @include eyebrow;
+}
+
+.triggerValue {
+  font-size: $fs-base;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+  color: $text;
+  @include truncate;
+}
+
+.caret {
+  flex-shrink: 0;
+  color: $text-3;
+
+  @include motion {
+    transition: transform $dur-2 $ease-out;
+  }
+
+  &.caretOpen {
+    transform: rotate(180deg);
+  }
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + #{$space-1-5});
+  left: 0;
+  right: 0;
+  z-index: $z-popover;
+  display: flex;
+  flex-direction: column;
+  max-height: min(420px, 60vh);
+  overflow: hidden;
+  background: $surface-2;
+  border: 1px solid $line-2;
+  border-radius: $r-md;
+  box-shadow: $shadow-pop;
+
+  @include motion {
+    animation: series-menu-in $dur-2 $ease-out;
+  }
+}
+
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: $space-2;
+  border-bottom: 1px solid $line;
+}
+
+.searchIcon {
+  position: absolute;
+  left: $space-4;
+  color: $text-3;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 $space-3 0 34px;
+  border: 1px solid $line-2;
+  border-radius: $r-sm;
+  background: $bg;
+  font-size: $fs-md;
+  outline: none;
+
+  // Under 16px, iOS Safari zooms the page on focus.
+  @include phone-only {
+    font-size: $fs-body;
+  }
+
+  @include motion {
+    transition: border-color $dur-2 $ease-out;
+  }
+
+  &::placeholder {
+    color: $text-3;
+  }
+
+  &:focus {
+    border-color: $signal;
+  }
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: $space-1;
+  outline: none;
+}
+
+.option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 16px;
+  grid-template-areas:
+    'name check'
+    'meta check';
+  align-items: center;
+  column-gap: $space-3;
+  row-gap: 2px;
+  min-height: 52px;
+  padding: $space-2 $space-3;
+  border-radius: $r-sm;
+  cursor: pointer;
+
+  &.optionActive {
+    background: $surface-3;
+  }
+
+  &[aria-selected='true'] .optionName {
+    color: $text;
+  }
+}
+
+.optionName {
+  grid-area: name;
+  font-size: $fs-md;
+  font-weight: 600;
+  line-height: $leading-snug;
+  color: $text-2;
+  @include fluid-text;
+}
+
+.optionMeta {
+  grid-area: meta;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+  @include fluid-text;
+}
+
+.optionCheck {
+  grid-area: check;
+  color: $signal-text;
+}
+
+.none {
+  padding: $space-3;
+  font-size: $fs-md;
+  color: $text-3;
+}
+
+.more {
+  @include button-secondary;
+  flex-shrink: 0;
+  min-height: 44px;
+  margin: $space-2;
+  font-size: $fs-sm;
+
+  &:disabled {
+    cursor: progress;
+    color: $text-3;
+  }
+}
+
+@keyframes series-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

@@ -419,6 +419,27 @@ export const ROUTES: RouteDef[] = [
     note: 'Player profile, career stats and recent form: /player/overview?key=1IG',
   },
   {
+    // Every innings a player has had, grouped by series and then by format —
+    // what crex's own player "Matches" tab pages through. Newest series first by
+    // start date; page 0 holds six series and each later page three. `bb` is the
+    // discipline (1 batting, 0 bowling), `ft` the format (0 all, 1 ODI, 2 T20,
+    // 3 Test, 4 T10, 5 The Hundred). Same `stats` host and `pf` body as the overview.
+    match: '/player/matches',
+    base: 'stats',
+    path: '/player/getPlayerMatches',
+    method: 'POST',
+    // Same cadence as the overview, so a series record and the form beside it agree.
+    ttl: 3600,
+    params: {
+      key: { type: 'string', required: true },
+      ft: { type: 'int', enum: [0, 1, 2, 3, 4, 5], default: 0 },
+      bb: { type: 'int', enum: [0, 1], default: 1 },
+      page: { type: 'int', default: 0, min: 0, max: 60 },
+    },
+    buildBody: (p) => ({ pf: p.key, ft: p.ft, bb: p.bb, page: p.page }),
+    note: "A player's innings by series: /player/matches?key=1IG&ft=3&bb=1&page=0",
+  },
+  {
     match: '/news/topics',
     base: 'news',
     path: '/api/articlesOC/topics',

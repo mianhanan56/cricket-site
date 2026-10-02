@@ -639,6 +639,60 @@ export interface PlayerProfile {
   recentBatting: PlayerFormEntry[];
   recentBowling: PlayerFormEntry[];
   debuts: PlayerDebut[];
+  /** crex format codes (`ft`) the player has figures in — what the series filter offers. */
+  formatCodes: number[];
+}
+
+// ---------------------------------------------------------------------------
+// Player series record
+// ---------------------------------------------------------------------------
+
+export type PlayerDiscipline = 'batting' | 'bowling';
+
+/** One innings in a player's series record, either discipline. */
+export interface PlayerSeriesInnings {
+  matchId: string | null;
+  /** "3rd ODI", "Final", "22nd Match". */
+  matchLabel: string;
+  /** The player's 1st or 2nd innings of the match. */
+  inningsOfMatch: number;
+  opponent: string | null;
+  date: string | null; // ISO string
+  /** Batting: runs scored. Bowling: runs conceded. */
+  runs: number;
+  /** Batting: balls faced. Bowling: balls bowled. */
+  balls: number;
+  /** Batting only. */
+  notOut: boolean;
+  /** Bowling only. */
+  wickets: number;
+}
+
+/** One format's innings within a series — a tour can hold ODIs and T20Is. */
+export interface PlayerSeriesFormatRecord {
+  /** crex `ft`. */
+  code: number;
+  /** "Test", "T20I", "100B" — the career tables' own labels. */
+  label: string;
+  innings: PlayerSeriesInnings[];
+}
+
+/** A series as one discipline's list holds it. */
+export interface PlayerSeriesRecord {
+  id: string;
+  name: string;
+  /** Short name of the side the player turned out for. */
+  team: string | null;
+  start: string | null; // ISO string
+  end: string | null; // ISO string
+  formats: PlayerSeriesFormatRecord[];
+}
+
+/** One page of one discipline's series list. */
+export interface PlayerSeriesPage {
+  series: PlayerSeriesRecord[];
+  /** Whether a later page may hold older series. */
+  more: boolean;
 }
 
 // ---------------------------------------------------------------------------

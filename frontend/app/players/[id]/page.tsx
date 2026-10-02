@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type {
@@ -14,6 +15,8 @@ import TableScroll from '@/components/ui/TableScroll';
 import BackButton from '@/components/ui/BackButton';
 import TeamBadge from '@/components/ui/TeamBadge';
 import FollowButton from '@/components/follow/FollowButton';
+import PlayerSeriesSection, { PlayerSeriesSkeleton } from '@/components/player/PlayerSeriesSection';
+import { isSeriesFormatKey, seriesFormatOptions } from '@/lib/playerSeries';
 import { SectionHead } from '@/components/ui/Section';
 import { RANKINGS_FORMAT_KEYS, type RankingsFormat } from '@/lib/tabs';
 import styles from './player.module.scss';
@@ -336,9 +339,25 @@ function rankingHref(r: PlayerRanking, gender: PlayerProfile['gender']): string 
   return `/rankings?group=players&format=${format}&gender=${gender === 'Female' ? 'women' : 'men'}&category=${RANK_CATEGORY[r.discipline]}`;
 }
 
-export default async function PlayerPage({ params }: { params: { id: string } }) {
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+export default async function PlayerPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { series?: string | string[]; format?: string | string[] };
+}) {
   const player = await loadPlayer(params.id);
   if (!player) notFound();
+
+  const wantFormat = one(searchParams.format);
+  const seriesFormat =
+    isSeriesFormatKey(wantFormat) && seriesFormatOptions(player.formatCodes).some((f) => f.value === wantFormat)
+      ? wantFormat
+      : 'all';
+  const wantSeries = one(searchParams.series);
+  const seriesId = wantSeries && /^[A-Za-z0-9]{1,12}$/.test(wantSeries) ? wantSeries : null;
 
   const crest = teamLogoUrl(player.countryKey ?? undefined);
 
@@ -431,6 +450,17 @@ export default async function PlayerPage({ params }: { params: { id: string } })
               </div>
             </section>
           )}
+
+          <Suspense fallback={<PlayerSeriesSkeleton className={styles.section} />}>
+            <PlayerSeriesSection
+              className={styles.section}
+              playerId={player.id}
+              role={player.role}
+              formatCodes={player.formatCodes}
+              format={seriesFormat}
+              series={seriesId}
+            />
+          </Suspense>
 
           {batting.length > 0 && (
             <section className={styles.section}>

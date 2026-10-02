@@ -43,7 +43,10 @@ import type {
   PlayerDebut,
   PlayerFormEntry,
   PlayerOfMatch,
+  PlayerDiscipline,
   PlayerProfile,
+  PlayerSeriesPage,
+  PlayerSeriesRecord,
   PlayerRanking,
   PlayerRole,
   PlayerRoleLabel,
@@ -3583,6 +3586,8 @@ interface CrexPlayerOverview {
   c?: { btf?: CrexFormRow[]; bof?: CrexFormRow[] };
   /** Teams under contract. `st` arrives as a string here, unlike everywhere else. */
   d?: Array<{ tf?: string; st?: string | number; ft?: number }>;
+  /** Competitions × formats the player has figures in. */
+  h?: Array<{ st?: number; ft?: number }>;
 }
 
 /**
@@ -3925,7 +3930,158 @@ export async function getCrexPlayerProfile(
     recentBatting: recentBatting.map((r) => toFormEntry(r, 'batting', names)),
     recentBowling: recentBowling.map((r) => toFormEntry(r, 'bowling', names)),
     debuts,
+    formatCodes: [...new Set((raw.h ?? []).map((c) => Number(c.ft)).filter((ft) => ft > 0))],
   };
+}
+
+// ---------------------------------------------------------------------------
+// Player series record
+// ---------------------------------------------------------------------------
+
+/** One innings on /player/matches. Bowling rows put wickets in `w` and balls bowled in `b`. */
+interface CrexPlayerInningsRow {
+  mf?: string;
+  /** Match number in the series, or a `^` knockout code. */
+  mn?: string;
+  /** The player's 1st or 2nd innings of the match. */
+  i?: number;
+  r?: number;
+  b?: number;
+  w?: number;
+  /** 1 dismissed, 0 not out. */
+  di?: number;
+  vs?: string;
+  d?: number;
+  /** "Test", "ODI", "T20I"; "Match" in domestic cricket, absent in The Hundred. */
+  fo?: string | null;
+}
+
+interface CrexPlayerSeriesRow {
+  sf?: string;
+  st?: string | number;
+  /** The player's side. */
+  pft?: string;
+  sd?: number;
+  ed?: number;
+  d?: Array<{ f?: number; ir?: CrexPlayerInningsRow[] }>;
+}
+
+/** crex sends six series on the first page and three on every later one. */
+const PLAYER_SERIES_PAGE = (page: number) => (page === 0 ? 6 : 3);
+
+/** crex's knockout codes for `mn`, from their own match-number helper. */
+const KNOCKOUT_MATCHES: Record<string, string> = {
+  '^0': 'Final',
+  '^1': '1st Semi-final',
+  '^2': '2nd Semi-final',
+  '^3': '1st Quarter-final',
+  '^4': '2nd Quarter-final',
+  '^5': '3rd Quarter-final',
+  '^6': '4th Quarter-final',
+  '^c': 'Qualifier 1',
+  '^d': 'Qualifier 2',
+  '^e': 'Eliminator',
+  '^f': 'Eliminator 2',
+  '^m': 'Knockout',
+  '^n': 'Challenger',
+  '^s': 'Elimination final',
+};
+
+const ordinal = (n: number): string => {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+  return `${n}${suffix}`;
+};
+
+/** "3rd Test", "22nd Match" where crex names no format (domestic, The Hundred), "Final". */
+export function seriesMatchLabel(mn: string | undefined, format: string | null | undefined): string {
+  const code = (mn ?? '').trim();
+  if (code.startsWith('^')) return KNOCKOUT_MATCHES[code] ?? 'Knockout';
+  const n = Number.parseInt(code, 10);
+  const noun = format?.trim() || 'Match';
+  if (n === 0) return `Only ${noun}`;
+  return Number.isFinite(n) && n > 0 ? `${ordinal(n)} ${noun}` : noun;
+}
+
+/**
+ * A format group's label. International cricket keeps the career tables' labels;
+ * domestic cricket is named by its shape, since `st=27, ft=3` — the County
+ * Championship — would otherwise read as a Test.
+ */
+function seriesFormatLabel(st: number, ft: number): string {
+  if (INTERNATIONAL_COMPETITIONS.has(st)) return playerFormatLabel(st, ft) ?? 'Match';
+  return ({ 1: 'List A', 2: 'T20', 3: 'First class', 4: 'T10', 5: '100B' } as Record<number, string>)[ft] ?? 'Match';
+}
+
+/**
+ * One page of a player's series record, one discipline, decoded — every innings
+ * in every series on it, not a sample.
+ *
+ * `format` is crex's `ft` (0 for all). Pages are newest series first.
+ */
+export async function getCrexPlayerSeriesPage(
+  key: string,
+  query: { format: number; discipline: PlayerDiscipline; page: number },
+  opts: FetchOpts = {}
+): Promise<PlayerSeriesPage> {
+  const id = cleanKey(key);
+  const qs = new URLSearchParams({
+    key: id,
+    ft: String(query.format),
+    bb: query.discipline === 'batting' ? '1' : '0',
+    page: String(query.page),
+  });
+  const raw = await crexGet<CrexPlayerSeriesRow[]>(`/player/matches?${qs}`, { revalidate: 3600, ...opts });
+  const rows = Array.isArray(raw) ? raw : [];
+
+  const names = await resolveKeys(
+    {
+      s: rows.map((r) => r.sf ?? ''),
+      t: rows.flatMap((r) => [r.pft ?? '', ...(r.d ?? []).flatMap((g) => (g.ir ?? []).map((i) => i.vs ?? ''))]),
+    },
+    opts
+  );
+  const team = (k: string | undefined) => {
+    const entry = names.t.get(cleanKey(k));
+    return entry?.sn ?? entry?.n ?? null;
+  };
+
+  const series: PlayerSeriesRecord[] = rows
+    .filter((r) => cleanKey(r.sf))
+    .map((r) => {
+      const sid = cleanKey(r.sf);
+      const meta = names.s.get(sid);
+      const st = Number(r.st);
+      return {
+        id: sid,
+        name: meta?.n ?? meta?.sn ?? sid,
+        team: team(r.pft),
+        start: r.sd ? new Date(r.sd).toISOString() : null,
+        end: r.ed ? new Date(r.ed).toISOString() : null,
+        formats: (r.d ?? [])
+          .filter((g) => g.f && (query.format === 0 || g.f === query.format) && g.ir?.length)
+          .map((g) => ({
+            code: g.f as number,
+            label: seriesFormatLabel(st, g.f as number),
+            innings: (g.ir ?? [])
+              .map((i) => ({
+                matchId: cleanKey(i.mf) || null,
+                matchLabel: seriesMatchLabel(i.mn, i.fo),
+                inningsOfMatch: i.i ?? 1,
+                opponent: team(i.vs),
+                date: i.d ? new Date(i.d).toISOString() : null,
+                runs: i.r ?? 0,
+                balls: i.b ?? 0,
+                notOut: query.discipline === 'batting' && i.di === 0,
+                wickets: i.w ?? 0,
+              }))
+              // Oldest first, and a Test's first innings before its second.
+              .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.inningsOfMatch - b.inningsOfMatch),
+          })),
+      };
+    });
+
+  return { series, more: rows.length >= PLAYER_SERIES_PAGE(query.page) };
 }
 
 // ---------------------------------------------------------------------------

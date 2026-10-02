@@ -59,6 +59,7 @@ cacheable and the frontend stays simple.
 | `/rankings/players` | `POST oc /ranking/getRanking` | 1h | `category`, `play`, `type`, `gender`, `page` — **strings**, see below |
 | `/match/info` | `GET php /getIV4` | 5m | `key` — match f_key. Pre-match squads, captain/keeper, broadcast, weather |
 | `/player/overview` | `POST stats /player/getPlayerOverview` | 1h | `key` — player f_key. Profile, career stats, recent form — see below |
+| `/player/matches` | `POST stats /player/getPlayerMatches` | 1h | `key`, `ft` (0 all, 1 ODI, 2 T20, 3 Test, 4 T10, 5 100B), `bb` (1 batting, 0 bowling), `page` — every innings, grouped by series |
 | `/series/matches` | `POST oc /seriesInside/getMatchForSeriesID` | 5m | `key` — series f_key. Every match in the series, by date |
 | `/series/table` | `POST oc /seriesInside/getPTableForSeriesID` | 5m | `key` — series f_key. Standings, one entry per group — see below |
 | `/series/squads` | `POST oc /seriesInside/getSqaudForSeriesID` | 1h | `key` — series f_key. Squads by team, players as f_keys |
@@ -196,6 +197,18 @@ inherits our own typography rather than arriving with crex's.
 ```bash
 curl 'localhost:8788/player/overview?key=1IG'
 ```
+
+`/player/matches?key=<f_key>&ft=0&bb=1&page=0` is crex's player "Matches" tab
+(`getPlayerMathes` in the same chunk — their spelling). It is a list of series,
+newest start first: page 0 holds six and every later page three, so a short page
+is the last one. Each series is `{sf, st, pft, sd, ed, d}` — series key,
+competition, the player's side, start and end — and `d` holds one group per
+format (`f`) with crex's own totals (`tsr`/`ic`/`sav`… batting, `tsw`/`sec`…
+bowling) and `ir`, every innings: `mf` match key, `mn` match number (`^0` final,
+`^e` eliminator…), `i` the player's 1st/2nd innings of the match, `r`/`b`, `di`
+1 dismissed / 0 not out, `w` wickets on bowling rows, `vs` the opposition, `d`
+the date. The totals agree with the innings exactly, which is how the frontend's
+series figures were checked.
 
 ## Standings, squads and team fixtures
 

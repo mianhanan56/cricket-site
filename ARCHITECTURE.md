@@ -61,7 +61,7 @@ commands inside `frontend/` or `worker-crex/`.
   `php` (api.goscorer.com — live match list). Wrong host ⇒ "Invalid Host header".
 - Routes (TTL): `/matches/live` 15s · `/rankings` 1h · `/rankings/players` 1h · `/mapping` 6h ·
   `/fixtures` 5m · `/news/topics` 15m · `/match/info` 5m · `/match/scorecard` · `/match/commentary` ·
-  `/player/overview` 1h · `/series/matches` 5m · `/series/table` 5m · `/series/squads` 1h ·
+  `/player/overview` 1h · `/player/matches` 1h · `/series/matches` 5m · `/series/table` 5m · `/series/squads` 1h ·
   `/series/overview` 5m · `/team/matches` 5m. Full detail and wire formats: `worker-crex/README.md`
   and `worker-crex/src/routes.ts`.
 - Responses use single-letter keys; team/series/venue/player f_keys resolve through `/mapping`.
@@ -81,6 +81,7 @@ commands inside `frontend/` or `worker-crex/`.
 | `matchState.ts`, `liveScore.ts`, `innings.ts`, `situation.ts`, `crease.ts`, `overs.ts`, `balls.ts` | Match state machine, innings reading, one-line situation text, crease context, ball parsing. |
 | `momentum.ts`, `pulse.ts`, `telemetry.ts` | Worm graph points, live pulse readings, chase telemetry. |
 | `automations.ts`, `notifications.ts`, `follows.ts`, `persisted.ts` | Browser-stored rules, alert ledger/keys, follows, localStorage wrapper. |
+| `playerSeries.ts` | Player series record: format vocabulary, merging the batting/bowling page lists (only series both lists have reached are shown), default series, batting/bowling summaries. Pure; pages come in through a fetcher. |
 | `rankings.ts`, `directory.ts`, `playersDirectory.ts` | Rankings with bundled fallback; team/player directories built from ICC ranking lists. |
 | `search.ts`, `searchIndex.ts` | Client-side search over matches + `/api/search-index`. |
 | `tabs.ts`, `queryParams.ts`, `uiState.ts`, `navigationDepth.ts` | URL tab vocabularies/validation, overlay state, back-button depth. |
@@ -102,6 +103,20 @@ The list store and `useCrexMatchExtras` apply frames through the same parsers as
 `/series/[id]/stats/[kind]` · `/teams` · `/teams/[key]` · `/venues/[key]` · `/players` ·
 `/players/[id]` · `/rankings` · `/search` · `/insights` · `/automations` · `/my` ·
 `/api/search-index` · `sitemap.ts` · `robots.ts`. Data source and freshness per page: README table.
+
+## Player series performance
+
+`/players/[id]` has a "Series performance" section between Recent form and the career tables
+(`components/player/PlayerSeriesSection` streams it under Suspense; `SeriesPerformance` is the
+client part, `SeriesPicker` the searchable series listbox). Source is the Worker's
+`/player/matches` (crex `getPlayerMatches`): every innings, grouped by series then format, newest
+series first, 6 series on page 0 and 3 per later page, batting (`bb=1`) and bowling (`bb=0`) as
+separate lists. Figures are computed from the innings (dismissal-based average, `*` kept, Test
+innings counted separately) and were checked equal to crex's own per-series totals on 471
+series×format groups. Selection lives in `?series=&format=` written with `history.replaceState`
+(no server round trip); the server reads it and pages back up to 8 pages to reach an older series.
+Client pages are deduped in a module-level map. If the route fails the section is omitted.
+Format filter codes: 3 Test (crex also files first-class here), 1 ODI, 2 T20, 4 T10, 5 100B.
 
 ## Caching / freshness
 

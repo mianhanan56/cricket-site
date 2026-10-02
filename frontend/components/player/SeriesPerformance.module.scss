@@ -1,0 +1,298 @@
+@use 'component' as *;
+
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: $space-4;
+  }
+}
+
+.formats {
+  justify-self: start;
+}
+
+.pickerSkeleton {
+  display: block;
+  width: 100%;
+  height: 52px;
+  border-radius: $r-md;
+}
+
+// ---------------------------------------------------------------- Panel
+
+.panel {
+  @include panel;
+  overflow: hidden;
+  min-width: 0;
+
+  @include motion {
+    transition: opacity $dur-2 $ease-out;
+  }
+
+  &[data-busy] {
+    opacity: 0.55;
+  }
+}
+
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-2 $space-3;
+  padding: $space-3 $space-4;
+
+  @include tablet {
+    padding-inline: $space-5;
+  }
+}
+
+.panelMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-1 $space-3;
+  min-width: 0;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-2;
+}
+
+.team {
+  font-family: $font-sans;
+  font-size: $fs-sm;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+  color: $text;
+}
+
+.seriesLink {
+  @include button-secondary;
+  min-height: 36px;
+  gap: $space-1-5;
+  font-size: $fs-sm;
+}
+
+// ---------------------------------------------------------------- Block
+
+.block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+  padding: $space-4 $space-4 0;
+  border-top: 1px solid $line;
+
+  @include tablet {
+    padding-inline: $space-5;
+  }
+}
+
+.blockTitle {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $fs-base;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+}
+
+.formatChip {
+  @include chip;
+  height: 22px;
+  padding-inline: $space-2;
+  font-size: 10px;
+  color: $text-2;
+}
+
+.headline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-1 $space-2;
+}
+
+.total {
+  @include display-num;
+  font-size: clamp(36px, 10vw, 48px);
+}
+
+.unit {
+  font-size: $fs-base;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+  color: $text-2;
+}
+
+.context {
+  flex-basis: 100%;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+
+  @include sm {
+    flex-basis: auto;
+    margin-left: auto;
+  }
+}
+
+.ribbon {
+  display: block;
+  width: 100%;
+  height: 10px;
+}
+
+.plain {
+  fill: $line-3;
+}
+
+.notable {
+  fill: $data;
+}
+
+.landmark {
+  fill: $signal;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: $space-3 $space-2;
+  padding-block: $space-1 $space-3;
+
+  @include sm {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.stat {
+  display: grid;
+  gap: $space-1;
+  min-width: 0;
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include data-num;
+    font-size: $fs-lg;
+    font-weight: 700;
+    color: $text;
+    white-space: nowrap;
+  }
+}
+
+// ---------------------------------------------------------------- Innings
+
+.rows {
+  margin-inline: calc(-1 * #{$space-4});
+  border-top: 1px solid $line;
+
+  @include tablet {
+    margin-inline: calc(-1 * #{$space-5});
+  }
+
+  li + li {
+    border-top: 1px solid $line;
+  }
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) 16px;
+  grid-template-areas:
+    'fig match chev'
+    'fig meta chev';
+  align-items: center;
+  column-gap: $space-3;
+  row-gap: 2px;
+  min-height: 56px;
+  padding: $space-2 $space-4;
+  @include focus-ring;
+
+  @include motion {
+    transition: background-color $dur-2 $ease-out;
+  }
+
+  @include tablet {
+    grid-template-columns: 104px minmax(0, 1fr) 16px;
+    padding-inline: $space-5;
+  }
+
+  &:is(a):hover {
+    background: $surface-2;
+  }
+}
+
+.fig {
+  grid-area: fig;
+  display: flex;
+  align-items: baseline;
+  gap: $space-1;
+  min-width: 0;
+}
+
+.figMain {
+  @include display-num;
+  font-size: $fs-base;
+  font-weight: 700;
+  color: $text-2;
+
+  &[data-tier='notable'] {
+    color: $data;
+  }
+
+  &[data-tier='landmark'] {
+    color: $signal-text;
+  }
+}
+
+.figSub {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+  white-space: nowrap;
+}
+
+.match {
+  grid-area: match;
+  font-size: $fs-md;
+  font-weight: 600;
+  line-height: $leading-snug;
+  @include fluid-text;
+}
+
+.meta {
+  grid-area: meta;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+  @include fluid-text;
+}
+
+.chev {
+  grid-area: chev;
+  color: $text-3;
+}
+
+.none {
+  padding: $space-4;
+  border-top: 1px solid $line;
+  font-size: $fs-md;
+  color: $text-3;
+
+  @include tablet {
+    padding-inline: $space-5;
+  }
+}
