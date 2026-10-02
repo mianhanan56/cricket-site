@@ -6,8 +6,8 @@ import type { Match } from '@/types';
 import { useCrexMatchExtras, useCrexMatchSquads } from '@/hooks/useCrexMatches';
 import { feedCheckedNote } from '@/lib/crex';
 import { inningsUnderway, matchStateOf } from '@/lib/matchState';
-import { PHASE_LABEL, equationSentence, inningsProgress, inningsStarted, liveEquation } from '@/lib/telemetry';
-import { formatProgressShort } from '@/lib/overs';
+import { PHASE_LABEL, equationSentence, inningsProgress, inningsStarted, isChaseTight, liveEquation } from '@/lib/telemetry';
+import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
 import { toBallEntry } from '@/lib/balls';
 import { matchPulse, pulseTrace, recentInningsBalls } from '@/lib/pulse';
 import TeamBadge from '../ui/TeamBadge';
@@ -46,7 +46,7 @@ export default function InsightCard({ match }: { match: Match }) {
     feedCheckedNote(match, { innings: extras.innings, lastBallAt: extras.commentary[0]?.timestamp ?? null, now: extras.fetchedAt })
   );
 
-  const perOver = match.ballsPerOver || 6;
+  const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
   const eq = liveEquation(match);
   const started = inningsStarted(eq);
   // Before the first ball the card is the fixture: toss, conditions, and how the ground plays.
@@ -59,7 +59,7 @@ export default function InsightCard({ match }: { match: Match }) {
   const readings = useMemo(() => (pulseOn ? matchPulse(window, match.format, perOver) : null), [pulseOn, window, match.format, perOver]);
   const trace = useMemo(() => pulseTrace(window), [window]);
   const sentence = eq ? equationSentence(eq) : null;
-  const tight = eq?.rrr != null && eq.crr != null && eq.rrr > eq.crr;
+  const tight = isChaseTight(eq);
 
   return (
     <article ref={ref} className={`${styles.card} ${styles[state.family] ?? ''}`}>

@@ -37,6 +37,39 @@ describe('alerts with several moments', () => {
     assert.deepEqual(parsed.map((a) => [a.id, a.triggers]), [['a1', ['SIX', 'FOUR']]]);
   });
 
+  it('drops an alert whose scope is unreadable and fills missing fields', () => {
+    const parsed = parseAutomations([
+      { id: 'a1', triggers: ['WICKET'] },
+      { id: 'a2', triggers: ['WICKET'], scope: { kind: 'MOON' } },
+      { id: 'a3', triggers: ['WICKET'], scope: { kind: 'TEAM', id: 'IND', name: 'India' }, fired: 'x' },
+    ])!;
+    assert.equal(parsed.length, 1);
+    assert.deepEqual(parsed[0], {
+      id: 'a3',
+      triggers: ['WICKET'],
+      scope: { kind: 'TEAM', id: 'IND', name: 'India' },
+      action: { inApp: true, system: false },
+      enabled: true,
+      createdAt: 0,
+      fired: 0,
+      lastFiredAt: null,
+    });
+  });
+
+  it('reads back a saved alert unchanged', () => {
+    const saved = {
+      id: 'a1',
+      triggers: ['SIX', 'FIFTY'],
+      scope: { kind: 'SERIES', id: '1JK', name: 'Asia Cup' },
+      action: { inApp: false, system: true },
+      enabled: false,
+      createdAt: 1_700_000_000_000,
+      fired: 4,
+      lastFiredAt: 1_700_000_500_000,
+    };
+    assert.deepEqual(parseAutomations([saved]), [saved]);
+  });
+
   it('describes several moments in one sentence', () => {
     assert.equal(
       describeAutomation({ triggers: ['WICKET', 'SIX', 'RESULT'], scope: { kind: 'TEAM', id: 'IND', name: 'India' } }),

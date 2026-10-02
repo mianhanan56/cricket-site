@@ -32,6 +32,15 @@ Uncommitted (2026-10-02): player "Series performance" (see ARCHITECTURE.md › P
 performance). Adds Worker route `/player/matches`; the Worker must be deployed before it shows in
 production.
 
+Uncommitted (2026-10-02, code-quality pass, no UI change): verified-dead code removed
+(`FilterSelect`, compact rail/result variants, five unused exports, dead SCSS), duplicated helpers
+moved to one home each (`lib/text.ts`, `lib/timeout.ts`, `lib/site.ts`, `isChaseTight`, format
+labels, `TeamCrest`), scorecard `!important`s replaced by specificity (computed styles identical),
+BackButton spacing made independent of stylesheet order (see TODO: confirm per-page values),
+fetch deadlines on `/health` and the search index plus a manual fallback for Safari < 17.4,
+match-change resets in the history/squads hooks, alert feed watchers re-keyed on scopes, stored
+alerts validated field by field, Worker logs + topic guard, robots/sitemap localhost fix, docs.
+
 ## Recommended next step
 
 Wait for the user's pick from TODO.md. Start with the High rows: scorecard table clipping on

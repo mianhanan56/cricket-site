@@ -29,10 +29,14 @@ UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before 
 | Medium | Pending | Touch targets under 32px | Segmented options 28px, series match nodes 30px, graph wicket markers 22px, name-only row links 20–23px. |
 | Medium | Pending | Desktop person icon opens a menu with only My Cricket + Alerts | Reads as sign-in/account. |
 | Low | Pending | Polish list from the audit | Toss shown 3× with different wording; match-graph summary repeats legend; 10px labels; unlabelled rankings gap; search double focus ring; empty "Mark all read"; blank logo squares; orphan "= 5" over label. |
-| Low | Pending | Drop the dead `compact` variants of `UpcomingRail` / `ResultList` | Only the removed Home Overview used them. |
 | Low | Pending | Tighten the socket-connecting window | Entering a page while the socket (re)connects can cost one extra 2s fallback poll before the snapshot lands. |
-| Medium | Pending | Fix README "Getting started" | `npm run dev --workspace=...` needs a root `package.json` that doesn't exist. Either add a workspace root or document `cd frontend && npm run dev`. |
 | Medium | Pending | Stop tracking `frontend/public/swe-worker-*.js` | Build output is committed despite `.gitignore`; needs `git rm --cached` (user commits). |
-| Low | Pending | Clean up CricLive leftovers | README/worker README reference `../worker`, `lib/cricketLive.ts`, `NEXT_PUBLIC_CRICKET_WORKER_URL`; none exist in code. `.env` still sets `CRICKET_WORKER_URL`. |
+| Low | Pending | Remove `CRICKET_WORKER_URL` from `frontend/.env` | Last CricLive leftover (docs/comments cleaned 2026-10-02). Nothing reads it. |
 | Low | Pending | Refresh `frontend/data/rankings.json` fallback and bump `asOf` | Only used when crex is unreachable. |
+| Low | Pending | Confirm BackButton spacing | Was decided by stylesheet order (production: venue/stats 0px, player/series 16px). Now deterministic as authored: venue/series/stats 0, player 8px, others 16px. Change the page `.back` rules if 16px everywhere is wanted. |
+| High | Pending | Redeploy the frontend so robots.txt / sitemap.xml / metadata stop naming localhost | Production serves `Sitemap: http://localhost:3005/sitemap.xml` (seen 2026-10-02). Fixed in `lib/site.ts` (falls back to Vercel's production domain); setting `NEXT_PUBLIC_SITE_URL` on Vercel also works. |
+| Medium | Pending | Deploy the Worker (`cd worker-crex && npm run deploy`) for upstream-failure logging and the hub's topic guard | Code-only change; no new routes or migrations. |
+| Medium | Pending | Series stat tables use 6-ball overs/economy for The Hundred | `seriesStatRows` (`lib/crex.ts`) fetches cards without `ballsPerOver` and divides by 6; the scorecard and player Series performance use 5. `SeriesScheduleMatch` has no `ballsPerOver`, and what an "Overs" column should show for The Hundred is a product call. |
+| Medium | Pending | Two lockfiles in `frontend/` (`package-lock.json` and `yarn.lock`) | Vercel picks the installer from the lockfile; keep one (`vercel.json` runs `npm run build`, so npm). |
+| Low | Pending | `/news/topics` Worker route is unused by the frontend | Kept (public Worker API, slow 620 KB payload). Remove from `routes.ts`, README and `probe.sh` if not planned. |
 | Low | Pending | Consider splitting `frontend/lib/crex.ts` (~5.1k lines) by domain | Match / series / player / team / fixtures. Not urgent. |

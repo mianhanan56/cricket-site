@@ -1,8 +1,6 @@
-// Edge proxy in front of crex.com's internal APIs.
-//
-// Same three jobs as the CricLive Worker in ../worker: collapse traffic with an
-// edge cache, emit CORS your origins need, and serve stale data rather than an
-// error when upstream hiccups. Two differences specific to crex:
+// Edge proxy in front of crex.com's internal APIs: collapse traffic with an
+// edge cache, emit the CORS our origins need, and serve stale data rather than
+// an error when upstream hiccups.
 //
 //   - Upstream is five hosts, not one (see upstreams.ts), and most endpoints
 //     are POST. Callers here always use GET; the translation happens below.
@@ -213,6 +211,7 @@ function fetchAndStore(
 
       if (!fresh.ok) {
         const detail = await fresh.text().catch(() => '');
+        console.warn('upstream error', { route: route.match, status: fresh.status });
         return { ok: false, status: fresh.status, detail: detail.slice(0, 500) };
       }
 
@@ -221,6 +220,7 @@ function fetchAndStore(
       // status 0 is "never got a reply", which is a 502 rather than a passthrough.
       const timedOut = err instanceof Error && err.name === 'TimeoutError';
       const detail = timedOut ? `No reply within ${UPSTREAM_TIMEOUT_MS / 1000}s` : String(err);
+      console.warn('upstream unreachable', { route: route.match, detail });
       return { ok: false, status: 0, detail };
     }
   })().finally(() => inFlight.delete(cacheKey.url));
@@ -284,7 +284,7 @@ function corsHeaders(request: Request, env: Env): Headers {
   });
 
   // Echo the origin only when it's on the list. Server-side callers (Next.js
-  // SSR, the backend) send no Origin and are unaffected by CORS.
+  // SSR) send no Origin and are unaffected by CORS.
   if (origin && allowed.includes(origin)) {
     headers.set('Access-Control-Allow-Origin', origin);
   }

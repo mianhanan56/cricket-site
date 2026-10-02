@@ -1,14 +1,9 @@
 'use client';
 
-import type { Match } from '@/types';
+import type { Match, Team } from '@/types';
 import { createPersisted, isRecord } from './persisted';
 
-export interface FollowedTeam {
-  id: string;
-  name: string;
-  shortName: string;
-  logo?: string | null;
-}
+export type FollowedTeam = Pick<Team, 'id' | 'name' | 'shortName' | 'logo'>;
 
 export interface FollowedEntity {
   id: string;

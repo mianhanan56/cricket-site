@@ -440,6 +440,7 @@ export function useCrexMatchExtras(
       setEvents([]);
       setOvers([]);
       setLoaded(false);
+      setFetchedAt(null);
     }
 
     let cancelled = false;
@@ -612,6 +613,8 @@ export function useCrexCommentaryHistory(
       if (inFlight.current) return;
       inFlight.current = true;
       setLoading(true);
+      // A walk still out when the page moves to another match must not land on it.
+      const current = () => started.current === matchKey;
 
       try {
         const feed = await getCrexMatchFeed(matchKey, {
@@ -619,18 +622,21 @@ export function useCrexCommentaryHistory(
           maxPages: from ? MORE_PAGES : HISTORY_PAGES,
           ...(from ? { before: from } : null),
         });
+        if (!current()) return;
 
         // Merged by id rather than replaced: a "load older" walk returns only
         // the older window, and the overs already on screen must stay.
-        setBalls((prev) => mergeById(prev, feed.balls, (b) => b.id));
-        setOvers((prev) => mergeById(prev, feed.overs, (o) => o.id));
+        setBalls((prev) => mergeFeedItems(prev, feed.balls, Infinity));
+        setOvers((prev) => mergeFeedItems(prev, feed.overs, Infinity));
         cursor.current = feed.oldest ?? cursor.current;
         if (feed.exhausted || !feed.oldest) setExhausted(true);
       } catch {
         // A failed walk leaves what is already held; the reader can ask again.
       } finally {
-        inFlight.current = false;
-        setLoading(false);
+        if (current()) {
+          inFlight.current = false;
+          setLoading(false);
+        }
       }
     },
     [matchKey]
@@ -638,6 +644,13 @@ export function useCrexCommentaryHistory(
 
   useEffect(() => {
     if (!enabled || !matchKey || started.current === matchKey) return;
+    if (started.current) {
+      setBalls([]);
+      setOvers([]);
+      setExhausted(false);
+      cursor.current = null;
+      inFlight.current = false;
+    }
     started.current = matchKey;
     void walk(null);
   }, [enabled, matchKey, walk]);
@@ -648,16 +661,6 @@ export function useCrexCommentaryHistory(
   }, [exhausted, walk]);
 
   return { balls, overs, loading, exhausted, loadMore };
-}
-
-/** Two feeds as one, newest first, keyed on the feed's own ids. */
-function mergeById<T>(a: T[], b: T[], key: (item: T) => string): T[] {
-  const byId = new Map<string, T>();
-  for (const item of [...a, ...b]) byId.set(key(item), item);
-  // The feed's id is an epoch, and its string form sorts the same way for the
-  // 13-digit window this app will ever see — but the numeric compare is what is
-  // actually meant, so it is what is written.
-  return [...byId.values()].sort((x, y) => Number(key(y)) - Number(key(x)));
 }
 
 /**
@@ -686,9 +689,16 @@ export function useCrexMatchSquads(
   const [squads, setSquads] = useState<Record<string, SquadPlayer[]>>({});
   const [conditions, setConditions] = useState<MatchConditions | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const keyRef = useRef(matchKey);
 
   useEffect(() => {
     if (!enabled || !matchKey) return;
+    if (keyRef.current !== matchKey) {
+      keyRef.current = matchKey;
+      setSquads({});
+      setConditions(null);
+      setLoaded(false);
+    }
 
     let cancelled = false;
     const controller = new AbortController();

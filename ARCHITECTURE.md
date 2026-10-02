@@ -1,7 +1,7 @@
 # Architecture — PulseCrease
 
 Live cricket site: scores, match telemetry, momentum, series stats and client-side alerts.
-Last verified against source: 2026-09-29.
+Last verified against source: 2026-10-02.
 
 ## System overview
 
@@ -59,8 +59,8 @@ commands inside `frontend/` or `worker-crex/`.
 - No secrets, no KV. The allowlist is what keeps it from being an open relay.
 - Upstream hosts: `oc` (oc.crickapi.com), `stats`, `content` (commentary), `news`,
   `php` (api.goscorer.com — live match list). Wrong host ⇒ "Invalid Host header".
-- Routes (TTL): `/matches/live` 15s · `/rankings` 1h · `/rankings/players` 1h · `/mapping` 6h ·
-  `/fixtures` 5m · `/news/topics` 15m · `/match/info` 5m · `/match/scorecard` · `/match/commentary` ·
+- Routes (TTL): `/matches/live` 2s · `/rankings` 1h · `/rankings/players` 1h · `/mapping` 6h ·
+  `/fixtures` 5m · `/news/topics` 15m (unused by the frontend) · `/match/info` 5m · `/match/scorecard` 5s · `/match/commentary` 5s ·
   `/player/overview` 1h · `/player/matches` 1h · `/series/matches` 5m · `/series/table` 5m · `/series/squads` 1h ·
   `/series/overview` 5m · `/team/matches` 5m. Full detail and wire formats: `worker-crex/README.md`
   and `worker-crex/src/routes.ts`.
@@ -71,6 +71,8 @@ commands inside `frontend/` or `worker-crex/`.
   2s while changing, 10s/30s when quiet, stops with no subscribers. Frames carry `epoch` + a
   global rising `seq`; diffs carry `prev`. Origin checked against `ALLOWED_ORIGINS`. Upstream
   fetch shared with the HTTP path via `src/upstream.ts`.
+- Logging (Workers observability): one `console.warn` per failed upstream call on the HTTP path
+  (route + status/detail); the hub logs a topic once when it starts failing and once on recovery.
 
 ## Frontend modules (`frontend/lib`)
 
@@ -86,6 +88,12 @@ commands inside `frontend/` or `worker-crex/`.
 | `search.ts`, `searchIndex.ts` | Client-side search over matches + `/api/search-index`. |
 | `tabs.ts`, `queryParams.ts`, `uiState.ts`, `navigationDepth.ts` | URL tab vocabularies/validation, overlay state, back-button depth. |
 | `matchType.ts`, `featured.ts`, `fixtureDays.ts`, `datetime.ts`, `relativeTime.ts` | Classification, featured match choice, calendar keys, time formatting. |
+| `timeout.ts` | `withTimeout(ms, signal?)` — every client fetch's deadline (crex 15s, search index 15s, `/health` probe 10s); links signals by hand where `AbortSignal.any` is missing. |
+| `text.ts`, `site.ts`, `seriesFormat.ts` | `ordinal`/`plural`; `SITE_URL` (env → Vercel production domain → localhost); `MATCH_FORMAT_LABEL` + series format phrases. |
+
+Shared vocabulary lives in one place each: `isChaseTight` (telemetry), `MATCH_FORMAT_LABEL`
+(seriesFormat), `RANKING_FORMAT_LABEL`/`FORMAT_ORDER` (playersDirectory), `TeamCrest` (types).
+Stored alerts are rebuilt field by field in `parseAutomations`; an unreadable scope drops the alert.
 
 `hooks/useCrexMatches.ts` is **one shared poll** of the match list: every subscriber reads the
 same snapshot and it runs at the fastest interval any subscriber requests.
@@ -166,6 +174,10 @@ with permission, the system tray — only while a tab is open.
   stays), Series, Rankings (no chips — the title states the selection), Players (search stays) and
   match Commentary.
 - Server Components by default; `'use client'` only when needed. Few comments — only non-obvious *why*.
+- Two CSS modules on one element tie on specificity and the build's stylesheet order picks the
+  winner (it differs between builds). A component that takes a `className` must not set the same
+  property itself — see `BackButton` (`.spaced` only when no class is passed) and the scorecard
+  (`td.top`, `.table .left`).
 
 ## Key design decisions
 

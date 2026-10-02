@@ -21,7 +21,7 @@ export function seriesState(status: MatchStatus): MatchStateView {
 // A span, not an instant: both ends are compared with === to spot a one-day
 // series, so they must read the same on the server and in the browser.
 export function seriesSpan(startIso: string, endIso: string): { start: string; end: string; oneDay: boolean } {
-  const crossesYear = new Date(startIso).getFullYear() !== new Date(endIso).getFullYear();
+  const crossesYear = new Date(startIso).getUTCFullYear() !== new Date(endIso).getUTCFullYear();
   const start = formatInZone(startIso, crossesYear ? 'date' : 'dateShort', SERVER_ZONE);
   const end = formatInZone(endIso, 'date', SERVER_ZONE);
   return { start, end, oneDay: formatInZone(startIso, 'date', SERVER_ZONE) === end };

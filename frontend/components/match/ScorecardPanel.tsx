@@ -7,7 +7,7 @@ import { atCrease, dismissalOf } from '@/lib/crease';
 import TableScroll from '../ui/TableScroll';
 import Segmented from '../ui/Segmented';
 import PlayerLink from './PlayerLink';
-import { ordinal } from './ScoreHeader';
+import { ordinal } from '@/lib/text';
 import { BowlingSkeleton, ScorecardSkeleton } from './MatchDetailSkeleton';
 import mc from './matchCenter.module.scss';
 import styles from './ScorecardPanel.module.scss';

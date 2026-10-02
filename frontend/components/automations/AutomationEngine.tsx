@@ -132,6 +132,8 @@ function Runner({ rules, background }: { rules: Automation[]; background: boolea
   }, [matches]);
 
   const feedRules = rules.filter((r) => r.triggers.some((t) => triggerSpec(t).feed));
+  // Keyed on the scopes, not the count: editing an alert's team must move its watchers.
+  const feedScopes = feedRules.map((r) => `${r.scope.kind}:${r.scope.id ?? ''}:${r.scope.name ?? ''}`).join('|');
   const feedTargets = useMemo(
     () =>
       feedRules.length
@@ -139,8 +141,9 @@ function Runner({ rules, background }: { rules: Automation[]; background: boolea
             .filter((m) => m.status === 'LIVE' && feedRules.some((r) => matchInScope(r.scope, m, ctx)))
             .slice(0, MAX_FEED_MATCHES)
         : [],
+    // `feedRules` is rebuilt every render; `feedScopes` is what it contributes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [matches, ctx, feedRules.length]
+    [matches, ctx, feedScopes]
   );
 
   return (

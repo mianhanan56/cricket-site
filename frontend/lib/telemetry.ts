@@ -1,5 +1,5 @@
 import type { InningsScore, Match, Team } from '@/types';
-import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER, ballsFrom, inningsBallLimit } from './overs';
+import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER, SCHEDULED_OVERS, ballsFrom, inningsBallLimit } from './overs';
 
 export type MatchPhase = 'POWERPLAY' | 'MIDDLE' | 'DEATH';
 
@@ -22,6 +22,13 @@ export interface LiveEquation {
   ballsLeft: number | null;
   rrr: number | null;
   phase: MatchPhase | null;
+}
+
+/** The chase needs more than it is scoring. */
+export function isChaseTight<T extends Pick<LiveEquation, 'rrr' | 'crr'>>(
+  eq: T | null | undefined
+): eq is T & { rrr: number; crr: number } {
+  return eq?.rrr != null && eq.crr != null && eq.rrr > eq.crr;
 }
 
 /** Anything on the board yet — an innings opened at 0/0 in 0 overs has not started. */
@@ -115,6 +122,6 @@ export function inningsProgress(match: Match, innings?: InningsScore[]): number 
   const first = batted.find((i) => i !== eq.innings && i.teamId !== eq.innings.teamId);
   const limit = first
     ? inningsBallLimit(first, match, eq.perOver)
-    : match.ballsLimit ?? (match.format === 'T20' ? 20 : 50) * eq.perOver;
+    : match.ballsLimit ?? (SCHEDULED_OVERS[match.format] ?? 0) * eq.perOver;
   return limit ? eq.ballsBowled / limit : null;
 }

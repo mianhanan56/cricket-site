@@ -6,6 +6,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { CREX_WORKER_URL } from '../crex';
+import { withTimeout } from '../timeout';
 import { acceptFrame, isLiveFrame, type FrameVerdict, type LiveFrame, type SeqBook } from './frames';
 
 export type LiveStatus = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'unavailable' | 'disabled';
@@ -25,6 +26,8 @@ const UNAVAILABLE_AFTER = 5;
 const UNAVAILABLE_RETRY_MS = 120_000;
 // Navigating between pages drops and re-adds topics; don't hang up in between.
 const IDLE_CLOSE_MS = 20_000;
+// A hung probe would hold `probing` and keep the socket shut for the whole page.
+const PROBE_TIMEOUT_MS = 10_000;
 
 const live = {
   ws: null as WebSocket | null,
@@ -130,7 +133,7 @@ function onFrame(raw: string) {
 function probe() {
   live.probing = true;
   setStatus('connecting');
-  fetch(`${WORKER}/health`, { cache: 'no-store' })
+  fetch(`${WORKER}/health`, { cache: 'no-store', signal: withTimeout(PROBE_TIMEOUT_MS) })
     .then((res) => res.json())
     .then((health: { live?: unknown }) => {
       live.capable = Boolean(health?.live);

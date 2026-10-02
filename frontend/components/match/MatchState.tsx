@@ -1,49 +1,5 @@
-// The match-state vocabulary — one word for what is happening right now, shared by
-// the home cards and the detail page so the two never disagree — plus the list of
-// batsmen who have left the middle without being dismissed.
-//
-// Deliberately a word rather than a component. Every surface that shows the state
-// has its own type scale: a 12px label on a carousel card, something quieter in a
-// page header. A shared badge ended up too heavy for the header and the page wore
-// two different status treatments at once. The wording is the part that has to be
-// identical; how it is set belongs to the surface showing it.
-
-import type { InningsScore, MatchNote, MatchNoteKind, MatchStatus } from '@/types';
+import type { InningsScore } from '@/types';
 import styles from './MatchState.module.scss';
-
-// --- Status vocabulary ------------------------------------------------------
-
-/**
- * One word per kind of stoppage.
- *
- * A match card has room for a word, not a sentence: "STUMPS" and "DELAY" are what
- * a reader scanning a carousel needs, and the difference between a drinks break
- * and a tea break is not worth a line of a card. The full wording — "Tea Break",
- * "Toss delayed due to wet outfield" — is on the match page, one tap away.
- *
- * `INFO` has no word because it is the kind for a status crex sent that this
- * vocabulary does not recognise; inventing one for it would be guessing.
- */
-const NOTE_WORD: Partial<Record<MatchNoteKind, string>> = {
-  BREAK: 'BREAK',
-  STUMPS: 'STUMPS',
-  DELAY: 'DELAY',
-  SUSPENDED: 'SUSPENDED',
-};
-
-/**
- * The single word for a live match that has stopped, or null when there is none —
- * play is going on, the match is not live, or crex sent something unrecognised.
- *
- * Exported because the home cards and the detail header must not name the same
- * state differently.
- */
-export function pausedWord(status: MatchStatus, note?: MatchNote | null): string | null {
-  if (status !== 'LIVE' || !note?.paused) return null;
-  return NOTE_WORD[note.kind] ?? null;
-}
-
-// --- Player situations ------------------------------------------------------
 
 const RETIREMENT_LABEL = {
   HURT: 'Retired hurt',

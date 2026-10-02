@@ -24,26 +24,19 @@ function dayHeading(key: string, today: string, tomorrow: string): string {
   return formatInZone(`${key}T12:00:00Z`, 'dayDate', 'UTC').replace(/\s\d{4}$/, '');
 }
 
-/**
- * Upcoming fixtures on a time rail, grouped by the reader's own day. `compact`
- * is the overview's summary row: time, the two sides, format and series — the
- * venue and full names stay on the schedule and match pages.
- */
+/** Upcoming fixtures on a time rail, grouped by the reader's own day. */
 export default function UpcomingRail({
   matches,
   limit,
-  variant = 'full',
   timeline = false,
 }: {
   matches: Match[];
   limit?: number;
-  variant?: 'full' | 'compact';
   /** Draw the time rail — the schedule views only. */
   timeline?: boolean;
 }) {
   const [zone, setZone] = useState(SERVER_ZONE);
   useEffect(() => setZone(readerZone()), []);
-  const compact = variant === 'compact';
 
   const days = useMemo(() => {
     const now = new Date();
@@ -65,16 +58,14 @@ export default function UpcomingRail({
   }, [matches, zone, limit]);
 
   return (
-    <div className={`${styles.rail} ${compact ? styles.compact : ''} ${timeline ? '' : styles.plain}`}>
+    <div className={`${styles.rail} ${timeline ? '' : styles.plain}`}>
       {days.map((day) => (
         <section key={day.key} className={styles.day} aria-label={day.heading}>
           <header className={styles.dayHead}>
             <h3 className={styles.dayTitle}>{day.heading}</h3>
-            {!compact && (
-              <span className={styles.dayCount}>
-                {day.items.length} {day.items.length === 1 ? 'match' : 'matches'}
-              </span>
-            )}
+            <span className={styles.dayCount}>
+              {day.items.length} {day.items.length === 1 ? 'match' : 'matches'}
+            </span>
           </header>
           <ol className={styles.list}>
             {day.items.map((m) => {
@@ -86,7 +77,7 @@ export default function UpcomingRail({
                       <time dateTime={m.startTime} suppressHydrationWarning>
                         {formatInZone(m.startTime, 'time', zone)}
                       </time>
-                      {!compact && m.status === 'UPCOMING' && (
+                      {m.status === 'UPCOMING' && (
                         <Countdown iso={m.startTime} className={styles.countdown} soonClassName={styles.soon} />
                       )}
                     </span>
@@ -96,36 +87,22 @@ export default function UpcomingRail({
                         <span className={styles.side}>
                           <TeamBadge name={m.homeTeam.name} shortName={m.homeTeam.shortName} logo={m.homeTeam.logo} size="xs" />
                           <span className={styles.code}>{m.homeTeam.shortName}</span>
-                          {!compact && <span className={styles.full}>{m.homeTeam.name}</span>}
+                          <span className={styles.full}>{m.homeTeam.name}</span>
                         </span>
                         <span className={styles.vs}>vs</span>
                         <span className={styles.side}>
                           <TeamBadge name={m.awayTeam.name} shortName={m.awayTeam.shortName} logo={m.awayTeam.logo} size="xs" />
                           <span className={styles.code}>{m.awayTeam.shortName}</span>
-                          {!compact && <span className={styles.full}>{m.awayTeam.name}</span>}
+                          <span className={styles.full}>{m.awayTeam.name}</span>
                         </span>
                       </span>
-                      {compact ? (
-                        <span className={styles.metaLine}>
-                          {m.format} · {m.series.name}
-                        </span>
-                      ) : (
-                        <span className={styles.meta}>
-                          <span className={styles.format}>{m.format}</span>
-                          <span className={styles.series}>{m.series.name}</span>
-                          <span className={styles.venue}>{venueText(m.venue)}</span>
-                        </span>
-                      )}
+                      <span className={styles.meta}>
+                        <span className={styles.format}>{m.format}</span>
+                        <span className={styles.series}>{m.series.name}</span>
+                        <span className={styles.venue}>{venueText(m.venue)}</span>
+                      </span>
                     </span>
-                    {compact ? (
-                      state.key !== 'UPCOMING' ? (
-                        <StateChip state={state} className={styles.state} />
-                      ) : (
-                        <Countdown iso={m.startTime} className={styles.tick} soonClassName={styles.soon} />
-                      )
-                    ) : (
-                      state.key !== 'UPCOMING' && <StateChip state={state} className={styles.state} />
-                    )}
+                    {state.key !== 'UPCOMING' && <StateChip state={state} className={styles.state} />}
                   </Link>
                 </li>
               );

@@ -5,9 +5,9 @@ import { useMemo } from 'react';
 import type { Match, Team } from '@/types';
 import { useCrexMatchExtras } from '@/hooks/useCrexMatches';
 import { inningsUnderway, matchStateOf } from '@/lib/matchState';
-import { PHASE_LABEL, equationSentence, inningsProgress, inningsStarted, liveEquation } from '@/lib/telemetry';
+import { PHASE_LABEL, equationSentence, inningsProgress, inningsStarted, isChaseTight, liveEquation } from '@/lib/telemetry';
 import { formatTeamScore, inningsFor } from '@/lib/innings';
-import { formatProgressShort } from '@/lib/overs';
+import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
 import { creaseContext } from '@/lib/situation';
 import { creaseFromCard } from '@/lib/crease';
 import { feedCheckedNote } from '@/lib/crex';
@@ -41,7 +41,7 @@ export default function LiveHero({ match }: { match: Match }) {
 
   const card = extras.innings.length ? extras.innings : undefined;
   const eq = liveEquation(match, card) ?? liveEquation(match);
-  const perOver = match.ballsPerOver || 6;
+  const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
 
   // Same check as the match page: crex latches break notes after play resumes.
   const state = matchStateOf(
@@ -73,7 +73,7 @@ export default function LiveHero({ match }: { match: Match }) {
   const inn = inningsStarted(eq) ? eq.innings : undefined;
   const sentence = eq ? equationSentence(eq) : null;
   const other = opponentLine(match, bowling);
-  const tight = eq?.rrr != null && eq.crr != null && eq.rrr > eq.crr;
+  const tight = isChaseTight(eq);
 
   return (
     <section className={`${styles.hero} ${styles[state.family]}`} aria-labelledby="hero-title">

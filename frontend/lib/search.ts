@@ -110,6 +110,3 @@ export async function searchMatches(query: string, limit = 12): Promise<Match[]>
 /** "IND vs AUS" — the label a result row leads with. */
 export const matchLabel = (m: Match): string =>
   `${m.homeTeam.shortName} vs ${m.awayTeam.shortName}`;
-
-/** Series name, falling back to the venue when a match has no series attached. */
-export const matchSublabel = (m: Match): string => m.series?.name || m.venue || '';

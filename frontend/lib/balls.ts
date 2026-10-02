@@ -1,5 +1,6 @@
 import type { BallExtra, CommentaryBall, InningsScore } from '@/types';
 import { HUNDRED_BALLS_PER_OVER, ballsFrom } from './overs';
+import { plural } from './text';
 
 /**
  * A delivery as the UI renders it — the feed's ball minus fields nothing reads.
@@ -78,8 +79,6 @@ export function ballKind(b: BallEntry): BallKind {
   return b.runs ? 'run' : 'dot';
 }
 
-const plural = (runs: number) => (runs === 1 ? '1 run' : `${runs} runs`);
-
 /** "W", "4", "wd", "wd+4", "1lb" — a delivery in a token's worth of characters. */
 export function shortLabel(b: BallEntry): string {
   if (b.isWicket) return b.runs ? `W+${b.runs}` : 'W';
@@ -98,12 +97,12 @@ export function runsLabel(b: Pick<BallEntry, 'runs' | 'extra' | 'isWicket'>): st
   if (isIllegal(b)) {
     const scored = scoredOffExtra(b);
     parts.push(EXTRA_LABELS[b.extra as BallExtra].long);
-    if (scored) parts.push(plural(scored));
+    if (scored) parts.push(plural(scored, 'run'));
   } else if (b.extra) {
     const word = EXTRA_LABELS[b.extra].long.toLowerCase();
     parts.push(`${b.runs} ${word}${b.runs === 1 ? '' : 's'}`);
   } else if (b.runs || !b.isWicket) {
-    parts.push(plural(b.runs));
+    parts.push(plural(b.runs, 'run'));
   }
   if (b.isWicket) parts.unshift('W');
   return parts.join(' + ');

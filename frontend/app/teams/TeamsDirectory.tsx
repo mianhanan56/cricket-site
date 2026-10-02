@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { DirectoryTeam } from '@/lib/directory';
+import { FORMAT_ORDER, RANKING_FORMAT_LABEL } from '@/lib/playersDirectory';
 import { PageHeader, SectionHead } from '@/components/ui/Section';
 import TeamBadge from '@/components/ui/TeamBadge';
 import EmptyState from '@/components/ui/EmptyState';
@@ -10,8 +11,6 @@ import Icon from '@/components/ui/Icon';
 import FollowButton from '@/components/follow/FollowButton';
 import styles from './teams.module.scss';
 
-const FORMAT_ORDER = ['TEST', 'ODI', 'T20I'] as const;
-const FORMAT_LABEL = { TEST: 'Test', ODI: 'ODI', T20I: 'T20I' } as const;
 
 function TeamTile({ team }: { team: DirectoryTeam }) {
   return (
@@ -27,7 +26,7 @@ function TeamTile({ team }: { team: DirectoryTeam }) {
               return (
                 rank && (
                   <span key={f} className={`${styles.rank} ${rank.position === team.best.position ? styles.top : ''}`}>
-                    <span className={styles.rankFmt}>{FORMAT_LABEL[f]}</span>
+                    <span className={styles.rankFmt}>{RANKING_FORMAT_LABEL[f]}</span>
                     <b>#{rank.position}</b>
                   </span>
                 )

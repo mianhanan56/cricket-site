@@ -3,7 +3,7 @@ import type { InningsScore, Match, Team } from '@/types';
 import { battedInnings, formatInnings, inningsFor, isClosed } from '@/lib/innings';
 import { formatProgressShort } from '@/lib/overs';
 import { matchStateOf } from '@/lib/matchState';
-import { equationSentence, inningsProgress, liveEquation } from '@/lib/telemetry';
+import { equationSentence, inningsProgress, isChaseTight, liveEquation } from '@/lib/telemetry';
 import { attributeResult } from '@/lib/crex';
 import TeamBadge from '../ui/TeamBadge';
 import Icon from '../ui/Icon';
@@ -133,7 +133,7 @@ export default function MatchTile({ match, showSeries = true }: { match: Match; 
             <Countdown iso={match.startTime} className={styles.countdown} soonClassName={styles.soon} />
           </>
         ) : (
-          <span className={`${styles.note} ${eq?.rrr && eq.crr && eq.rrr > eq.crr ? styles.tight : ''}`}>
+          <span className={`${styles.note} ${isChaseTight(eq) ? styles.tight : ''}`}>
             {footer ?? venueText(match.venue)}
           </span>
         )}

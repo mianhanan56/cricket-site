@@ -14,8 +14,6 @@ ALLOWED_ORIGINS = "http://localhost:3005,https://pulsecrease.vercel.app"
 # (see the /rankings/players note in src/routes.ts), so they come from crex live
 # like everything else and there is nothing to hand-maintain.
 
-# 8787 is the CricLive Worker's default; keep them on separate ports so both
-# can run at once during development.
 [dev]
 port = 8788
 

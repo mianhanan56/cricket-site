@@ -6,9 +6,8 @@ Cloudflare Worker sitting between the frontend and crex.com's internal APIs.
 browser / Next.js SSR  ──▶  Worker (allowlist + cache + CORS)  ──▶  crex backends
 ```
 
-This is the sibling of [`../worker`](../worker), which fronts CricLive. Same
-shape — allowlist, per-route TTL, stale-while-revalidate, CORS — but crex needs
-a few things CricLive did not. Read [Caveats](#caveats) before depending on it.
+Allowlist, per-route TTL, stale-while-revalidate and CORS, plus a WebSocket live
+hub (`src/live.ts`). Read [Caveats](#caveats) before depending on it.
 
 ## Read this first
 
@@ -21,7 +20,7 @@ verified by hand against the live hosts. That has consequences:
   ships. Nothing here is a contract.
 - **It is very likely against crex's terms of service.** That is your call to
   make, not the Worker's. If this becomes anything more than a personal project,
-  get a licensed feed — [`../worker`](../worker) already fronts one.
+  get a licensed feed.
 - **No bot-protection circumvention.** The Worker sends an `Origin`/`Referer` of
   `crex.com` because their hosts 400 with `Invalid Host header` otherwise; those
   are the headers a browser on their own site already sends. If crex adds a real
@@ -282,7 +281,7 @@ npm run dev              # http://localhost:8788
 curl localhost:8788/health
 ```
 
-Port 8788, so it can run alongside the CricLive Worker on 8787. No secrets, no
+Port 8788. No secrets, no
 `.dev.vars` — every crex endpoint here is unauthenticated. The allowlist, not a
 token, is what stops a stranger who finds your Worker URL from using it as an
 open relay into crex's API.
@@ -409,7 +408,5 @@ will feel it. Consider trimming the payload in the Worker if you actually use it
 
 **The response format is obfuscated.** crex ships single-letter keys — `t1Sname`,
 `wp`, `flb`, `dt_id`. `/matches/live` is passed through unchanged rather than
-normalized, so decoding is the caller's job. If you wire this into the app,
-write an adapter alongside
-[`backend/src/services/providers/criclive.ts`](../backend/src/services/providers/criclive.ts)
-rather than letting crex's vocabulary leak into your components.
+normalized, so decoding is the caller's job — `frontend/lib/crex.ts` is that
+adapter, and crex's vocabulary stays inside it.

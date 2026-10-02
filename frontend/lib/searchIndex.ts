@@ -1,7 +1,8 @@
 'use client';
 
-import type { Match } from '@/types';
+import type { Match, TeamCrest } from '@/types';
 import { createPersisted } from './persisted';
+import { withTimeout } from './timeout';
 
 export type EntityType = 'match' | 'team' | 'player' | 'series' | 'venue';
 
@@ -17,9 +18,11 @@ export interface SearchEntity {
   logo?: string | null;
 }
 
+const REMOTE_TIMEOUT_MS = 15_000;
+
 export interface RemoteIndex {
   players: Array<{ id: string; name: string; country: string }>;
-  teams: Array<{ id: string; name: string; shortName: string; logo: string | null }>;
+  teams: TeamCrest[];
 }
 
 let remote: RemoteIndex | null = null;
@@ -28,7 +31,7 @@ let remoteInflight: Promise<RemoteIndex | null> | null = null;
 export function loadRemoteIndex(): Promise<RemoteIndex | null> {
   if (remote) return Promise.resolve(remote);
   if (remoteInflight) return remoteInflight;
-  remoteInflight = fetch('/api/search-index')
+  remoteInflight = fetch('/api/search-index', { signal: withTimeout(REMOTE_TIMEOUT_MS) })
     .then((r) => (r.ok ? (r.json() as Promise<RemoteIndex>) : null))
     .then((data) => {
       remote = data;

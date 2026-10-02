@@ -136,6 +136,8 @@ export interface SquadPlayer {
 // Non-prefixed aliases — convenient short names used across the app. The
 // `I`-prefixed interfaces above are the canonical source of truth.
 export type Team = ITeam;
+/** A side's name and badge — what lists and pickers need from a `Team`. */
+export type TeamCrest = Pick<Team, 'id' | 'name' | 'shortName'> & { logo: string | null };
 export type SeriesSummary = ISeriesSummary;
 export type Match = IMatch;
 

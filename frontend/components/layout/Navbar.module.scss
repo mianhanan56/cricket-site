@@ -267,8 +267,7 @@
 }
 
 :global([data-theme='light']) {
-  .link::after,
-  .item::before {
+  .link::after {
     background: $signal-text;
   }
 }

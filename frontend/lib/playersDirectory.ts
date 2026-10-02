@@ -41,6 +41,7 @@ export interface DirectoryFilters {
 
 export const ROLE_ORDER: readonly RankingRole[] = ['BATTING', 'BOWLING', 'ALLROUNDER'];
 export const FORMAT_ORDER: readonly RankingFormat[] = ['TEST', 'ODI', 'T20I'];
+export const RANKING_FORMAT_LABEL: Record<RankingFormat, string> = { TEST: 'Test', ODI: 'ODI', T20I: 'T20I' };
 
 const ROLE_OF_KEY: Record<Exclude<PlayersRoleKey, 'all'>, RankingRole> = {
   batting: 'BATTING',

@@ -4,7 +4,6 @@
   @include icon-button;
   align-self: flex-start;
   flex-shrink: 0;
-  margin-bottom: $space-4;
   border-color: $line-2;
   background: transparent;
   cursor: pointer;
@@ -16,6 +15,11 @@
   &:active {
     background: $surface-3;
   }
+}
+
+// Only when the page passes no class of its own: the two would tie, and stylesheet order would pick.
+.spaced {
+  margin-bottom: $space-4;
 }
 
 .arrow {

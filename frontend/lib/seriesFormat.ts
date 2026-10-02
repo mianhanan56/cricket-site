@@ -1,10 +1,10 @@
 import type { MatchFormat } from '@/types';
 
-const NAME: Record<MatchFormat, string> = { TEST: 'Test', ODI: 'ODI', T20: 'T20' };
+export const MATCH_FORMAT_LABEL: Record<MatchFormat, string> = { TEST: 'Test', ODI: 'ODI', T20: 'T20' };
 
 type WithFormats = { format: MatchFormat; formats?: MatchFormat[] };
 
-const listOf = (s: WithFormats): string[] => (s.formats?.length ? s.formats : [s.format]).map((f) => NAME[f]);
+const listOf = (s: WithFormats): string[] => (s.formats?.length ? s.formats : [s.format]).map((f) => MATCH_FORMAT_LABEL[f]);
 
 /** "ODI and Test" — every format the series plays, so a two-format tour never reads as one. */
 export function seriesFormatPhrase(s: WithFormats): string {

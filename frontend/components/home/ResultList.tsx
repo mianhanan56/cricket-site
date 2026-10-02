@@ -21,14 +21,10 @@ function Side({ match, team, winner }: { match: Match; team: Team; winner: strin
   );
 }
 
-/**
- * Finished matches, result first. `compact` is the overview's summary: the two
- * scores, the result, and the award — series and figures live on the match page.
- */
-export default function ResultList({ matches, variant = 'full' }: { matches: Match[]; variant?: 'full' | 'compact' }) {
-  const compact = variant === 'compact';
+/** Finished matches, result first. */
+export default function ResultList({ matches }: { matches: Match[] }) {
   return (
-    <ul className={`${styles.list} ${compact ? styles.compact : ''}`}>
+    <ul className={styles.list}>
       {matches.map((m) => {
         const { winnerKey } = attributeResult(m.result, m.homeTeam, m.awayTeam);
         const state = matchStateOf(m);
@@ -46,32 +42,23 @@ export default function ResultList({ matches, variant = 'full' }: { matches: Mat
                 ) : (
                   <span className={styles.resultRow}>
                     <StateChip state={state} />
-                    {!compact && m.result && <span className={styles.resultSub}>{m.result}</span>}
+                    {m.result && <span className={styles.resultSub}>{m.result}</span>}
                   </span>
                 )}
-                {compact ? (
-                  potm && (
+                <span className={styles.meta}>
+                  {potm && (
                     <span className={styles.potm}>
                       <span className={styles.potmLabel}>Player of the match</span>
                       {potm.name}
+                      {(potm.batting || potm.bowling) && (
+                        <span className={styles.potmFig}>{[potm.batting, potm.bowling].filter(Boolean).join(' · ')}</span>
+                      )}
                     </span>
-                  )
-                ) : (
-                  <span className={styles.meta}>
-                    {potm && (
-                      <span className={styles.potm}>
-                        <span className={styles.potmLabel}>Player of the match</span>
-                        {potm.name}
-                        {(potm.batting || potm.bowling) && (
-                          <span className={styles.potmFig}>{[potm.batting, potm.bowling].filter(Boolean).join(' · ')}</span>
-                        )}
-                      </span>
-                    )}
-                    <span className={styles.series}>
-                      {m.format} · {m.series.name}
-                    </span>
+                  )}
+                  <span className={styles.series}>
+                    {m.format} · {m.series.name}
                   </span>
-                )}
+                </span>
               </span>
             </Link>
           </li>

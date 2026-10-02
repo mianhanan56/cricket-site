@@ -10,6 +10,7 @@ import NotificationCenter from '../components/notifications/NotificationCenter';
 import Toaster from '../components/notifications/Toaster';
 import AutomationEngine from '../components/automations/AutomationEngine';
 import { Analytics } from '@vercel/analytics/next';
+import { SITE_URL } from '../lib/site';
 
 const archivo = Archivo({
   subsets: ['latin'],
@@ -24,8 +25,6 @@ const jetbrains = JetBrains_Mono({
   variable: '--font-jetbrains',
   display: 'swap',
 });
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3005';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

@@ -47,23 +47,9 @@ const withPWA = withPWAInit({
     // Precaching of build assets is automatic; these handle runtime requests.
     runtimeCaching: [
       {
-        // The Worker that serves every page's data. This used to match `/api/*`
-        // on our own origin, which nothing serves now that the Express backend
-        // is gone — the data is cross-origin, so the pattern has to name the
-        // host.
-        //
-        // Matched by ORIGIN, read from the same env var the client is built
-        // with, rather than by a hardcoded `*.workers.dev` pattern: moving the
-        // Worker to a custom domain used to silently stop the service worker
-        // matching it at all, with nothing to notice.
-        //
-        // NetworkFirst, not StaleWhileRevalidate. SWR answers from cache and
-        // revalidates behind the response, which on a 2-second poll means every
-        // tick renders the PREVIOUS tick's body — the service worker quietly
-        // undoing the 2s poll/2s edge-TTL pairing the whole live path is built
-        // on. NetworkFirst goes to the network first and falls back to cache
-        // only when it is genuinely unreachable, which is the behaviour the
-        // fallback was wanted for.
+        // The Worker, matched by origin from the same env var the client is
+        // built with, so a custom domain can't silently stop matching.
+        // NetworkFirst: SWR would render the previous poll's body on every tick.
         urlPattern: WORKER_ORIGIN_PATTERN,
         handler: 'NetworkFirst',
         options: {

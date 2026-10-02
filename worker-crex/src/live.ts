@@ -50,6 +50,10 @@ function parseTopic(topic: unknown): { kind: Kind; key: string } | null {
   return null;
 }
 
+function newTopic(kind: Kind, key: string): TopicState {
+  return { kind, key, seq: 0, body: null, hash: null, fetchedAt: 0, due: 0, unchanged: 0, failures: 0 };
+}
+
 function upstreamFor(kind: Kind, key: string): { route: RouteDef; search: URLSearchParams } {
   const path = kind === 'matches' ? '/matches/live' : kind === 'card' ? '/match/scorecard' : '/match/commentary';
   const route = matchRoute(path);
@@ -119,17 +123,7 @@ export class LiveHub extends DurableObject<unknown> {
         this.send(ws, this.snapshotOf(topic, state));
       } else if (!state) {
         const { kind, key } = parseTopic(topic)!;
-        this.topics.set(topic, {
-          kind,
-          key,
-          seq: 0,
-          body: null,
-          hash: null,
-          fetchedAt: 0,
-          due: 0,
-          unchanged: 0,
-          failures: 0,
-        });
+        this.topics.set(topic, newTopic(kind, key));
         fetchNow = true;
       }
     }
@@ -158,10 +152,10 @@ export class LiveHub extends DurableObject<unknown> {
 
     const now = Date.now();
     for (const topic of wanted) {
-      if (!this.topics.has(topic)) {
-        const { kind, key } = parseTopic(topic)!;
-        this.topics.set(topic, { kind, key, seq: 0, body: null, hash: null, fetchedAt: 0, due: 0, unchanged: 0, failures: 0 });
-      }
+      if (this.topics.has(topic)) continue;
+      // Attachments outlive deploys; one written by an older topic format is skipped, not fatal.
+      const parsed = parseTopic(topic);
+      if (parsed) this.topics.set(topic, newTopic(parsed.kind, parsed.key));
     }
 
     const due = [...this.topics.entries()].filter(([, s]) => s.due <= now);
@@ -184,13 +178,15 @@ export class LiveHub extends DurableObject<unknown> {
       const res = await fetchUpstream(route, readParams(route, search));
       if (!res.ok) throw new Error(`upstream ${res.status}`);
       body = await res.json();
-    } catch {
+    } catch (err) {
       // Subscribers keep what they have; their own HTTP poll is the fallback.
+      if (!state.failures) console.warn('live: topic refresh failing', { topic, error: String(err) });
       state.failures += 1;
       state.due = Date.now() + cadence(state);
       return;
     }
 
+    if (state.failures) console.info('live: topic recovered', { topic, after: state.failures });
     state.failures = 0;
     state.fetchedAt = Date.now();
     const first = state.body === null;

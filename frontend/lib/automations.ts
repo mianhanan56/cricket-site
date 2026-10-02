@@ -3,7 +3,7 @@
 import type { Match, MatchEvent } from '@/types';
 import type { PulseBall } from './pulse';
 import { createPersisted, isRecord, newId } from './persisted';
-import { liveEquation } from './telemetry';
+import { isChaseTight, liveEquation } from './telemetry';
 import { formatTeamScore, inningsFor } from './innings';
 import { matchStateOf } from './matchState';
 import type { NotificationKind } from './notifications';
@@ -134,6 +134,17 @@ export function scopeLabel(scope: AutomationScope): string {
 export const sameScope = (a: AutomationScope, b: AutomationScope) => a.kind === b.kind && (a.id ?? '') === (b.id ?? '');
 
 const VALID_TRIGGERS = new Set(TRIGGERS.map((t) => t.kind));
+const SCOPE_KINDS = new Set<ScopeKind>(['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'PLAYER']);
+
+function parseScope(raw: unknown): AutomationScope | null {
+  if (!isRecord(raw) || !SCOPE_KINDS.has(raw.kind as ScopeKind)) return null;
+  const scope: AutomationScope = { kind: raw.kind as ScopeKind };
+  if (typeof raw.id === 'string') scope.id = raw.id;
+  if (typeof raw.name === 'string') scope.name = raw.name;
+  return scope;
+}
+
+const count = (v: unknown): number => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
 
 // Alerts saved before an alert could hold several moments carry a single `trigger`.
 export function parseAutomations(raw: unknown): Automation[] | null {
@@ -143,10 +154,19 @@ export function parseAutomations(raw: unknown): Automation[] | null {
     if (!isRecord(a) || typeof a.id !== 'string') continue;
     const listed = Array.isArray(a.triggers) ? a.triggers : [a.trigger];
     const triggers = [...new Set(listed)].filter((t): t is TriggerKind => VALID_TRIGGERS.has(t as TriggerKind));
-    if (!triggers.length) continue;
-    const item = { ...a, triggers } as Record<string, unknown>;
-    delete item.trigger;
-    out.push(item as unknown as Automation);
+    const scope = parseScope(a.scope);
+    if (!triggers.length || !scope) continue;
+    const action = isRecord(a.action) ? a.action : {};
+    out.push({
+      id: a.id,
+      triggers,
+      scope,
+      action: { inApp: action.inApp !== false, system: action.system === true },
+      enabled: a.enabled !== false,
+      createdAt: count(a.createdAt),
+      fired: count(a.fired),
+      lastFiredAt: typeof a.lastFiredAt === 'number' ? a.lastFiredAt : null,
+    });
   }
   return out;
 }
@@ -264,7 +284,7 @@ export function listFirings(prev: Match[], next: Match[]): Firing[] {
       const eqNow = liveEquation(m);
       const eqThen = liveEquation(was);
       if (
-        eqNow?.rrr != null && eqNow.crr != null && eqNow.rrr > eqNow.crr &&
+        isChaseTight(eqNow) &&
         eqThen?.rrr != null && eqThen.crr != null && eqThen.rrr <= eqThen.crr
       ) {
         out.push({

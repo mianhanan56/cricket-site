@@ -3,7 +3,9 @@ import type { Match, Team } from '@/types';
 import type { MatchStateView } from '@/lib/matchState';
 import type { MatchSituation, CreaseContext } from '@/lib/situation';
 import type { LiveEquation } from '@/lib/telemetry';
-import { PHASE_LABEL, equationSentence } from '@/lib/telemetry';
+import { PHASE_LABEL, equationSentence, isChaseTight } from '@/lib/telemetry';
+import { MATCH_FORMAT_LABEL } from '@/lib/seriesFormat';
+import { ordinal } from '@/lib/text';
 import { ballKind, ballPosition, runsLabel, shortLabel, type BallEntry } from '@/lib/balls';
 import TeamBadge from '../ui/TeamBadge';
 import LocalTime from '../ui/LocalTime';
@@ -21,13 +23,6 @@ export interface ScoreParts {
   overs: string;
 }
 
-const FORMAT_LABEL: Record<Match['format'], string> = { TEST: 'Test', ODI: 'ODI', T20: 'T20' };
-
-export function ordinal(n: number): string {
-  const teens = n % 100;
-  if (teens >= 11 && teens <= 13) return `${n}th`;
-  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
-}
 
 function Side({
   team,
@@ -103,13 +98,13 @@ export default function ScoreHeader({
 }) {
   const live = match.status === 'LIVE';
   const sentence = eq && state.alive ? equationSentence(eq) : null;
-  const tight = eq?.rrr != null && eq.crr != null && eq.rrr > eq.crr;
+  const tight = isChaseTight(eq);
   const kind = lastBall ? ballKind(lastBall) : null;
   // Only the note that set the state may qualify it — a drinks break read off the feed is not "(wet outfield)".
   const detail = match.note?.detail && match.note.label === state.label ? match.note.detail : null;
 
   const meta = [
-    match.matchNumber ? `${ordinal(match.matchNumber)} ${FORMAT_LABEL[match.format]}` : match.format,
+    match.matchNumber ? `${ordinal(match.matchNumber)} ${MATCH_FORMAT_LABEL[match.format]}` : match.format,
     live && match.day && match.day > 1 ? `Day ${match.day}` : null,
   ].filter(Boolean);
 

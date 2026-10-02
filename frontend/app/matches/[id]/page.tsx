@@ -13,11 +13,6 @@ import { headToHead } from '../../../lib/headToHead';
 import MatchDetail from '../../../components/match/MatchDetail';
 import { VENUE_TBD } from '@/lib/venue';
 
-// Ids here are crex keys ("ZLN", "13BS") — the same ones the home page, fixtures
-// and search link with. This used to try our own backend first and fall through
-// to crex on failure; with the backend gone that first hop was a guaranteed
-// failed round-trip on every request, so it is gone too.
-//
 // Freshness is set per-fetch below rather than with a page-level `revalidate`:
 // making the route ISR-cached also caches the notFound() path, which turns an
 // unknown id into a soft 404 — the not-found page served with a 200.

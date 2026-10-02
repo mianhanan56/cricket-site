@@ -26,24 +26,9 @@ export function oversFrom(balls: number, perOver: number = DEFAULT_BALLS_PER_OVE
 }
 
 /**
- * How far an innings has got, as the competition itself would put it.
- *
- * The Hundred does not number overs — its innings is 100 balls and the scoreboard
- * counts down in balls, so "11.1 overs" there is both unfamiliar and misread as
- * eleven six-ball overs. Everything else reads in overs as usual.
+ * How far an innings has got, abbreviated: "36.3 ov", or "56 balls" in The Hundred,
+ * which counts its innings in balls rather than numbering overs.
  */
-export function formatProgress(
-  overs: number,
-  perOver: number = DEFAULT_BALLS_PER_OVER
-): string {
-  if (perOver === HUNDRED_BALLS_PER_OVER) {
-    const balls = ballsFrom(overs, perOver);
-    return `${balls} ${balls === 1 ? 'ball' : 'balls'}`;
-  }
-  return `${overs} ${overs === 1 ? 'over' : 'overs'}`;
-}
-
-/** The same reading, abbreviated for tight spots: "(36.3 ov)" / "(56 balls)". */
 export function formatProgressShort(
   overs: number,
   perOver: number = DEFAULT_BALLS_PER_OVER

@@ -33,7 +33,7 @@ export default function BackButton({ fallback = '/', label = 'Go back', classNam
   return (
     <button
       type="button"
-      className={`${styles.back} ${className ?? ''}`}
+      className={`${styles.back} ${className ?? styles.spaced}`}
       onClick={onClick}
       aria-label={label}
       title={label}

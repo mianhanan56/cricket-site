@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import type { RankingFormat, RankingGender, RankingRole } from '@/types';
+import type { RankingGender, RankingRole } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import {
+  RANKING_FORMAT_LABEL,
   filterDirectory,
   type DirectoryItem,
   type DirectoryRow,
@@ -46,8 +47,6 @@ const ROLE_TITLE: Record<RankingRole, string> = {
   ALLROUNDER: 'All-rounders',
 };
 
-const FORMAT_LABEL: Record<RankingFormat, string> = { TEST: 'Test', ODI: 'ODI', T20I: 'T20I' };
-
 function countryLabel(country: string, gender: RankingGender) {
   return gender === 'WOMEN' ? country.replace(/\s+Women$/, '') : country;
 }
@@ -72,7 +71,7 @@ function Row({ item }: { item: DirectoryItem }) {
       <span className={styles.rank}>
         <span className={styles.srOnly}>Rank </span>
         <span className={styles.rankNum}>{best.position}</span>
-        <span className={styles.rankFormat}>{FORMAT_LABEL[best.format]}</span>
+        <span className={styles.rankFormat}>{RANKING_FORMAT_LABEL[best.format]}</span>
       </span>
       <TeamBadge
         name={row.country}
@@ -91,7 +90,7 @@ function Row({ item }: { item: DirectoryItem }) {
             <span className={styles.others}>
               {others.map((o) => (
                 <span key={o.format} className={styles.other}>
-                  {FORMAT_LABEL[o.format]} <span className={styles.otherPos}>#{o.position}</span>
+                  {RANKING_FORMAT_LABEL[o.format]} <span className={styles.otherPos}>#{o.position}</span>
                 </span>
               ))}
             </span>

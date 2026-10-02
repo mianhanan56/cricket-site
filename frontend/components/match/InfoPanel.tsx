@@ -16,7 +16,7 @@ import Skeleton, { staggerRows } from '../ui/Skeleton';
 import TeamBadge from '../ui/TeamBadge';
 import HeadToHeadBlock from './HeadToHead';
 import PlayerLink from './PlayerLink';
-import { ordinal } from './ScoreHeader';
+import { ordinal } from '@/lib/text';
 import mc from './matchCenter.module.scss';
 import styles from './InfoPanel.module.scss';
 

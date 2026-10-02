@@ -1,4 +1,4 @@
-import type { RankingFormat, RankingGender, RankingRole } from '@/types';
+import type { RankingFormat, RankingGender, RankingRole, TeamCrest } from '@/types';
 import type { Rankings } from './rankings';
 
 export interface DirectoryPlayer {
@@ -11,11 +11,7 @@ export interface DirectoryPlayer {
   roles: RankingRole[];
 }
 
-export interface DirectoryTeam {
-  id: string;
-  name: string;
-  shortName: string;
-  logo: string | null;
+export interface DirectoryTeam extends TeamCrest {
   gender: RankingGender;
   best: { position: number; format: RankingFormat; rating: number };
   /** Every format the side is ranked in. */

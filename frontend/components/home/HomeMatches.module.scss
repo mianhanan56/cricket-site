@@ -55,17 +55,6 @@
   }
 }
 
-.split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: $space-8;
-
-  @include desktop {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: $space-8;
-  }
-}
-
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -78,13 +67,4 @@
   @include wide {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-}
-
-.more {
-  @include button-ghost;
-  width: 100%;
-  min-height: 38px;
-  margin-top: $space-2;
-  border-color: $line;
-  font-size: $fs-sm;
 }

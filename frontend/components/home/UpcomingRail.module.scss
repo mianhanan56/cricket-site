@@ -235,7 +235,7 @@
 
 // Wide lists read as a table: sides, then where and what, then the state.
 @container rail (min-width: 840px) {
-  .rail:not(.compact) {
+  .rail {
     .link {
       grid-template-columns: 88px var(--node-w) minmax(0, 1.25fr) minmax(0, 1fr) auto;
     }
@@ -273,103 +273,4 @@
       grid-column: 5;
     }
   }
-}
-
-// ---------------------------------------------------------------- Compact
-// The overview's summary: one line of sides, one quiet line of context.
-
-.compact {
-  gap: $space-4;
-
-  .dayHead {
-    margin-bottom: $space-1;
-  }
-
-  .dayTitle {
-    @include eyebrow;
-    font-weight: 700;
-    color: $text-2;
-  }
-
-  .list::before {
-    left: 75.5px;
-    top: 14px;
-    bottom: 14px;
-  }
-
-  .link {
-    grid-template-columns: 60px var(--node-w) minmax(0, 1fr) auto;
-    align-items: center;
-    padding-block: $space-2;
-
-    // Narrow phones put the countdown under the time, as the full list does, so the sides keep their room.
-    @include mobile-only {
-      grid-template-columns: 60px var(--node-w) minmax(0, 1fr);
-      grid-template-areas:
-        'time node body'
-        'tick node body';
-    }
-  }
-
-  @include mobile-only {
-    .time {
-      grid-area: time;
-    }
-
-    .node {
-      grid-area: node;
-    }
-
-    .body {
-      grid-area: body;
-    }
-
-    .tick,
-    .state {
-      grid-area: tick;
-      justify-self: end;
-    }
-  }
-
-  .time time {
-    font-size: $fs-sm;
-    white-space: nowrap;
-  }
-
-  .node {
-    width: 7px;
-    height: 7px;
-    margin-top: 0;
-  }
-
-  .body {
-    gap: 2px;
-  }
-
-  .teams {
-    flex-wrap: nowrap;
-    gap: $space-2;
-  }
-
-  .code {
-    font-size: $fs-md;
-  }
-
-  .state {
-    grid-column: auto;
-    margin-top: 0;
-  }
-}
-
-.metaLine {
-  font-size: $fs-xs;
-  color: $text-3;
-  @include truncate;
-}
-
-.tick {
-  @include data-num;
-  font-size: $fs-2xs;
-  color: $text-3;
-  white-space: nowrap;
 }

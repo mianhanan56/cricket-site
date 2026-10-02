@@ -14,22 +14,22 @@ Worker.
 | Frontend   | Next.js 14 (App Router) · TypeScript · SCSS Modules |
 | Data       | Cloudflare Workers fronting crex.com                |
 | Cache      | Cloudflare edge cache · Next.js ISR                 |
-| Monorepo   | npm workspaces                                      |
+| Live       | Durable Object WebSocket hub, HTTP polling fallback |
 
 ## Structure
 
 ```
 cricket/
 ├── frontend/     Next.js 14 app (App Router) — the whole application
-├── worker-crex/  Worker fronting crex.com — every route the app reads
-└── backend/      Retired. Express + Prisma + Postgres, no longer used by anything
+└── worker-crex/  Worker fronting crex.com — every route the app reads, plus the live hub
 ```
+
+There is no root `package.json`; run commands inside `frontend/` or `worker-crex/`.
 
 ## Getting started
 
 ```bash
-npm install
-npm run dev --workspace=@crex/frontend      # :3005
+cd frontend && npm install && npm run dev     # :3005
 ```
 
 That is the entire setup. No database, no migrations, no seeding, no secrets —
@@ -38,10 +38,12 @@ the frontend defaults to the deployed Worker.
 To develop against a local Worker instead:
 
 ```bash
-npm run dev --workspace=@crex/worker-crex   # :8788
-# then in frontend/.env:
-NEXT_PUBLIC_CREX_WORKER_URL=http://localhost:8788
+cd worker-crex && npm install && npm run dev  # :8788
+cd frontend && npm run local                  # reads .env.wrangler.local
 ```
+
+Never put a localhost Worker URL in `frontend/.env.local`: it is inlined into the
+client bundle, and a production build refuses it.
 
 ## Where each page gets its data
 
@@ -104,8 +106,9 @@ All optional — every one has a working default.
 | Variable | Description |
 | -------- | ----------- |
 | `NEXT_PUBLIC_CREX_WORKER_URL` | crex Worker base URL. Defaults to the deployed one. |
-| `NEXT_PUBLIC_CRICKET_WORKER_URL` | CricLive Worker base URL (used by `lib/cricketLive.ts`). |
-| `NEXT_PUBLIC_SITE_URL` | Canonical site URL, for `sitemap.xml`. |
+| `NEXT_PUBLIC_SITE_URL` | Canonical site URL for metadata, `robots.txt` and `sitemap.xml`. Falls back to Vercel's production domain, then localhost. |
+| `NEXT_PUBLIC_LIVE_WS` | Set to `off` to disable the live WebSocket (polling only). |
+| `NEXT_PUBLIC_LIVE_WS_URL` | Live hub URL. Defaults to the Worker's `/live`. |
 
 ## Rankings
 
@@ -122,23 +125,13 @@ via `wrangler deploy`. Nothing else to deploy.
 Add your production domain to `ALLOWED_ORIGINS` in `worker-crex/wrangler.toml` —
 the client-side polling on the home page and in search is subject to CORS.
 
-## What was removed, and what it cost
+## History
 
-The Express + Postgres backend served rankings, search and player profiles. It
-was retired because the crex Worker covers live scores, fixtures and match detail
-with live data, while the backend's three pages were serving hand-seeded rows
-from a database that nothing kept up to date.
-
-Two features went with it:
-
-- **Player profiles** (`/player/[id]`) — crex has an endpoint
-  (`oc/player/getPlayerInfo`) but its payload shape is not yet known, so there is
-  no data source. The route is deleted.
-- **Player search** — crex exposes no search endpoint. Search now covers teams,
-  series and venues, and resolves to matches.
-
-Also gone: the Socket.io live-score push, whose server had already been dropped
-in an earlier move to Workers. Live matches poll the Worker instead.
+An Express + Postgres backend once served rankings, search and player profiles
+from hand-seeded rows. It was retired; every page now reads crex through the
+Worker. Player profiles come from `/player/overview`, player search from the ICC
+ranking lists (`/api/search-index`), and live scores from the Worker's WebSocket
+hub with HTTP polling underneath.
 
 ## Conventions
 

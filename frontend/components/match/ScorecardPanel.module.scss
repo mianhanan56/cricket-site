@@ -32,10 +32,11 @@
 }
 
 // Stays a real table cell (flex here would drop the row's divider under the other columns).
-.batter {
+// `tbody td` outranks matchCenter's `.table td` height.
+tbody td.batter {
   vertical-align: middle;
   min-width: 180px;
-  height: 56px !important;
+  height: 56px;
 
   > * {
     display: block;
@@ -75,20 +76,21 @@
   }
 }
 
-.top {
-  color: $signal-text !important;
+// `td.` outranks matchCenter's `.num` / `.strong` colors.
+td.top {
+  color: $signal-text;
 }
 
-.haul {
-  color: $wicket !important;
+td.haul {
+  color: $wicket;
 }
 
-.extrasRow td,
-.totalRow td {
+tr.extrasRow td,
+tr.totalRow td {
   height: 44px;
 }
 
-.extrasRow td {
+tr.extrasRow td {
   font-size: $fs-sm;
   color: $text-2;
 }
@@ -105,9 +107,9 @@
   }
 }
 
-.totalRow td {
+tr.totalRow td {
   font-weight: 700;
-  border-bottom: 0 !important;
+  border-bottom: 0;
   background: $bg-raise;
 }
 

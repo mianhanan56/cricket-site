@@ -33,12 +33,6 @@
   }
 }
 
-.blockMeta {
-  @include data-num;
-  font-size: $fs-xs;
-  color: $text-3;
-}
-
 .surface {
   @include panel;
   padding: $space-4;
@@ -144,8 +138,9 @@
   }
 }
 
-.left {
-  text-align: left !important;
+// Nested so it outranks the `.table th/td` right-alignment without !important.
+.table .left {
+  text-align: left;
 }
 
 .num {

@@ -1,7 +1,5 @@
 // Client for the Cloudflare Worker that fronts crex.com (see /worker-crex).
-//
-// Sibling of cricketLive.ts, but crex needs a lot more translation. Two things
-// make this module bigger than a fetch wrapper:
+// Two things make this module bigger than a fetch wrapper:
 //
 //   1. The wire format is obfuscated. Every field is one or two letters — `b`
 //      and `c` are the two teams, `j` and `k` their scores, `q` the series,
@@ -10,10 +8,6 @@
 //      not names. Resolving them takes a second call to /mapping, so this
 //      module keeps a process-level cache of keys it has already looked up and
 //      only asks for the ones it hasn't seen.
-//
-// Nothing here talks to our own backend — that is api.ts. This is a parallel,
-// optional source, so every export is written to fail soft: callers should be
-// able to lose crex entirely and still render.
 
 import type {
   BallExtra,
@@ -80,6 +74,8 @@ import {
   oversFrom,
 } from './overs';
 import { cleanVenueName } from './venue';
+import { ordinal } from './text';
+import { withTimeout } from './timeout';
 
 // The home page has no other source now, so this falls back to the deployed
 // Worker rather than to '' — an unset env var used to mean "no crex", which now
@@ -271,17 +267,10 @@ const HUNDRED_BALLS = 100;
 // server render waits on it indefinitely and a client poll never retries.
 const CREX_TIMEOUT_MS = 15_000;
 
-function withTimeout(signal: AbortSignal | undefined): AbortSignal | undefined {
-  if (typeof AbortSignal === 'undefined' || typeof AbortSignal.timeout !== 'function') return signal;
-  const timeout = AbortSignal.timeout(CREX_TIMEOUT_MS);
-  if (!signal) return timeout;
-  return typeof AbortSignal.any === 'function' ? AbortSignal.any([signal, timeout]) : signal;
-}
-
 async function crexGet<T>(path: string, opts: FetchOpts = {}): Promise<T> {
   const res = await fetch(`${CREX_WORKER_URL.replace(/\/$/, '')}${path}`, {
     headers: { Accept: 'application/json' },
-    signal: withTimeout(opts.signal),
+    signal: withTimeout(CREX_TIMEOUT_MS, opts.signal),
     next: opts.revalidate !== undefined ? { revalidate: opts.revalidate } : undefined,
   });
 
@@ -1947,32 +1936,6 @@ const SQUAD_ROLES: Record<string, PlayerRole> = {
 const SQUAD_KEY_INDEX = 0;
 const SQUAD_ROLE_INDEX = 2;
 
-/**
- * Both squads for a match, keyed by team f_key.
- *
- * This is the only crex endpoint that names an XI before the match starts —
- * `/match/scorecard` holds an empty innings slot until the first ball, so a
- * scorecard is all the app could show for a Test that has not begun. Rather
- * than resolve home and away here, the two sides are returned under their own
- * team keys and the caller matches them to `match.homeTeam.id`: `tb`'s order is
- * crex's, not ours.
- *
- * Empty object when crex has no squad yet — an announced XI arrives a day or
- * two before the toss, and for some domestic matches never does.
- *
- * Only trustworthy BEFORE the match starts. Once play is on, crex prunes `tb`
- * down to a handful of players (the bench and the batters still to come — its
- * own captain and keeper keys are no longer even in the list), so a caller must
- * not read this as the squad of a live or finished match. It does not need to:
- * from the first ball the scorecard names everyone.
- */
-export async function getCrexMatchSquads(
-  matchKey: string,
-  opts: FetchOpts = {}
-): Promise<Record<string, SquadPlayer[]>> {
-  return (await getCrexMatchInfo(matchKey, opts)).squads;
-}
-
 /** Number in a string field, or null on the blanks crex uses for "no figure". */
 function infoNumber(raw: string | undefined): number | null {
   if (raw === undefined || raw.trim() === '') return null;
@@ -2059,7 +2022,8 @@ export interface CrexMatchInfoResult {
  *
  * The squads and the conditions come out of the same response, so they are
  * decoded together rather than fetched twice — the match page needs both and
- * neither changes once play starts.
+ * neither changes once play starts. Squads are keyed by team f_key and only
+ * trustworthy before the first ball: crex then prunes `tb` to a few players.
  */
 export async function getCrexMatchInfo(
   matchKey: string,
@@ -2401,26 +2365,6 @@ function toMatchEvent(f: CrexBallFeed): MatchEvent | null {
   };
 }
 
-/**
- * Latest deliveries, newest first.
- *
- * The feed carries non-delivery events too (over summaries, partnership and
- * milestone markers); only actual balls are kept, identified by an `over.ball`
- * reference. Unlike the rest of crex's live data this endpoint returns plain
- * English, so nothing here is decoded — it is passed through.
- *
- * crex serves ~10 events per call, so this pages backwards with `lastDocId`
- * until it holds `minBalls` deliveries. A page that adds nothing new ends the
- * walk, which is also what happens against a Worker too old to know the cursor
- * — it degrades to a single page rather than looping on it.
- */
-export async function getCrexCommentary(
-  matchKey: string,
-  opts: FetchOpts = {}
-): Promise<CommentaryBall[]> {
-  return (await getCrexMatchFeed(matchKey, opts)).balls;
-}
-
 /** Deliveries, over summaries and events from one walk of the feed, newest first. */
 export interface CrexMatchFeed {
   balls: CommentaryBall[];
@@ -2492,7 +2436,9 @@ function toOverSummary(f: CrexBallFeed): OverSummary | null {
 }
 
 /**
- * Both halves of the ball feed in a single walk.
+ * Both halves of the ball feed in a single walk. crex serves ~10 rows a call, so
+ * this pages back with `lastDocId` until it holds `minBalls`; a page that adds
+ * nothing ends the walk.
  *
  * The events and the deliveries come out of the same rows, so fetching them
  * separately would double the request count to say the same thing twice — and
@@ -3985,12 +3931,6 @@ const KNOCKOUT_MATCHES: Record<string, string> = {
   '^m': 'Knockout',
   '^n': 'Challenger',
   '^s': 'Elimination final',
-};
-
-const ordinal = (n: number): string => {
-  const tens = n % 100;
-  const suffix = tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
-  return `${n}${suffix}`;
 };
 
 /** "3rd Test", "22nd Match" where crex names no format (domestic, The Hundred), "Final". */

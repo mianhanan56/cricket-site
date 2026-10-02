@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import type { Match } from '@/types';
+import type { Match, TeamCrest } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
 import { followCount, isFollowedMatch, toggleFollow, useFollows } from '@/lib/follows';
 import { addAutomation, describeAutomation, useAutomations, type Automation } from '@/lib/automations';
@@ -53,7 +53,7 @@ export default function MyCricketView() {
 
   // Sides worth offering: the ranked internationals first, then whoever is in the feed.
   const suggestions = useMemo(() => {
-    const seen = new Map<string, { id: string; name: string; shortName: string; logo: string | null }>();
+    const seen = new Map<string, TeamCrest>();
     for (const t of index?.teams ?? []) seen.set(t.id, t);
     for (const m of matches) for (const t of [m.homeTeam, m.awayTeam]) if (t.id && !seen.has(t.id)) seen.set(t.id, { id: t.id, name: t.name, shortName: t.shortName, logo: t.logo ?? null });
     return [...seen.values()].filter((t) => !follows.teams.some((f) => f.id === t.id)).slice(0, total ? 12 : 24);

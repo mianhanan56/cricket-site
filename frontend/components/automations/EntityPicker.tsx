@@ -5,6 +5,7 @@ import { useCrexMatches } from '@/hooks/useCrexMatches';
 import { loadRemoteIndex, type RemoteIndex } from '@/lib/searchIndex';
 import { useFollows } from '@/lib/follows';
 import { activeSeries, activeTeams } from '@/lib/alertSuggestions';
+import type { ScopeKind } from '@/lib/automations';
 import Icon from '../ui/Icon';
 import styles from './EntityPicker.module.scss';
 
@@ -13,7 +14,7 @@ export interface PickedEntity {
   name: string;
 }
 
-type Kind = 'TEAM' | 'SERIES' | 'PLAYER';
+type Kind = Exclude<ScopeKind, 'ANY' | 'FOLLOWED'>;
 
 const SUGGESTED = { TEAM: 8, SERIES: 6 };
 

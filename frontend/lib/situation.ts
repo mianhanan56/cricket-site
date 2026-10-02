@@ -12,6 +12,7 @@
 // left out rather than approximated.
 
 import type { FallOfWicket, InningsScore, Match, Partnership } from '@/types';
+import { plural } from './text';
 
 /**
  * The first-innings lead that lets a side enforce the follow-on, by scheduled
@@ -65,8 +66,6 @@ function aggregate(innings: InningsScore[], teamId: string | undefined): number 
 function sameSide(inn: InningsScore, teamId: string | undefined): boolean {
   return inn.teamId !== undefined && teamId !== undefined && inn.teamId === teamId;
 }
-
-const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * Where the match stands, in crex's own vocabulary.

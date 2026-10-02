@@ -48,14 +48,14 @@ See TODO.md.
 
 ## Testing status
 
-- `npm test` (frontend): **111/111 pass** (2026-10-02).
+- `npm test` (frontend): **128/128 pass** (2026-10-02; was 111 — new suites for player series figures, fetch deadlines, stored-alert parsing).
 - Series performance: decoded/summed figures equal crex's own totals on 471 series×format groups (36 players incl. Tests, The Hundred, county); 320–1280px no overflow; select → format → load older → match → Back → reload flow verified (2026-10-02).
-- `tsc --noEmit`: frontend clean, worker clean (2026-09-30). Lint clean.
+- `tsc --noEmit`: frontend clean, worker clean (2026-10-02). Lint clean.
 - UI pass visually verified at 320–1440px from an isolated copy; search reachable from the header on phones (2026-09-29).
 
 ## Build status
 
-Production `next build` passes from an isolated copy (2026-10-02).
+Production `next build` passes from an isolated copy with no warnings (2026-10-02, after the code-quality pass).
 
 ## Deployment status
 
@@ -77,3 +77,4 @@ Frontend on Vercel (`pulsecrease.vercel.app`), Worker on Cloudflare. User deploy
 - 2026-09-30: Final mobile QA: series strip split per format; 16px inputs on phones (no iOS focus zoom) in Teams filter and alert picker; 34px series match nodes on phones; `TableScroll` fades the edge with hidden columns; series stat tables keep the headline figure in view on phones. User flow (20 steps) passed at 320/360/390/414/480; 27 routes × 12 widths clean. Worker hub confirmed live in production (handshake from pulsecrease.vercel.app).
 - 2026-09-30: Fixtures range: `getCrexFixtureSchedule` reads /fixtures pages in batches of 8 until 30 days ahead are covered (≈24 pages → Sep 30–Nov 15, 473 fixtures, was 12 pages ≈ 2 weeks); the list walks every day (was capped at the first 7 fixture days); the read's partial last day is held back (`coveredUntil`). Day headings in UpcomingRail fixed for UTC+12 and beyond. Uncommitted.
 - 2026-09-30: Context/discoverability pass: `formats[]` on series summaries + `lib/seriesFormat.ts` ("ODI and Test series", card chip "ODI + T20"); `ViewAllCue` on series leader figures and Top performers cards; series side column no longer shows Top of table; match page has a Stats tab (series leaders board, fetched with the points table via `getCrexSeriesLeaders`); match header shows a live stoppage in its centre, and reads drinks/lunch/tea off the newest commentary note after the last ball (`lib/feedBreak.ts`, tested) since /matches/live only latches break codes; units on leader figures; team page results name the opponent (`sides` on HeadToHeadMatch), Upcoming/Results expand in place, form caption counts the strip; venue results name both sides; player ICC rank tiles link to their rankings list; "Last ball" label on the match header dial; team chips read "TEST #1". 19 routes × 12 widths clean. Uncommitted.
+- 2026-10-02: Code-quality pass (no feature or design change). Removed verified-dead code (`FilterSelect`, `compact` variants of `UpcomingRail`/`ResultList`, `getCrexMatchSquads`, `getCrexCommentary`, `formatProgress`, `matchSublabel`, `pausedWord`, dead SCSS). One home each for `ordinal`/`plural` (`lib/text.ts`), fetch deadlines (`lib/timeout.ts`, now also on `/health` and the search index, with a Safari < 17.4 fallback), `SITE_URL` (`lib/site.ts`; production robots/sitemap were naming localhost), `isChaseTight`, format labels and `TeamCrest`. Fixes: history/squads hooks reset on match change; alert feed watchers follow scope edits; stored alerts validated field by field; `seriesSpan` year test in UTC; scorecard `!important`s replaced by specificity (computed styles identical); BackButton spacing no longer depends on stylesheet order. Worker: upstream-failure logs, hub skips unparseable stored topics. Docs: README/worker README/ARCHITECTURE corrected. Regression: 22 routes × 12 widths against a HEAD build, no overflow; differences were live data plus the BackButton spacing (now as authored). Uncommitted.
