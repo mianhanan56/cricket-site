@@ -1,0 +1,241 @@
+@use 'component' as *;
+
+.srOnly {
+  @include visually-hidden;
+}
+
+// The headline link stretches over the whole card; tag links sit above it, since anchors can't nest.
+.cover {
+  color: inherit;
+  outline: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: $r-md;
+  }
+
+  // Ring the whole card, which is what the link covers.
+  &:focus-visible::after {
+    outline: 2px solid $signal-mark;
+    outline-offset: -2px;
+  }
+}
+
+.category {
+  @include eyebrow;
+  color: $signal-text;
+}
+
+.headline {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: $leading-snug;
+  text-wrap: pretty;
+}
+
+.meta {
+  @include data-num;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-1 $space-2;
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+.author {
+  font-family: $font-sans;
+
+  &::before {
+    content: '·';
+    margin-right: $space-2;
+  }
+}
+
+.out {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: $text-3;
+  transition: color $dur-2 $ease-out;
+}
+
+.tags {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-1-5;
+  margin-top: $space-1;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding-inline: $space-3;
+  border-radius: $r-pill;
+  border: 1px solid $line-2;
+  background: $bg;
+  font-size: $fs-md;
+  font-weight: 500;
+  color: $text-2;
+  transition: border-color $dur-2 $ease-out, color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    border-color: $signal-mark;
+    color: $text;
+  }
+}
+
+// ---------------------------------------------------------------- Lead
+
+.lead {
+  @include panel;
+  @include panel-interactive;
+  position: relative;
+  overflow: hidden;
+
+  &:hover .out {
+    color: $signal-text;
+  }
+
+  @include tablet {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: stretch;
+  }
+}
+
+.leadImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: $surface-2;
+
+  @include tablet {
+    height: 100%;
+  }
+}
+
+.leadBody {
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+  padding: $space-4;
+
+  @include tablet {
+    justify-content: center;
+    padding: $space-6;
+  }
+
+  .headline {
+    font-size: $fs-xl;
+    font-stretch: $stretch-display;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: $leading-tight;
+
+    @include desktop {
+      font-size: $fs-2xl;
+    }
+  }
+}
+
+.excerpt {
+  @include truncate(3);
+  font-size: $fs-base;
+  line-height: $leading-relaxed;
+  color: $text-2;
+}
+
+// ---------------------------------------------------------------- Rows
+
+.grid {
+  display: grid;
+  gap: $space-3;
+
+  @include desktop {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.row {
+  @include panel;
+  @include panel-interactive;
+  position: relative;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: start;
+  gap: $space-3;
+  height: 100%;
+  padding: $space-3;
+
+  &:hover .out {
+    color: $signal-text;
+  }
+
+  &:not(:has(.thumb)) {
+    grid-template-columns: minmax(0, 1fr);
+
+    .tags {
+      grid-column: 1;
+    }
+  }
+
+  @include tablet {
+    grid-template-columns: 160px minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    gap: $space-3 $space-4;
+
+    .thumb {
+      grid-row: 1 / span 2;
+    }
+  }
+
+  .headline {
+    @include truncate(3);
+    font-size: $fs-base;
+
+    @include tablet {
+      font-size: $fs-body;
+    }
+  }
+
+  // Phones give the tags the card's full width; wider screens keep them under the headline.
+  .tags {
+    grid-column: 1 / -1;
+    margin-top: 0;
+
+    @include tablet {
+      grid-column: 2;
+    }
+  }
+
+  .author {
+    @include phone-only {
+      display: none;
+    }
+  }
+}
+
+.thumb {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: $r-sm;
+  object-fit: cover;
+  background: $surface-2;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-width: 0;
+}

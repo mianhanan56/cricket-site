@@ -9,21 +9,23 @@ import BackButton from '@/components/ui/BackButton';
 import UpcomingRail from '@/components/home/UpcomingRail';
 import { PageHeader, SectionHead } from '@/components/ui/Section';
 import styles from './venue.module.scss';
+import { meetingFormat } from '@/lib/seriesFormat';
 
 // There is no venue endpoint: everything here is derived from a window of the schedule.
 // Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
 const REVALIDATE = 1800;
 
 async function loadVenue(key: string): Promise<VenueProfile | null> {
-  const corpus = await getCrexFixtureRange({ revalidate: REVALIDATE }).catch(() => []);
-  if (!corpus.length) return null;
+  const corpus = await getCrexFixtureRange({ revalidate: REVALIDATE });
+  // Normally ~1,000 fixtures; none at all means the feed is down, which is not a missing venue.
+  if (!corpus.length) throw new Error('Fixture list unavailable');
 
   const named = corpus.find((m) => m.venueId === key && m.venue !== 'TBD');
   return venueProfile(key, named?.venue ?? 'Unknown ground', corpus);
 }
 
 export async function generateMetadata({ params }: { params: { key: string } }) {
-  const venue = await loadVenue(params.key);
+  const venue = await loadVenue(params.key).catch(() => null);
   if (!venue) return { title: 'Venue' };
 
   const decided = venue.chased + venue.defended;
@@ -109,7 +111,7 @@ function ResultRow({ match }: { match: HeadToHeadMatch }) {
           <span className={styles.rowSeries}>{match.series}</span>
         </span>
       </span>
-      <span className={styles.rowFormat}>{match.format}</span>
+      <span className={styles.rowFormat}>{meetingFormat(match)}</span>
     </>
   );
 

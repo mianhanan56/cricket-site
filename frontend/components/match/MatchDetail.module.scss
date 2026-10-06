@@ -150,5 +150,7 @@
 }
 
 .panelHold {
-  min-height: calc(100dvh - #{$navbar-height});
+  // Just tall enough to keep the rail stuck: the rail (55px) and what follows the panel (page end
+  // and footer, 296px or more at every width) fill the rest, so a short tab leaves no blank screen.
+  min-height: max(0px, calc(100dvh - #{$navbar-height} - 56px - 240px));
 }

@@ -1,7 +1,7 @@
 # Architecture — PulseCrease
 
 Live cricket site: scores, match telemetry, momentum, series stats and client-side alerts.
-Last verified against source: 2026-10-02.
+Last verified against source: 2026-10-06.
 
 ## System overview
 
@@ -60,10 +60,12 @@ commands inside `frontend/` or `worker-crex/`.
 - Upstream hosts: `oc` (oc.crickapi.com), `stats`, `content` (commentary), `news`,
   `php` (api.goscorer.com — live match list). Wrong host ⇒ "Invalid Host header".
 - Routes (TTL): `/matches/live` 2s · `/rankings` 1h · `/rankings/players` 1h · `/mapping` 6h ·
-  `/fixtures` 5m · `/news/topics` 15m (unused by the frontend) · `/match/info` 5m · `/match/scorecard` 5s · `/match/commentary` 5s ·
+  `/fixtures` 5m · `/news/topics` 15m · `/news/tagged` 15m · `/match/info` 5m · `/match/scorecard` 5s · `/match/commentary` 5s ·
   `/player/overview` 1h · `/player/matches` 1h · `/series/matches` 5m · `/series/table` 5m · `/series/squads` 1h ·
-  `/series/overview` 5m · `/team/matches` 5m. Full detail and wire formats: `worker-crex/README.md`
+  `/series/overview` 30s · `/team/matches` 5m. Full detail and wire formats: `worker-crex/README.md`
   and `worker-crex/src/routes.ts`.
+- A route `path` may hold `{param}` placeholders (`/news/tagged` → `/api/articles/filter/{type}_{key}`);
+  `upstreamTarget` fills them and leaves the rest as the query. A param filled into a path needs a `pattern`.
 - Responses use single-letter keys; team/series/venue/player f_keys resolve through `/mapping`.
 - **Live hub** (`src/live.ts`, Durable Object `LiveHub`, one instance): `/live` upgrades to a
   WebSocket. Topics `matches` (snapshot, then per-match diffs), `card:<key>`, `feed:<key>` (whole
@@ -89,6 +91,7 @@ commands inside `frontend/` or `worker-crex/`.
 | `tabs.ts`, `queryParams.ts`, `uiState.ts`, `navigationDepth.ts` | URL tab vocabularies/validation, overlay state, back-button depth. |
 | `matchType.ts`, `featured.ts`, `fixtureDays.ts`, `datetime.ts`, `relativeTime.ts` | Classification, featured match choice, calendar keys, time formatting. |
 | `timeout.ts` | `withTimeout(ms, signal?)` — every client fetch's deadline (crex 15s, search index 15s, `/health` probe 10s); links signals by hand where `AbortSignal.any` is missing. |
+| `news.ts` | crex news decode: `/news/topics` (latest, keyed team/series/player tags, excerpt) and `/news/tagged` (one team/series/player; headline cards, no excerpt or keyed tags). Images rewritten to crex's resizing CDN (`?type=mq` lead, `lq` thumbs). Articles link out to crex.com — the article body is not republished. `getTaggedNews` never throws. |
 | `text.ts`, `site.ts`, `seriesFormat.ts` | `ordinal`/`plural`; `SITE_URL` (env → Vercel production domain → localhost); `MATCH_FORMAT_LABEL` + series format phrases. |
 
 Shared vocabulary lives in one place each: `isChaseTight` (telemetry), `MATCH_FORMAT_LABEL`
@@ -102,7 +105,8 @@ Home reads two extra sources besides the feed, so its figures match the pages th
 `hooks/useFixturesAhead` (`/fixtures` pages 0–1, every 5 min) adds fixtures the feed window
 omits to Upcoming/All, up to the last row read; `hooks/useSeriesTotals` swaps "Series in
 progress" onto each series' own schedule (`withSeriesSchedules`) and renders nothing until it
-answers. The Live tab, ticker and Insights all count every `LIVE` match, stumps included.
+answers. Home's tabs partition All exactly: Live (live now, then matches at stumps) + Upcoming +
+Results = All; the ticker, stage and Insights show live-now matches only.
 
 `hooks/useCrexMatches.ts` is **one shared poll** of the match list: every subscriber reads the
 same snapshot and it runs at the fastest interval any subscriber requests.
@@ -113,13 +117,21 @@ the last topic goes). It asks `/health` once and never dials a Worker without `l
 rules (ordering, gap detection, list diffs, feed merging) are in `lib/live/frames.ts` and tested.
 The list store and `useCrexMatchExtras` apply frames through the same parsers as HTTP
 (`matchListFromRaw`, `scorecardFromRaw`, `feedFromRows`), guarded by `keepNewest` / card progress.
+Balls are merged by id, then `dedupeDeliveries` (`lib/balls.ts`) keeps one entry per delivery
+(innings/over/ball; wides and no balls also by score after) — crex re-publishes a ball under a new
+id. A scorecard stand is `unbroken` only while neither of its batters is out: crex adds the new
+pair's stand a ball after the wicket.
 
 ## Pages (`frontend/app`)
 
 `/` home · `/fixtures` · `/matches/[id]` · `/series` · `/series/[id]` (tabs incl. stats) ·
 `/series/[id]/stats/[kind]` · `/teams` · `/teams/[key]` · `/venues/[key]` · `/players` ·
-`/players/[id]` · `/rankings` · `/search` · `/insights` · `/automations` · `/my` ·
+`/players/[id]` · `/rankings` · `/news` (`?page=`) · `/search` · `/insights` · `/automations` · `/my` ·
 `/api/search-index` · `sitemap.ts` · `robots.ts`. Data source and freshness per page: README table.
+
+News (`components/news/NewsList.tsx`): `/news` leads with the newest story, then rows; tag chips
+link to our team/series/player pages. Team and player pages stream a News section (`TaggedNews`,
+under `Suspense`, hidden when empty); the series page gets a News tab only when it has articles.
 
 ## Player series performance
 
@@ -135,6 +147,13 @@ series×format groups. Selection lives in `?series=&format=` written with `histo
 Client pages are deduped in a module-level map. If the route fails the section is omitted.
 Format filter codes: 3 Test (crex also files first-class here), 1 ODI, 2 T20, 4 T10, 5 100B.
 
+## Not found vs outage
+
+Detail pages 404 only when the id is unknown: profile/schedule readers return `null` for that
+(crex refuses an unknown player key with a 400, which `isRejectedRequest` treats as unknown). Any
+other failure throws to `app/error.tsx`, whose Retry (`hooks/useErrorRetry`) refreshes the route
+before `reset()`. `generateMetadata` still swallows failures so the page itself decides.
+
 ## Caching / freshness
 
 Worker edge TTL (per route) → Next.js per-fetch `revalidate` (ISR) → client data: live socket
@@ -146,8 +165,15 @@ revalidate over HTTP. `next.config.js` sets `experimental.staleTimes { dynamic: 
 dynamic routes fetch on every link navigation; static ISR routes (`/teams`) may reuse a prefetch
 made within 30s. Back/forward replays the router copy, so `NavigationTracker` calls
 `router.refresh()` after a traversal.
-PWA service worker uses **NetworkFirst** for the Worker origin (SWR would render the previous
-poll's body). The origin pattern must be a RegExp — Workbox serialises matchers with `toString()`.
+PWA service worker: the ball-by-ball Worker routes (`/matches/live`, `/match/scorecard`,
+`/match/commentary`, `/live`) are **NetworkOnly** — a saved copy rolled scores back. The rest of the
+Worker origin is NetworkFirst with no network timeout (the cache answers only on a network
+failure). Patterns must be RegExps — Workbox serialises matchers with `toString()`.
+Series leaders (`/series/overview`, Worker TTL 30s) use a 15s revalidate while the series has a
+live match, and `hooks/useSeriesLeaders` re-reads them every 30s on the match Stats tab and the
+series page while live. Stat tables read a live match's card at 15s (finished cards 900s).
+Player recent form re-reads the last six days' matches off their scorecards (`withFreshForm`),
+since the profile is cached for an hour.
 
 ## Fixtures
 
@@ -183,9 +209,19 @@ with permission, the system tray — only while a tab is open.
   stays), Series, Rankings (no chips — the title states the selection), Players (search stays) and
   match Commentary.
 - Server Components by default; `'use client'` only when needed. Few comments — only non-obvious *why*.
-- Live vs stumps: every Live list, count, strip and stage filters with `isLiveNow`
-  (`lib/matchState.ts`); `isAtStumps` matches go to All only (Home) and a "Stumps" tag/section in
-  search. Don't filter on `status === 'LIVE'` for anything a reader sees as "live".
+- Live vs stumps: the ticker, stage, Insights and live counts filter with `isLiveNow`
+  (`lib/matchState.ts`). `isAtStumps` matches sit on Home's Live tab after the live ones (so the
+  tabs add up to All) and get a "Stumps" tag/section in search. Don't filter on
+  `status === 'LIVE'` for anything a reader sees as "live".
+- Format chips go through `matchFormat` / `meetingFormat` (`lib/seriesFormat.ts`): crex files every
+  multi-day match as a Test, and `isUnofficialTest` (`lib/matchType.ts`) relabels one that is not
+  between two senior full-member sides as "Multi-day" (series: `unofficialTests`). National
+  qualifiers stack when classifying international ("Pakistan U19 Women" → Pakistan).
+- `next/og` images (`app/opengraph-image.tsx`, `twitter-image.tsx`, `apple-icon.tsx`,
+  `app/icons/[size]` for the manifest) use `style` objects: Satori has no stylesheet support. This
+  is the only exception to the no-inline-styles rule.
+- Match centre tab is `?tab=` (`MATCH_TAB_KEYS`), read by the server page and written with
+  `history.replaceState` (a router navigation would re-render the dynamic page on the server).
 - Series rows (`SeriesCard`) take their columns from `SeriesFilter`'s `.list` via subgrid at
   tablet+; the list rule uses element selectors (`> li`, `> div`, `> li > a`) to outrank `.row`.
 - Lime has two roles: `$signal` is a fill behind `$signal-ink` text (buttons, badges, the six token);

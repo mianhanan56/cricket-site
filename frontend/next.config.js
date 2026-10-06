@@ -16,10 +16,10 @@ const WORKER_URL =
  * ReferenceError on the first request it is asked about — taking the whole
  * service worker down with it. A RegExp serialises as a literal, value included.
  */
-const WORKER_ORIGIN_PATTERN = new RegExp(
-  `^${new URL(WORKER_URL).origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/`,
-  'i'
-);
+const WORKER_ORIGIN = new URL(WORKER_URL).origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const WORKER_ORIGIN_PATTERN = new RegExp(`^${WORKER_ORIGIN}/`, 'i');
+// Ball-by-ball routes. A saved copy of these is a score going backwards.
+const WORKER_LIVE_PATTERN = new RegExp(`^${WORKER_ORIGIN}/(matches/live|match/(scorecard|commentary)|live)(\\?|$)`, 'i');
 
 // `NEXT_PUBLIC_*` is inlined into the client bundle at build time, so a local
 // override does not just affect the machine doing the building — it ships. A
@@ -47,16 +47,18 @@ const withPWA = withPWAInit({
     // Precaching of build assets is automatic; these handle runtime requests.
     runtimeCaching: [
       {
-        // The Worker, matched by origin from the same env var the client is
-        // built with, so a custom domain can't silently stop matching.
-        // NetworkFirst: SWR would render the previous poll's body on every tick.
+        // Live scores are never answered from a cache: the client keeps its last good copy
+        // in memory, and an older one from disk would roll the score back.
+        urlPattern: WORKER_LIVE_PATTERN,
+        handler: 'NetworkOnly',
+      },
+      {
+        // The rest of the Worker, matched by origin from the same env var the client is
+        // built with. The cache only answers when the network fails, never because it is slow.
         urlPattern: WORKER_ORIGIN_PATTERN,
         handler: 'NetworkFirst',
         options: {
           cacheName: 'crex-api',
-          // Long enough to ride out a dropped connection, short enough that the
-          // network almost always wins the race on a working one.
-          networkTimeoutSeconds: 3,
           expiration: { maxEntries: 64, maxAgeSeconds: 300 },
           cacheableResponse: { statuses: [0, 200] },
         },

@@ -34,6 +34,8 @@ const PATHS = {
   cloud: 'M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 9.5a4.2 4.2 0 0 1-.5 8.5H7z',
   filter: 'M4 6h9M17 6h3M15 4v4M4 12h3M11 12h9M9 10v4M4 18h11M19 18h1M17 16v4',
   history: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2',
+  news: 'M4 5h13v14a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V5zM17 9h3v10a2 2 0 0 1-2 2M8 9h5M8 13h5M8 17h3',
+  external: 'M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5',
 } as const;
 
 export type IconName = keyof typeof PATHS;

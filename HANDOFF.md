@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-10-02. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-10-06. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -82,9 +82,40 @@ poll. Match centre at stumps: "Stumps · Day N", "Day N+1 starts <local time>" f
 side's earlier innings render small above the current one on phones (`ScoreParts.earlier`).
 Finishing (incl. a last-day draw) is crex's own status/result; nothing is inferred from stumps.
 
+Uncommitted (2026-10-06, fixes from a user bug report; supersedes "stumps in All only" above):
+Home Live tab lists matches at stumps after the live ones, and All is built from the three tabs, so
+Live + Upcoming + Results = All (ticker/stage/Insights still live-now only). Service worker:
+live Worker routes NetworkOnly, no 3s cache fallback elsewhere. Player recent form re-read from
+scorecards for the last six days. Series leaders: Worker overview TTL 30s, 15s revalidate while
+live, 30s client poll on the match Stats tab and series page; live cards at 15s in stat tables.
+Commentary deduped per delivery. A stand is unbroken only while both batters are in. Points table
+form dropped when the row's own counts can't account for it. Search indexes players on live cards
+and ranks exact/shorter names first. Empty "At this ground" block dropped. Header sides wrap on
+phones < 440px. Non-Test multi-day matches read "Multi-day". Youth/women national sides are
+international. Match tab in `?tab=`; panel hold sized to leave no blank screen. "1 team",
+H2H "Draw"/"Tie"/"NR" mark, crest placeholders, pulse waits for a full window and plausible
+wickets, Home stage holds its match through a 60s feed gap. PNG OG/Twitter/apple/manifest icons
+via `next/og`; sitemap has /teams, /players, /insights, not /search.
+
+Uncommitted (2026-10-06, news — from a crex.com gap review): `/news` page, News in nav/footer/
+sitemap, News section on team and player pages, News tab on series pages (see ARCHITECTURE.md ›
+Pages). Worker: new `/news/tagged` route plus `{param}` path placeholders, `limit` on
+`/news/topics`. **Needs a Worker deploy** for team/series/player news. Articles open on crex.com.
+
+Uncommitted (2026-10-06, pre-launch QA): see PROJECT_STATUS › pre-launch QA. Outages no longer
+read as 404s on detail pages (ARCHITECTURE › Not found vs outage); match pages gained a hidden h1;
+InfoPanel batter role class fixed; error Retry refreshes. Harness approach: CDP over Node's
+WebSocket, scratch `next dev` on another port against `wrangler dev`, Chrome `--disable-web-security`.
+
+Not fixed (needs a decision): unknown match/team/player/series/venue URLs return 200 + noindex.
+`loading.tsx` boundaries (root, matches/[id], players, players/[id], teams, series) stream the
+shell before `notFound()` runs, so the status can't become 404 while they exist. Calling
+`notFound()` from `generateMetadata` was tried and does not help (verified on a build).
+
 ## Recommended next step
 
-Wait for the user's pick from TODO.md. Start with the High rows: scorecard table clipping on
+Deploy the Worker (`/news/tagged`, `/series/overview` TTL 30s). Next gap from the crex review: Stats Corner (TODO). Decide the 404-status trade-off (TODO). Then the
+user's pick from TODO.md. Earlier High rows: scorecard table clipping on
 phones, removing the Advanced alert builder plus alert/notification dedupe, the series stat value
 column, the insights score clipping, and team-page results.
 

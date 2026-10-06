@@ -12,6 +12,9 @@ import {
 import { headToHead } from '../../../lib/headToHead';
 import MatchDetail from '../../../components/match/MatchDetail';
 import { VENUE_TBD } from '@/lib/venue';
+import { pickParam } from '@/lib/queryParams';
+import { MATCH_TAB_KEYS, type MatchTab } from '@/lib/tabs';
+import { matchFormat } from '@/lib/seriesFormat';
 
 // Freshness is set per-fetch below rather than with a page-level `revalidate`:
 // making the route ISR-cached also caches the notFound() path, which turns an
@@ -40,12 +43,18 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   const year = new Date(m.startTime).getFullYear();
   const verb = m.status === 'LIVE' ? 'Live Score' : m.status === 'UPCOMING' ? 'Preview' : 'Result';
   return {
-    title: `${m.homeTeam.shortName} vs ${m.awayTeam.shortName} ${verb} — ${m.format} ${year}`,
-    description: `${m.homeTeam.name} vs ${m.awayTeam.name}, ${m.series.name}. ${m.format} ${verb.toLowerCase()}${m.venue === VENUE_TBD ? '' : ` at ${m.venue}`}.`,
+    title: `${m.homeTeam.shortName} vs ${m.awayTeam.shortName} ${verb} — ${matchFormat(m)} ${year}`,
+    description: `${m.homeTeam.name} vs ${m.awayTeam.name}, ${m.series.name}. ${matchFormat(m)} ${verb.toLowerCase()}${m.venue === VENUE_TBD ? '' : ` at ${m.venue}`}.`,
   };
 }
 
-export default async function MatchDetailPage({ params }: { params: { id: string } }) {
+export default async function MatchDetailPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams?: { tab?: string | string[] };
+}) {
   const preview = parseScheduledMatchId(params.id) !== null;
   const match = await loadMatch(params.id);
   if (!match) notFound();
@@ -97,7 +106,7 @@ export default async function MatchDetailPage({ params }: { params: { id: string
       : Promise.resolve(null),
     // The series' honours board for the Stats tab — the same cached call the series page makes.
     match.series.id
-      ? getCrexSeriesLeaders(match.series.id).catch(() => null)
+      ? getCrexSeriesLeaders(match.series.id, { revalidate: match.status === 'LIVE' ? 15 : 300 }).catch(() => null)
       : Promise.resolve(null as SeriesLeaders | null),
   ]);
 
@@ -109,6 +118,7 @@ export default async function MatchDetailPage({ params }: { params: { id: string
       headToHead={record}
       seriesTable={table}
       seriesLeaders={leaders}
+      initialTab={pickParam<MatchTab | ''>(searchParams?.tab, MATCH_TAB_KEYS, '')}
     />
   );
 }

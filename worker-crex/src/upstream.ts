@@ -1,5 +1,5 @@
 import { UPSTREAMS } from './upstreams';
-import { canonicalQuery, type ParamValue, type RouteDef } from './routes';
+import { upstreamTarget, type ParamValue, type RouteDef } from './routes';
 
 // crex's live list has hung rather than failed. Without a ceiling the call never
 // settles, and every request joined to it in `inFlight` hangs with it. Kept under
@@ -8,6 +8,7 @@ export const UPSTREAM_TIMEOUT_MS = 10_000;
 
 export function fetchUpstream(route: RouteDef, params: Record<string, ParamValue>): Promise<Response> {
   const base = UPSTREAMS[route.base];
+  const { path, query } = upstreamTarget(route, params);
 
   // crex's hosts 400 with "Invalid Host header" unless the request presents as
   // one of their own pages. These are the headers their site already sends.
@@ -23,8 +24,7 @@ export function fetchUpstream(route: RouteDef, params: Record<string, ParamValue
   const cf = { cacheTtl: 0, cacheEverything: false };
 
   if (route.method === 'GET') {
-    const query = canonicalQuery(params);
-    return fetch(`${base}${route.path}${query ? `?${query}` : ''}`, {
+    return fetch(`${base}${path}${query ? `?${query}` : ''}`, {
       headers,
       cf,
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
@@ -32,7 +32,7 @@ export function fetchUpstream(route: RouteDef, params: Record<string, ParamValue
   }
 
   headers['Content-Type'] = 'application/json';
-  return fetch(`${base}${route.path}`, {
+  return fetch(`${base}${path}`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ ...route.bodyDefaults, ...(route.buildBody ? route.buildBody(params) : params) }),

@@ -14,6 +14,7 @@ import LocalTime from '../ui/LocalTime';
 import Countdown from '../live/Countdown';
 import styles from './MatchTile.module.scss';
 import { venueText } from '@/lib/venue';
+import { matchFormat } from '@/lib/seriesFormat';
 
 function scoreText(innings: InningsScore[], multi: boolean): { earlier: string[]; latest: string } | null {
   if (!innings.length) return null;
@@ -98,7 +99,7 @@ export default function MatchTile({ match, showSeries = true }: { match: Match; 
       />
       <div className={styles.head}>
         <span className={styles.meta}>
-          <span className={styles.format}>{match.format}</span>
+          <span className={styles.format}>{matchFormat(match)}</span>
           {showSeries &&
             (match.series.id ? (
               <Link href={`/series/${match.series.id}`} className={`${styles.series} ${styles.seriesLink}`}>

@@ -9,6 +9,8 @@ import {
   useCrexMatchExtras,
   useCrexMatchSquads,
 } from '@/hooks/useCrexMatches';
+import { useSeriesLeaders } from '@/hooks/useSeriesLeaders';
+import type { MatchTab } from '@/lib/tabs';
 import { useLiveStatus } from '@/lib/live/socket';
 import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
 import { battedInnings, formatTeamScore, inningsFor } from '@/lib/innings';
@@ -18,7 +20,7 @@ import { matchStateOf } from '@/lib/matchState';
 import { breakFromFeed } from '@/lib/feedBreak';
 import { inningsProgress, liveEquation } from '@/lib/telemetry';
 import { creaseFromCard } from '@/lib/crease';
-import { groupBalls, reachedByCard, toBallEntry, type BallEntry } from '@/lib/balls';
+import { dedupeDeliveries, groupBalls, reachedByCard, toBallEntry, type BallEntry } from '@/lib/balls';
 import { useActiveInView, useScrollFade } from '@/hooks/useScrollFade';
 import PointsTable from '../series/PointsTable';
 import { SeriesLeadersBoard, rankedLeaders } from '../series/SeriesLeaders';
@@ -34,7 +36,7 @@ import InfoPanel from './InfoPanel';
 import mc from './matchCenter.module.scss';
 import styles from './MatchDetail.module.scss';
 
-type TabKey = 'live' | 'scorecard' | 'commentary' | 'info' | 'table' | 'stats';
+type TabKey = MatchTab;
 
 const MAX_COMMENTARY = 60;
 // Three overs of recent balls — two is too short to read the shape of a spell.
@@ -60,6 +62,7 @@ export default function MatchDetail({
   headToHead,
   seriesTable,
   seriesLeaders,
+  initialTab = '',
 }: {
   matchId: string;
   initial: Match;
@@ -69,10 +72,23 @@ export default function MatchDetail({
   seriesTable?: PointsTableGroup[];
   /** The series' leaders, for the Stats tab; null where crex has none yet. */
   seriesLeaders?: SeriesLeaders | null;
+  /** `?tab=` from the URL; '' when absent or not a tab. */
+  initialTab?: TabKey | '';
 }) {
   const [match, setMatch] = useState<Match>(initial);
   const hasSummary = !preview && initial.status !== 'UPCOMING';
-  const [tab, setTab] = useState<TabKey>(hasSummary ? 'live' : 'info');
+  const defaultTab: TabKey = hasSummary ? 'live' : 'info';
+  const [picked, setPicked] = useState<TabKey>(initialTab || defaultTab);
+  const offered: Record<TabKey, boolean> = {
+    live: hasSummary || initial.status !== 'UPCOMING',
+    scorecard: true,
+    commentary: true,
+    info: true,
+    table: Boolean(seriesTable?.length),
+    stats: Boolean(seriesLeaders && rankedLeaders(seriesLeaders).length),
+  };
+  // A shared ?tab= this match has no section for (no table, not started) opens the default.
+  const tab: TabKey = offered[picked] ? picked : defaultTab;
 
   const [commentary, setCommentary] = useState<BallEntry[]>(() =>
     (initial.scorecard?.commentary ?? []).map(toBallEntry).reverse()
@@ -196,7 +212,7 @@ export default function MatchDetail({
     const byId = new Map<string, BallEntry>();
     for (const b of commentary) byId.set(b.id, b);
     for (const b of history.balls) byId.set(b.id, toBallEntry(b));
-    const sorted = [...byId.values()].sort((a, b) => (b.inning ?? 0) - (a.inning ?? 0) || b.over - a.over || b.ball - a.ball);
+    const sorted = dedupeDeliveries([...byId.values()]).sort((a, b) => (b.inning ?? 0) - (a.inning ?? 0) || b.over - a.over || b.ball - a.ball);
     return isLive ? reachedByCard(sorted, crexExtras.innings, perOver) : sorted;
   }, [commentary, history.balls, isLive, crexExtras.innings, perOver]);
 
@@ -214,10 +230,11 @@ export default function MatchDetail({
   // Nobody is in at stumps, so no side carries the batting mark.
   const battingId = state.key === 'STUMPS' ? null : eq?.battingTeam.id ?? null;
 
-  const hasTable = Boolean(seriesTable?.length);
-  const hasStats = Boolean(seriesLeaders && rankedLeaders(seriesLeaders).length);
+  const leaders = useSeriesLeaders(match.series.id, seriesLeaders ?? null, isLive && tab === 'stats');
+  const hasTable = offered.table;
+  const hasStats = Boolean(leaders && rankedLeaders(leaders).length);
   const tabs: Array<{ key: TabKey; label: string }> = [
-    ...(hasSummary || match.status !== 'UPCOMING' ? [{ key: 'live' as const, label: isLive ? 'Live' : 'Summary' }] : []),
+    ...(offered.live || match.status !== 'UPCOMING' ? [{ key: 'live' as const, label: isLive ? 'Live' : 'Summary' }] : []),
     { key: 'scorecard', label: 'Scorecard' },
     { key: 'commentary', label: 'Commentary' },
     { key: 'info', label: match.status === 'UPCOMING' ? 'Preview' : 'Info' },
@@ -242,8 +259,16 @@ export default function MatchDetail({
   useScrollFade(tabsRef);
   useActiveInView(tabsRef, `${tab}|${tabs.length}`);
   const railRef = useRef<HTMLElement>(null);
+  const show = (next: TabKey) => {
+    setPicked(next);
+    // replaceState, not the router: the page is dynamic and a navigation would re-render it on the server.
+    const url = new URL(window.location.href);
+    if (next === defaultTab) url.searchParams.delete('tab');
+    else url.searchParams.set('tab', next);
+    window.history.replaceState(window.history.state, '', url);
+  };
   const pick = (next: TabKey) => {
-    setTab(next);
+    show(next);
     const panel = panelRef.current;
     const rail = railRef.current;
     if (!compact || !panel || !rail) return;
@@ -333,7 +358,7 @@ export default function MatchDetail({
           />
         )}
         {tab === 'scorecard' && (
-          <ScorecardPanel match={match} innings={innings} squads={squads} pending={extrasPending} onShowSquads={() => setTab('info')} />
+          <ScorecardPanel match={match} innings={innings} squads={squads} pending={extrasPending} onShowSquads={() => show('info')} />
         )}
         {tab === 'commentary' && (
           <CommentaryFeed
@@ -360,9 +385,9 @@ export default function MatchDetail({
             <PointsTable groups={seriesTable} highlight={[match.homeTeam.id, match.awayTeam.id]} />
           </div>
         )}
-        {tab === 'stats' && seriesLeaders && (
+        {tab === 'stats' && leaders && (
           <div className={mc.panel}>
-            <SeriesLeadersBoard leaders={seriesLeaders} seriesId={match.series.id} />
+            <SeriesLeadersBoard leaders={leaders} seriesId={match.series.id} />
           </div>
         )}
       </div>

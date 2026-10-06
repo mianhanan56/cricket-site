@@ -15,6 +15,10 @@ import type { MatchFormat, MatchStatus } from '@/types';
 export type HomeTab = 'live' | 'upcoming' | 'finished' | 'all';
 export const HOME_TAB_KEYS: readonly HomeTab[] = ['live', 'upcoming', 'finished', 'all'];
 
+// --- Match centre (/matches/[id]?tab=…) -------------------------------------
+export type MatchTab = 'live' | 'scorecard' | 'commentary' | 'info' | 'table' | 'stats';
+export const MATCH_TAB_KEYS: readonly MatchTab[] = ['live', 'scorecard', 'commentary', 'info', 'table', 'stats'];
+
 // --- Series (/series?status=…) ----------------------------------------------
 export type SeriesStatusKey = 'all' | 'live' | 'upcoming' | 'finished';
 export const SERIES_STATUS_TABS: ReadonlyArray<{

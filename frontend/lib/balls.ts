@@ -50,6 +50,27 @@ export const toBallEntry = ({
   timestamp,
 });
 
+type Delivery = Pick<CommentaryBall, 'id' | 'over' | 'ball' | 'extra' | 'scoreAfter' | 'inning'>;
+
+/**
+ * One entry per delivery. crex can re-publish a ball under a new id, which an id merge keeps
+ * twice. A legal ball is its innings, over and ball; a wide or no ball shares its number with
+ * the next delivery, so the score after it tells two of them apart. The newer id wins.
+ */
+export function dedupeDeliveries<T extends Delivery>(balls: T[]): T[] {
+  const idOf = (b: T) => (Number.isFinite(Number(b.id)) ? Number(b.id) : Number.MIN_SAFE_INTEGER);
+  const keyOf = (b: T) =>
+    [b.inning ?? '', b.over, b.ball, isIllegal(b) ? `${b.extra}@${b.scoreAfter ?? b.id}` : 'legal'].join('|');
+  const kept = new Map<string, T>();
+  for (const b of balls) {
+    const key = keyOf(b);
+    const held = kept.get(key);
+    if (!held || idOf(b) > idOf(held)) kept.set(key, b);
+  }
+  const keep = new Set(kept.values());
+  return balls.filter((b) => keep.has(b));
+}
+
 export const EXTRA_LABELS: Record<BallExtra, { short: string; long: string }> = {
   wide: { short: 'wd', long: 'Wide' },
   noball: { short: 'nb', long: 'No Ball' },

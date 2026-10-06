@@ -75,6 +75,7 @@ import {
   oversFrom,
 } from './overs';
 import { cleanVenueName } from './venue';
+import { isUnofficialTest } from './matchType';
 import { ordinal } from './text';
 import { withTimeout } from './timeout';
 
@@ -277,12 +278,33 @@ async function crexGet<T>(path: string, opts: FetchOpts = {}): Promise<T> {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
+    // The Worker reports crex's own status inside its 502 body.
+    let upstreamStatus: number | undefined;
+    try {
+      const parsed = JSON.parse(detail) as { status?: unknown };
+      if (typeof parsed.status === 'number') upstreamStatus = parsed.status;
+    } catch {
+      // Not JSON — no upstream status to read.
+    }
     throw Object.assign(new Error(`crex ${path} failed: ${res.status} ${detail.slice(0, 200)}`), {
       status: res.status,
+      upstreamStatus,
     });
   }
 
   return (await res.json()) as T;
+}
+
+/**
+ * The request itself was refused — the Worker rejected the params, or crex
+ * answered 4xx — so whatever was asked for doesn't exist. Anything else (a
+ * timeout, a 5xx, no network) is an outage and should not read as a 404.
+ */
+export function isRejectedRequest(err: unknown): boolean {
+  const { status, upstreamStatus } = (err ?? {}) as { status?: number; upstreamStatus?: number };
+  if (status === 400 || status === 404) return true;
+  // 429 is crex rate-limiting us: an outage, not a missing page.
+  return status === 502 && upstreamStatus !== undefined && upstreamStatus >= 400 && upstreamStatus < 500 && upstreamStatus !== 429;
 }
 
 /** Every match crex knows about — live, upcoming and recently finished. */
@@ -1831,20 +1853,28 @@ export async function scorecardFromRaw(
   // the match is live. A side listed with an XI and no total has not begun.
   const lastBatted = cards.reduce((last, inn, i) => (inn.notStarted ? last : i), -1);
 
-  return cards.map((inn, i) => ({
-    ...inn,
-    // The stand at the crease: the last one listed, while wickets remain.
-    partnerships: inn.partnerships.map((p, j) =>
-      j === inn.partnerships.length - 1 && inn.wickets < 10 && !inn.notStarted
-        ? { ...p, unbroken: true }
-        : p
-    ),
-    phase: (inn.notStarted
-      ? 'UPCOMING'
-      : i === lastBatted && opts.status === 'LIVE'
-        ? 'CURRENT'
-        : 'COMPLETED') satisfies InningsPhase as InningsPhase,
-  }));
+  return cards.map((inn, i) => {
+    // The stand at the crease is the last one listed, while wickets remain. crex adds the new
+    // pair's stand a ball after a wicket, so a listed stand whose batter is out is already broken.
+    const gone = new Set(inn.batting.filter((b) => b.dismissal !== 'not out').map((b) => b.playerId));
+    return {
+      ...inn,
+      partnerships: inn.partnerships.map((p, j) =>
+        j === inn.partnerships.length - 1 &&
+        inn.wickets < 10 &&
+        !inn.notStarted &&
+        !gone.has(p.a.playerId) &&
+        !gone.has(p.b.playerId)
+          ? { ...p, unbroken: true }
+          : p
+      ),
+      phase: (inn.notStarted
+        ? 'UPCOMING'
+        : i === lastBatted && opts.status === 'LIVE'
+          ? 'CURRENT'
+          : 'COMPLETED') satisfies InningsPhase as InningsPhase,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -2004,7 +2034,7 @@ async function decodeConditions(
     : null;
 
   const v = info?.vsp;
-  const venue: VenueStats | null = v
+  const record: VenueStats | null = v
     ? {
         label: infoText(v.t),
         matches: infoNumber(v.tm),
@@ -2015,6 +2045,12 @@ async function decodeConditions(
         wonBowlingFirst: infoNumber(v.y),
       }
     : null;
+  // crex sends the block with only its label ("Others All Seasons") for a ground it has no record of.
+  const venue =
+    record &&
+    (record.matches || record.averages.some((a) => a) || record.highest || record.lowest || record.wonBattingFirst || record.wonBowlingFirst)
+      ? record
+      : null;
 
   return {
     weather,
@@ -2618,6 +2654,10 @@ function formatsIn(matches: Array<{ format: MatchFormat; startTime: string }>): 
   return [...new Set(ordered.map((m) => m.format))];
 }
 
+/** Multi-day cricket between sides that don't play Tests: the series chip says "Multi-day". */
+const unofficialTestsIn = (matches: Array<Parameters<typeof isUnofficialTest>[0]>): boolean =>
+  matches.some((m) => m.format === 'TEST') && matches.filter((m) => m.format === 'TEST').every(isUnofficialTest);
+
 /** How many of a list are finished — the other half of "12 of 34". */
 const playedCount = (matches: Array<{ status: MatchStatus }>): number =>
   matches.filter((m) => m.status === 'COMPLETED').length;
@@ -2655,6 +2695,7 @@ export function seriesFromMatches(matches: Match[]): SeriesSummary[] {
       name: list[0].series.name,
       format: dominantFormat(list),
       formats: formatsIn(list),
+      unofficialTests: unofficialTestsIn(list),
       status: seriesStatus(list),
       matchCount: list.length,
       startDate: new Date(Math.min(...times)).toISOString(),
@@ -3041,6 +3082,7 @@ export async function getCrexSeriesSchedule(
     name: names.s.get(id)?.n ?? opts.fallback?.name ?? 'Cricket',
     format: dominantFormat(matches),
     formats: formatsIn(matches),
+    unofficialTests: unofficialTestsIn(matches),
     status: seriesStatus(matches),
     matchCount: matches.length,
     playedCount: playedCount(matches),
@@ -3922,6 +3964,59 @@ export async function getCrexPlayerProfile(
   };
 }
 
+/** How far back a form entry may still be a match in progress (a Test runs five days). */
+const FORM_LIVE_WINDOW_MS = 6 * 24 * 60 * 60 * 1000;
+
+/**
+ * Recent form with the latest matches re-read off their scorecards. crex's profile is cached
+ * for an hour and can still hold an innings as it stood mid-match ("52 (57)*" after the batter
+ * was out for 77).
+ */
+export async function withFreshForm(profile: PlayerProfile, opts: FetchOpts = {}): Promise<PlayerProfile> {
+  const now = Date.now();
+  const recent = new Set(
+    [...profile.recentBatting, ...profile.recentBowling]
+      .filter((e) => e.matchId && e.date && now - +new Date(e.date) < FORM_LIVE_WINDOW_MS)
+      .map((e) => e.matchId as string)
+  );
+  if (!recent.size) return profile;
+
+  const cards = new Map(
+    await Promise.all(
+      [...recent].map(
+        async (key) => [key, await getCrexScorecard(key, { revalidate: 15, ...opts }).catch(() => null)] as const
+      )
+    )
+  );
+
+  // Entries are newest first, so a Test's two innings map onto the card's last innings first.
+  const refresh = (entries: PlayerFormEntry[], discipline: 'batting' | 'bowling'): PlayerFormEntry[] => {
+    const used = new Map<string, number>();
+    return entries.map((entry) => {
+      const card = entry.matchId ? cards.get(entry.matchId) : null;
+      if (!card) return entry;
+      const lines =
+        discipline === 'batting'
+          ? card.flatMap((inn) => inn.batting?.filter((l) => l.playerId === profile.id) ?? [])
+          : card.flatMap((inn) => inn.bowling?.filter((l) => l.playerId === profile.id) ?? []);
+      const n = used.get(entry.matchId as string) ?? 0;
+      used.set(entry.matchId as string, n + 1);
+      const line = lines[lines.length - 1 - n];
+      if (!line) return entry;
+      if ('balls' in line) {
+        return { ...entry, figures: `${line.runs} (${line.balls})`, notOut: !line.out };
+      }
+      return { ...entry, figures: `${line.wickets}-${line.runs}` };
+    });
+  };
+
+  return {
+    ...profile,
+    recentBatting: refresh(profile.recentBatting, 'batting'),
+    recentBowling: refresh(profile.recentBowling, 'bowling'),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Player series record
 // ---------------------------------------------------------------------------
@@ -4128,6 +4223,16 @@ function formLetter(raw: string): 'W' | 'L' | 'N' {
   return c === 'W' ? 'W' : c === 'L' ? 'L' : 'N';
 }
 
+/**
+ * `rf` can carry the side's results from other series and formats too (an ODI table at
+ * Played 0 sent five), so only form this row's own counts can account for is shown.
+ */
+function tableForm(form: Array<'W' | 'L' | 'N'>, played: number, won: number, lost: number): Array<'W' | 'L' | 'N'> {
+  const own = played > 0 ? form.slice(-played) : [];
+  const count = (c: 'W' | 'L' | 'N') => own.filter((x) => x === c).length;
+  return count('W') <= won && count('L') <= lost && count('N') <= played - won - lost ? own : [];
+}
+
 /** `"4"` → 4. Every count on this response is a string, and some are absent. */
 const asCount = (raw: string | undefined): number => {
   const n = Number.parseInt(raw ?? '', 10);
@@ -4213,6 +4318,9 @@ export async function getCrexSeriesTable(
       .map((r, i) => {
         const teamKey = cleanKey(r.team_fkey);
         const team = toTeam(teamKey, names);
+        const played = asCount(r.P);
+        const won = asCount(r.W);
+        const lost = asCount(r.L);
 
         return {
           teamKey,
@@ -4222,9 +4330,9 @@ export async function getCrexSeriesTable(
           // Amazon Warriors" the same way.
           team: team.name === teamKey && r.team_name ? { ...team, name: r.team_name } : team,
           rank: i + 1,
-          played: asCount(r.P),
-          won: asCount(r.W),
-          lost: asCount(r.L),
+          played,
+          won,
+          lost,
           noResult: asOptionalCount(r.NR),
           drawn: asOptionalCount(r.Draw),
           points: asCount(r.Pts),
@@ -4232,7 +4340,7 @@ export async function getCrexSeriesTable(
           // is not a thing. Printed as-is that reads as a real rate of exactly
           // zero, which is a figure no side has ever had.
           netRunRate: nullableRate(r.NRR),
-          form: (r.rf ?? []).map(formLetter),
+          form: tableForm((r.rf ?? []).map(formLetter), played, won, lost),
           qualified: r.qualified === 1,
           eliminated: r.eliminated === 1,
           champion: r.is_winner === 1,
@@ -4499,7 +4607,7 @@ const STAT_MATCH_CAP = 80;
 /** Cards fetched at once. Enough to be quick, few enough to be polite. */
 const STAT_FETCH_WIDTH = 8;
 
-/** Long, because a finished card never changes and a live one is not the point. */
+/** For finished cards, which never change. A live card is read at the scorecard's own pace. */
 const STAT_REVALIDATE = 900;
 
 interface StatAccumulator {
@@ -4705,7 +4813,7 @@ async function seriesStatRows(
   const cards = await inWidth(played, STAT_FETCH_WIDTH, async (match) => ({
     match,
     innings: await getCrexScorecard(match.matchKey as string, {
-      revalidate: STAT_REVALIDATE,
+      revalidate: match.status === 'LIVE' ? 15 : STAT_REVALIDATE,
       signal: opts.signal,
     }).catch(() => [] as InningsScore[]),
   }));
@@ -5345,4 +5453,51 @@ export async function getCrexTeamProfile(
         ? { id: squadSeriesKey, name: squadSeriesName ?? 'Current series' }
         : null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// News — decoded in lib/news.ts
+// ---------------------------------------------------------------------------
+
+export interface CrexNewsTag {
+  f_key?: string;
+  tag_name?: string;
+  /** t team, s series, p player. */
+  tag_type?: string;
+}
+
+export interface CrexNewsArticle {
+  _id?: string;
+  id?: string;
+  header?: string;
+  excerpt?: string;
+  cover_image_url?: string;
+  /** Path on crex.com. */
+  newsUrl?: string;
+  /** Epoch ms, as a string. On the tagged list this is the only timestamp. */
+  closed_on?: string;
+  assigned_to_name?: string;
+  tags_array?: CrexNewsTag[];
+  metaData?: { subCategory?: string };
+}
+
+export interface CrexNewsTopics {
+  next?: boolean;
+  topics?: Array<{ published_on?: string; articles?: CrexNewsArticle[] }>;
+}
+
+export interface CrexTaggedNews {
+  next?: boolean;
+  articles?: CrexNewsArticle[];
+}
+
+export function getCrexNewsTopics(page: number, limit: number, opts: FetchOpts = {}): Promise<CrexNewsTopics> {
+  return crexGet<CrexNewsTopics>(`/news/topics?page=${page}&limit=${limit}`, { revalidate: 900, ...opts });
+}
+
+export function getCrexTaggedNews(type: 't' | 's' | 'p', key: string, opts: FetchOpts = {}): Promise<CrexTaggedNews> {
+  return crexGet<CrexTaggedNews>(`/news/tagged?type=${type}&key=${encodeURIComponent(key)}`, {
+    revalidate: 900,
+    ...opts,
+  });
 }

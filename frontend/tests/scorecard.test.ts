@@ -30,9 +30,11 @@ const IND_INNINGS = {
     'AK.18.33.2.1.64.37.2.J4.FH/36.81-52.09/',
     'EI.117.193.12.0.458.281.1.O22/60.20-59.96/',
     'O5.50.108.6.0.311.186.2.1JR.FH/43.38-61.74/',
+    'RJ.31.40.3.0',
+    'KY.12.15.1.0',
   ],
   a: ['1JR.106.174.5.4', 'J4.68.120.4.1'],
-  p: ['15K.19.31.AK.18.33.37.64', '15K.26.22.EI.3.16.29.38'],
+  p: ['15K.19.31.AK.18.33.37.64', '15K.26.22.EI.3.16.29.38', 'RJ.31.40.KY.12.15.44.55'],
 };
 
 // Trimmed to four dismissed batters and one still to come, so the total is set to
@@ -47,10 +49,11 @@ const SL_INNINGS = {
     '17B.19.25.3.0.57.35.2.EF.16J/-/',
     'NX.2.7.0.0.18.8.5.7OY/8.26-34.12/',
     'BTZ.80.133.9.0.270.171.1.7/0.00-0.00/',
-    '17H',
+    '17H.12.19.1.0',
+    'Q9.15.20.2.0',
   ],
   a: ['E1.33.66.0.1', 'EF.46.78.1.3'],
-  p: ['4XE.1.6.17B.0.2.1.8', '17B.5.3.NX.2.7.7.10', '17B.14.20.BTZ.12.19.27.39'],
+  p: ['4XE.1.6.17B.0.2.1.8', '17B.5.3.NX.2.7.7.10', '17B.14.20.BTZ.12.19.27.39', '17H.12.19.Q9.15.20.27.39'],
 };
 
 /**
@@ -178,6 +181,17 @@ describe('partnerships', () => {
       1,
       'only one stand can be at the crease'
     );
+  });
+
+  // crex lists the new pair's stand a ball after the wicket; until then the last stand is a broken one.
+  it('does not call a stand unbroken once one of its batters is out', async (t) => {
+    t.after(() => mock.restoreAll());
+    stubFetch([{ ...SL_INNINGS, p: SL_INNINGS.p.slice(0, -1) }]);
+
+    const [inn] = await getCrexScorecard('12WY');
+
+    assert.equal((inn.partnerships ?? []).some((p) => p.unbroken), false);
+    assert.equal(creaseContext([inn]).partnership, null);
   });
 
   it('marks nothing unbroken in an all-out innings', async (t) => {

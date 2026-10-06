@@ -16,11 +16,11 @@
 import { UPSTREAMS } from './upstreams';
 import { fetchUpstream, UPSTREAM_TIMEOUT_MS } from './upstream';
 import {
-  canonicalQuery,
   matchRoute,
   ParamError,
   readParams,
   ROUTES,
+  upstreamTarget,
   type ParamValue,
   type RouteDef,
 } from './routes';
@@ -125,9 +125,9 @@ export default {
     // every origin shares one entry and client-side noise cannot fragment it.
     // The Cache API only stores GET, so a POST upstream is keyed by a synthetic
     // GET URL carrying the canonical params.
-    const query = canonicalQuery(params);
+    const { path, query } = upstreamTarget(route, params);
     const cacheKey = new Request(
-      `${UPSTREAMS[route.base]}${route.path}${query ? `?${query}` : ''}`,
+      `${UPSTREAMS[route.base]}${path}${query ? `?${query}` : ''}`,
       { method: 'GET' }
     );
     const cache = caches.default;
@@ -163,7 +163,7 @@ export default {
             {
               error: 'Upstream error',
               status: outcome.status,
-              upstream: `${route.method} ${UPSTREAMS[route.base]}${route.path}`,
+              upstream: `${route.method} ${UPSTREAMS[route.base]}${path}`,
               detail: outcome.detail,
             },
             outcome.status === 429 ? 429 : 502,

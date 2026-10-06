@@ -8,7 +8,7 @@ import type { BallEntry, BallGroup } from '@/lib/balls';
 import { legalBalls, matchPulse, pulseTrace, recentInningsBalls } from '@/lib/pulse';
 import { axisMoments, inningsWorms } from '@/lib/momentum';
 import { keyMoments } from '@/lib/keyMoments';
-import { SCHEDULED_OVERS, inningsBallLimit } from '@/lib/overs';
+import { SCHEDULED_OVERS, ballsFrom, inningsBallLimit } from '@/lib/overs';
 import MatchPulse from '../live/MatchPulse';
 import PulseTrace from '../live/PulseTrace';
 import BallTimeline from '../live/BallTimeline';
@@ -91,7 +91,15 @@ export default function LivePanel({
   const live = match.status === 'LIVE';
   const window = useMemo(() => recentInningsBalls(balls), [balls]);
   const pulseOn = inningsUnderway(state);
-  const readings = useMemo(() => (pulseOn ? matchPulse(window, match.format, perOver) : null), [pulseOn, window, match.format, perOver]);
+  const started = innings.filter((i) => !i.notStarted);
+  const current = started[started.length - 1];
+  const readings = useMemo(
+    () =>
+      pulseOn
+        ? matchPulse(window, match.format, perOver, current ? { ballsBowled: ballsFrom(current.overs, perOver), wickets: current.wickets } : undefined)
+        : null,
+    [pulseOn, window, match.format, perOver, current]
+  );
   const trace = useMemo(() => pulseTrace(window), [window]);
   const worms = useMemo(() => inningsWorms(innings, overs, balls, perOver), [innings, overs, balls, perOver]);
   const moments = useMemo(() => axisMoments(events), [events]);

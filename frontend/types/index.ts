@@ -40,6 +40,8 @@ export interface ISeriesSummary extends ISeries {
   playedCount?: number;
   /** Every format the series contains, in the order it plays them; `format` is only the most common. */
   formats?: MatchFormat[];
+  /** Its multi-day matches are not Tests (see `isUnofficialTest`). */
+  unofficialTests?: boolean;
 }
 
 // The player entity and its batting/bowling stat blocks lived here, describing
@@ -1119,4 +1121,32 @@ export interface TeamProfile {
   squad: SquadPlayer[];
   /** The competition that squad was named for. */
   squadSeries: { id: string; name: string } | null;
+}
+
+export type NewsTagKind = 'team' | 'series' | 'player';
+
+export interface NewsTag {
+  kind: NewsTagKind;
+  /** crex key — the same id our team, series and player routes take. */
+  id: string;
+  name: string;
+}
+
+export interface NewsArticle {
+  id: string;
+  title: string;
+  excerpt: string | null;
+  image: string | null;
+  /** The full article on crex.com. */
+  url: string;
+  publishedAt: string;
+  author: string | null;
+  category: string | null;
+  tags: NewsTag[];
+}
+
+export interface NewsPage {
+  articles: NewsArticle[];
+  page: number;
+  hasNext: boolean;
 }

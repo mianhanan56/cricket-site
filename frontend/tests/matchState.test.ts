@@ -26,6 +26,7 @@ import {
   type StoppageWatch,
 } from '../lib/crex';
 import { isAtStumps, isLiveNow } from '../lib/matchState';
+import { isUnofficialTest, isInternationalMatch } from '../lib/matchType';
 import type { InningsScore, Match, MatchNote, Team } from '../types';
 
 // --- fixtures ---------------------------------------------------------------
@@ -437,5 +438,24 @@ describe('what counts as live', () => {
     assert.equal(isLiveNow(test('COMPLETED', null)), false);
     assert.equal(isAtStumps(test('COMPLETED', stumps)), false);
     assert.equal(isLiveNow(test('UPCOMING', null)), false);
+  });
+});
+
+describe('competition and format labels', () => {
+  const side = (name: string, shortName: string): Team => ({ ...team(shortName, shortName), name });
+  const m = (home: Team, away: Team, format: Match['format'] = 'TEST') =>
+    ({ homeTeam: home, awayTeam: away, format }) as Match;
+
+  it('files youth and women national sides as international', () => {
+    assert.equal(isInternationalMatch(m(side('Pakistan U19 Women', 'PAK-WU19'), side('Sri Lanka Under-19 Women', 'SL-WU19'))), true);
+    assert.equal(isInternationalMatch(m(side('Pakistan Blues', 'PKB'), side('Pakistan', 'PAK'))), false);
+  });
+
+  it('calls a multi-day match a Test only between senior full-member sides', () => {
+    assert.equal(isUnofficialTest(m(side('India', 'IND'), side('Australia', 'AUS'))), false);
+    assert.equal(isUnofficialTest(m(side('India Women', 'IND-W'), side('England Women', 'ENG-W'))), false);
+    assert.equal(isUnofficialTest(m(side('Australia A', 'AUS-A'), side('India A', 'IND-A'))), true);
+    assert.equal(isUnofficialTest(m(side('Rest of India', 'ROI'), side('Vidarbha', 'VID'))), true);
+    assert.equal(isUnofficialTest(m(side('Rest of India', 'ROI'), side('Vidarbha', 'VID'), 'ODI')), false);
   });
 });

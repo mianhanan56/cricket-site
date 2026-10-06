@@ -132,14 +132,25 @@ a.venue {
 }
 
 .side {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    'team score'
-    'team overs';
-  align-items: center;
-  column-gap: $space-3;
+  // Narrow phones: the team on its own line, then the score; overs follow it or wrap below.
+  // Beside the last-ball dial there is no room for a badge, "AUS-A" and "274/10" on one row.
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: $space-2;
+  row-gap: $space-1;
   min-width: 0;
+
+  @media (min-width: 440px) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'team score'
+      'team overs';
+    align-items: center;
+    column-gap: $space-3;
+    row-gap: 0;
+  }
 
   @include tablet {
     grid-template-columns: minmax(0, 1fr);
@@ -170,6 +181,7 @@ a.venue {
 
 .team {
   grid-area: team;
+  flex-basis: 100%;
   display: flex;
   align-items: center;
   gap: $space-2-5;
@@ -209,6 +221,8 @@ a.venue {
 
 .teamCode {
   font-size: $fs-lg;
+  // "AUS-A" breaks at the hyphen otherwise.
+  white-space: nowrap;
 
   @include tablet {
     display: none;
@@ -227,7 +241,6 @@ a.venue {
 .score {
   grid-area: score;
   @include display-num;
-  // 320px phones: beside the badge and the centre column there is no room for 30px figures.
   font-size: 26px;
   letter-spacing: -0.04em;
   white-space: nowrap;
@@ -268,6 +281,7 @@ a.venue {
 .overs {
   grid-area: overs;
   justify-self: end;
+  white-space: nowrap;
   @include data-num;
   font-size: $fs-xs;
   color: $text-3;
@@ -625,4 +639,8 @@ a.venue {
 
 .tileWide {
   max-width: 100%;
+}
+
+.srOnly {
+  @include visually-hidden;
 }

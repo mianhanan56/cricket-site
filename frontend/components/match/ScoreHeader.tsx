@@ -4,7 +4,8 @@ import type { MatchStateView } from '@/lib/matchState';
 import type { MatchSituation, CreaseContext } from '@/lib/situation';
 import type { LiveEquation } from '@/lib/telemetry';
 import { PHASE_LABEL, equationSentence, isChaseTight } from '@/lib/telemetry';
-import { MATCH_FORMAT_LABEL } from '@/lib/seriesFormat';
+import { MATCH_FORMAT_LABEL, matchFormat } from '@/lib/seriesFormat';
+import { isUnofficialTest } from '@/lib/matchType';
 import { ordinal } from '@/lib/text';
 import { ballKind, ballPosition, runsLabel, shortLabel, type BallEntry } from '@/lib/balls';
 import TeamBadge from '../ui/TeamBadge';
@@ -111,7 +112,9 @@ export default function ScoreHeader({
   const detail = match.note?.detail && match.note.label === state.label ? match.note.detail : null;
 
   const meta = [
-    match.matchNumber ? `${ordinal(match.matchNumber)} ${MATCH_FORMAT_LABEL[match.format]}` : match.format,
+    match.matchNumber
+      ? `${ordinal(match.matchNumber)} ${isUnofficialTest(match) ? 'Match' : MATCH_FORMAT_LABEL[match.format]}`
+      : matchFormat(match),
     live && match.day && match.day > 1 && state.key !== 'STUMPS' ? `Day ${match.day}` : null,
   ].filter(Boolean);
   const stumpsDay = state.key === 'STUMPS' && match.day ? match.day : null;
@@ -120,6 +123,9 @@ export default function ScoreHeader({
   return (
     <header className={`${styles.header} ${styles[state.family] ?? ''}`}>
       <div className={styles.grid} aria-hidden="true" />
+      <h1 className={styles.srOnly}>
+        {match.homeTeam.name} vs {match.awayTeam.name}, {meta[0]}
+      </h1>
 
       <div className={styles.top}>
         <StateChip state={state} full={!state.alive && state.key !== 'FINISHED'} />

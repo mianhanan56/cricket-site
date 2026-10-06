@@ -55,29 +55,45 @@ const NATIONS = new Set(
 
 /** Suffixes a national side can carry without ceasing to be a national side. */
 const NATIONAL_SUFFIXES = [
-  'women', 'w', 'men', 'm', 'a', 'b', 'xi', 'u19', 'u-19', 'under-19',
-  'under 19', 'u23', 'u-23', 'emerging', 'legends', 'development',
+  'women', 'w', 'men', 'm', 'a', 'b', 'xi', 'u19',
+  'u19w', 'wu19', 'u23', 'emerging', 'legends', 'development',
 ];
 
-/** "India Women" -> "india"; "Pakistan Blues" -> "pakistan blues". */
-function baseName(name: string): string {
-  let n = name
+/** "India Women" -> "india"; "Pakistan U19 Women" -> "pakistan"; "Pakistan Blues" -> "pakistan blues". */
+function baseName(name: string, suffixes: readonly string[] = NATIONAL_SUFFIXES): string {
+  const parts = name
     .toLowerCase()
     .replace(/[.’']/g, '')
+    // crex short names and some names use a dash for the qualifier ("SRL-W", "IND-A", "U19-Women").
+    .replace(/-/g, ' ')
+    .replace(/\bunder 19\b/g, 'u19')
+    .replace(/\bunder 23\b/g, 'u23')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .split(' ');
 
-  // crex short names use a dash for the qualifier ("SRL-W", "IND-A").
-  n = n.replace(/-(w|m|a|b|u19|u23|xi)$/i, '');
+  // Qualifiers stack ("U19 Women"); a nation's own words ("south africa") are never in the list.
+  while (parts.length > 1 && suffixes.includes(parts[parts.length - 1])) parts.pop();
+  return parts.join(' ');
+}
 
-  // Strip one trailing qualifier word at most — two-word nations like
-  // "south africa" must survive, and "australia a women" is rare enough to
-  // land in DOMESTIC without hurting anything.
-  const parts = n.split(' ');
-  if (parts.length > 1 && NATIONAL_SUFFIXES.includes(parts[parts.length - 1])) {
-    parts.pop();
-  }
-  return parts.join(' ').trim();
+/** Sides that play Test cricket: the twelve full members, men's or women's senior XI. */
+const TEST_NATIONS = new Set([
+  'afghanistan', 'australia', 'bangladesh', 'england', 'india', 'ireland',
+  'new zealand', 'pakistan', 'south africa', 'sri lanka', 'west indies', 'zimbabwe',
+]);
+
+type Side = Pick<Match['homeTeam'], 'name' | 'shortName'>;
+
+const isTestSide = (team: Side) =>
+  [team.name, team.shortName].some((n) => Boolean(n) && TEST_NATIONS.has(baseName(n, ['women', 'w'])));
+
+/**
+ * crex files every multi-day match as a Test. Only one between two senior full-member sides
+ * is; the rest (Irani Cup, President's Trophy, A-team and youth "Tests") are not.
+ */
+export function isUnofficialTest(match: { format: Match['format']; homeTeam: Side; awayTeam: Side }): boolean {
+  return match.format === 'TEST' && !(isTestSide(match.homeTeam) && isTestSide(match.awayTeam));
 }
 
 const isNationalTeam = (name: string | undefined) =>

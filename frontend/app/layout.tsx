@@ -35,19 +35,18 @@ export const metadata: Metadata = {
   description: 'Every ball. Live.',
   applicationName: 'PulseCrease',
   manifest: '/manifest.json',
-  icons: { icon: '/icon.svg', apple: '/icon.svg' },
+  // `apple` is app/apple-icon.tsx's PNG; naming `icons` here overrides the file convention.
+  icons: { icon: '/icon.svg', apple: { url: '/apple-icon', type: 'image/png', sizes: '180x180' } },
   openGraph: {
     type: 'website',
     siteName: 'PulseCrease',
     title: 'PulseCrease — Live Cricket Intelligence',
     description: 'Every ball. Live.',
-    images: ['/icon.svg'],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'PulseCrease — Live Cricket Intelligence',
     description: 'Every ball. Live.',
-    images: ['/icon.svg'],
   },
 };
 

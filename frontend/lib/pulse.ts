@@ -50,13 +50,24 @@ export function recentInningsBalls<T extends PulseBall>(newestFirst: T[], limit 
   return out.reverse();
 }
 
+/** Where the card says the innings stands, to check a window against. */
+export interface PulseInnings {
+  ballsBowled: number;
+  wickets: number;
+}
+
 export function matchPulse(
   window: PulseBall[],
   format: MatchFormat,
-  perOver: number
+  perOver: number,
+  innings?: PulseInnings
 ): PulseReading[] | null {
   const legal = window.filter(isLegal);
-  if (legal.length < MIN_BALLS) return null;
+  // A first feed frame can carry a few balls only; the meters wait for the full window the
+  // innings has (one ball of slack for a feed a delivery behind the card).
+  const need = innings ? Math.max(MIN_BALLS, Math.min(PULSE_WINDOW, innings.ballsBowled - 1)) : MIN_BALLS;
+  if (legal.length < need) return null;
+  if (innings && window.filter((b) => b.isWicket).length > innings.wickets) return null;
 
   const runs = window.reduce((sum, b) => sum + b.runs, 0);
   const rpo = (runs / legal.length) * perOver;

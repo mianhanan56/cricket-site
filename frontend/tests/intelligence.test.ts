@@ -131,6 +131,16 @@ describe('pulse', () => {
     assert.equal(by.wickets.figure, '1 wkt');
   });
 
+  it('waits for the window the innings has, and for wickets it can have lost', () => {
+    const seven = Array.from({ length: 7 }, (_, i) => ball(i, 1));
+    // A first feed frame with seven balls of an innings 60 balls old.
+    assert.equal(matchPulse(seven, 'T20', 6, { ballsBowled: 60, wickets: 2 }), null);
+    // Seven balls is the whole innings: that is the window.
+    assert.ok(matchPulse(seven, 'T20', 6, { ballsBowled: 7, wickets: 0 }));
+    const wickets = Array.from({ length: 18 }, (_, i) => ball(i, 0, { isWicket: i < 8 }));
+    assert.equal(matchPulse(wickets, 'T20', 6, { ballsBowled: 90, wickets: 5 }), null);
+  });
+
   it('counts the window in legal balls, so the label and the meters agree', () => {
     const newestFirst = Array.from({ length: 24 }, (_, i) => ball(23 - i, 1, i % 6 === 0 ? { extra: 'noball' } : {}));
     const window = recentInningsBalls(newestFirst);

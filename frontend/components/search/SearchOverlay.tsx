@@ -6,7 +6,7 @@ import { useCrexMatches } from '@/hooks/useCrexMatches';
 import { closeOverlay, openOverlay, useOverlay } from '@/lib/uiState';
 import {
   buildIndex,
-  loadRemoteIndex,
+  loadSearchIndex,
   querySearch,
   recentSearchStore,
   rememberSearch,
@@ -85,7 +85,7 @@ function SearchDialog() {
     inputRef.current?.focus();
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    loadRemoteIndex().then((data) => {
+    loadSearchIndex().then((data) => {
       setIndex(data);
       setIndexLoading(false);
     });

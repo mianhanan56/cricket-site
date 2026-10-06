@@ -105,8 +105,9 @@ export default async function SeriesStatPage({ params }: { params: { id: string;
   const kind = SLUGS[params.kind];
   if (!kind) notFound();
 
+  // An unknown series reads back as null; an outage throws to the error boundary.
   const [series, table] = await Promise.all([
-    getCrexSeriesSchedule(params.id, { revalidate: REVALIDATE }).catch(() => null),
+    getCrexSeriesSchedule(params.id, { revalidate: REVALIDATE }),
     getCrexSeriesStatTable(params.id, kind, { revalidate: REVALIDATE }).catch(() => null),
   ]);
 

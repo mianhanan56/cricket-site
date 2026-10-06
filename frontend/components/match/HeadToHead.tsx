@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import type { HeadToHead as H2H } from '@/types';
 import LocalTime from '../ui/LocalTime';
+import { meetingFormat } from '@/lib/seriesFormat';
 import styles from './HeadToHead.module.scss';
 import { venueText } from '@/lib/venue';
 
@@ -18,6 +19,14 @@ import { venueText } from '@/lib/venue';
  * identify is counted separately and printed, rather than being folded into the
  * draws — so "3–2 from 8 matches" never silently claims to be all eight.
  */
+/** The mark slot when nobody won: what happened instead. */
+function noWinnerMark(result: string): string {
+  if (/draw/i.test(result)) return 'Draw';
+  if (/\btie|tied/i.test(result)) return 'Tie';
+  if (/no result|abandon/i.test(result)) return 'NR';
+  return '—';
+}
+
 export default function HeadToHead({ record }: { record: H2H }) {
   const { home, away, played, homeWins, awayWins, drawn, unresolved, matches } = record;
 
@@ -66,7 +75,7 @@ export default function HeadToHead({ record }: { record: H2H }) {
           const body = (
             <>
               <span className={styles.mark} data-side={mark}>
-                {mark === 'N' ? '·' : mark === 'H' ? home.shortName : away.shortName}
+                {mark === 'N' ? noWinnerMark(m.result) : mark === 'H' ? home.shortName : away.shortName}
               </span>
               <span className={styles.meetingMain}>
                 <span className={styles.meetingResult}>{m.result}</span>
@@ -75,7 +84,7 @@ export default function HeadToHead({ record }: { record: H2H }) {
                   {` · ${venueText(m.venue)}`}
                 </span>
               </span>
-              <span className={styles.meetingFormat}>{m.format}</span>
+              <span className={styles.meetingFormat}>{meetingFormat(m)}</span>
             </>
           );
 

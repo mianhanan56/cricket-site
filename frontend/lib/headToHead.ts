@@ -84,6 +84,10 @@ export function headToHead(
       series: m.series.name,
       result: m.result ?? '',
       winnerKey: attributeResult(m.result, home, away).winnerKey,
+      sides: [
+        { id: m.homeTeam.id, shortName: m.homeTeam.shortName, name: m.homeTeam.name },
+        { id: m.awayTeam.id, shortName: m.awayTeam.shortName, name: m.awayTeam.name },
+      ],
     });
   }
 

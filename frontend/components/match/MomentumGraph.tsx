@@ -137,7 +137,7 @@ export default function MomentumGraph({
         )}
       </div>
 
-      <p className={`${styles.readout} ${readout ? styles[`ro_${readout.tone}`] : ''}`} aria-live="polite">
+      <p className={`${styles.readout} ${readout ? (styles[`ro_${readout.tone}`] ?? '') : ''}`} aria-live="polite">
         {readout?.text ?? summary}
       </p>
 

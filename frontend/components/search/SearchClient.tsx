@@ -8,7 +8,7 @@ import { searchMatches } from '@/lib/search';
 import { isAtStumps, isLiveNow } from '@/lib/matchState';
 import {
   buildIndex,
-  loadRemoteIndex,
+  loadSearchIndex,
   querySearch,
   type EntityType,
   type RemoteIndex,
@@ -66,7 +66,7 @@ export default function SearchClient() {
   useEffect(() => setQ(urlQuery), [urlQuery]);
 
   useEffect(() => {
-    loadRemoteIndex().then(setIndex);
+    loadSearchIndex().then(setIndex);
   }, []);
 
   useEffect(() => {

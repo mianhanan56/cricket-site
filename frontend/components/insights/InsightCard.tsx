@@ -19,6 +19,7 @@ import Ticker from '../live/Ticker';
 import LocalTime from '../ui/LocalTime';
 import styles from './InsightCard.module.scss';
 import { venueText } from '@/lib/venue';
+import { matchFormat } from '@/lib/seriesFormat';
 
 const CARD_INTERVAL_MS = 15_000;
 
@@ -56,7 +57,10 @@ export default function InsightCard({ match }: { match: Match }) {
 
   const pulseOn = started && inningsUnderway(state);
   const window = useMemo(() => recentInningsBalls(extras.commentary.map(toBallEntry)), [extras.commentary]);
-  const readings = useMemo(() => (pulseOn ? matchPulse(window, match.format, perOver) : null), [pulseOn, window, match.format, perOver]);
+  const readings = useMemo(
+    () => (pulseOn ? matchPulse(window, match.format, perOver, eq ? { ballsBowled: eq.ballsBowled, wickets: eq.innings.wickets } : undefined) : null),
+    [pulseOn, window, match.format, perOver, eq]
+  );
   const trace = useMemo(() => pulseTrace(window), [window]);
   const sentence = eq ? equationSentence(eq) : null;
   const tight = isChaseTight(eq);
@@ -65,7 +69,7 @@ export default function InsightCard({ match }: { match: Match }) {
     <article ref={ref} className={`${styles.card} ${styles[state.family] ?? ''}`}>
       <header className={styles.head}>
         <span className={styles.series}>
-          <span className={styles.format}>{match.format}</span>
+          <span className={styles.format}>{matchFormat(match)}</span>
           <span className={styles.seriesName}>{match.series.name}</span>
         </span>
         <StateChip state={state} />

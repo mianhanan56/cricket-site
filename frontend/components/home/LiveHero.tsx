@@ -24,6 +24,7 @@ import BallTimeline from '../live/BallTimeline';
 import Skeleton from '../ui/Skeleton';
 import styles from './LiveHero.module.scss';
 import { venueText } from '@/lib/venue';
+import { matchFormat } from '@/lib/seriesFormat';
 
 const HERO_INTERVAL_MS = 5_000;
 
@@ -54,8 +55,8 @@ export default function LiveHero({ match }: { match: Match }) {
   // A break inside the innings keeps the pulse; before the new innings' first ball it belongs to the last one.
   const pulseOn = inningsUnderway(state) && (eq?.ballsBowled ?? 0) > 0;
   const readings = useMemo(
-    () => (pulseOn ? matchPulse(window, match.format, perOver) : null),
-    [pulseOn, window, match.format, perOver],
+    () => (pulseOn ? matchPulse(window, match.format, perOver, eq ? { ballsBowled: eq.ballsBowled, wickets: eq.innings.wickets } : undefined) : null),
+    [pulseOn, window, match.format, perOver, eq],
   );
   const trace = useMemo(() => (pulseOn ? pulseTrace(window) : []), [pulseOn, window]);
   const groups = useMemo(() => {
@@ -85,7 +86,7 @@ export default function LiveHero({ match }: { match: Match }) {
           Live now
         </span>
         <span className={styles.context}>
-          <span className={styles.format}>{match.format}</span>
+          <span className={styles.format}>{matchFormat(match)}</span>
           <Link href={`/series/${match.series.id}`} className={styles.series}>
             {match.series.name}
           </Link>

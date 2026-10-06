@@ -7,6 +7,7 @@ import TeamBadge from '../ui/TeamBadge';
 import StateChip from '../live/StateChip';
 import Icon from '../ui/Icon';
 import styles from './ResultList.module.scss';
+import { matchFormat } from '@/lib/seriesFormat';
 
 function Side({ match, team, winner }: { match: Match; team: Team; winner: string | null }) {
   const score = formatTeamScore(inningsFor(match, team), match.format === 'TEST');
@@ -56,7 +57,7 @@ export default function ResultList({ matches }: { matches: Match[] }) {
                     </span>
                   )}
                   <span className={styles.series}>
-                    {m.format} · {m.series.name}
+                    {matchFormat(m)} · {m.series.name}
                   </span>
                 </span>
               </span>

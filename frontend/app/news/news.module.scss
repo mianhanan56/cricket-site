@@ -1,0 +1,31 @@
+@use 'component' as *;
+
+.page {
+  @include container;
+  @include page-end;
+}
+
+.list {
+  margin-top: $space-3;
+}
+
+.pager {
+  display: flex;
+  gap: $space-3;
+  margin-top: $space-8;
+}
+
+.pageLink {
+  @include button-secondary;
+  flex: 1;
+  gap: $space-1-5;
+
+  @include tablet {
+    flex: 0 0 auto;
+    min-width: 160px;
+  }
+}
+
+.older {
+  margin-left: auto;
+}

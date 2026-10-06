@@ -14,8 +14,10 @@ import {
 } from '../../../lib/crex';
 import { pickParam } from '../../../lib/queryParams';
 import { seriesFormatPhrase } from '../../../lib/seriesFormat';
+import { getTaggedNews } from '../../../lib/news';
 import PointsTable from '../../../components/series/PointsTable';
-import { LeaderFigure, SeriesLeadersBoard, rankedLeaders } from '../../../components/series/SeriesLeaders';
+import { rankedLeaders } from '../../../components/series/SeriesLeaders';
+import { LiveLeaderFigures, LiveLeadersBoard } from '../../../components/series/LiveLeaders';
 import SeriesTabs, { type SeriesTab } from '../../../components/series/SeriesTabs';
 import { ProgressRail, seriesSpan, seriesState } from '../../../components/series/SeriesCard';
 import UpcomingRail from '../../../components/home/UpcomingRail';
@@ -24,6 +26,7 @@ import StateChip from '../../../components/live/StateChip';
 import LiveSeriesTiles from '../../../components/series/LiveSeriesTiles';
 import SeriesMilestones, { MilestonesSkeleton } from '../../../components/series/SeriesMilestones';
 import FollowButton from '../../../components/follow/FollowButton';
+import { NewsGrid } from '../../../components/news/NewsList';
 import LocalTime from '../../../components/ui/LocalTime';
 import EmptyState from '../../../components/ui/EmptyState';
 import BackButton from '../../../components/ui/BackButton';
@@ -35,7 +38,7 @@ import styles from './seriesDetail.module.scss';
 const REVALIDATE = 300;
 const LIVE_REVALIDATE = 15;
 
-const TAB_KEYS = ['matches', 'table', 'stats'] as const;
+const TAB_KEYS = ['matches', 'table', 'stats', 'news'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 const UPCOMING_FIRST = 10;
@@ -134,17 +137,32 @@ export default async function SeriesDetailPage({
   params: { id: string };
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const [schedule, feed, table, leaders] = await Promise.all([
-    loadSchedule(params.id),
-    getCrexMatchList({ revalidate: LIVE_REVALIDATE }).catch(() => [] as Match[]),
+  const feedRead = getCrexMatchList({ revalidate: LIVE_REVALIDATE }).catch(() => [] as Match[]);
+  let scheduleError: unknown = null;
+  const [schedule, feed, table, leaders, news] = await Promise.all([
+    getCrexSeriesSchedule(params.id, { revalidate: REVALIDATE }).catch((err) => {
+      scheduleError = err;
+      return null;
+    }),
+    feedRead,
     // Empty for a bilateral tour; the standings section is then absent.
     getCrexSeriesTable(params.id, { revalidate: REVALIDATE }).catch(() => []),
-    getCrexSeriesLeaders(params.id, { revalidate: REVALIDATE }).catch(() => null),
+    // Leaders move by the ball while one of the series' matches is in play.
+    feedRead.then((list) =>
+      getCrexSeriesLeaders(params.id, {
+        revalidate: list.some((m) => m.series.id === params.id && m.status === 'LIVE') ? LIVE_REVALIDATE : REVALIDATE,
+      }).catch(() => null)
+    ),
+    getTaggedNews('series', params.id),
   ]);
 
   // Schedule endpoint down: fall back to the feed's narrower view before 404-ing.
   const base = schedule ?? seriesScheduleFromMatches(params.id, feed);
-  if (!base) notFound();
+  if (!base) {
+    // An unknown series reads back as null; a thrown read is an outage, not a 404.
+    if (scheduleError) throw scheduleError;
+    notFound();
+  }
 
   const series = withFeedStatuses(base, feed);
   const ref = { id: series.id, name: series.name };
@@ -178,6 +196,7 @@ export default async function SeriesDetailPage({
     { key: 'matches', label: 'Matches', count: series.matchCount },
     ...(table.length > 0 ? [{ key: 'table', label: 'Points table', count: table.length > 1 ? table.length : null }] : []),
     ...(shownLeaders.length > 0 ? [{ key: 'stats', label: 'Top performers' }] : []),
+    ...(news.length > 0 ? [{ key: 'news', label: 'News' }] : []),
   ];
 
   // A tab this series has no section for falls back rather than 404-ing.
@@ -294,11 +313,8 @@ export default async function SeriesDetailPage({
           )}
         </div>
 
-        {hasFigures && (
-          <div className={styles.figures}>
-            {topRuns && <LeaderFigure leader={topRuns} seriesId={series.id} />}
-            {topWickets && <LeaderFigure leader={topWickets} seriesId={series.id} />}
-          </div>
+        {hasFigures && leaders && (
+          <LiveLeaderFigures seriesId={series.id} initial={leaders} live={live.length > 0} className={styles.figures} />
         )}
       </section>
 
@@ -355,11 +371,18 @@ export default async function SeriesDetailPage({
       {tab === 'stats' && leaders && (
         <section>
           <SectionHead title="Top performers" level={3} />
-          <SeriesLeadersBoard leaders={leaders} seriesId={series.id}>
+          <LiveLeadersBoard seriesId={series.id} initial={leaders} live={live.length > 0}>
             <Suspense fallback={<MilestonesSkeleton />}>
               <SeriesMilestones seriesId={series.id} />
             </Suspense>
-          </SeriesLeadersBoard>
+          </LiveLeadersBoard>
+        </section>
+      )}
+
+      {tab === 'news' && (
+        <section>
+          <SectionHead title="News" count={news.length} level={3} />
+          <NewsGrid articles={news} />
         </section>
       )}
     </div>

@@ -10,6 +10,7 @@ import Countdown from '../live/Countdown';
 import StateChip from '../live/StateChip';
 import styles from './UpcomingRail.module.scss';
 import { venueText } from '@/lib/venue';
+import { matchFormat } from '@/lib/seriesFormat';
 
 function dayKeyIn(iso: string, zone: string): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
@@ -97,7 +98,7 @@ export default function UpcomingRail({
                         </span>
                       </span>
                       <span className={styles.meta}>
-                        <span className={styles.format}>{m.format}</span>
+                        <span className={styles.format}>{matchFormat(m)}</span>
                         <span className={styles.series}>{m.series.name}</span>
                         <span className={styles.venue}>{venueText(m.venue)}</span>
                       </span>

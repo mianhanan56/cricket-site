@@ -30,6 +30,8 @@ export interface ParamSpec {
   /** `int` only: inclusive bounds, for params that are a range rather than a set. */
   min?: number;
   max?: number;
+  /** `string` only: the whole value must match. Required for a param filled into the path. */
+  pattern?: RegExp;
 }
 
 export interface RouteDef {
@@ -37,7 +39,7 @@ export interface RouteDef {
   match: string;
   /** Which host in UPSTREAMS serves it. */
   base: UpstreamName;
-  /** Path appended to the upstream base. */
+  /** Path appended to the upstream base. `{name}` is filled from that param, which then leaves the query. */
   path: string;
   /** How the upstream wants to be called. */
   method: 'GET' | 'POST';
@@ -328,9 +330,8 @@ export const ROUTES: RouteDef[] = [
     base: 'stats',
     path: '/series/getSeriesOverview',
     method: 'POST',
-    // Leaders move when a match finishes, the same cadence as the table and the
-    // schedule this sits beside.
-    ttl: 300,
+    // Leaders and the tournament fours/sixes move by the ball while a match is on.
+    ttl: 30,
     params: {
       key: { type: 'string', required: true },
     },
@@ -451,7 +452,26 @@ export const ROUTES: RouteDef[] = [
       // to fill the edge with pages nobody will read again. Articles are read
       // from the front; sixty pages is far past where anyone stops.
       page: { type: 'int', default: 1, min: 1, max: 60 },
+      // Five is what crex sends when no limit is asked for.
+      limit: { type: 'int', default: 5, min: 1, max: 20 },
     },
+  },
+  {
+    // Articles tagged with one series (s), team (t) or player (p) — what crex's
+    // own team/series News tabs call. Headline cards only, no article body.
+    match: '/news/tagged',
+    base: 'news',
+    path: '/api/articles/filter/{type}_{key}',
+    method: 'GET',
+    ttl: 900,
+    params: {
+      type: { type: 'string', enum: ['s', 't', 'p'], required: true },
+      key: { type: 'string', required: true, pattern: /^[A-Za-z0-9]{1,12}$/ },
+      page: { type: 'int', default: 1, min: 1, max: 30 },
+      limit: { type: 'int', default: 12, min: 1, max: 20 },
+      content_lang: { type: 'string', enum: ['en'], default: 'en' },
+    },
+    note: 'News tagged with a team: /news/tagged?type=t&key=O',
   },
 ];
 
@@ -513,6 +533,9 @@ export function readParams(route: RouteDef, search: URLSearchParams): Record<str
     if (spec.enum && !spec.enum.includes(value)) {
       throw new ParamError(`Param '${name}' must be one of ${spec.enum.join(', ')}, got '${raw}'`);
     }
+    if (spec.pattern && !spec.pattern.test(raw)) {
+      throw new ParamError(`Param '${name}' has an invalid format, got '${raw}'`);
+    }
 
     out[name] = value;
   }
@@ -538,4 +561,18 @@ export function canonicalQuery(params: Record<string, ParamValue>): string {
     }
   }
   return qs.toString();
+}
+
+/** The upstream path with its `{name}` placeholders filled, and the query built from the params left over. */
+export function upstreamTarget(
+  route: RouteDef,
+  params: Record<string, ParamValue>
+): { path: string; query: string } {
+  const rest = { ...params };
+  const path = route.path.replace(/\{(\w+)\}/g, (_, name: string) => {
+    const value = rest[name];
+    delete rest[name];
+    return encodeURIComponent(String(value));
+  });
+  return { path, query: canonicalQuery(rest) };
 }

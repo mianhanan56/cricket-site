@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { Match } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
 import { useFixturesAhead } from '@/hooks/useFixturesAhead';
@@ -17,7 +17,7 @@ import {
 } from '@/lib/matchType';
 import type { HomeTab } from '@/lib/tabs';
 import { rankLive } from '@/lib/featured';
-import { isLiveNow } from '@/lib/matchState';
+import { isAtStumps, isLiveNow } from '@/lib/matchState';
 import { useFollows } from '@/lib/follows';
 import { seriesFromMatches } from '@/lib/crex';
 import { SeriesList } from '../series/SeriesFilter';
@@ -38,6 +38,7 @@ import styles from './HomeMatches.module.scss';
 
 const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const SERIES_PREVIEW = 4;
+const STAGE_GRACE_MS = 60_000;
 
 export interface HomeMatchesProps {
   /** Active tab from the URL; '' means none picked yet. */
@@ -58,7 +59,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
   const scoped = useMemo(() => filterByMatchType(matches, type), [matches, type]);
   const ahead = useFixturesAhead();
 
-  // The tab, its count, the ticker and the stage share one list; a Test at stumps is in All only.
+  // Ticker and stage: play that is on. The Live tab adds matches at stumps after them.
   const liveList = useMemo(
     () =>
       rankLive(
@@ -67,6 +68,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
       ),
     [scoped, follows.teams]
   );
+  const liveTab = useMemo(() => [...liveList, ...scoped.filter(isAtStumps)], [liveList, scoped]);
 
   // Schedule rows the feed has no copy of, up to the last one read — that day is only partly read.
   const missing = useMemo(() => {
@@ -91,8 +93,17 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
   }, [scoped, missing]);
 
   // The stage holds its match until the reader picks another or it stops being live: a re-rank
-  // (a break, a wicket elsewhere) must not swap the card being read.
-  const featured = liveList.find((m) => m.id === featuredId) ?? liveList[0] ?? null;
+  // (a break, a wicket elsewhere) must not swap the card being read. A poll that briefly
+  // leaves it out keeps the last copy rather than handing the stage to the next match.
+  const lastFeatured = useRef<{ match: Match; seen: number } | null>(null);
+  const pinnedGone = Boolean(featuredId) && !matches.some((m) => m.id === featuredId);
+  const held = lastFeatured.current;
+  const featured =
+    liveList.find((m) => m.id === featuredId) ??
+    (pinnedGone && held?.match.id === featuredId && Date.now() - held.seen < STAGE_GRACE_MS ? held.match : null) ??
+    liveList[0] ??
+    null;
+  if (featured && featured !== held?.match) lastFeatured.current = { match: featured, seen: Date.now() };
   if (featured && featured.id !== featuredId) setFeaturedId(featured.id);
 
   // With nothing live the page still has a job: the competitions under way.
@@ -102,16 +113,8 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
   );
   const seriesTotals = useSeriesTotals(ongoingSeries, matches);
 
-  const allList = useMemo(() => {
-    const rank: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
-    return [...scoped, ...missing].sort(
-      (a, b) =>
-        rank[a.status] - rank[b.status] ||
-        (a.status === 'UPCOMING'
-          ? +new Date(a.startTime) - +new Date(b.startTime)
-          : +new Date(b.startTime) - +new Date(a.startTime))
-    );
-  }, [scoped, missing]);
+  // Exactly the three tabs together, so their counts always add up to this one.
+  const allList = useMemo(() => [...liveTab, ...upcomingList, ...finishedList], [liveTab, upcomingList, finishedList]);
 
   // With no tab in the URL, open on what's happening: live if anything is, else what's next.
   // Fixed once the feed first answers, so a match ending doesn't pull the page to another tab.
@@ -175,7 +178,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
             label="Match status"
             value={tab}
             options={[
-              { value: 'live', label: 'Live', count: count(liveList.length), live: liveList.length > 0 },
+              { value: 'live', label: 'Live', count: count(liveTab.length), live: liveList.length > 0 },
               { value: 'upcoming', label: 'Upcoming', count: count(upcomingList.length) },
               { value: 'finished', label: 'Results', count: count(finishedList.length) },
               { value: 'all', label: 'All', count: count(allList.length) },
@@ -189,9 +192,9 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
         {(isLoading || error) && !hasData ? (
           <BoardSkeleton />
         ) : tab === 'live' ? (
-          liveList.length ? (
+          liveTab.length ? (
             <div className={styles.grid}>
-              {liveList.map((m) => (
+              {liveTab.map((m) => (
                 <MatchTile key={m.id} match={m} />
               ))}
             </div>

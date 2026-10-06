@@ -28,8 +28,7 @@ const ROLE_LABELS: Record<PlayerRole, string> = {
 };
 
 // Batter stays neutral — colouring the majority of the list would say nothing.
-const ROLE_CLASS: Record<PlayerRole, string> = {
-  BATSMAN: styles.roleBatter,
+const ROLE_CLASS: Partial<Record<PlayerRole, string>> = {
   BOWLER: styles.roleBowler,
   ALL_ROUNDER: styles.roleAllRounder,
   WK: styles.roleKeeper,
@@ -97,7 +96,7 @@ function SquadColumn({ team, players }: { team: Team; players: SquadPlayer[] }) 
                 </abbr>
               )}
             </span>
-            {p.role && <span className={`${styles.role} ${ROLE_CLASS[p.role]}`}>{ROLE_LABELS[p.role]}</span>}
+            {p.role && <span className={`${styles.role} ${ROLE_CLASS[p.role] ?? ''}`}>{ROLE_LABELS[p.role]}</span>}
           </li>
         ))}
       </ul>

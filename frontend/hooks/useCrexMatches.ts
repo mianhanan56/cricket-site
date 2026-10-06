@@ -23,6 +23,7 @@ import {
 } from '@/lib/crex';
 import type { CrexFeedRow, CrexMatchesResponse, CrexScorecardBody, StoppageWatch } from '@/lib/crex';
 import { keepNewest } from '@/lib/liveScore';
+import { dedupeDeliveries } from '@/lib/balls';
 import { applyMatchesFrame, mergeFeedItems, type FrameVerdict, type LiveFrame } from '@/lib/live/frames';
 import { isTopicLive, onLiveChange, onLiveResync, subscribeLive } from '@/lib/live/socket';
 
@@ -464,7 +465,7 @@ export function useCrexMatchExtras(
       setInnings(card);
     };
     const takeFeed = (feed: Pick<UseCrexMatchExtrasResult, 'commentary' | 'events' | 'overs'>) => {
-      setCommentary((prev) => mergeFeedItems(prev, feed.commentary, FEED_CAP.balls));
+      setCommentary((prev) => dedupeDeliveries(mergeFeedItems(prev, feed.commentary, FEED_CAP.balls)));
       setEvents((prev) => mergeFeedItems(prev, feed.events, FEED_CAP.events));
       setOvers((prev) => mergeFeedItems(prev, feed.overs, FEED_CAP.overs));
       setFetchedAt(Date.now());

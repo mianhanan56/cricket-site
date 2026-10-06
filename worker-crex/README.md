@@ -54,7 +54,8 @@ cacheable and the frontend stays simple.
 | `/rankings` | `POST oc /ranking/rankingFront` | 1h | `category` 0=test 1=odi 2=t20, `gender` 0=men 1=women, `play` |
 | `/mapping` | `POST oc /mapping/getHomeMapData` | 6h | `t` teams, `v` venues, `s` series, `p` players, `u` umpires — comma-separated keys |
 | `/fixtures` | `POST stats /fixture/getFixture` | 5m | `wise` 1=date 2=series 3=team, `page` (negative = past), `gender`, `format`, `level` — see below |
-| `/news/topics` | `GET news /api/articlesOC/topics` | 15m | `page` |
+| `/news/topics` | `GET news /api/articlesOC/topics` | 15m | `page`, `limit` (default 5, max 20) — latest articles with full body, keyed tags |
+| `/news/tagged` | `GET news /api/articles/filter/{type}_{key}` | 15m | `type` s/t/p, `key` f_key, `page`, `limit` (default 12) — headline cards for one series/team/player |
 | `/rankings/players` | `POST oc /ranking/getRanking` | 1h | `category`, `play`, `type`, `gender`, `page` — **strings**, see below |
 | `/match/info` | `GET php /getIV4` | 5m | `key` — match f_key. Pre-match squads, captain/keeper, broadcast, weather |
 | `/player/overview` | `POST stats /player/getPlayerOverview` | 1h | `key` — player f_key. Profile, career stats, recent form — see below |
@@ -62,7 +63,7 @@ cacheable and the frontend stays simple.
 | `/series/matches` | `POST oc /seriesInside/getMatchForSeriesID` | 5m | `key` — series f_key. Every match in the series, by date |
 | `/series/table` | `POST oc /seriesInside/getPTableForSeriesID` | 5m | `key` — series f_key. Standings, one entry per group — see below |
 | `/series/squads` | `POST oc /seriesInside/getSqaudForSeriesID` | 1h | `key` — series f_key. Squads by team, players as f_keys |
-| `/series/overview` | `POST stats /series/getSeriesOverview` | 5m | `key` — series f_key. Series overview; `i4` holds the tournament leaders — see below |
+| `/series/overview` | `POST stats /series/getSeriesOverview` | 30s | `key` — series f_key. Series overview; `i4` holds the tournament leaders — see below |
 | `/team/matches` | `POST oc /teamInside/getMatchForTeamID` | 5m | `key` — team f_key. The team's fixtures, grouped by series |
 
 Params are typed and enum-bounded. Unknown params (`utm_source` and friends) are
@@ -402,9 +403,10 @@ map. The frontend client in
 [`frontend/lib/crex.ts`](../frontend/lib/crex.ts) caches resolved names for the
 life of the process and only asks for keys it has not seen.
 
-**`/news/topics` is slow and enormous** — ~620 KB and up to 25s on a cold fetch.
-The 15-minute TTL hides it from most users, but the first request after a deploy
-will feel it. Consider trimming the payload in the Worker if you actually use it.
+**`/news/topics` carries every article's full HTML body** — ~10 KB an article (120 KB at
+`limit=12`), ~2.5s cold. The frontend only reads it server-side, behind the 15-minute TTL.
+`/news/tagged` is headline cards only (~13 KB for 12). crex also has `/api/articlesoc/matchId/{id}`
+(numeric match id, ~1.3 MB) and `/api/home/{section}` (section 0 = news); neither is wired.
 
 **The response format is obfuscated.** crex ships single-letter keys — `t1Sname`,
 `wp`, `flb`, `dt_id`. `/matches/live` is passed through unchanged rather than

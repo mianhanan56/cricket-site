@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { HeadToHeadMatch, PlayerRole, SquadPlayer, TeamProfile, TeamRankingPosition } from '@/types';
@@ -10,19 +11,22 @@ import { SectionHead } from '../../../components/ui/Section';
 import TeamUpcoming from './TeamUpcoming';
 import TeamResults from './TeamResults';
 import FollowButton from '../../../components/follow/FollowButton';
+import { TaggedNews } from '../../../components/news/NewsList';
 import styles from './team.module.scss';
 import { venueText } from '@/lib/venue';
+import { meetingFormat } from '@/lib/seriesFormat';
 
 // Per-fetch freshness rather than page-level `revalidate`: ISR would cache the
 // notFound() path too, serving an unknown key as a soft 404.
 const REVALIDATE = 1800;
 
+// null only for a team crex doesn't know; an outage throws to the error boundary rather than a 404.
 async function loadTeam(key: string): Promise<TeamProfile | null> {
-  return getCrexTeamProfile(key, { revalidate: REVALIDATE }).catch(() => null);
+  return getCrexTeamProfile(key, { revalidate: REVALIDATE });
 }
 
 export async function generateMetadata({ params }: { params: { key: string } }) {
-  const profile = await loadTeam(params.key);
+  const profile = await loadTeam(params.key).catch(() => null);
   if (!profile) return { title: 'Team' };
 
   const { team, rankings, upcoming } = profile;
@@ -117,7 +121,7 @@ function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string
         <span className={styles.resultMeta}>
           {opponent && <span className={styles.opponent}>v {opponent.shortName}</span>}
           <LocalTime iso={match.startTime} format="date" />
-          <span className={styles.fmt}>{match.format}</span>
+          <span className={styles.fmt}>{meetingFormat(match)}</span>
           <span className={styles.series}>{match.series}</span>
           <span className={styles.venue}>{venueText(match.venue)}</span>
         </span>
@@ -268,6 +272,10 @@ export default async function TeamPage({ params }: { params: { key: string } }) 
           </div>
         </section>
       )}
+
+      <Suspense fallback={null}>
+        <TaggedNews kind="team" id={team.id} className={styles.section} />
+      </Suspense>
 
       {!upcoming.length && !recent.length && !squad.length && (
         <EmptyState

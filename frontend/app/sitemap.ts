@@ -22,7 +22,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/series',
     '/fixtures',
     '/rankings',
-    '/search',
+    '/teams',
+    '/players',
+    '/insights',
+    '/news',
   ].map((p) => ({
     url: `${SITE}${p}`,
     lastModified: new Date(),

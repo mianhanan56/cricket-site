@@ -30,14 +30,11 @@ export default function PreStart({ match, state }: { match: Match; state: MatchS
   ].filter((f): f is { label: string; value: string; note?: string | null } => Boolean(f));
 
   return (
-    <section className={mc.block} aria-labelledby="prestart-title">
-      <div className={mc.blockHead}>
-        <h2 id="prestart-title" className={mc.blockTitle}>
-          Before the first ball
-        </h2>
-      </div>
+    <section className={mc.block} aria-labelledby="prestart-status">
       <div className={`${mc.surface} ${styles.card}`}>
-        <p className={`${styles.status} ${styles[state.family] ?? ''}`}>{status}</p>
+        <p id="prestart-status" className={`${styles.status} ${styles[state.family] ?? ''}`}>
+          {status}
+        </p>
         <p className={styles.when}>
           <LocalTime iso={match.startTime} format="dayTime" />
           {state.family === 'upcoming' && <Countdown iso={match.startTime} className={styles.count} />}

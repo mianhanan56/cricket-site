@@ -8,7 +8,7 @@ import type {
   PlayerProfile,
   PlayerRanking,
 } from '@/types';
-import { getCrexPlayerProfile, teamLogoUrl } from '@/lib/crex';
+import { getCrexPlayerProfile, isRejectedRequest, teamLogoUrl, withFreshForm } from '@/lib/crex';
 import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
 import PlayerPortrait from '@/components/player/PlayerPortrait';
 import TableScroll from '@/components/ui/TableScroll';
@@ -18,18 +18,23 @@ import FollowButton from '@/components/follow/FollowButton';
 import PlayerSeriesSection, { PlayerSeriesSkeleton } from '@/components/player/PlayerSeriesSection';
 import { isSeriesFormatKey, seriesFormatOptions } from '@/lib/playerSeries';
 import { SectionHead } from '@/components/ui/Section';
+import { TaggedNews } from '@/components/news/NewsList';
 import { RANKINGS_FORMAT_KEYS, type RankingsFormat } from '@/lib/tabs';
 import styles from './player.module.scss';
 
 // Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
 const REVALIDATE = 3600;
 
+// crex refuses an unknown player key with a 400, so that is the 404; an outage throws to the error boundary.
 async function loadPlayer(id: string): Promise<PlayerProfile | null> {
-  return getCrexPlayerProfile(id, { revalidate: REVALIDATE }).catch(() => null);
+  return getCrexPlayerProfile(id, { revalidate: REVALIDATE }).catch((err) => {
+    if (isRejectedRequest(err)) return null;
+    throw err;
+  });
 }
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
-  const player = await loadPlayer(params.id);
+  const player = await loadPlayer(params.id).catch(() => null);
   if (!player) return { title: 'Player' };
 
   const bat = [...player.batting].sort((a, b) => b.runs - a.runs)[0];
@@ -349,8 +354,9 @@ export default async function PlayerPage({
   params: { id: string };
   searchParams: { series?: string | string[]; format?: string | string[] };
 }) {
-  const player = await loadPlayer(params.id);
-  if (!player) notFound();
+  const profile = await loadPlayer(params.id);
+  if (!profile) notFound();
+  const player = await withFreshForm(profile);
 
   const wantFormat = one(searchParams.format);
   const seriesFormat =
@@ -544,6 +550,10 @@ export default async function PlayerPage({
           )}
         </aside>
       </div>
+
+      <Suspense fallback={null}>
+        <TaggedNews kind="player" id={player.id} className={styles.news} />
+      </Suspense>
     </div>
   );
 }

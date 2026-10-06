@@ -1,6 +1,6 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-10-02
+Last updated: 2026-10-06
 
 ## Current milestone
 
@@ -69,13 +69,44 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Stumps out of every live surface together; breaks/delays stay Live. Verified live (ROI v J&K at Day 2 stumps): Home Live 1 / All 55 (Domestic 1/40, International 0/15), ROI absent from Live, strip, stage and Insights, present in All with a Stumps chip; `?tab=live` direct load the same; search shows a Stumps section. Match centre: "Stumps · Day 2 / Day 3 starts Sat 3 Oct, 9:00 am" (UTC+5 reader), no tab dot or batting mark; 320–1280 no overlap.
 - Not observable today, covered by logic/tests: Day 3 first ball (note clears on a moving score), the match finishing, lunch/tea/rain staying Live (unit tests).
 
+## Recently completed (uncommitted, 2026-10-06, user bug report)
+
+- Home tabs add up (Live 5 + Upcoming 39 + Results 13 = All 57 on 2026-10-06; three Stumps matches on Live).
+- Live Worker routes never served from the service worker cache.
+- Player recent form current for today's match (re-read from the scorecard).
+- Leaders on the match Stats tab and series page refresh every 30s while live (checked: second read at ~30s).
+- Commentary dedupe per delivery; partnership not "Unbroken" once a batter is out; points table form consistent with its counts (2IB: contradicting form now "—").
+- Search: McSweeney found from the live AUS-A v IND-A card; "Pakistan" → Pakistan, Pakistan Women, Pakistan U19-Women.
+- Info tab: no empty ground block. Header: no overlap at 320–440 (codes no longer wrap). "Multi-day" for non-Test multi-day matches; Women's U19 Tri-Series under International.
+- Match tab in URL (`?tab=scorecard` opens Scorecard, switching writes `?tab=info`); short tab leaves footer in view with the rail still stuck.
+- "1 team"; H2H draw reads "Draw"; initials placeholder while crests load (verified with crest requests held); pulse hidden until the window is complete.
+- PNG share image (1200×630), apple-touch-icon (180), manifest icons (192/512); sitemap fixed.
+- Verified on a production build from an isolated copy (:3006, CDP Chrome): 11 routes × 320/390/1280 no overflow, no `undefined` classes.
+
+## Recently completed (uncommitted, 2026-10-06, news)
+
+- `/news` page (12 per page, Newer/Older), News in header, phone More sheet, footer and sitemap.
+- News section on team and player pages; News tab on series pages (when there are articles).
+- Worker: `/news/tagged` route (crex `/api/articles/filter/{s|t|p}_{key}`), `{param}` path placeholders with a `pattern` check, `limit` on `/news/topics`.
+- Match Live tab before the first ball: "Before the first ball" heading removed (user request); the status line labels the section.
+- Verified against a local Worker (`wrangler dev`) and a scratch `next dev` at 390/820/1280: /news, /news?page=2, /teams/O, /series/2FZ?tab=news, /players/B1. Decoder checked against live payloads (scratch tests, not kept).
+
+## Recently completed (uncommitted, 2026-10-06, pre-launch QA)
+
+- Local QA: 41 routes × 320/768/1280 dark + 390 light (164 loads, CDP Chrome) against a local Worker, then a final 82-load pass — no overflow, broken images, exceptions or `undefined` classes.
+- Fixed: match Info squads rendered `class="… undefined"` for batters (`InfoPanel` role map); momentum readout guarded the same way.
+- Fixed: match pages had no `<h1>` — a visually hidden one names the match ("West Indies vs India, 1st T20").
+- Fixed: a Worker/crex outage made team, player, venue, series and series-stat pages a noindex 404. Now only an unknown id 404s (`isRejectedRequest` in `lib/crex.ts` reads crex's status out of the Worker's 502); an outage shows the error boundary. Pages with data in Next's cache keep rendering it.
+- Fixed: error-boundary Retry only called `reset()`, which re-renders the failed server payload; `hooks/useErrorRetry` refreshes first (verified: Worker down → error → Worker up → Retry → page).
+- News: `?page=0`/`abc` redirect to /news, past 60 → 404; page titles carry the page number; keyboard focus rings the whole card.
+
 ## Pending
 
 See TODO.md.
 
 ## Testing status
 
-- `npm test` (frontend): **132/132 pass** (2026-10-02; +4 for T10 decoding, legal-ball pulse window, key-moment scores and surname dedupe).
+- `npm test` (frontend): **140/140 pass** (2026-10-06; +5: broken stand, pulse window/wickets, delivery dedupe ×2, format/category labels; scorecard fixtures given a consistent last stand).
 - Data-consistency fixes verified on a production build from an isolated copy against live data (2026-10-02): Home Live 3 = ticker 3 (ROI v J&K shows "Stumps"); Home Today 4 = Fixtures Today 4 (same rows); Home series cards equal /series (WI tour 27 Sept → 17 Oct, 2/8); Teams Men 12 incl. Ireland; 14MJ header "17th T10"; pulse "3 in 8 · Last 8 balls"; 360px clean on Home and Test team rankings.
 - Series performance: decoded/summed figures equal crex's own totals on 471 series×format groups (36 players incl. Tests, The Hundred, county); 320–1280px no overflow; select → format → load older → match → Back → reload flow verified (2026-10-02).
 - `tsc --noEmit`: frontend clean, worker clean (2026-10-02). Lint clean.
@@ -83,7 +114,7 @@ See TODO.md.
 
 ## Build status
 
-Production `next build` passes from an isolated copy with no warnings (2026-10-02, after the code-quality pass).
+Production `next build` passes from an isolated copy (2026-10-06, incl. `/news` and the pre-launch QA fixes).
 
 ## Deployment status
 

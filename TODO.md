@@ -1,11 +1,14 @@
 # TODO — PulseCrease
 
-Last updated: 2026-10-02
+Last updated: 2026-10-06
 
 UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before any fix.
 
 | Priority | Status | Task | Notes |
 | --- | --- | --- | --- |
+| High | Pending | Unknown match/team/player/series/venue URLs answer 200 (with `noindex`) | Root and route `loading.tsx` stream the shell before `notFound()`. A real 404 means dropping those loading boundaries for detail routes (navigation then waits on the server with no skeleton) or a middleware existence check (extra Worker call per document request). User to choose. |
+| High | Pending | Deploy the Worker for `/series/overview` TTL 30s | Leaders lagged up to ~10 min (edge 5m + ISR 5m). Frontend side is done; edge TTL needs `npm run deploy`. |
+| Low | Pending | Points table form for multi-format tours | crex's `rf` mixes formats/series; rows whose counts can't account for it now show "—". Deriving form from the series schedule would show the real results. |
 | High | Pending | Deploy the Worker for player series performance (`cd worker-crex && npm run deploy`) | Adds `/player/matches`. Until deployed, the player page omits the section (verified). |
 | Low | Pending | Format filter "Test" on player series includes first-class (County Championship) | crex files both under `ft=3`; their own filter does the same. Group chip reads "First class". Decide whether to split. |
 | High | Done | Scorecard batting/bowling tables clipped on phones | `matchCenter.module.scss` `.tableWrap` is `overflow: hidden`; batting table 426px in a 326px box at 360 (6s/SR unreachable up to 414px). Needs `overflow-x: auto` + scroll cue, or a phone column set. |
@@ -14,7 +17,7 @@ UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before 
 | High | Done | Insights card score clipped on phones | `InsightCard` score box sits flush with the card edge; "176/6" renders as "176/(" at 360. |
 | High | Done | Team page results: no opponent, no score; "6 of 20" / "8 of 9" with no way to see the rest | `app/teams/[key]/page.tsx` (`RESULTS_SHOWN = 8`). Venue results rows have the same gap. |
 | Low | Pending | Commentary over cards tone a six off a no ball as an extra | Tokens are normalised to "nb+6" (2026-10-02); `overTone` reads the leading digit, the ball strip reads `batRuns`. Over cards carry tokens only. |
-| Medium | Pending | Match tab not in URL | Reload/back/share returns to Summary. Series tabs already use `?tab=`. |
+| Medium | Done | Match tab not in URL | `?tab=` since 2026-10-06. |
 | Medium | Pending | No `h1` on match pages and the 404 page; 404 uses the generic site title | |
 | Medium | Pending | Status terminology drift | Same match: "DELAYED"/"RAIN DELAY" on home, "LIVE" in search; series "Live now" includes toss-delayed games; "No Result"/"No result"; "ABANDONED" chip + "Match Abandoned". |
 | Medium | Pending | Alert label drift | "Player scores 50" (form) → "Fifty reached" (saved card); "Close chase" vs "Chase gets tight"; "Six" vs "Six is hit". |
@@ -33,15 +36,16 @@ UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before 
 | Medium | Pending | Upcoming match pages show empty Scorecard/Commentary tabs before Preview | e.g. `/matches/fx-2MQ-51653`. Same fixture shows a venue on /fixtures but "Venue TBD" on the match page. |
 | Medium | Pending | Touch targets under 32px | Segmented options 28px, series match nodes 30px, graph wicket markers 22px, name-only row links 20–23px. |
 | Medium | Pending | Desktop person icon opens a menu with only My Cricket + Alerts | Reads as sign-in/account. |
-| Low | Pending | Polish list from the audit | Toss shown 3× with different wording; match-graph summary repeats legend; 10px labels; unlabelled rankings gap; search double focus ring; empty "Mark all read"; blank logo squares; orphan "= 5" over label. |
+| Low | Pending | Polish list from the audit | Toss shown 3× with different wording; match-graph summary repeats legend; 10px labels; unlabelled rankings gap; search double focus ring; empty "Mark all read"; orphan "= 5" over label. (Blank logo squares fixed 2026-10-06.) |
 | Low | Pending | Tighten the socket-connecting window | Entering a page while the socket (re)connects can cost one extra 2s fallback poll before the snapshot lands. |
 | Medium | Pending | Stop tracking `frontend/public/swe-worker-*.js` | Build output is committed despite `.gitignore`; needs `git rm --cached` (user commits). |
 | Low | Pending | Remove `CRICKET_WORKER_URL` from `frontend/.env` | Last CricLive leftover (docs/comments cleaned 2026-10-02). Nothing reads it. |
 | Low | Pending | Refresh `frontend/data/rankings.json` fallback and bump `asOf` | Only used when crex is unreachable. |
 | Low | Pending | Confirm BackButton spacing | Was decided by stylesheet order (production: venue/stats 0px, player/series 16px). Now deterministic as authored: venue/series/stats 0, player 8px, others 16px. Change the page `.back` rules if 16px everywhere is wanted. |
 | High | Pending | Redeploy the frontend so robots.txt / sitemap.xml / metadata stop naming localhost | Production serves `Sitemap: http://localhost:3005/sitemap.xml` (seen 2026-10-02). Fixed in `lib/site.ts` (falls back to Vercel's production domain); setting `NEXT_PUBLIC_SITE_URL` on Vercel also works. |
-| Medium | Pending | Deploy the Worker (`cd worker-crex && npm run deploy`) for upstream-failure logging and the hub's topic guard | Code-only change; no new routes or migrations. |
+| High | Pending | Deploy the Worker (`cd worker-crex && npm run deploy`) | Adds `/news/tagged` (team/series/player news is hidden until then) and `limit` on `/news/topics` (/news shows 5 per page until then), plus `/player/matches`, upstream-failure logging and the hub's topic guard. |
 | Medium | Pending | Series stat tables use 6-ball overs/economy for The Hundred | `seriesStatRows` (`lib/crex.ts`) fetches cards without `ballsPerOver` and divides by 6; the scorecard and player Series performance use 5. `SeriesScheduleMatch` has no `ballsPerOver`, and what an "Overs" column should show for The Hundred is a product call. |
 | Medium | Pending | Two lockfiles in `frontend/` (`package-lock.json` and `yarn.lock`) | Vercel picks the installer from the lockfile; keep one (`vercel.json` runs `npm run build`, so npm). |
-| Low | Pending | `/news/topics` Worker route is unused by the frontend | Kept (public Worker API, slow 620 KB payload). Remove from `routes.ts`, README and `probe.sh` if not planned. |
+| Medium | Pending | News on the match page | crex has a match News tab. `/api/articlesoc/matchId/{id}` needs crex's numeric match id (not the f_key) and returns ~1.3 MB, so not wired; series news is the cheap stand-in. |
+| Medium | Pending | Stats Corner (cross-series records) | crex filters records by series/team/venue/format/year. `/oc/getTopRecords` is in their bundle, payload not worked out. |
 | Low | Pending | Consider splitting `frontend/lib/crex.ts` (~5.1k lines) by domain | Match / series / player / team / fixtures. Not urgent. |

@@ -72,10 +72,10 @@ export default function MyCricketView() {
           total > 0 ? (
             <div className={styles.counts}>
               <span>
-                <strong>{follows.teams.length}</strong> teams
+                <strong>{follows.teams.length}</strong> {follows.teams.length === 1 ? 'team' : 'teams'}
               </span>
               <span>
-                <strong>{follows.players.length}</strong> players
+                <strong>{follows.players.length}</strong> {follows.players.length === 1 ? 'player' : 'players'}
               </span>
               <span>
                 <strong>{follows.series.length}</strong> series

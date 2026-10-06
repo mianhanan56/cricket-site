@@ -11,6 +11,15 @@
   overflow: hidden;
 }
 
+// The initials and the crest share one cell while the crest loads.
+.badge > * {
+  grid-area: 1 / 1;
+}
+
+.pending {
+  opacity: 0;
+}
+
 .xs {
   --size: 20px;
 }
@@ -34,12 +43,12 @@
 .crest {
   background: color-mix(in oklab, white 92%, var(--surface));
   border: 1px solid $line;
+}
 
-  img {
-    width: 78%;
-    height: 78%;
-    object-fit: contain;
-  }
+.badge img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
 }
 
 .initials {
