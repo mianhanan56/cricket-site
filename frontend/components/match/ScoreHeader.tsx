@@ -19,7 +19,10 @@ import styles from './ScoreHeader.module.scss';
 import { venueText } from '@/lib/venue';
 
 export interface ScoreParts {
+  /** The latest innings: "24/1". */
   runs: string;
+  /** A Test side's earlier innings, "237"; null until it bats again. */
+  earlier: string | null;
   overs: string;
 }
 
@@ -43,7 +46,7 @@ function Side({
   align: 'left' | 'right';
 }) {
   return (
-    <div className={`${styles.side} ${styles[align]} ${batting ? styles.batting : ''} ${dim ? styles.dim : ''}`}>
+    <div className={`${styles.side} ${styles[align] ?? ''} ${batting ? styles.batting : ''} ${dim ? styles.dim : ''}`}>
       <Link href={`/teams/${team.id}`} className={styles.team}>
         <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="md" />
         <span className={styles.teamName}>
@@ -54,6 +57,7 @@ function Side({
       </Link>
       {score ? (
         <span className={styles.score}>
+          {score.earlier && <span className={styles.prior}>{score.earlier} &amp; </span>}
           <Ticker value={score.runs} />
         </span>
       ) : (
@@ -79,6 +83,7 @@ export default function ScoreHeader({
   connecting,
   interrupted = false,
   perOver,
+  nextPlay = null,
 }: {
   match: Match;
   state: MatchStateView;
@@ -95,6 +100,8 @@ export default function ScoreHeader({
   /** Neither the API nor the live socket is answering. */
   interrupted?: boolean;
   perOver: number;
+  /** When the next day starts, from match info; shown at stumps. */
+  nextPlay?: string | null;
 }) {
   const live = match.status === 'LIVE';
   const sentence = eq && state.alive ? equationSentence(eq) : null;
@@ -105,11 +112,13 @@ export default function ScoreHeader({
 
   const meta = [
     match.matchNumber ? `${ordinal(match.matchNumber)} ${MATCH_FORMAT_LABEL[match.format]}` : match.format,
-    live && match.day && match.day > 1 ? `Day ${match.day}` : null,
+    live && match.day && match.day > 1 && state.key !== 'STUMPS' ? `Day ${match.day}` : null,
   ].filter(Boolean);
+  const stumpsDay = state.key === 'STUMPS' && match.day ? match.day : null;
+  const resumes = stumpsDay && nextPlay && +new Date(nextPlay) > Date.now() ? nextPlay : null;
 
   return (
-    <header className={`${styles.header} ${styles[state.family]}`}>
+    <header className={`${styles.header} ${styles[state.family] ?? ''}`}>
       <div className={styles.grid} aria-hidden="true" />
 
       <div className={styles.top}>
@@ -157,7 +166,12 @@ export default function ScoreHeader({
             </div>
           ) : live && !state.alive ? (
             <div className={styles.pause} role="status">
-              <span className={styles.pauseLabel}>{state.label}</span>
+              <span className={styles.pauseLabel}>{stumpsDay ? `${state.label} · Day ${stumpsDay}` : state.label}</span>
+              {resumes && stumpsDay && (
+                <span className={styles.resumes}>
+                  Day {stumpsDay + 1} starts <LocalTime iso={resumes} format="dayTime" />
+                </span>
+              )}
               {lastBall && (
                 <span className={styles.lastBallAt}>
                   <span className={styles.lastBallLabel}>Last ball</span> {ballPosition(lastBall, perOver)}
@@ -168,7 +182,7 @@ export default function ScoreHeader({
             <div className={styles.lastBall}>
               <span
                 key={lastBall.id}
-                className={`${styles.impact} ${styles[`k_${kind}`]} ${shortLabel(lastBall).length > 2 ? styles.long : ''}`}
+                className={`${styles.impact} ${styles[`k_${kind}`] ?? ''} ${shortLabel(lastBall).length > 2 ? styles.long : ''}`}
                 aria-label={`Last ball: ${runsLabel(lastBall)}`}
               >
                 {shortLabel(lastBall)}

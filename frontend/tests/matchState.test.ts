@@ -20,10 +20,12 @@ import {
   clearResumedStoppages,
   decodeMatchNote,
   isStaleStoppage,
+  toMatchFormat,
   toMatchStatus,
   type CrexRawMatch,
   type StoppageWatch,
 } from '../lib/crex';
+import { isAtStumps, isLiveNow } from '../lib/matchState';
 import type { InningsScore, Match, MatchNote, Team } from '../types';
 
 // --- fixtures ---------------------------------------------------------------
@@ -400,5 +402,40 @@ describe('the raw feed', () => {
 
     assert.equal(note?.kind, 'TOSS');
     assert.notEqual(note?.preToss, true);
+  });
+});
+
+describe('format', () => {
+  it('reads a bare T10 off the format slot in n, and The Hundred off hb', () => {
+    assert.equal(toMatchFormat({ n: 7 } as CrexRawMatch), 'T10');
+    assert.equal(toMatchFormat({ n: 7, hb: 5 } as CrexRawMatch), 'T20');
+    assert.equal(toMatchFormat({ fo: 'T10', n: 4 } as CrexRawMatch), 'T10');
+    assert.equal(toMatchFormat({ fo: 'T20', n: 4 } as CrexRawMatch), 'T20');
+  });
+});
+
+describe('what counts as live', () => {
+  const test = (status: Match['status'], note: MatchNote | null): Match => ({
+    id: 'T1',
+    homeTeam: team('A', 'ROI'),
+    awayTeam: team('B', 'J&K'),
+    series: { id: 'S', name: 'Irani Cup' },
+    format: 'TEST',
+    status,
+    venue: 'Ground',
+    startTime: '2026-10-01T04:00:00.000Z',
+    note,
+  });
+
+  it('takes a Test at stumps out of Live, and only that', () => {
+    assert.equal(isLiveNow(test('LIVE', stumps)), false);
+    assert.equal(isAtStumps(test('LIVE', stumps)), true);
+    for (const note of [null, lunch, inningsBreak, rain]) assert.equal(isLiveNow(test('LIVE', note)), true);
+  });
+
+  it('never counts a finished or unstarted match', () => {
+    assert.equal(isLiveNow(test('COMPLETED', null)), false);
+    assert.equal(isAtStumps(test('COMPLETED', stumps)), false);
+    assert.equal(isLiveNow(test('UPCOMING', null)), false);
   });
 });

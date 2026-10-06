@@ -38,6 +38,7 @@ import { FALLBACK_RANKINGS, type RankingsPayload } from '@/data/rankings';
 import {
   getCrexMapping,
   getCrexRankingList,
+  getCrexTeamRankingList,
   getCrexTeamRankings,
   teamLogoUrl,
   type CrexMapping,
@@ -170,6 +171,9 @@ function toTeamRankingsData(payload: RankingsPayload): TeamRankingsData {
 /** How many rows each list is trimmed to. crex returns ~100; the page shows 10. */
 const TOP_N = 10;
 
+/** Test lists are kept whole: they only hold the twelve Test nations, and the teams directory is built from them. */
+const teamRowsShown = <T,>(crexFormat: string, rows: T[]): T[] => (crexFormat === 'test' ? rows : rows.slice(0, TOP_N));
+
 interface Combo {
   format: Format;
   gender: Gender;
@@ -224,7 +228,7 @@ export async function getRankings(): Promise<Rankings> {
   try {
     const wanted = combos();
 
-    const [lists, teamLists] = await Promise.all([
+    const [lists, frontLists, menTest] = await Promise.all([
       Promise.all(
         wanted.map((c) =>
           getCrexRankingList({
@@ -242,7 +246,12 @@ export async function getRankings(): Promise<Rankings> {
             .catch(() => [g, null] as const)
         )
       ),
+      // rankingFront stops at ten, which drops a Test nation.
+      getCrexTeamRankingList({ type: 'test', gender: 'men' }).catch(() => null),
     ]);
+    const teamLists = frontLists.map(([g, r]) =>
+      g === 'men' && r && menTest?.length ? ([g, { ...r, test: menTest }] as const) : ([g, r] as const)
+    );
 
     // If crex is down we want the snapshot, not a half-populated page. A single
     // missing list is tolerable; nothing at all is not.
@@ -260,8 +269,8 @@ export async function getRankings(): Promise<Rankings> {
       }
     }
     for (const [, byFormat] of teamLists) {
-      for (const rows of Object.values(byFormat ?? {})) {
-        for (const row of (rows ?? []).slice(0, TOP_N)) {
+      for (const [crexFormat, rows] of Object.entries(byFormat ?? {})) {
+        for (const row of teamRowsShown(crexFormat, rows ?? [])) {
           if (row.tf) teamKeys.add(row.tf);
         }
       }
@@ -316,8 +325,7 @@ export async function getRankings(): Promise<Rankings> {
         const format = FROM_CREX_FORMAT[crexFormat as keyof typeof FROM_CREX_FORMAT];
         if (!format || !rows?.length) continue;
 
-        teamData[format][gender] = rows
-          .slice(0, TOP_N)
+        teamData[format][gender] = teamRowsShown(crexFormat, rows)
           .map((row: CrexTeamRankingRow, idx): TeamRankingEntry => {
             const entry = teamEntries.get(row.tf);
             return {

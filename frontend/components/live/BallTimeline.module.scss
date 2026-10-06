@@ -154,7 +154,7 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  border: 2px solid $signal;
+  border: 2px solid $signal-mark;
   opacity: 0;
 
   @include motion {

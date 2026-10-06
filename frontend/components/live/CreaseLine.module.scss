@@ -58,7 +58,7 @@
 
 // ---- live: a signal blip runs along the crease
 .live {
-  --tone: var(--signal);
+  --tone: var(--signal-mark);
 
   .signal {
     display: block;

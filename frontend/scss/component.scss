@@ -19,6 +19,8 @@ $text-2: var(--text-2);
 $text-3: var(--text-3);
 
 $signal: var(--signal);
+// The lime as a dot, bar, stroke or outline on its own; `$signal` is the fill behind `$signal-ink` text.
+$signal-mark: var(--signal-mark);
 $signal-text: var(--signal-text);
 $signal-ink: var(--signal-ink);
 $signal-soft: var(--signal-soft);
@@ -333,7 +335,7 @@ $gutter-wide: $space-8;
 
 @mixin focus-ring {
   &:focus-visible {
-    outline: 2px solid $signal;
+    outline: 2px solid $signal-mark;
     outline-offset: 2px;
   }
 }
@@ -539,7 +541,7 @@ $gutter-wide: $space-8;
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: $signal;
+    background: $signal-mark;
     margin-right: $space-1-5;
     animation: live-pulse $dur-pulse ease-out infinite;
   }

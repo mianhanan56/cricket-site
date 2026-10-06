@@ -18,7 +18,7 @@ export default function CreaseLine({
   const pct = progress == null ? null : Math.round(Math.max(0, Math.min(1, progress)) * 100);
 
   return (
-    <span className={`${styles.line} ${styles[family]} ${className ?? ''}`} aria-hidden="true">
+    <span className={`${styles.line} ${styles[family] ?? ''} ${className ?? ''}`} aria-hidden="true">
       <span className={styles.track} />
       {pct !== null && (
         <svg className={styles.fillSvg} viewBox="0 0 100 2" preserveAspectRatio="none">

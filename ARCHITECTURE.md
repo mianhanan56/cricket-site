@@ -84,7 +84,7 @@ commands inside `frontend/` or `worker-crex/`.
 | `momentum.ts`, `pulse.ts`, `telemetry.ts` | Worm graph points, live pulse readings, chase telemetry. |
 | `automations.ts`, `notifications.ts`, `follows.ts`, `persisted.ts` | Browser-stored rules, alert ledger/keys, follows, localStorage wrapper. |
 | `playerSeries.ts` | Player series record: format vocabulary, merging the batting/bowling page lists (only series both lists have reached are shown), default series, batting/bowling summaries. Pure; pages come in through a fetcher. |
-| `rankings.ts`, `directory.ts`, `playersDirectory.ts` | Rankings with bundled fallback; team/player directories built from ICC ranking lists. |
+| `rankings.ts`, `directory.ts`, `playersDirectory.ts` | Rankings with bundled fallback; team/player directories built from ICC ranking lists. Team lists come from rankingFront (top 10 per format) except men's Test, read in full from `/rankings/players?category=team&play=team` so all 12 Test nations are in the directory. |
 | `search.ts`, `searchIndex.ts` | Client-side search over matches + `/api/search-index`. |
 | `tabs.ts`, `queryParams.ts`, `uiState.ts`, `navigationDepth.ts` | URL tab vocabularies/validation, overlay state, back-button depth. |
 | `matchType.ts`, `featured.ts`, `fixtureDays.ts`, `datetime.ts`, `relativeTime.ts` | Classification, featured match choice, calendar keys, time formatting. |
@@ -94,6 +94,15 @@ commands inside `frontend/` or `worker-crex/`.
 Shared vocabulary lives in one place each: `isChaseTight` (telemetry), `MATCH_FORMAT_LABEL`
 (seriesFormat), `RANKING_FORMAT_LABEL`/`FORMAT_ORDER` (playersDirectory), `TeamCrest` (types).
 Stored alerts are rebuilt field by field in `parseAutomations`; an unreadable scope drops the alert.
+
+Formats: `MatchFormat` is `TEST | ODI | T20 | T10`. T10 comes from `fo`, the `n % 4 == 3` slot
+(unless `hb` marks The Hundred, which stays T20) or `ft` 4 on schedule rows.
+
+Home reads two extra sources besides the feed, so its figures match the pages they summarise:
+`hooks/useFixturesAhead` (`/fixtures` pages 0–1, every 5 min) adds fixtures the feed window
+omits to Upcoming/All, up to the last row read; `hooks/useSeriesTotals` swaps "Series in
+progress" onto each series' own schedule (`withSeriesSchedules`) and renders nothing until it
+answers. The Live tab, ticker and Insights all count every `LIVE` match, stumps included.
 
 `hooks/useCrexMatches.ts` is **one shared poll** of the match list: every subscriber reads the
 same snapshot and it runs at the fastest interval any subscriber requests.
@@ -174,6 +183,16 @@ with permission, the system tray — only while a tab is open.
   stays), Series, Rankings (no chips — the title states the selection), Players (search stays) and
   match Commentary.
 - Server Components by default; `'use client'` only when needed. Few comments — only non-obvious *why*.
+- Live vs stumps: every Live list, count, strip and stage filters with `isLiveNow`
+  (`lib/matchState.ts`); `isAtStumps` matches go to All only (Home) and a "Stumps" tag/section in
+  search. Don't filter on `status === 'LIVE'` for anything a reader sees as "live".
+- Series rows (`SeriesCard`) take their columns from `SeriesFilter`'s `.list` via subgrid at
+  tablet+; the list rule uses element selectors (`> li`, `> div`, `> li > a`) to outrank `.row`.
+- Lime has two roles: `$signal` is a fill behind `$signal-ink` text (buttons, badges, the six token);
+  `$signal-mark` is the lime as a mark on its own (live dots, rails, chart fills/strokes, nav
+  underlines, focus outlines, `--tone`). They are equal in dark; light darkens the mark to 3:1.
+- Dynamic module lookups (`styles[state.family]`) always end `?? ''`: a family without a rule
+  otherwise prints the class "undefined".
 - Two CSS modules on one element tie on specificity and the build's stylesheet order picks the
   winner (it differs between builds). A component that takes a `className` must not set the same
   property itself — see `BackButton` (`.spaced` only when no class is passed) and the scorecard

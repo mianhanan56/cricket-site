@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ballKind,
   ballTitle,
@@ -41,11 +41,32 @@ export default function BallTimeline({
     if (el) el.scrollLeft = el.scrollWidth;
   }, [newest]);
 
+  // The compact strip is a glance, not a scroller: it drops the older overs that would only show
+  // in part. Measured with every over laid out, before paint.
+  const [skip, setSkip] = useState(0);
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => setSkip(0), [groups.length, newest, width]);
+  useLayoutEffect(() => {
+    const el = stripRef.current;
+    if (!compact || skip || !el) return;
+    const box = el.getBoundingClientRect().left;
+    const starts = [...el.children].map((o) => o.getBoundingClientRect().left - box);
+    const first = starts.findIndex((x) => el.scrollWidth - x <= el.clientWidth);
+    if (first > 0) setSkip(first);
+  }, [compact, skip, groups.length, newest, width]);
+  useEffect(() => {
+    const el = stripRef.current;
+    if (!compact || !el) return;
+    const ro = new ResizeObserver(([e]) => setWidth(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [compact]);
+
   if (!groups.length) return null;
 
   return (
     <div className={`${styles.strip} ${compact ? styles.compact : ''}`} ref={stripRef} aria-label={label} role="group">
-      {groups.map((g) => (
+      {groups.slice(skip).map((g) => (
         <section key={`${g.over}-${g.balls[0].id}`} className={styles.over}>
           <header className={styles.head}>
             <h3 className={styles.overLabel}>{g.truncated ? '···' : overGroupLabel(g.over, perOver)}</h3>
@@ -60,7 +81,7 @@ export default function BallTimeline({
               return (
                 <li
                   key={b.id}
-                  className={`${styles.ball} ${styles[kind]} ${fresh.has(b.id) ? styles.fresh : ''}`}
+                  className={`${styles.ball} ${styles[kind] ?? ''} ${fresh.has(b.id) ? styles.fresh : ''}`}
                   title={ballTitle(b)}
                 >
                   <span className={styles.token} aria-hidden="true">

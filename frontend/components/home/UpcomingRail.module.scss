@@ -170,7 +170,6 @@
   font-size: $fs-sm;
   color: $text-3;
   @include truncate;
-  max-width: 18ch;
 
   @include desktop {
     display: inline;

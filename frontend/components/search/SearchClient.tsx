@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { Match } from '@/types';
 import { searchMatches } from '@/lib/search';
+import { isAtStumps, isLiveNow } from '@/lib/matchState';
 import {
   buildIndex,
   loadRemoteIndex,
@@ -112,7 +113,8 @@ export default function SearchClient() {
     return querySearch(buildIndex(results, index), term, 6).filter((e) => e.type !== 'match');
   }, [results, index, term, searched]);
 
-  const live = results.filter((m) => m.status === 'LIVE');
+  const live = results.filter(isLiveNow);
+  const atStumps = results.filter(isAtStumps);
   const upcoming = results.filter((m) => m.status === 'UPCOMING');
   const finished = results.filter((m) => m.status === 'COMPLETED');
   const nothing = searched && !loading && !results.length && !entities.length;
@@ -203,6 +205,17 @@ export default function SearchClient() {
               <SectionHead title="Live" count={live.length} />
               <div className={styles.tiles}>
                 {live.map((m) => (
+                  <MatchTile key={m.id} match={m} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {atStumps.length > 0 && (
+            <section>
+              <SectionHead title="Stumps" count={atStumps.length} />
+              <div className={styles.tiles}>
+                {atStumps.map((m) => (
                   <MatchTile key={m.id} match={m} />
                 ))}
               </div>

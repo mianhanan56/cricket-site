@@ -41,6 +41,47 @@ fetch deadlines on `/health` and the search index plus a manual fallback for Saf
 match-change resets in the history/squads hooks, alert feed watchers re-keyed on scopes, stored
 alerts validated field by field, Worker logs + topic guard, robots/sitemap localhost fix, docs.
 
+Uncommitted (2026-10-02, data-consistency fixes from a user bug report): Home Live tab includes
+matches at stumps (tab, ticker and Insights now count the same set) and the ticker names a stopped
+state instead of the overs; Home "Series in progress" uses each series' own schedule
+(`hooks/useSeriesTotals`); Home Upcoming/All merge the first two `/fixtures` pages for fixtures the
+live feed omits (`hooks/useFixturesAhead`, `getCrexFixturesAhead`); new `T10` match format
+(`n % 4 == 3` without `hb`, crex `ft` 4) plus a Fixtures T10 tab; pulse window counts 18 *legal*
+balls; men's Test team list comes from the full `/rankings/players?category=team` list (12 Test
+nations, so Ireland is in the Teams directory); over-card tokens normalised to the strip's
+notation ("1nb" → "nb+1"); bare wicket cards in Key moments get the team score from the fall of
+wickets, and the dedupe no longer matches one "Khan" for another. No Worker change needed.
+
+Uncommitted (2026-10-02, design/usability pass from the same report): Home stage pins its match
+until the reader picks another or it leaves Live; results list sides share one grid (no 7ch
+code cut, scores nowrap); Upcoming full names uncapped; compact ball strip drops older overs that
+would only show in part; top nav no longer lights Rankings on `/players`; a search pick doesn't
+hand focus back to the trigger; match tabs stay put (mini score after the tabs, `.panelHold`
+min-height while the rail is stuck, panel scrolled to the rail's bottom); Insights server-renders
+its first list (ISR 15s); form strip hidden unless ≥2 innings register on it; series readout
+packed; `--signal-mark` token (light #5f8a00) for lime dots/bars/strokes/outlines while `$signal`
+stays the fill behind `$signal-ink`; `Segmented fill` shares the Home status row on phones;
+3-tile hero row on phones; every dynamic `styles[key]` lookup falls back to `''`; score-strip
+buttons have aria-labels. "/" opens search (checked by key events through Chrome DevTools).
+
+Uncommitted (2026-10-02, follow-up): wicket events carry a `WicketRef` (batter f_key, innings,
+wicket number) from crex's `w` rows and `keyMoments` matches the fall of wickets by batter id —
+no prose/surname search (it hid wickets whose batter was named as a fielder elsewhere and
+doubled others); every wicket is the short "out for N (B) · TEAM r/w" line. Scorecard opens on
+the innings in progress (`phase === 'CURRENT'`, else last batted) until the reader picks one.
+Series list: one CSS subgrid across rows at tablet+ (format column ≥120px incl. row padding,
+chips nowrap); skeleton rows (`div`) included.
+
+Uncommitted (2026-10-02, stumps rules — supersedes "Live tab includes stumps" above): one rule,
+`isLiveNow` / `isAtStumps` in `lib/matchState.ts`. A multi-day match at stumps (note kind STUMPS,
+from crex's `$l` status code first) is out of Home Live/count/strip/stage and Insights, and
+appears in All only; search tags it "Stumps" (own section on /search). Breaks and delays stay
+Live. Play resuming clears the note (stale-stoppage logic) and it returns to Live on the next
+poll. Match centre at stumps: "Stumps · Day N", "Day N+1 starts <local time>" from match info
+`nt` (`MatchConditions.nextPlay`; omitted when absent), no tab dot, no batting mark. A Test
+side's earlier innings render small above the current one on phones (`ScoreParts.earlier`).
+Finishing (incl. a last-day draw) is crex's own status/result; nothing is inferred from stumps.
+
 ## Recommended next step
 
 Wait for the user's pick from TODO.md. Start with the High rows: scorecard table clipping on

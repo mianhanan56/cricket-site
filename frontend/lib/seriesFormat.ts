@@ -1,6 +1,6 @@
 import type { MatchFormat } from '@/types';
 
-export const MATCH_FORMAT_LABEL: Record<MatchFormat, string> = { TEST: 'Test', ODI: 'ODI', T20: 'T20' };
+export const MATCH_FORMAT_LABEL: Record<MatchFormat, string> = { TEST: 'Test', ODI: 'ODI', T20: 'T20', T10: 'T10' };
 
 type WithFormats = { format: MatchFormat; formats?: MatchFormat[] };
 

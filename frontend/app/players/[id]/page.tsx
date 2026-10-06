@@ -173,7 +173,8 @@ function FormPanel({ title, entries, discipline }: { title: string; entries: Pla
         {title}
         <span className={styles.panelCount}>{entries.length}</span>
       </h3>
-      <FormStrip entries={entries} discipline={discipline} />
+      {/* A part-timer's 0-12s draw a row of empty bars; the list below still has the figures. */}
+      {entries.filter((e) => leadOf(e) > 0).length >= 2 && <FormStrip entries={entries} discipline={discipline} />}
       <FormList entries={entries} discipline={discipline} />
     </section>
   );

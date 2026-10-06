@@ -58,7 +58,7 @@
     right: $space-3;
     bottom: -12px;
     height: 1px;
-    background: $signal;
+    background: $signal-mark;
     transform: scaleX(0);
     transition: transform $dur-3 $ease-out;
   }
@@ -216,7 +216,7 @@
 
 .avatarOn {
   color: $text;
-  border-color: $signal;
+  border-color: $signal-mark;
 }
 
 .menu {

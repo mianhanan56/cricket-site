@@ -27,7 +27,7 @@ export default function Toaster() {
   return (
     <div className={styles.stack} aria-live="polite" aria-relevant="additions">
       {toasts.map((t) => (
-        <div key={t.id} className={`${styles.toast} ${styles[t.kind]}`}>
+        <div key={t.id} className={`${styles.toast} ${styles[t.kind] ?? ''}`}>
           <button
             type="button"
             className={styles.body}

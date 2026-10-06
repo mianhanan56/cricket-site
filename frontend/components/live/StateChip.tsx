@@ -12,7 +12,7 @@ export default function StateChip({
   className?: string;
 }) {
   return (
-    <span className={`${styles.chip} ${styles[state.family]} ${className ?? ''}`}>
+    <span className={`${styles.chip} ${styles[state.family] ?? ''} ${className ?? ''}`}>
       <span className={styles.glyph} aria-hidden="true" />
       <span className={styles.word}>{full ? state.label : state.word}</span>
     </span>

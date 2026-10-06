@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import type { Match } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
+import { useFixturesAhead } from '@/hooks/useFixturesAhead';
+import { useSeriesTotals } from '@/hooks/useSeriesTotals';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import {
   MATCH_TYPE_KEY_OPTIONS,
@@ -15,6 +17,7 @@ import {
 } from '@/lib/matchType';
 import type { HomeTab } from '@/lib/tabs';
 import { rankLive } from '@/lib/featured';
+import { isLiveNow } from '@/lib/matchState';
 import { useFollows } from '@/lib/follows';
 import { seriesFromMatches } from '@/lib/crex';
 import { SeriesList } from '../series/SeriesFilter';
@@ -32,9 +35,6 @@ import ErrorState from '../ui/ErrorState';
 import { SectionHead } from '../ui/Section';
 import { HeroSkeleton, BoardSkeleton } from './HomeSkeleton';
 import styles from './HomeMatches.module.scss';
-
-// A Test between days stays out of "Live" — nothing is being played until tomorrow.
-const isAtStumps = (m: Match) => m.note?.kind === 'STUMPS';
 
 const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const SERIES_PREVIEW = 4;
@@ -56,47 +56,62 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
   const [featuredId, setFeaturedId] = useState<string | null>(null);
 
   const scoped = useMemo(() => filterByMatchType(matches, type), [matches, type]);
+  const ahead = useFixturesAhead();
 
-  const { liveList, upcomingList, finishedList } = useMemo(() => {
-    const now = Date.now();
-    return {
-      liveList: scoped.filter((m) => m.status === 'LIVE' && !isAtStumps(m)),
-      upcomingList: scoped
-        .filter((m) => m.status === 'UPCOMING')
-        .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime)),
-      finishedList: scoped
-        .filter((m) => m.status === 'COMPLETED' && now - +new Date(m.startTime) <= FINISHED_WINDOW_MS)
-        .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime)),
-    };
-  }, [scoped]);
-
-  // Every live match, stumps included, for the stage and the ticker.
-  const onStage = useMemo(
+  // The tab, its count, the ticker and the stage share one list; a Test at stumps is in All only.
+  const liveList = useMemo(
     () =>
       rankLive(
-        scoped.filter((m) => m.status === 'LIVE'),
+        scoped.filter(isLiveNow),
         new Set(follows.teams.map((t) => t.id))
       ),
     [scoped, follows.teams]
   );
-  const featured = onStage.find((m) => m.id === featuredId) ?? onStage[0] ?? null;
+
+  // Schedule rows the feed has no copy of, up to the last one read — that day is only partly read.
+  const missing = useMemo(() => {
+    const inFeed = new Set(matches.map((m) => m.id));
+    const lastRead = Math.max(0, ...ahead.map((f) => +new Date(f.startTime)));
+    return filterByMatchType(
+      ahead.filter((f) => f.status === 'UPCOMING' && !inFeed.has(f.id) && +new Date(f.startTime) < lastRead),
+      type
+    );
+  }, [matches, ahead, type]);
+
+  const { upcomingList, finishedList } = useMemo(() => {
+    const now = Date.now();
+    return {
+      upcomingList: [...scoped.filter((m) => m.status === 'UPCOMING'), ...missing].sort(
+        (a, b) => +new Date(a.startTime) - +new Date(b.startTime)
+      ),
+      finishedList: scoped
+        .filter((m) => m.status === 'COMPLETED' && now - +new Date(m.startTime) <= FINISHED_WINDOW_MS)
+        .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime)),
+    };
+  }, [scoped, missing]);
+
+  // The stage holds its match until the reader picks another or it stops being live: a re-rank
+  // (a break, a wicket elsewhere) must not swap the card being read.
+  const featured = liveList.find((m) => m.id === featuredId) ?? liveList[0] ?? null;
+  if (featured && featured.id !== featuredId) setFeaturedId(featured.id);
 
   // With nothing live the page still has a job: the competitions under way.
   const ongoingSeries = useMemo(
     () => (featured ? [] : seriesFromMatches(scoped).filter((s) => s.status === 'LIVE').slice(0, SERIES_PREVIEW)),
     [featured, scoped]
   );
+  const seriesTotals = useSeriesTotals(ongoingSeries, matches);
 
   const allList = useMemo(() => {
     const rank: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
-    return [...scoped].sort(
+    return [...scoped, ...missing].sort(
       (a, b) =>
         rank[a.status] - rank[b.status] ||
         (a.status === 'UPCOMING'
           ? +new Date(a.startTime) - +new Date(b.startTime)
           : +new Date(b.startTime) - +new Date(a.startTime))
     );
-  }, [scoped]);
+  }, [scoped, missing]);
 
   // With no tab in the URL, open on what's happening: live if anything is, else what's next.
   // Fixed once the feed first answers, so a match ending doesn't pull the page to another tab.
@@ -119,8 +134,8 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
           <ErrorState onRetry={refresh} retrying={isRefreshing} />
         ) : featured ? (
           <>
-            {onStage.length > 1 && (
-              <ScoreTicker matches={onStage} activeId={featured.id} onSelect={setFeaturedId} />
+            {liveList.length > 1 && (
+              <ScoreTicker matches={liveList} activeId={featured.id} onSelect={setFeaturedId} />
             )}
             <LiveHero key={featured.id} match={featured} />
           </>
@@ -166,6 +181,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
               { value: 'all', label: 'All', count: count(allList.length) },
             ]}
             onChange={setTab}
+            fill
             className={styles.tabs}
           />
         </div>
@@ -209,10 +225,10 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
         )}
       </section>
 
-      {ongoingSeries.length > 0 && (
+      {seriesTotals && seriesTotals.length > 0 && (
         <section className={styles.board} aria-labelledby="series-title">
           <SectionHead id="series-title" title="Series in progress" action={{ href: '/series', label: 'All series' }} />
-          <SeriesList series={ongoingSeries} />
+          <SeriesList series={seriesTotals} />
         </section>
       )}
     </>

@@ -30,6 +30,37 @@ describe('key moments', () => {
     assert.equal(out[0].id, '1');
   });
 
+  it('gives a wicket card the scorecard line, matched by batter id', () => {
+    const feed: MatchEvent[] = [
+      {
+        id: 'w',
+        kind: 'WICKET',
+        label: 'Wicket',
+        text: 'Syed Haider Shah out for 1 (2)',
+        over: 6,
+        wicket: { playerId: 'Syed Haider Shah', name: 'Syed Haider Shah', inning: 0, number: 1 },
+      },
+    ];
+    const out = keyMoments(feed, [inn('ABD', [['Syed Haider Shah', 1, 82, 5.4]])]);
+    assert.deepEqual(out.map((e) => [e.id, e.text]), [['w', 'Syed Haider Shah out for 1 (2) · ABD 82/1']]);
+  });
+
+  it('lists each wicket once, however many players a card’s prose names', () => {
+    const card = (id: string, name: string, number: number): MatchEvent => ({
+      id,
+      kind: 'WICKET',
+      label: 'Wicket',
+      text: `${name} out for 0 (1)`,
+      over: 10,
+      wicket: { playerId: name, name, inning: 1, number },
+    });
+    const out = keyMoments(
+      [card('w10', 'Binura Fernando', 2)],
+      [inn('IND', [['Abhishek Sharma', 7, 12, 1.4]]), inn('SL', [['Nuwanidu Fernando', 15, 31, 4.2], ['Binura Fernando', 0, 45, 9.5]])]
+    );
+    assert.deepEqual(out.map((e) => e.id), ['w10', 'fow:1:1', 'fow:0:1']);
+  });
+
   it('puts the toss after every wicket and orders later innings first', () => {
     const feed: MatchEvent[] = [{ id: 't', kind: 'TOSS', label: 'Toss', text: 'WI won the toss', over: null }];
     const out = keyMoments(feed, [inn('WI', [['A One', 1, 5, 1.2]]), inn('IND', [['B Two', 2, 8, 2.1]])]);

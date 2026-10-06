@@ -21,12 +21,14 @@ export default function ScoreTicker({
         const eq = liveEquation(m);
         const inn = eq?.innings;
         const active = m.id === activeId;
+        const reading = [inn && `${inn.runs}/${inn.wickets} in ${inn.overs} ${inn.overs === 1 ? 'over' : 'overs'}`, !state.alive || !inn ? state.word : null];
         return (
           <button
             key={m.id}
             type="button"
-            className={`${styles.item} ${styles[state.family]} ${active ? styles.active : ''}`}
+            className={`${styles.item} ${styles[state.family] ?? ''} ${active ? styles.active : ''}`}
             aria-pressed={active}
+            aria-label={[`${m.homeTeam.name} v ${m.awayTeam.name}`, ...reading].filter(Boolean).join(', ')}
             onClick={() => onSelect(m.id)}
           >
             <span className={styles.glyph} aria-hidden="true" />
@@ -38,7 +40,11 @@ export default function ScoreTicker({
             {inn ? (
               <span className={styles.score}>
                 <Ticker value={`${inn.runs}/${inn.wickets}`} />
-                <span className={styles.ov}>{inn.overs}</span>
+                {state.alive ? (
+                  <span className={styles.ov}>{inn.overs}</span>
+                ) : (
+                  <span className={styles.word}>{state.word}</span>
+                )}
               </span>
             ) : (
               <span className={styles.word}>{state.word}</span>

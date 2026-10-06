@@ -119,10 +119,10 @@ function Panel() {
               {shown.map((n) => (
                 <li key={n.id}>
                   <button type="button" className={`${styles.item} ${n.read ? '' : styles.itemUnread}`} onClick={() => open(n)}>
-                    <span className={`${styles.kind} ${styles[n.kind]}`} aria-hidden="true" />
+                    <span className={`${styles.kind} ${styles[n.kind] ?? ''}`} aria-hidden="true" />
                     <span className={styles.itemBody}>
                       <span className={styles.itemMeta}>
-                        <span className={`${styles.kindWord} ${styles[`${n.kind}Text`]}`}>{KIND_LABEL[n.kind]}</span>
+                        <span className={`${styles.kindWord} ${styles[`${n.kind}Text`] ?? ''}`}>{KIND_LABEL[n.kind]}</span>
                         <time className={styles.time} dateTime={new Date(n.at).toISOString()}>
                           {timeAgo(n.at)}
                         </time>

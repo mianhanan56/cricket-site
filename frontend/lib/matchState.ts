@@ -163,6 +163,18 @@ export function inningsUnderway(state: MatchStateView): boolean {
   return MID_INNINGS.has(state.family);
 }
 
+/**
+ * A multi-day match between days: not finished, but nothing is bowled until tomorrow. The note
+ * comes from crex's status code (`$l`) first and only falls back to its wording.
+ */
+export const isAtStumps = (m: Match): boolean => m.status === 'LIVE' && m.note?.kind === 'STUMPS';
+
+/**
+ * Play is on, or resumes today after a break (lunch, tea, drinks, innings break, a rain or
+ * light delay). Every Live list, count and strip uses this, so they always agree.
+ */
+export const isLiveNow = (m: Match): boolean => m.status === 'LIVE' && !isAtStumps(m);
+
 export function matchStateOf(match: Match, note: MatchNote | null | undefined = match.note): MatchStateView {
   const key = keyFor(match, note);
   const family = FAMILY[key];

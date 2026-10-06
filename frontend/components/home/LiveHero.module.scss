@@ -76,7 +76,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: $signal;
+  background: $signal-mark;
 
   @include motion {
     animation: live-pulse $dur-pulse ease-out infinite;
@@ -329,6 +329,22 @@
 
   @include sm {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+}
+
+// Without a phase there are three tiles; on phones they share one row rather than leave a hole.
+.three {
+  @include phone-only {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    .tile:nth-child(n + 2) {
+      padding-left: $space-3;
+      border-left: 1px solid $line;
+    }
+
+    .tile:nth-child(n + 3) {
+      border-top: 0;
+    }
   }
 }
 

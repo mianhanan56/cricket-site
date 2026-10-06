@@ -3,6 +3,7 @@
 import type { Match, TeamCrest } from '@/types';
 import { createPersisted } from './persisted';
 import { withTimeout } from './timeout';
+import { isAtStumps } from './matchState';
 
 export type EntityType = 'match' | 'team' | 'player' | 'series' | 'venue';
 
@@ -15,6 +16,8 @@ export interface SearchEntity {
   /** Lowercased text every query term is matched against. */
   hay: string;
   status?: Match['status'];
+  /** In progress but between days — tagged Stumps, never Live. */
+  stumps?: boolean;
   logo?: string | null;
 }
 
@@ -60,7 +63,8 @@ export function buildIndex(matches: Match[], index: RemoteIndex | null): SearchE
       sub: m.series.name,
       href: `/matches/${m.id}`,
       status: m.status,
-      hay: [m.homeTeam.name, m.homeTeam.shortName, m.awayTeam.name, m.awayTeam.shortName, m.series.name, m.venue, m.format, STATUS_WORD[m.status]]
+      stumps: isAtStumps(m),
+      hay: [m.homeTeam.name, m.homeTeam.shortName, m.awayTeam.name, m.awayTeam.shortName, m.series.name, m.venue, m.format, isAtStumps(m) ? 'Stumps' : STATUS_WORD[m.status]]
         .join(' ')
         .toLowerCase(),
     });

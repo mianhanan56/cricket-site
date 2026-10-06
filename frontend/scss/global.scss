@@ -22,6 +22,7 @@
   --signal: #c6f432;
   --signal-text: #c6f432;
   --signal-ink: #0b0e05;
+  --signal-mark: var(--signal);
   --signal-soft: color-mix(in oklab, var(--signal) 13%, transparent);
   --data: #56d3ee;
   --data-soft: color-mix(in oklab, var(--data) 13%, transparent);
@@ -79,6 +80,8 @@
   --signal: #c2ef2a;
   --signal-text: #3f6200;
   --signal-ink: #0c1116;
+  // #c2ef2a is 1.2:1 on the page; marks need 3:1.
+  --signal-mark: #5f8a00;
   --signal-soft: color-mix(in oklab, #9ccc00 16%, transparent);
   --data: #06809b;
   --warn: #9a5f00;
@@ -220,7 +223,7 @@ button {
 }
 
 :focus-visible {
-  outline: 2px solid $signal;
+  outline: 2px solid $signal-mark;
   outline-offset: 2px;
 }
 

@@ -13,7 +13,7 @@ export default function MatchPulse({
   compact = false,
 }: {
   readings: PulseReading[];
-  /** How many deliveries the readings cover. */
+  /** How many legal deliveries the readings cover. */
   window?: number;
   compact?: boolean;
 }) {
@@ -23,7 +23,7 @@ export default function MatchPulse({
         {readings.map((r) => {
           const lit = Math.round(r.value * CELLS);
           return (
-            <div key={r.key} className={`${styles.row} ${styles[r.key]}`}>
+            <div key={r.key} className={`${styles.row} ${styles[r.key] ?? ''}`}>
               <dt className={styles.label}>{r.label}</dt>
               <dd className={styles.meterCell}>
                 <svg

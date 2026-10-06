@@ -31,7 +31,7 @@ export const SERIES_STATUS_TABS: ReadonlyArray<{
 export const SERIES_STATUS_KEYS: readonly SeriesStatusKey[] = SERIES_STATUS_TABS.map((t) => t.key);
 
 // --- Fixtures (/fixtures?format=…) ------------------------------------------
-export type FixtureFormatKey = 'all' | 't20' | 'odi' | 'test';
+export type FixtureFormatKey = 'all' | 't20' | 't10' | 'odi' | 'test';
 export const FIXTURE_FORMAT_TABS: ReadonlyArray<{
   key: FixtureFormatKey;
   label: string;
@@ -40,6 +40,7 @@ export const FIXTURE_FORMAT_TABS: ReadonlyArray<{
 }> = [
   { key: 'all', label: 'All', format: null },
   { key: 't20', label: 'T20', format: 'T20' },
+  { key: 't10', label: 'T10', format: 'T10' },
   { key: 'odi', label: 'ODI', format: 'ODI' },
   { key: 'test', label: 'TEST', format: 'TEST' },
 ];

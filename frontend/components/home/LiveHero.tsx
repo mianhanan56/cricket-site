@@ -12,7 +12,7 @@ import { creaseContext } from '@/lib/situation';
 import { creaseFromCard } from '@/lib/crease';
 import { feedCheckedNote } from '@/lib/crex';
 import { groupBalls, toBallEntry } from '@/lib/balls';
-import { PULSE_WINDOW, matchPulse, pulseTrace, recentInningsBalls } from '@/lib/pulse';
+import { legalBalls, matchPulse, pulseTrace, recentInningsBalls } from '@/lib/pulse';
 import TeamBadge from '../ui/TeamBadge';
 import Icon from '../ui/Icon';
 import LocalTime from '../ui/LocalTime';
@@ -76,7 +76,7 @@ export default function LiveHero({ match }: { match: Match }) {
   const tight = isChaseTight(eq);
 
   return (
-    <section className={`${styles.hero} ${styles[state.family]}`} aria-labelledby="hero-title">
+    <section className={`${styles.hero} ${styles[state.family] ?? ''}`} aria-labelledby="hero-title">
       <div className={styles.grid} aria-hidden="true" />
 
       <header className={styles.top}>
@@ -150,7 +150,7 @@ export default function LiveHero({ match }: { match: Match }) {
           )}
 
           {inn && (
-            <dl className={styles.tiles}>
+            <dl className={`${styles.tiles} ${eq?.phase ? '' : styles.three}`}>
               <div className={styles.tile}>
                 <dt>Run rate</dt>
                 <dd>{eq?.crr != null ? eq.crr.toFixed(2) : '—'}</dd>
@@ -264,7 +264,7 @@ export default function LiveHero({ match }: { match: Match }) {
             {readings && (
               <div className={`${styles.panel} ${styles.pulsePanel}`}>
                 <h3 className={styles.panelTitle}>Match pulse</h3>
-                <MatchPulse readings={readings} window={Math.min(window.length, PULSE_WINDOW)} compact />
+                <MatchPulse readings={readings} window={legalBalls(window)} compact />
               </div>
             )}
           </aside>

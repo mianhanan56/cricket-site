@@ -39,6 +39,7 @@
   min-width: 44px;
   height: 24px;
   padding-inline: $space-1-5;
+  white-space: nowrap;
   border-radius: $r-xs;
   border: 1px solid $line-2;
   @include data-num;
@@ -85,8 +86,7 @@
 .readout {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: $space-3;
+  gap: $space-2;
 }
 
 .readLabel {
@@ -125,7 +125,7 @@
 }
 
 .railTip {
-  fill: $signal;
+  fill: $signal-mark;
 }
 
 :global([data-theme='light']) .railTip {

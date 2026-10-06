@@ -89,7 +89,7 @@ export default function MatchTile({ match, showSeries = true }: { match: Match; 
         : null;
 
   return (
-    <article className={`${styles.tile} ${styles[state.family]}`}>
+    <article className={`${styles.tile} ${styles[state.family] ?? ''}`}>
       {/* Cover link instead of wrapping the tile, so the series link can sit inside without nesting anchors. */}
       <Link
         href={`/matches/${match.id}`}

@@ -5,7 +5,7 @@ import type { InningsScore, Match, MatchEvent, OverSummary, PlayerOfMatch, Team 
 import { inningsUnderway, type MatchStateView } from '@/lib/matchState';
 import type { Crease } from '@/lib/crease';
 import type { BallEntry, BallGroup } from '@/lib/balls';
-import { PULSE_WINDOW, matchPulse, pulseTrace, recentInningsBalls } from '@/lib/pulse';
+import { legalBalls, matchPulse, pulseTrace, recentInningsBalls } from '@/lib/pulse';
 import { axisMoments, inningsWorms } from '@/lib/momentum';
 import { keyMoments } from '@/lib/keyMoments';
 import { SCHEDULED_OVERS, inningsBallLimit } from '@/lib/overs';
@@ -225,7 +225,7 @@ export default function LivePanel({
               {readings ? (
                 <>
                   <PulseTrace points={trace} label={`Last ${window.length} deliveries`} still={!state.alive} />
-                  <MatchPulse readings={readings} window={Math.min(window.length, PULSE_WINDOW)} />
+                  <MatchPulse readings={readings} window={legalBalls(window)} />
                 </>
               ) : (
                 pending ? (

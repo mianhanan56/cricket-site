@@ -23,34 +23,36 @@
   }
 
   @container (min-width: 620px) {
-    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-columns: minmax(260px, max-content) minmax(0, 1fr);
     align-items: center;
     gap: $space-6;
   }
 }
 
+// Both sides on one grid, so codes and scores line up without a fixed width cutting "PAKWU19".
 .sides {
   display: grid;
-  gap: $space-1-5;
+  grid-template-columns: auto max-content max-content auto;
+  justify-content: start;
+  align-items: center;
+  gap: $space-1-5 $space-2;
 }
 
 .side {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
+  display: contents;
 }
 
 .code {
-  width: 7ch;
   font-weight: 700;
   font-stretch: $stretch-wide;
-  @include truncate;
+  white-space: nowrap;
 }
 
 .score {
   @include display-num;
   font-size: $fs-lg;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .won .code,

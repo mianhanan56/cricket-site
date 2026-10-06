@@ -24,24 +24,28 @@ export interface PulseReading {
   figure: string;
 }
 
-export const PULSE_WINDOW = 18;
+const PULSE_WINDOW = 18;
 const MIN_BALLS = 6;
 
 // Runs per over treated as a full meter, per format.
-const MOMENTUM_CEILING: Record<MatchFormat, number> = { T20: 14, ODI: 10, TEST: 6 };
+const MOMENTUM_CEILING: Record<MatchFormat, number> = { T10: 16, T20: 14, ODI: 10, TEST: 6 };
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 const isLegal = (b: PulseBall) => b.extra !== 'wide' && b.extra !== 'noball';
 
-/** The newest deliveries of the innings in progress, oldest first. */
+/** Legal deliveries in a window — what "Last N balls" and every meter's denominator count. */
+export const legalBalls = (window: PulseBall[]): number => window.filter(isLegal).length;
+
+/** The newest `limit` legal deliveries of the innings in progress, with the extras among them, oldest first. */
 export function recentInningsBalls<T extends PulseBall>(newestFirst: T[], limit = PULSE_WINDOW): T[] {
   if (!newestFirst.length) return [];
   const inning = newestFirst[0].inning;
   const out: T[] = [];
+  let legal = 0;
   for (const b of newestFirst) {
     if (b.inning !== inning) break;
     out.push(b);
-    if (out.length >= limit) break;
+    if (isLegal(b) && ++legal >= limit) break;
   }
   return out.reverse();
 }

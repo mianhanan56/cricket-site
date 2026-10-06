@@ -96,7 +96,7 @@ export default function PulseTrace({ points, label, still }: { points: TracePoin
           {/* Drawn in once; re-keying per ball replayed the draw and left the markers floating past a half line. */}
           <path className={styles.path} d={d} pathLength={1} />
           {marks.map((m) => (
-            <circle key={m.id} className={`${styles.mark} ${styles[m.kind]}`} cx={m.x} cy={m.y} r="3.5" />
+            <circle key={m.id} className={`${styles.mark} ${styles[m.kind] ?? ''}`} cx={m.x} cy={m.y} r="3.5" />
           ))}
           <circle key={`now-${last.id}`} className={`${styles.now} ${still ? styles.held : ''}`} cx={xAt(lastIndex)} cy={yAt(lastIndex)} r="4" />
           {shown !== null && (

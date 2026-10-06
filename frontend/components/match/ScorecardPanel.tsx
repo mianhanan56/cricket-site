@@ -47,8 +47,13 @@ export default function ScorecardPanel({
   pending?: boolean;
   onShowSquads: () => void;
 }) {
-  const [selected, setSelected] = useState(Math.max(0, innings.length - 1));
-  const current = innings[Math.min(selected, Math.max(0, innings.length - 1))];
+  // Follows the innings in progress (crex lists the side still to bat as an empty innings) until
+  // the reader picks one.
+  const [picked, setPicked] = useState<number | null>(null);
+  const inPlay = innings.findIndex((i) => i.phase === 'CURRENT');
+  const lastBatted = innings.map((i) => !i.notStarted).lastIndexOf(true);
+  const selected = Math.min(picked ?? (inPlay >= 0 ? inPlay : Math.max(0, lastBatted)), Math.max(0, innings.length - 1));
+  const current = innings[selected];
   const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
   const isHundred = perOver === HUNDRED_BALLS_PER_OVER;
 
@@ -94,7 +99,7 @@ export default function ScorecardPanel({
             <Segmented
               label="Innings"
               value={String(selected)}
-              onChange={(v) => setSelected(Number(v))}
+              onChange={(v) => setPicked(Number(v))}
               options={innings.map((inn, i) => ({ value: String(i), label: inningsLabel(inn, i, innings) }))}
             />
           ) : (

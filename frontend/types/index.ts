@@ -3,7 +3,7 @@
 // Owned by the frontend. Import from '@/types'.
 // ============================================================================
 
-export type MatchFormat = 'TEST' | 'ODI' | 'T20';
+export type MatchFormat = 'TEST' | 'ODI' | 'T20' | 'T10';
 export type MatchStatus = 'LIVE' | 'UPCOMING' | 'COMPLETED';
 export type PlayerRole = 'BATSMAN' | 'BOWLER' | 'ALL_ROUNDER' | 'WK';
 
@@ -233,6 +233,17 @@ export interface MatchEvent {
   /** Over the event belongs to, when the feed says. */
   over?: number | null;
   timestamp?: string;
+  /** A wicket card's own fields, for matching it to the scorecard's fall of wickets. */
+  wicket?: WicketRef;
+}
+
+export interface WicketRef {
+  playerId: string | null;
+  name: string;
+  /** Innings index, 0-based, as the feed and the card both number them. */
+  inning: number | null;
+  /** Which wicket of the innings, 1-based. */
+  number: number | null;
 }
 
 /**
@@ -411,7 +422,7 @@ export interface OverSummary {
   inning: number;
   runs: number;
   wickets: number;
-  /** Each delivery's outcome in order, crex's own tokens: "1.0.0.W.4.0". */
+  /** Each delivery's outcome in order, in the ball strip's notation: "1", "W", "nb+1", "1lb". */
   balls: string[];
   /** Team score at the end of the over, "205/7". */
   score: string | null;
@@ -758,6 +769,8 @@ export interface MatchConditions {
   /** Broadcasters, split out of crex's single comma-separated string. */
   broadcast: string[];
   venue: VenueStats | null;
+  /** When play is next due — the next day's start on a multi-day match. crex's `nt`. */
+  nextPlay: string | null;
 }
 
 // ---------------------------------------------------------------------------

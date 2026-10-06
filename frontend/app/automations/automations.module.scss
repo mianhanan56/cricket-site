@@ -32,7 +32,7 @@
 }
 
 .dotOn {
-  background: $signal;
+  background: $signal-mark;
 
   @include motion {
     animation: live-pulse $dur-pulse ease-out infinite;

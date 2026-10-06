@@ -227,9 +227,35 @@ a.venue {
 .score {
   grid-area: score;
   @include display-num;
-  font-size: clamp(30px, 6vw, 52px);
+  // 320px phones: beside the badge and the centre column there is no room for 30px figures.
+  font-size: 26px;
   letter-spacing: -0.04em;
   white-space: nowrap;
+
+  @media (min-width: 360px) {
+    font-size: clamp(30px, 6vw, 52px);
+  }
+}
+
+.prior {
+  // Beside the badge on a phone a two-innings score would overrun it, so the earlier innings
+  // sits small above the current one.
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.45em;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  text-align: end;
+  color: $text-2;
+
+  @include tablet {
+    display: inline;
+    margin: 0;
+    font-size: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+    color: inherit;
+  }
 }
 
 .noScore {
@@ -264,7 +290,7 @@ a.venue {
   margin-inline: $space-2;
   vertical-align: middle;
   border-radius: 50%;
-  background: $signal;
+  background: $signal-mark;
 
   @include motion {
     animation: live-pulse $dur-pulse ease-out infinite;
@@ -396,6 +422,17 @@ a.venue {
   @include tablet {
     max-width: none;
     font-size: $fs-xl;
+  }
+}
+
+.resumes {
+  max-width: 88px;
+  font-size: $fs-xs;
+  line-height: $leading-snug;
+  color: $text-2;
+
+  @include tablet {
+    max-width: 136px;
   }
 }
 

@@ -285,7 +285,7 @@ tr.totalRow td {
 }
 
 .barB {
-  fill: $signal;
+  fill: $signal-mark;
 }
 
 :global([data-theme='light']) .barB {

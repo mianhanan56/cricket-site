@@ -190,7 +190,7 @@
   }
 
   &[data-state='live'] {
-    border-color: $signal;
+    border-color: $signal-mark;
     background: $signal-soft;
     color: $signal-text;
 
@@ -279,7 +279,7 @@
   }
 
   &[data-state='live'] {
-    border-color: $signal;
+    border-color: $signal-mark;
     background: $signal-soft;
   }
 

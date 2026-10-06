@@ -72,6 +72,8 @@ function SearchDialog() {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<Element | null>(null);
+  // A pick leaves the page, so focus stays with the new page instead of ringing the search trigger.
+  const leaving = useRef(false);
   const opened = useRef(pathname);
 
   const { matches, isLoading } = useCrexMatches({ intervalMs: 60_000 });
@@ -89,7 +91,7 @@ function SearchDialog() {
     });
     return () => {
       document.body.style.overflow = prevOverflow;
-      if (returnFocus.current instanceof HTMLElement) returnFocus.current.focus();
+      if (!leaving.current && returnFocus.current instanceof HTMLElement) returnFocus.current.focus();
     };
   }, []);
 
@@ -101,7 +103,7 @@ function SearchDialog() {
   const results = useMemo(() => querySearch(entities, q), [entities, q]);
 
   const suggestions = useMemo<SearchEntity[]>(() => {
-    const live = entities.filter((e) => e.type === 'match' && e.status === 'LIVE').slice(0, 4);
+    const live = entities.filter((e) => e.type === 'match' && e.status === 'LIVE' && !e.stumps).slice(0, 4);
     const followed = follows.teams
       .map((t) => entities.find((e) => e.type === 'team' && e.id === t.id))
       .filter((e): e is SearchEntity => Boolean(e));
@@ -124,6 +126,7 @@ function SearchDialog() {
 
   const go = (href: string, label: string, type: EntityType | 'query') => {
     rememberSearch({ href, label, type });
+    leaving.current = true;
     closeOverlay();
     router.push(href);
   };
@@ -171,7 +174,9 @@ function SearchDialog() {
           <span className={styles.itemLabel}>{e.label}</span>
           <span className={styles.itemSub}>{e.sub}</span>
         </span>
-        {e.status === 'LIVE' ? (
+        {e.stumps ? (
+          <span className={styles.itemTag}>Stumps</span>
+        ) : e.status === 'LIVE' ? (
           <span className={styles.liveTag}>Live</span>
         ) : e.status ? (
           <span className={styles.itemTag}>{e.status === 'UPCOMING' ? 'Upcoming' : 'Result'}</span>

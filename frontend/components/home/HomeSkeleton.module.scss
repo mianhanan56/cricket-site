@@ -73,7 +73,7 @@
     position: absolute;
     inset: 0 auto 0 0;
     width: 25%;
-    background: linear-gradient(90deg, transparent, $signal, transparent);
+    background: linear-gradient(90deg, transparent, $signal-mark, transparent);
 
     @include motion {
       animation: wait 1.8s $ease-in-out infinite;

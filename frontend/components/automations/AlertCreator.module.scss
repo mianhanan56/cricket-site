@@ -162,7 +162,7 @@
   }
 
   .on & {
-    background: $signal;
+    background: $signal-mark;
 
     &::after {
       transform: translateX(14px);
@@ -237,7 +237,7 @@
   transition: background-color $dur-2 $ease-out, border-color $dur-2 $ease-out;
 
   .selectAllOn & {
-    border-color: $signal;
+    border-color: $signal-mark;
     background: $signal;
     color: $signal-ink;
   }

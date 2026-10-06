@@ -29,8 +29,9 @@ function inningsBalls(match: Match, perOver: number): number {
   return (SCHEDULED_OVERS[match.format] ?? TEST_PROJECTION_OVERS) * perOver;
 }
 
-/** A par first-innings score, per ball: 170 off a T20, 280 off an ODI, 350 in a day. */
+/** A par first-innings score, per ball: 120 off a T10, 170 off a T20, 280 off an ODI, 350 in a day. */
 const PAR_PER_BALL: Record<Match['format'], number> = {
+  T10: 120 / 60,
   T20: 170 / 120,
   ODI: 280 / 300,
   TEST: 350 / 540,

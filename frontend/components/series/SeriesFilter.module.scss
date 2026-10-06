@@ -39,4 +39,27 @@
   > * + * {
     border-top: 1px solid $line;
   }
+
+  // One set of columns for every SeriesCard row, so the format column fits the widest chip
+  // ("Test + ODI + T20") and the rows still line up. The edge tracks carry the row's 20px
+  // padding: 120px holds a two-format chip, 38px the 18px chevron.
+  @include tablet {
+    display: grid;
+    grid-template-columns: minmax(120px, max-content) minmax(0, 1fr) 180px 116px 38px;
+    column-gap: $space-5;
+
+    @include desktop {
+      grid-template-columns: minmax(120px, max-content) minmax(0, 1fr) minmax(200px, 300px) 116px 38px;
+    }
+
+    // Rows sit in an <li> on the page and directly in the list (a <div>) in the loading
+    // skeleton. Element selectors keep this above `.row`, whatever the stylesheet order.
+    > li,
+    > div,
+    > li > a {
+      display: grid;
+      grid-column: 1 / -1;
+      grid-template-columns: subgrid;
+    }
+  }
 }

@@ -75,7 +75,7 @@ function BallEvent({ b }: { b: BallEntry }) {
   const big = kind === 'six' || kind === 'four' || kind === 'wicket';
 
   return (
-    <li className={`${styles.event} ${styles[`k_${kind}`]} ${big ? styles.big : ''}`}>
+    <li className={`${styles.event} ${styles[`k_${kind}`] ?? ''} ${big ? styles.big : ''}`}>
       <span className={styles.at}>
         {b.over}.{b.ball}
       </span>

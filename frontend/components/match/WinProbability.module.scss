@@ -58,7 +58,7 @@
 }
 
 .away {
-  fill: $signal;
+  fill: $signal-mark;
   transition: x $dur-4 $ease-out, width $dur-4 $ease-out;
 }
 

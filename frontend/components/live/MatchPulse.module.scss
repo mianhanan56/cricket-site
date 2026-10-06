@@ -12,7 +12,7 @@
 }
 
 .row {
-  --tone: var(--signal);
+  --tone: var(--signal-mark);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
@@ -24,7 +24,7 @@
 }
 
 .momentum {
-  --tone: var(--signal);
+  --tone: var(--signal-mark);
 }
 
 .pressure {

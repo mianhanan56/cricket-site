@@ -52,7 +52,7 @@ export interface SkeletonProps {
 
 export default function Skeleton({ variant, width, size, className }: SkeletonProps) {
   const classes = [styles.sk];
-  if (variant) classes.push(styles[variant]);
+  if (variant) classes.push(styles[variant] ?? '');
   if (width) classes.push(styles[`w${width}`]);
   if (size) classes.push(styles[`s${size}`]);
   if (className) classes.push(className);

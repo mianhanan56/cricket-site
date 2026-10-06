@@ -56,8 +56,9 @@
 
   @include desktop {
     width: auto;
-    padding-right: $space-3;
-    border-right: 1px solid $line;
+    margin-left: auto;
+    padding-left: $space-3;
+    border-left: 1px solid $line;
   }
 
   @include motion {
@@ -137,7 +138,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: $signal;
+  background: $signal-mark;
 
   @include motion {
     animation: live-pulse $dur-pulse ease-out infinite;
@@ -146,4 +147,8 @@
 
 .panelAnchor {
   scroll-margin-top: calc(#{$navbar-height} + 64px);
+}
+
+.panelHold {
+  min-height: calc(100dvh - #{$navbar-height});
 }

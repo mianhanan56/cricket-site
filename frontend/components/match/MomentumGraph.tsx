@@ -170,7 +170,7 @@ export default function MomentumGraph({
                 return (
                   <g key={`${wm.index}-${b.over}`}>
                     <rect
-                      className={`${styles.bar} ${styles[`bar_${tone(wm)}`]}`}
+                      className={`${styles.bar} ${styles[`bar_${tone(wm)}`] ?? ''}`}
                       x={bx}
                       y={barTop + BAR_H - h}
                       width={bw}

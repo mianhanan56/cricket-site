@@ -42,13 +42,41 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
   match. New Worker route `/player/matches` — **needs `npm run deploy` in worker-crex**; until then
   the section is simply absent in production.
 
+## Recently completed (uncommitted, 2026-10-02, data consistency)
+
+- Live counts agree across Home tab, ticker and Insights; stopped states named on the ticker.
+- Home series cards and Upcoming/Today list use the same sources as /series and /fixtures.
+- T10 is its own format (label, 10-over projections, Fixtures tab).
+- Pulse label and figures share one denominator (legal balls).
+- Ireland in the Teams directory (full Test team list).
+- No-ball/wide notation consistent between the ball strip and over cards.
+- Key moments: score on every wicket line; a same-surname wicket no longer hidden.
+
+## Recently completed (uncommitted, 2026-10-02, design/usability)
+
+- Home stage no longer swaps matches on a re-rank; no clipped team codes, scores or names; whole overs only on the hero strip.
+- Nav, search focus, match tabs, Insights first paint, Kohli bowling strip, series readout, light-mode lime marks, phone status row and hero tiles, `undefined` class names, score-strip labels.
+- Verified on a production build (isolated copy, :3006, CDP-driven Chrome): tabs keep position across 5 clicks at 1280 and 390; search pick → `/teams/VJ` with body focused; no `undefined` classes on /, /insights, /matches/13Q7, /series; status row 286/286 at 320; Insights cards in the HTML.
+
+## Recently completed (uncommitted, 2026-10-02, follow-up)
+
+- Key moments on IND v SL list all 17 wickets once each, with scores (was: 10th twice, 8th/9th as prose, IND 1st/2nd/6th missing).
+- EMR v FUJ scorecard opens on "EMR · Inn 1" (was FUJ's empty innings).
+- Series chips on one line; rows and sections share columns at 800 and 1280; skeleton matches.
+
+## Recently completed (uncommitted, 2026-10-02, stumps rules)
+
+- Stumps out of every live surface together; breaks/delays stay Live. Verified live (ROI v J&K at Day 2 stumps): Home Live 1 / All 55 (Domestic 1/40, International 0/15), ROI absent from Live, strip, stage and Insights, present in All with a Stumps chip; `?tab=live` direct load the same; search shows a Stumps section. Match centre: "Stumps · Day 2 / Day 3 starts Sat 3 Oct, 9:00 am" (UTC+5 reader), no tab dot or batting mark; 320–1280 no overlap.
+- Not observable today, covered by logic/tests: Day 3 first ball (note clears on a moving score), the match finishing, lunch/tea/rain staying Live (unit tests).
+
 ## Pending
 
 See TODO.md.
 
 ## Testing status
 
-- `npm test` (frontend): **128/128 pass** (2026-10-02; was 111 — new suites for player series figures, fetch deadlines, stored-alert parsing).
+- `npm test` (frontend): **132/132 pass** (2026-10-02; +4 for T10 decoding, legal-ball pulse window, key-moment scores and surname dedupe).
+- Data-consistency fixes verified on a production build from an isolated copy against live data (2026-10-02): Home Live 3 = ticker 3 (ROI v J&K shows "Stumps"); Home Today 4 = Fixtures Today 4 (same rows); Home series cards equal /series (WI tour 27 Sept → 17 Oct, 2/8); Teams Men 12 incl. Ireland; 14MJ header "17th T10"; pulse "3 in 8 · Last 8 balls"; 360px clean on Home and Test team rankings.
 - Series performance: decoded/summed figures equal crex's own totals on 471 series×format groups (36 players incl. Tests, The Hundred, county); 320–1280px no overflow; select → format → load older → match → Back → reload flow verified (2026-10-02).
 - `tsc --noEmit`: frontend clean, worker clean (2026-10-02). Lint clean.
 - UI pass visually verified at 320–1440px from an isolated copy; search reachable from the header on phones (2026-09-29).

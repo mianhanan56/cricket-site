@@ -22,6 +22,7 @@ export default function Segmented<T extends string>({
   options,
   onChange,
   size = 'md',
+  fill = false,
   className,
 }: {
   label: string;
@@ -29,6 +30,8 @@ export default function Segmented<T extends string>({
   options: readonly SegmentOption<T>[];
   onChange: (value: T) => void;
   size?: 'sm' | 'md';
+  /** On phones, share the row between the options instead of scrolling it. */
+  fill?: boolean;
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -51,7 +54,7 @@ export default function Segmented<T extends string>({
   return (
     <div
       ref={ref}
-      className={`${styles.group} ${styles[size]} ${className ?? ''}`}
+      className={`${styles.group} ${size === 'sm' ? styles.sm : ''} ${fill ? styles.fill : ''} ${className ?? ''}`}
       role="radiogroup"
       aria-label={label}
       onKeyDown={onKeyDown}

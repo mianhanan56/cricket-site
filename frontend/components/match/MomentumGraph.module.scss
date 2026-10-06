@@ -2,7 +2,7 @@
 
 .graph {
   --a: var(--data);
-  --b: var(--signal);
+  --b: var(--signal-mark);
   display: flex;
   flex-direction: column;
   gap: $space-3;
@@ -194,7 +194,7 @@
   }
 
   &:focus-visible .hitDot {
-    stroke: $signal;
+    stroke: $signal-mark;
     stroke-width: 1.5;
   }
 }

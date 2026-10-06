@@ -26,6 +26,7 @@ import type {
   InningsScore,
   Match,
   MatchEvent,
+  WicketRef,
   MatchEventKind,
   MatchFormat,
   MatchNote,
@@ -357,6 +358,18 @@ export function getCrexTeamRankings(
   return crexGet<CrexTeamRankingsResponse>(`/rankings?${qs}`, { revalidate: 3600, ...opts });
 }
 
+/**
+ * One team ranking list in full. rankingFront stops at ten, which leaves a Test
+ * nation off the men's Test list; this route returns every ranked side.
+ */
+export function getCrexTeamRankingList(
+  params: { type: 'test' | 'odi' | 't20'; gender: 'men' | 'women' },
+  opts: FetchOpts = {}
+): Promise<CrexTeamRankingRow[]> {
+  const qs = new URLSearchParams({ category: 'team', play: 'team', ...params });
+  return crexGet<CrexTeamRankingRow[]>(`/rankings/players?${qs}`, { revalidate: 3600, ...opts });
+}
+
 /** Crest URL for a team f_key, or null when there is no key to build one from. */
 export function teamLogoUrl(key: string | undefined): string | null {
   const clean = cleanKey(key);
@@ -601,12 +614,12 @@ const STATE_STATUS: Record<number, MatchStatus> = {
   2: 'COMPLETED',
 };
 
-/** Format by `n % 4`. T10 and The Hundred fold into T20, as in `toMatchFormat`. */
+/** Format by `n % 4`. Slot 3 is T10 or The Hundred; `toMatchFormat` tells them apart by `hb`. */
 const SLOT_FORMAT: Record<number, MatchFormat> = {
   0: 'T20',
   1: 'ODI',
   2: 'TEST',
-  3: 'T20',
+  3: 'T10',
 };
 
 export interface CrexMatchState {
@@ -671,8 +684,8 @@ export function toMatchStatus(m: CrexRawMatch): MatchStatus {
 
 /**
  * crex's `fo` covers more formats than our schema does. "List A" and "One Day"
- * are 50-over games, so they fold into ODI; T10 and The Hundred fold into T20
- * as the nearest of our three.
+ * are 50-over games, so they fold into ODI; The Hundred folds into T20 as the
+ * nearest of ours.
  *
  * The Hundred is checked first and via `hb`, not `fo`: crex sends no `fo` at
  * all on those matches, so anything relying on the label alone mislabels a
@@ -687,7 +700,8 @@ export function toMatchFormat(m: CrexRawMatch): MatchFormat {
 
   const f = (m.fo ?? '').toUpperCase();
   if (f.includes('TEST')) return 'TEST';
-  if (f.includes('T20') || f.includes('T10') || f.includes('HUN')) return 'T20';
+  if (f.includes('T10')) return 'T10';
+  if (f.includes('T20') || f.includes('HUN')) return 'T20';
   if (f.includes('ODI') || f.includes('ONE DAY') || f.includes('LIST')) return 'ODI';
 
   return decodeMatchState(m.n)?.format ?? 'ODI';
@@ -947,7 +961,7 @@ function toTeam(key: string, names: typeof nameCache): Team {
 }
 
 /** Innings a match of each format plays in total. Four in a Test, two elsewhere. */
-const TOTAL_INNINGS: Record<MatchFormat, number> = { TEST: 4, ODI: 2, T20: 2 };
+const TOTAL_INNINGS: Record<MatchFormat, number> = { TEST: 4, ODI: 2, T20: 2, T10: 2 };
 
 /**
  * Has this innings finished? Ten down, declared, or the full quota of balls bowled.
@@ -1923,6 +1937,8 @@ interface CrexMatchInfo {
   dt?: string;
   /** Format label, crex's wording: "Test", "First Class", "One Day". */
   fo?: string;
+  /** When play is next due, epoch ms — the next day's start on a multi-day match. */
+  nt?: number;
 }
 
 /** `tb`'s role field. Anything unrecognised is left unknown rather than called a batter. */
@@ -2008,6 +2024,7 @@ async function decodeConditions(
       .map((name) => name.trim())
       .filter(Boolean),
     venue,
+    nextPlay: typeof info?.nt === 'number' && info.nt > 0 ? new Date(info.nt).toISOString() : null,
   };
 }
 
@@ -2134,6 +2151,10 @@ interface CrexBallFeed {
   n?: string;
   /** Batsman's name on a wicket card. */
   player_fullname?: string;
+  /** Batsman's f_key on a wicket card. */
+  player_fkey?: string;
+  /** Wicket number on a wicket card, 1-based. */
+  wn?: number;
   /** Runs and balls on a wicket card. */
   r?: number;
   /** Innings index, 0-based. */
@@ -2336,6 +2357,7 @@ function toMatchEvent(f: CrexBallFeed): MatchEvent | null {
     f.on !== undefined && f.on >= 0 && !OVERLESS.has(spec.kind) ? f.on + 1 : null;
   let label = spec.label;
   let text = plainText(f.c);
+  let wicket: WicketRef | undefined;
 
   if (spec.kind === 'OVER') {
     label = over ? `End of over ${over}` : 'Over complete';
@@ -2345,10 +2367,18 @@ function toMatchEvent(f: CrexBallFeed): MatchEvent | null {
     text =
       `${runs} run${runs === 1 ? '' : 's'}` +
       (wickets ? `, ${wickets} wicket${wickets === 1 ? '' : 's'}` : '');
-  } else if (spec.kind === 'WICKET' && !text) {
-    // A wicket card without commentary still names who went, and for how many.
-    const who = f.player_fullname ?? f.n;
-    text = who ? `${who} out${f.r !== undefined ? ` for ${f.r}` : ''}` : '';
+  } else if (spec.kind === 'WICKET' && (f.player_fullname ?? f.n)) {
+    // One short line per wicket, whether or not the card has commentary — the prose is on the
+    // Commentary tab. The team score is not on the card; `keyMoments` adds it from the scorecard.
+    const who = f.player_fullname ?? f.n ?? '';
+    const faced = typeof f.b === 'number' ? ` (${f.b})` : '';
+    text = `${who} out${f.r !== undefined ? ` for ${f.r}${faced}` : ''}`;
+    wicket = {
+      playerId: cleanKey(f.player_fkey) || null,
+      name: who,
+      inning: f.inning ?? null,
+      number: f.wn ?? null,
+    };
   } else if (spec.kind === 'MILESTONE' && f.n) {
     text = `${f.n} — ${text}`;
   }
@@ -2362,6 +2392,7 @@ function toMatchEvent(f: CrexBallFeed): MatchEvent | null {
     text,
     over,
     timestamp: f.id ? new Date(f.id).toISOString() : undefined,
+    ...(wicket ? { wicket } : {}),
   };
 }
 
@@ -2408,6 +2439,9 @@ export interface FeedWalkOpts extends FetchOpts {
  * commentary — the deliveries, the score, who was in and who was bowling — and
  * none of that survives being turned into "6 runs, 1 wicket".
  */
+/** crex writes runs off a wide or no ball first ("1nb"); the ball strip writes them after ("nb+1"). */
+const overToken = (t: string): string => t.replace(/^(\d+)(nb|wd)$/i, (_, runs: string, extra: string) => `${extra.toLowerCase()}+${runs}`);
+
 function toOverSummary(f: CrexBallFeed): OverSummary | null {
   if (f.type !== 'o' || f.on === undefined || f.on < 0) return null;
 
@@ -2424,7 +2458,7 @@ function toOverSummary(f: CrexBallFeed): OverSummary | null {
     inning: f.inning ?? 0,
     runs: f.runs ?? 0,
     wickets: f.ow ?? 0,
-    balls: (f.rb ?? '').split('.').filter((b) => b !== ''),
+    balls: (f.rb ?? '').split('.').filter((b) => b !== '').map(overToken),
     score: f.s ?? null,
     battingTeam: f.team ?? null,
     batsmen,
@@ -2697,14 +2731,14 @@ const SERIES_MATCH_STATUS: Record<number, MatchStatus> = {
  * tour whose second Test begins on the 22nd reads as ending on the 22nd, when the
  * scheduled finish is the 26th — and crex's own series header says the 26th.
  */
-const FORMAT_DAYS: Record<MatchFormat, number> = { TEST: 5, ODI: 1, T20: 1 };
+const FORMAT_DAYS: Record<MatchFormat, number> = { TEST: 5, ODI: 1, T20: 1, T10: 1 };
 
-/** `ft` on a series match. T10 and The Hundred fold into T20, as in toMatchFormat. */
+/** `ft` on a series match. The Hundred folds into T20, as in toMatchFormat. */
 const SERIES_MATCH_FORMAT: Record<number, MatchFormat> = {
   1: 'ODI',
   2: 'T20',
   3: 'TEST',
-  4: 'T20',
+  4: 'T10',
   5: 'T20',
 };
 
@@ -3306,6 +3340,14 @@ const CORPUS_REVALIDATE = 1800;
  * use for the same reason.
  */
 const FIXTURE_FETCH_WIDTH = 8;
+
+/** The first `pages` schedule pages from today — the next day or two, without the full read. */
+export function getCrexFixturesAhead(pages = 2, opts: FetchOpts = {}): Promise<Fixture[]> {
+  return fixturesFromPages(
+    Array.from({ length: pages }, (_, i) => i),
+    opts
+  );
+}
 
 async function fixturesFromPages(pages: number[], opts: FetchOpts = {}): Promise<Fixture[]> {
   const settled = await inWidth(pages, FIXTURE_FETCH_WIDTH, (page) =>

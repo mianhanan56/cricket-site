@@ -43,6 +43,21 @@
   }
 }
 
+.fill {
+  @include phone-only {
+    display: flex;
+    width: 100%;
+
+    .option {
+      flex: 1 1 auto;
+      justify-content: center;
+      gap: $space-1;
+      padding-inline: $space-1-5;
+      font-size: $fs-sm;
+    }
+  }
+}
+
 .on {
   color: $text;
   background: $surface-3;
@@ -63,7 +78,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: $signal;
+  background: $signal-mark;
 
   @include motion {
     animation: live-pulse $dur-pulse ease-out infinite;

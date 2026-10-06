@@ -30,7 +30,7 @@ export default function TeamBadge({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const classes = `${styles.badge} ${styles[size]} ${className ?? ''}`;
+  const classes = `${styles.badge} ${styles[size] ?? ''} ${className ?? ''}`;
 
   if (logo && !failed) {
     return (

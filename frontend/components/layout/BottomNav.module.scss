@@ -40,7 +40,7 @@
     right: 30%;
     height: 2px;
     border-radius: 0 0 2px 2px;
-    background: $signal;
+    background: $signal-mark;
     transform: scaleX(0);
     transition: transform $dur-3 $ease-out;
   }

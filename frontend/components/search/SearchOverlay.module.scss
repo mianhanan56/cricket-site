@@ -78,7 +78,7 @@
     bottom: -1px;
     width: 30%;
     height: 1px;
-    background: linear-gradient(90deg, transparent, $signal, transparent);
+    background: linear-gradient(90deg, transparent, $signal-mark, transparent);
 
     @include motion {
       animation: sweep 2.4s $ease-in-out infinite;

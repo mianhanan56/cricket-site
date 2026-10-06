@@ -47,7 +47,7 @@ function FormStrip({ team, form }: { team: Team; form: TeamFormEntry[] }) {
       <span className={styles.formChips}>
         {form.length ? (
           form.map((f) => (
-            <span key={f.matchId} className={`${styles.formChip} ${styles[`form${f.result}`]}`} title={`vs ${f.opponent}`}>
+            <span key={f.matchId} className={`${styles.formChip} ${styles[`form${f.result}`] ?? ''}`} title={`vs ${f.opponent}`}>
               {f.result}
             </span>
           ))

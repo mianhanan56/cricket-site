@@ -86,7 +86,7 @@
   }
 
   .on & {
-    background: $signal;
+    background: $signal-mark;
 
     &::after {
       transform: translateX(14px);

@@ -23,7 +23,7 @@
   transition: border-color $dur-2 $ease-out;
 
   &:focus-within {
-    border-color: $signal;
+    border-color: $signal-mark;
   }
 
   @include tablet {

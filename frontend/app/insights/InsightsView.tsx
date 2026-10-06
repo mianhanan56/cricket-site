@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import type { Match } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
-import { matchStateOf } from '@/lib/matchState';
+import { isLiveNow, matchStateOf } from '@/lib/matchState';
 import { liveEquation } from '@/lib/telemetry';
 import { rankLive } from '@/lib/featured';
 import { useFollows } from '@/lib/follows';
@@ -24,14 +24,14 @@ function tension(m: Match): number | null {
   return eq.rrr / eq.crr;
 }
 
-export default function InsightsView() {
-  const { matches, isLoading, error, refresh, isRefreshing } = useCrexMatches();
+export default function InsightsView({ initial }: { initial: Match[] }) {
+  const { matches, isLoading, error, refresh, isRefreshing } = useCrexMatches({ initial });
   const follows = useFollows();
 
   const live = useMemo(
     () =>
       rankLive(
-        matches.filter((m) => m.status === 'LIVE'),
+        matches.filter(isLiveNow),
         new Set(follows.teams.map((t) => t.id)),
       ),
     [matches, follows.teams],
@@ -77,7 +77,7 @@ export default function InsightsView() {
               ['Finished today', vitals.finished, 'text'],
             ] as const
           ).map(([label, value, tone]) => (
-            <div key={label} className={`${styles.vital} ${styles[tone]}`}>
+            <div key={label} className={`${styles.vital} ${styles[tone] ?? ''}`}>
               <dt>{label}</dt>
               <dd>{value}</dd>
             </div>

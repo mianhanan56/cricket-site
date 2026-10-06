@@ -42,12 +42,13 @@ const MAX_DOTS = 18;
 
 const NO_SITUATION: MatchSituation = { margin: null, followOn: null, target: null };
 
-// "287/4", or "462 & 193/10" once a Test side has batted twice.
+// "287/4"; once a Test side bats again, its earlier innings ("462") ride in front of the latest.
 function scoreParts(list: InningsScore[], perOver: number, multiInnings: boolean): ScoreParts | null {
   const batted = battedInnings(list);
   if (!batted.length) return null;
   return {
-    runs: formatTeamScore(batted, multiInnings),
+    runs: formatTeamScore(batted.slice(-1), multiInnings),
+    earlier: batted.length > 1 ? formatTeamScore(batted.slice(0, -1), true) : null,
     overs: formatProgressShort(batted[batted.length - 1].overs, perOver),
   };
 }
@@ -210,7 +211,8 @@ export default function MatchDetail({
 
   const winnerId =
     match.status === 'COMPLETED' ? attributeResult(match.result, match.homeTeam, match.awayTeam).winnerKey : null;
-  const battingId = eq?.battingTeam.id ?? null;
+  // Nobody is in at stumps, so no side carries the batting mark.
+  const battingId = state.key === 'STUMPS' ? null : eq?.battingTeam.id ?? null;
 
   const hasTable = Boolean(seriesTable?.length);
   const hasStats = Boolean(seriesLeaders && rankedLeaders(seriesLeaders).length);
@@ -239,9 +241,15 @@ export default function MatchDetail({
   const tabsRef = useRef<HTMLDivElement>(null);
   useScrollFade(tabsRef);
   useActiveInView(tabsRef, `${tab}|${tabs.length}`);
+  const railRef = useRef<HTMLElement>(null);
   const pick = (next: TabKey) => {
     setTab(next);
-    if (compact) panelRef.current?.scrollIntoView({ block: 'start' });
+    const panel = panelRef.current;
+    const rail = railRef.current;
+    if (!compact || !panel || !rail) return;
+    // Panel top just under the stuck rail, so the rail stays where it is.
+    const gap = panel.getBoundingClientRect().top - rail.getBoundingClientRect().bottom;
+    window.scrollBy({ top: gap });
   };
 
   return (
@@ -270,10 +278,27 @@ export default function MatchDetail({
           connecting={isLive && !isConnected && !crexExtras.fetchedAt}
           interrupted={interrupted}
           perOver={perOver}
+          nextPlay={conditions?.nextPlay}
         />
       </div>
 
-      <nav className={`${styles.rail} ${compact ? styles.railCompact : ''}`} aria-label="Match sections">
+      <nav ref={railRef} className={`${styles.rail} ${compact ? styles.railCompact : ''}`} aria-label="Match sections">
+        <div ref={tabsRef} className={styles.tabs} role="tablist">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === t.key}
+              className={`${styles.tab} ${tab === t.key ? styles.active : ''}`}
+              onClick={() => pick(t.key)}
+            >
+              {t.key === 'live' && isLive && state.key !== 'STUMPS' && <span className={styles.liveDot} aria-hidden="true" />}
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {/* After the tabs, so its arrival never moves them under the pointer. */}
         {compact && (
           <span className={styles.mini} aria-hidden="true">
             <StateChip state={state} />
@@ -288,24 +313,10 @@ export default function MatchDetail({
             )}
           </span>
         )}
-        <div ref={tabsRef} className={styles.tabs} role="tablist">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.key}
-              className={`${styles.tab} ${tab === t.key ? styles.active : ''}`}
-              onClick={() => pick(t.key)}
-            >
-              {t.key === 'live' && isLive && <span className={styles.liveDot} aria-hidden="true" />}
-              {t.label}
-            </button>
-          ))}
-        </div>
       </nav>
 
-      <div ref={panelRef} className={styles.panelAnchor}>
+      {/* While the rail is stuck, a short tab must not let the page clamp and bring the header back. */}
+      <div ref={panelRef} className={`${styles.panelAnchor} ${compact ? styles.panelHold : ''}`}>
         {tab === 'live' && (
           <LivePanel
             match={match}

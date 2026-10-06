@@ -93,7 +93,7 @@
   margin-left: $space-1-5;
   vertical-align: middle;
   border-radius: 50%;
-  background: $signal;
+  background: $signal-mark;
 
   @include motion {
     animation: live-pulse $dur-pulse ease-out infinite;

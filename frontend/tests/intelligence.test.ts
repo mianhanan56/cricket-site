@@ -131,6 +131,14 @@ describe('pulse', () => {
     assert.equal(by.wickets.figure, '1 wkt');
   });
 
+  it('counts the window in legal balls, so the label and the meters agree', () => {
+    const newestFirst = Array.from({ length: 24 }, (_, i) => ball(23 - i, 1, i % 6 === 0 ? { extra: 'noball' } : {}));
+    const window = recentInningsBalls(newestFirst);
+    assert.equal(window.filter((b) => b.extra !== 'noball').length, 18);
+    const boundaries = matchPulse(window, 'T20', 6)?.find((r) => r.key === 'boundaries');
+    assert.equal(boundaries?.figure, '0 in 18');
+  });
+
   it('keeps the window inside the innings in progress', () => {
     const newestFirst = [ball(2, 1), ball(1, 1), ball(0, 1, { inning: 0 })];
     assert.deepEqual(recentInningsBalls(newestFirst).map((b) => b.id), ['1001', '1002']);
