@@ -71,7 +71,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 
 ## Recently completed (uncommitted, 2026-10-06, user bug report)
 
-- Home tabs add up (Live 5 + Upcoming 39 + Results 13 = All 57 on 2026-10-06; three Stumps matches on Live).
+- Home tabs add up (Live 5 + Upcoming 39 + Results 13 = All 57 on 2026-10-06; three Stumps matches on Live). Superseded 2026-10-07: stumps matches are in All only.
 - Live Worker routes never served from the service worker cache.
 - Player recent form current for today's match (re-read from the scorecard).
 - Leaders on the match Stats tab and series page refresh every 30s while live (checked: second read at ~30s).
@@ -99,6 +99,16 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Fixed: a Worker/crex outage made team, player, venue, series and series-stat pages a noindex 404. Now only an unknown id 404s (`isRejectedRequest` in `lib/crex.ts` reads crex's status out of the Worker's 502); an outage shows the error boundary. Pages with data in Next's cache keep rendering it.
 - Fixed: error-boundary Retry only called `reset()`, which re-renders the failed server payload; `hooks/useErrorRetry` refreshes first (verified: Worker down → error → Worker up → Retry → page).
 - News: `?page=0`/`abc` redirect to /news, past 60 → 404; page titles carry the page number; keyboard focus rings the whole card.
+
+## Recently completed (uncommitted, 2026-10-07)
+
+- Ball-by-ball popup for every batter and bowler on the scorecard (icon beside the name). One request per innings; <1s with the new Worker, 1–2.5s with the deployed one (whole match). Focus returns to the icon on close.
+- News cards open our own `/news/[slug]` story page (summary, image, tags, related) instead of crex.com; no crex link or mention anywhere in the UI. Story skeleton; slug redirect; unknown story → 404.
+- Worker: `inning` filter on `/match/commentary`, new `/news/article`.
+
+## Recently completed (uncommitted, 2026-10-07, stumps rule)
+
+- Home: a multi-day match at stumps is no longer on the Live tab — All only — and returns to Live when the next day's play starts; finished → Results. Empty Live tab offers "Matches at stumps" when there are any.
 
 ## Pending
 

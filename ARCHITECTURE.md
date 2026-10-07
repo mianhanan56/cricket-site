@@ -60,7 +60,7 @@ commands inside `frontend/` or `worker-crex/`.
 - Upstream hosts: `oc` (oc.crickapi.com), `stats`, `content` (commentary), `news`,
   `php` (api.goscorer.com — live match list). Wrong host ⇒ "Invalid Host header".
 - Routes (TTL): `/matches/live` 2s · `/rankings` 1h · `/rankings/players` 1h · `/mapping` 6h ·
-  `/fixtures` 5m · `/news/topics` 15m · `/news/tagged` 15m · `/match/info` 5m · `/match/scorecard` 5s · `/match/commentary` 5s ·
+  `/fixtures` 5m · `/news/topics` 15m · `/news/tagged` 15m · `/news/article` 15m · `/match/info` 5m · `/match/scorecard` 5s · `/match/commentary` 5s ·
   `/player/overview` 1h · `/player/matches` 1h · `/series/matches` 5m · `/series/table` 5m · `/series/squads` 1h ·
   `/series/overview` 30s · `/team/matches` 5m. Full detail and wire formats: `worker-crex/README.md`
   and `worker-crex/src/routes.ts`.
@@ -105,8 +105,10 @@ Home reads two extra sources besides the feed, so its figures match the pages th
 `hooks/useFixturesAhead` (`/fixtures` pages 0–1, every 5 min) adds fixtures the feed window
 omits to Upcoming/All, up to the last row read; `hooks/useSeriesTotals` swaps "Series in
 progress" onto each series' own schedule (`withSeriesSchedules`) and renders nothing until it
-answers. Home's tabs partition All exactly: Live (live now, then matches at stumps) + Upcoming +
-Results = All; the ticker, stage and Insights show live-now matches only.
+answers. Home's tabs (user rule, 2026-10-07): Live = play on or resuming today (`isLiveNow`);
+a multi-day match at stumps is in **All only** until the next day's play starts, then Live again;
+finished → Results. So All = Live + Upcoming + Results + matches at stumps. The ticker, stage and
+Insights show live-now matches only.
 
 `hooks/useCrexMatches.ts` is **one shared poll** of the match list: every subscriber reads the
 same snapshot and it runs at the fastest interval any subscriber requests.
@@ -130,7 +132,10 @@ pair's stand a ball after the wicket.
 `/api/search-index` · `sitemap.ts` · `robots.ts`. Data source and freshness per page: README table.
 
 News (`components/news/NewsList.tsx`): `/news` leads with the newest story, then rows; tag chips
-link to our team/series/player pages. Team and player pages stream a News section (`TaggedNews`,
+link to our team/series/player pages. Every card opens `/news/[slug]` (crex's slug, ending in the
+article id): headline, summary, cover, author, tags, related. No link to or mention of crex
+anywhere in the UI (user decision, 2026-10-07); the article body is not republished. `getNewsStory` reads `/news/article`, falling back
+to the first three latest-news pages; a mismatched slug redirects to the real one. Team and player pages stream a News section (`TaggedNews`,
 under `Suspense`, hidden when empty); the series page gets a News tab only when it has articles.
 
 ## Player series performance
@@ -146,6 +151,17 @@ series×format groups. Selection lives in `?series=&format=` written with `histo
 (no server round trip); the server reads it and pages back up to 8 pages to reach an older series.
 Client pages are deduped in a module-level map. If the route fails the section is omitted.
 Format filter codes: 3 Test (crex also files first-class here), 1 ODI, 2 T20, 4 T10, 5 100B.
+
+## Ball-by-ball popups
+
+Scorecard batter/bowler rows have a ball icon (`components/match/PlayerBalls.tsx`) opening a dialog
+(bottom sheet on phones) of that player's deliveries, over by over. `hooks/usePlayerBalls` keeps one
+store per match+innings, filled by `getCrexInningsBalls` — the whole innings in one request (see
+worker README › `/match/commentary`); a live innings is re-read after 15s. `lib/playerBalls.ts`
+picks a player's balls (`pf` striker / `bf` bowler on each delivery), counts faced (not wides) or
+legal balls, and keeps a W on a batter's ball only when it matches their own fall of wicket (a
+non-striker run-out sits on the striker's ball). Checked against the card: 123 of 125 players
+exact across four matches; the two misses are balls missing from crex's own commentary.
 
 ## Not found vs outage
 
@@ -210,8 +226,8 @@ with permission, the system tray — only while a tab is open.
   match Commentary.
 - Server Components by default; `'use client'` only when needed. Few comments — only non-obvious *why*.
 - Live vs stumps: the ticker, stage, Insights and live counts filter with `isLiveNow`
-  (`lib/matchState.ts`). `isAtStumps` matches sit on Home's Live tab after the live ones (so the
-  tabs add up to All) and get a "Stumps" tag/section in search. Don't filter on
+  (`lib/matchState.ts`). `isAtStumps` matches are in Home's All tab only (not Live) and get a
+  "Stumps" tag/section in search. This has flip-flopped; the 2026-10-07 user rule is final. Don't filter on
   `status === 'LIVE'` for anything a reader sees as "live".
 - Format chips go through `matchFormat` / `meetingFormat` (`lib/seriesFormat.ts`): crex files every
   multi-day match as a Test, and `isUnofficialTest` (`lib/matchType.ts`) relabels one that is not

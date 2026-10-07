@@ -61,6 +61,8 @@ export interface RouteDef {
   note?: string;
 }
 
+const INNING_FILTERS = ['firstInning', 'secondInning', 'thirdInning', 'fourthInning'];
+
 export const ROUTES: RouteDef[] = [
   {
     // The whole live/upcoming/recent match list in one payload. Keys are
@@ -171,8 +173,14 @@ export const ROUTES: RouteDef[] = [
     params: {
       matchKey: { type: 'string', required: true },
       lastDocId: { type: 'string', default: '' },
+      // One innings only (0-based) — crex's own commentary filter, which also drops the editorial rows.
+      inning: { type: 'int', min: 0, max: 3 },
     },
-    bodyDefaults: { filters: {} },
+    buildBody: (p) => ({
+      matchKey: p.matchKey,
+      lastDocId: p.lastDocId,
+      filters: p.inning === undefined ? {} : { [INNING_FILTERS[p.inning as number]]: true },
+    }),
     note: 'Latest ~10 balls; lastDocId=<id of last entry> pages backwards',
   },
   {
@@ -472,6 +480,19 @@ export const ROUTES: RouteDef[] = [
       content_lang: { type: 'string', enum: ['en'], default: 'en' },
     },
     note: 'News tagged with a team: /news/tagged?type=t&key=O',
+  },
+  {
+    // One article — headline, summary, cover, tags — plus crex's own "more news" and "more from the author".
+    match: '/news/article',
+    base: 'news',
+    path: '/api/articlesoc/{id}',
+    method: 'GET',
+    ttl: 900,
+    params: {
+      id: { type: 'string', required: true, pattern: /^[0-9a-f]{24}$/ },
+      content_lang: { type: 'string', enum: ['en'], default: 'en' },
+    },
+    note: 'One article by id: /news/article?id=6ac50f91b73383ab29c20a24',
   },
 ];
 

@@ -59,7 +59,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
   const scoped = useMemo(() => filterByMatchType(matches, type), [matches, type]);
   const ahead = useFixturesAhead();
 
-  // Ticker and stage: play that is on. The Live tab adds matches at stumps after them.
+  // Play that is on, or resumes today. A multi-day match at stumps is in All only until the next day starts.
   const liveList = useMemo(
     () =>
       rankLive(
@@ -68,7 +68,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
       ),
     [scoped, follows.teams]
   );
-  const liveTab = useMemo(() => [...liveList, ...scoped.filter(isAtStumps)], [liveList, scoped]);
+  const stumpsList = useMemo(() => scoped.filter(isAtStumps), [scoped]);
 
   // Schedule rows the feed has no copy of, up to the last one read — that day is only partly read.
   const missing = useMemo(() => {
@@ -113,8 +113,11 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
   );
   const seriesTotals = useSeriesTotals(ongoingSeries, matches);
 
-  // Exactly the three tabs together, so their counts always add up to this one.
-  const allList = useMemo(() => [...liveTab, ...upcomingList, ...finishedList], [liveTab, upcomingList, finishedList]);
+  // The three tabs plus matches at stumps, which no other tab lists.
+  const allList = useMemo(
+    () => [...liveList, ...stumpsList, ...upcomingList, ...finishedList],
+    [liveList, stumpsList, upcomingList, finishedList]
+  );
 
   // With no tab in the URL, open on what's happening: live if anything is, else what's next.
   // Fixed once the feed first answers, so a match ending doesn't pull the page to another tab.
@@ -178,7 +181,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
             label="Match status"
             value={tab}
             options={[
-              { value: 'live', label: 'Live', count: count(liveTab.length), live: liveList.length > 0 },
+              { value: 'live', label: 'Live', count: count(liveList.length), live: liveList.length > 0 },
               { value: 'upcoming', label: 'Upcoming', count: count(upcomingList.length) },
               { value: 'finished', label: 'Results', count: count(finishedList.length) },
               { value: 'all', label: 'All', count: count(allList.length) },
@@ -192,9 +195,9 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
         {(isLoading || error) && !hasData ? (
           <BoardSkeleton />
         ) : tab === 'live' ? (
-          liveTab.length ? (
+          liveList.length ? (
             <div className={styles.grid}>
-              {liveTab.map((m) => (
+              {liveList.map((m) => (
                 <MatchTile key={m.id} match={m} />
               ))}
             </div>
@@ -203,6 +206,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
               icon="live"
               title={`No ${typeNote}matches live right now`}
               action={upcomingList.length ? { label: 'See what’s next', onClick: () => setTab('upcoming') } : undefined}
+              secondary={stumpsList.length ? { label: 'Matches at stumps', onClick: () => setTab('all') } : undefined}
             />
           )
         ) : tab === 'upcoming' ? (

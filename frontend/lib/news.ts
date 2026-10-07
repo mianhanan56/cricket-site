@@ -1,7 +1,9 @@
 import type { NewsArticle, NewsPage, NewsTag, NewsTagKind } from '@/types';
 import {
+  getCrexNewsArticle,
   getCrexNewsTopics,
   getCrexTaggedNews,
+  isRejectedRequest,
   type CrexNewsArticle,
   type CrexNewsTopics,
   type CrexTaggedNews,
@@ -11,7 +13,6 @@ export const NEWS_PAGE_SIZE = 12;
 // Matches the Worker's bound on /news/topics.
 export const NEWS_MAX_PAGE = 60;
 
-const CREX_ORIGIN = 'https://crex.com';
 const TAG_KIND: Record<string, NewsTagKind> = { t: 'team', s: 'series', p: 'player' };
 const TAG_PARAM: Record<NewsTagKind, 't' | 's' | 'p'> = { team: 't', series: 's', player: 'p' };
 const IMAGE_HOSTS = new Set(['onecricketnews.akamaized.net', 'storage.googleapis.com']);
@@ -61,19 +62,28 @@ function decodeTags(raw: CrexNewsArticle['tags_array']): NewsTag[] {
   return tags;
 }
 
+// crex's own slug, which ends in the article id — "kusal-mendis-…-6ac4e7776151a66b14efba17".
+const SLUG = /^[a-z0-9-]*?([0-9a-f]{24})$/;
+
+export function idFromSlug(slug: string): string | null {
+  return SLUG.exec(slug)?.[1] ?? null;
+}
+
 export function decodeArticle(raw: CrexNewsArticle, fallbackTime?: string): NewsArticle | null {
   const id = raw._id ?? raw.id;
   const title = raw.header?.trim();
   const path = raw.newsUrl;
   const publishedAt = isoFromEpoch(raw.closed_on) ?? isoFromEpoch(fallbackTime);
   if (!id || !title || !path?.startsWith('/') || !publishedAt) return null;
+  const tail = path.split('/').pop() ?? '';
 
   return {
     id,
+    slug: idFromSlug(tail) === id ? tail : id,
     title,
     excerpt: raw.excerpt?.trim() || null,
     image: newsImage(raw.cover_image_url, 'mq'),
-    url: `${CREX_ORIGIN}${path}`,
+    imageCaption: raw.cover_image_caption?.trim() || null,
     publishedAt,
     author: raw.assigned_to_name?.trim() || null,
     category: newsCategory(path),
@@ -106,6 +116,45 @@ export async function getTaggedNews(kind: NewsTagKind, id: string): Promise<News
     return newsFromTagged(await getCrexTaggedNews(TAG_PARAM[kind], id));
   } catch {
     return [];
+  }
+}
+
+export interface NewsStory {
+  article: NewsArticle;
+  related: NewsArticle[];
+}
+
+const RELATED_SHOWN = 6;
+// Pages of the latest list searched when the article route can't answer (a Worker without it).
+const FALLBACK_PAGES = 3;
+
+async function storyFromLatest(id: string): Promise<NewsStory | null> {
+  const pages = await Promise.all(
+    Array.from({ length: FALLBACK_PAGES }, (_, i) => getLatestNews(i + 1).catch(() => null))
+  );
+  const all = uniqueNewestFirst(pages.flatMap((p) => p?.articles ?? []));
+  const article = all.find((a) => a.id === id);
+  return article ? { article, related: all.filter((a) => a.id !== id).slice(0, RELATED_SHOWN) } : null;
+}
+
+/** null when the slug names no article; an outage throws. */
+export async function getNewsStory(slug: string): Promise<NewsStory | null> {
+  const id = idFromSlug(slug);
+  if (!id) return null;
+  try {
+    const body = await getCrexNewsArticle(id);
+    const article = body.articleData ? decodeArticle(body.articleData) : null;
+    if (article) {
+      const related = uniqueNewestFirst(
+        [...(body.more_news ?? []), ...(body.moreFromAuthor ?? [])].map((a) => decodeArticle(a))
+      ).filter((a) => a.id !== id);
+      return { article, related: related.slice(0, RELATED_SHOWN) };
+    }
+    return storyFromLatest(id);
+  } catch (err) {
+    const found = await storyFromLatest(id);
+    if (found || isRejectedRequest(err)) return found;
+    throw err;
   }
 }
 

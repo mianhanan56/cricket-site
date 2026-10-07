@@ -454,6 +454,9 @@ export interface CommentaryBall {
   /** Innings index, 0-based, as the feed numbers them. */
   inning?: number;
   timestamp?: string;
+  /** Player keys: the batter on strike and the bowler. */
+  batterId?: string;
+  bowlerId?: string;
 }
 
 export type RankingRole = 'BATTING' | 'BOWLING' | 'ALLROUNDER';
@@ -1134,11 +1137,12 @@ export interface NewsTag {
 
 export interface NewsArticle {
   id: string;
+  /** Our address for it: /news/<slug>. */
+  slug: string;
   title: string;
   excerpt: string | null;
   image: string | null;
-  /** The full article on crex.com. */
-  url: string;
+  imageCaption: string | null;
   publishedAt: string;
   author: string | null;
   category: string | null;

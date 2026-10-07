@@ -55,6 +55,13 @@ tbody td.batter {
   font-weight: 600;
 }
 
+// Outranks `td.batter > *`, which blocks every child.
+tbody td > .nameRow {
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+}
+
 .notOut {
   margin-left: 2px;
   color: $signal-text;

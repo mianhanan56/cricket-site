@@ -55,6 +55,7 @@ cacheable and the frontend stays simple.
 | `/mapping` | `POST oc /mapping/getHomeMapData` | 6h | `t` teams, `v` venues, `s` series, `p` players, `u` umpires — comma-separated keys |
 | `/fixtures` | `POST stats /fixture/getFixture` | 5m | `wise` 1=date 2=series 3=team, `page` (negative = past), `gender`, `format`, `level` — see below |
 | `/news/topics` | `GET news /api/articlesOC/topics` | 15m | `page`, `limit` (default 5, max 20) — latest articles with full body, keyed tags |
+| `/news/article` | `GET news /api/articlesoc/{id}` | 15m | `id` (24 hex) — one article (headline, summary, cover, tags) plus `more_news` and `moreFromAuthor` |
 | `/news/tagged` | `GET news /api/articles/filter/{type}_{key}` | 15m | `type` s/t/p, `key` f_key, `page`, `limit` (default 12) — headline cards for one series/team/player |
 | `/rankings/players` | `POST oc /ranking/getRanking` | 1h | `category`, `play`, `type`, `gender`, `page` — **strings**, see below |
 | `/match/info` | `GET php /getIV4` | 5m | `key` — match f_key. Pre-match squads, captain/keeper, broadcast, weather |
@@ -402,6 +403,13 @@ empty arrays (which is what made it look broken at first). Strip the leading
 map. The frontend client in
 [`frontend/lib/crex.ts`](../frontend/lib/crex.ts) caches resolved names for the
 life of the process and only asks for keys it has not seen.
+
+**`/match/commentary` has two undocumented behaviours the frontend relies on.** `inning` (0–3)
+becomes crex's own filter (`firstInning`…`fourthInning`): that innings only, no editorial rows.
+And a `lastDocId` that is not a feed id (we send `1`) returns the **whole** feed, oldest first,
+instead of a page — one innings in one request (~125 KB T20, ~375 KB for 100 overs). Without
+`inning` that is the whole match (~1 MB for four innings). A per-over filter (`inning`+`overNumber`)
+exists in crex's bundle but is ignored by the API.
 
 **`/news/topics` carries every article's full HTML body** — ~10 KB an article (120 KB at
 `limit=12`), ~2.5s cold. The frontend only reads it server-side, behind the 15-minute TTL.

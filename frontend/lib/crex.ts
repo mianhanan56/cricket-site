@@ -2161,6 +2161,8 @@ interface CrexBallFeed {
   b?: string | number;
   /** Over.ball, e.g. "48.2". */
   o?: string | number;
+  /** Player key of the batter on strike. */
+  pf?: string;
   /** Headline, "Bowler to Batsman". */
   c1?: string;
   /** Descriptive text. Often empty on minor events. */
@@ -2202,7 +2204,7 @@ interface CrexBallFeed {
    * `rb` is the over's deliveries in order ("1.0.0.0.0.0"), `s1`/`s2` the two
    * batters' figures ("13(52)") against the names in `p1`/`p2` and the keys in
    * `pf1`/`pf2`, and `bd` the bowler's spell ("2-61(14.0)") against `bowler`
-   * and `bf`. `team` is the batting side.
+   * and `bf` (also the bowler's key on a delivery row). `team` is the batting side.
    */
   rb?: string;
   p1?: string;
@@ -2506,6 +2508,20 @@ function toOverSummary(f: CrexBallFeed): OverSummary | null {
 }
 
 /**
+ * Every delivery of an innings in one request. Given a cursor that is not a feed
+ * id, crex hands back the whole feed, oldest first, rather than a page; `inning`
+ * narrows that to one innings (~125 KB for a T20 innings, ~375 KB for a 100-over
+ * one). A Worker without the param ignores it and the whole match comes back,
+ * so the caller sorts by `inning`.
+ */
+export async function getCrexInningsBalls(matchKey: string, inning: number): Promise<CommentaryBall[]> {
+  const qs = new URLSearchParams({ matchKey, lastDocId: '1' });
+  if (inning >= 0 && inning <= 3) qs.set('inning', String(inning));
+  const rows = (await crexGet<CrexBallFeed[]>(`/match/commentary?${qs}`, { revalidate: 5 })) ?? [];
+  return feedFromRows(rows).balls;
+}
+
+/**
  * Both halves of the ball feed in a single walk. crex serves ~10 rows a call, so
  * this pages back with `lastDocId` until it holds `minBalls`; a page that adds
  * nothing ends the walk.
@@ -2600,6 +2616,8 @@ export function feedFromRows(feed: CrexBallFeed[]): Pick<CrexMatchFeed, 'balls' 
         scoreAfter: f.s ?? null,
         inning: f.inning,
         timestamp: f.id ? new Date(f.id).toISOString() : undefined,
+        batterId: f.pf || undefined,
+        bowlerId: f.bf || undefined,
       } satisfies CommentaryBall;
     })
     .filter((b) => Boolean(b.text));
@@ -5479,6 +5497,13 @@ export interface CrexNewsArticle {
   assigned_to_name?: string;
   tags_array?: CrexNewsTag[];
   metaData?: { subCategory?: string };
+  cover_image_caption?: string;
+}
+
+export interface CrexNewsArticleBody {
+  articleData?: CrexNewsArticle;
+  more_news?: CrexNewsArticle[];
+  moreFromAuthor?: CrexNewsArticle[];
 }
 
 export interface CrexNewsTopics {
@@ -5493,6 +5518,10 @@ export interface CrexTaggedNews {
 
 export function getCrexNewsTopics(page: number, limit: number, opts: FetchOpts = {}): Promise<CrexNewsTopics> {
   return crexGet<CrexNewsTopics>(`/news/topics?page=${page}&limit=${limit}`, { revalidate: 900, ...opts });
+}
+
+export function getCrexNewsArticle(id: string, opts: FetchOpts = {}): Promise<CrexNewsArticleBody> {
+  return crexGet<CrexNewsArticleBody>(`/news/article?id=${encodeURIComponent(id)}`, { revalidate: 900, ...opts });
 }
 
 export function getCrexTaggedNews(type: 't' | 's' | 'p', key: string, opts: FetchOpts = {}): Promise<CrexTaggedNews> {

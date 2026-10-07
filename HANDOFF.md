@@ -107,6 +107,16 @@ read as 404s on detail pages (ARCHITECTURE › Not found vs outage); match pages
 InfoPanel batter role class fixed; error Retry refreshes. Harness approach: CDP over Node's
 WebSocket, scratch `next dev` on another port against `wrangler dev`, Chrome `--disable-web-security`.
 
+Uncommitted (2026-10-07, stumps — final, supersedes both earlier stumps notes): Home Live tab =
+`isLiveNow` only; a multi-day match at stumps is in All only, back on Live when play resumes,
+Results when finished. Tab counts no longer add up to All by design.
+
+Uncommitted (2026-10-07): ball-by-ball popups on the scorecard (ARCHITECTURE › Ball-by-ball popups)
+and PulseCrease news story pages (`/news/[slug]`). Worker changes (`inning` on
+`/match/commentary`, `/news/article`) need a deploy; both features already work without it, slower
+or via fallback. Story pages show the summary only and never mention crex (user decision); full article text
+is not republished (copyright) unless the user gets crex's permission.
+
 Not fixed (needs a decision): unknown match/team/player/series/venue URLs return 200 + noindex.
 `loading.tsx` boundaries (root, matches/[id], players, players/[id], teams, series) stream the
 shell before `notFound()` runs, so the status can't become 404 while they exist. Calling

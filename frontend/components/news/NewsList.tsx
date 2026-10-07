@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import type { NewsArticle, NewsTag, NewsTagKind } from '@/types';
 import { getTaggedNews, newsImage, newsTagHref } from '@/lib/news';
-import Icon from '../ui/Icon';
 import LocalTime from '../ui/LocalTime';
 import { SectionHead } from '../ui/Section';
 import styles from './NewsList.module.scss';
@@ -29,10 +28,9 @@ function Headline({ article, level }: { article: NewsArticle; level: 2 | 3 }) {
   const H = level === 2 ? 'h2' : 'h3';
   return (
     <H className={styles.headline}>
-      <a href={article.url} target="_blank" rel="noopener noreferrer" className={styles.cover}>
+      <Link href={`/news/${article.slug}`} className={styles.cover}>
         {article.title}
-        <span className={styles.srOnly}> (opens on crex.com)</span>
-      </a>
+      </Link>
     </H>
   );
 }
@@ -42,7 +40,6 @@ function Meta({ article }: { article: NewsArticle }) {
     <p className={styles.meta}>
       <LocalTime iso={article.publishedAt} format="dayTime" />
       {article.author && <span className={styles.author}>{article.author}</span>}
-      <Icon name="external" size={14} className={styles.out} />
     </p>
   );
 }

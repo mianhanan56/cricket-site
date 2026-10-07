@@ -1,9 +1,5 @@
 @use 'component' as *;
 
-.srOnly {
-  @include visually-hidden;
-}
-
 // The headline link stretches over the whole card; tag links sit above it, since anchors can't nest.
 .cover {
   color: inherit;
@@ -54,13 +50,6 @@
   }
 }
 
-.out {
-  flex-shrink: 0;
-  margin-left: auto;
-  color: $text-3;
-  transition: color $dur-2 $ease-out;
-}
-
 .tags {
   position: relative;
   z-index: 1;
@@ -97,10 +86,6 @@
   @include panel-interactive;
   position: relative;
   overflow: hidden;
-
-  &:hover .out {
-    color: $signal-text;
-  }
 
   @include tablet {
     display: grid;
@@ -174,10 +159,6 @@
   gap: $space-3;
   height: 100%;
   padding: $space-3;
-
-  &:hover .out {
-    color: $signal-text;
-  }
 
   &:not(:has(.thumb)) {
     grid-template-columns: minmax(0, 1fr);

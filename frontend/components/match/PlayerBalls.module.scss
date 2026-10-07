@@ -1,0 +1,188 @@
+@use 'component' as *;
+
+.trigger {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-block: -6px;
+  border-radius: $r-sm;
+  color: $text-3;
+  border: 1px solid transparent;
+  transition: color $dur-2 $ease-out, background-color $dur-2 $ease-out, border-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    color: $signal-text;
+    background: $surface-2;
+    border-color: $line;
+  }
+}
+
+// A bottom sheet on phones, a small centred card from `sm` up.
+.dialog {
+  width: 100%;
+  max-width: none;
+  max-height: 85dvh;
+  margin: auto auto 0;
+  padding: 0;
+  border: 1px solid $line-2;
+  border-bottom: 0;
+  border-radius: $r-lg $r-lg 0 0;
+  background: $surface;
+  color: $text;
+  box-shadow: $shadow-pop;
+  overflow: hidden;
+
+  &::backdrop {
+    background: rgb(0 0 0 / 55%);
+  }
+
+  @include sm {
+    width: min(480px, calc(100vw - #{$space-8}));
+    max-height: min(640px, 85dvh);
+    margin: auto;
+    border-bottom: 1px solid $line-2;
+    border-radius: $r-lg;
+  }
+
+  @include motion {
+    &[open] {
+      animation: sheet-in $dur-3 $ease-out;
+    }
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  padding: $space-4 $space-4 $space-3;
+  border-bottom: 1px solid $line;
+}
+
+.heading {
+  display: grid;
+  gap: $space-1;
+  min-width: 0;
+  flex: 1;
+}
+
+.name {
+  @include heading;
+  font-size: $fs-lg;
+  font-weight: 700;
+}
+
+.summary {
+  @include data-num;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.close {
+  @include icon-button;
+  flex-shrink: 0;
+  margin: -$space-1 (-$space-2) 0 0;
+}
+
+.body {
+  display: grid;
+  gap: $space-3;
+  padding: $space-3 $space-4 $space-5;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.overs {
+  display: grid;
+}
+
+.over {
+  display: grid;
+  gap: $space-2;
+  padding-block: $space-3;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+}
+
+.overHead {
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.overLabel {
+  @include eyebrow;
+  flex-shrink: 0;
+  color: $text-2;
+}
+
+.opponent {
+  @include truncate;
+  min-width: 0;
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+.overRuns {
+  @include data-num;
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: $fs-md;
+  font-weight: 700;
+}
+
+.balls {
+  --size: 30px;
+  flex-wrap: wrap;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2;
+  padding-block: $space-2;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid $line-2;
+  border-top-color: $signal-mark;
+
+  @include motion {
+    animation: spin 0.9s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.action {
+  @include button-secondary;
+  justify-self: start;
+}

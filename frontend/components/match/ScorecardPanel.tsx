@@ -7,6 +7,7 @@ import { atCrease, dismissalOf } from '@/lib/crease';
 import TableScroll from '../ui/TableScroll';
 import Segmented from '../ui/Segmented';
 import PlayerLink from './PlayerLink';
+import PlayerBallsButton from './PlayerBalls';
 import { ordinal } from '@/lib/text';
 import { BowlingSkeleton, ScorecardSkeleton } from './MatchDetailSkeleton';
 import mc from './matchCenter.module.scss';
@@ -90,6 +91,10 @@ export default function ScorecardPanel({
   }
 
   const topScore = Math.max(0, ...batting.map((b) => b.runs));
+  // A preview fixture has no key upstream yet, so no ball feed to read.
+  const ballFeed = !match.id.startsWith('fx-');
+  const names = Object.fromEntries([...batting, ...bowling].map((p) => [p.playerId, p.name]));
+  const ballsProps = { matchKey: match.id, inning: selected, names, fallOfWickets, perOver, live: inProgress };
 
   return (
     <div className={mc.panel}>
@@ -137,9 +142,21 @@ export default function ScorecardPanel({
                   return (
                     <tr key={b.playerId} className={in_ ? styles.atCrease : undefined}>
                       <td className={`${mc.left} ${styles.batter}`}>
-                        <PlayerLink id={b.playerId} name={b.name} className={styles.batterName}>
-                          {in_ && <span className={styles.notOut}>*</span>}
-                        </PlayerLink>
+                        <span className={styles.nameRow}>
+                          <PlayerLink id={b.playerId} name={b.name} className={styles.batterName}>
+                            {in_ && <span className={styles.notOut}>*</span>}
+                          </PlayerLink>
+                          {ballFeed && b.balls > 0 && (
+                            <PlayerBallsButton
+                              {...ballsProps}
+                              playerId={b.playerId}
+                              name={b.name}
+                              role="batter"
+                              expected={b.balls}
+                              summary={`${b.runs} (${b.balls}) · ${b.fours}×4 · ${b.sixes}×6 · SR ${b.strikeRate.toFixed(1)}`}
+                            />
+                          )}
+                        </span>
                         <span className={styles.dismissal}>{dismissalOf(b)}</span>
                       </td>
                       <td className={`${mc.num} ${mc.strong} ${b.runs === topScore && b.runs >= 30 ? styles.top : ''}`}>{b.runs}</td>
@@ -246,7 +263,19 @@ export default function ScorecardPanel({
                   {bowling.map((b) => (
                     <tr key={b.playerId}>
                       <td className={mc.left}>
-                        <PlayerLink id={b.playerId} name={b.name} className={styles.batterName} />
+                        <span className={styles.nameRow}>
+                          <PlayerLink id={b.playerId} name={b.name} className={styles.batterName} />
+                          {ballFeed && ballsFrom(b.overs, perOver) > 0 && (
+                            <PlayerBallsButton
+                              {...ballsProps}
+                              playerId={b.playerId}
+                              name={b.name}
+                              role="bowler"
+                              expected={ballsFrom(b.overs, perOver)}
+                              summary={`${fmtOvers(b.overs, perOver)}-${b.maidens}-${b.runs}-${b.wickets} · Econ ${b.economy.toFixed(2)}`}
+                            />
+                          )}
+                        </span>
                       </td>
                       <td className={mc.num}>{fmtOvers(b.overs, perOver)}</td>
                       <td className={mc.num}>{b.maidens}</td>
