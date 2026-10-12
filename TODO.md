@@ -1,6 +1,6 @@
 # TODO — PulseCrease
 
-Last updated: 2026-10-06
+Last updated: 2026-10-07
 
 UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before any fix.
 
@@ -8,6 +8,7 @@ UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before 
 | --- | --- | --- | --- |
 | High | Pending | Unknown match/team/player/series/venue URLs answer 200 (with `noindex`) | Root and route `loading.tsx` stream the shell before `notFound()`. A real 404 means dropping those loading boundaries for detail routes (navigation then waits on the server with no skeleton) or a middleware existence check (extra Worker call per document request). User to choose. |
 | High | Pending | Deploy the Worker for `/series/overview` TTL 30s | Leaders lagged up to ~10 min (edge 5m + ISR 5m). Frontend side is done; edge TTL needs `npm run deploy`. |
+| Low | Pending | Wave ribbon not yet seen on real Safari 26 / iOS | Built and checked in Chrome 148 only. Safari 26 ships scroll-driven animations; confirm snap + `preserve-3d` perspective there. Firefox gets the grid until it ships `animation-timeline`. |
 | Low | Pending | Points table form for multi-format tours | crex's `rf` mixes formats/series; rows whose counts can't account for it now show "—". Deriving form from the series schedule would show the real results. |
 | High | Pending | Deploy the Worker for player series performance (`cd worker-crex && npm run deploy`) | Adds `/player/matches`. Until deployed, the player page omits the section (verified). |
 | Low | Pending | Format filter "Test" on player series includes first-class (County Championship) | crex files both under `ft=3`; their own filter does the same. Group chip reads "First class". Decide whether to split. |

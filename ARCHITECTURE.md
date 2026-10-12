@@ -1,7 +1,7 @@
 # Architecture — PulseCrease
 
 Live cricket site: scores, match telemetry, momentum, series stats and client-side alerts.
-Last verified against source: 2026-10-06.
+Last verified against source: 2026-10-07.
 
 ## System overview
 
@@ -109,6 +109,22 @@ answers. Home's tabs (user rule, 2026-10-07): Live = play on or resuming today (
 a multi-day match at stumps is in **All only** until the next day's play starts, then Live again;
 finished → Results. So All = Live + Upcoming + Results + matches at stumps. The ticker, stage and
 Insights show live-now matches only.
+
+Home's Live and All tabs render `components/home/WaveRibbon` (2026-10-07): a full-bleed horizontal
+snap scroller showing three cards around a raised centre card, or from 1280px four cards around
+a raised centre pair (snap shifted half a card via `scroll-padding-inline-end`, `*-pair`
+keyframes); outer cards are set back and turned in, further ones fade out. Controls hide when
+nothing scrolls. All motion is CSS scroll-driven
+animation on each slot's `view-timeline` (`--slot`, inset to the three-card window so contain
+0%/50%/100% are right/centre/left), split by range because Sass rejects
+`entry 0%`-style keyframe selectors: `wave` (transform, `contain`), `rise`/`fall` (opacity +
+individual `translate`/`rotate`, `entry`/`exit`), `stack` (z-index), plus fog/gloss pseudo-elements.
+The transform sits on an inner `.card`, never the `li`: Chrome computes snap areas from the
+transformed box, which knocked snapping off by ~40px. A scroll track under the ribbon follows a
+`scroll-timeline` (`--ribbon`, shared through `timeline-scope`) and scrubs card by card. JS only
+handles mouse drag (snap off until the glide's `scrollend`), track scrubbing, prev/next buttons
+(fine pointers only) and focus-into-view. A single match, reduced motion, or no
+`animation-timeline` support (Firefox) gets the plain tile grid.
 
 `hooks/useCrexMatches.ts` is **one shared poll** of the match list: every subscriber reads the
 same snapshot and it runs at the fastest interval any subscriber requests.

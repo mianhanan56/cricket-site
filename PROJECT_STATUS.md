@@ -1,6 +1,6 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-10-06
+Last updated: 2026-10-07
 
 ## Current milestone
 
@@ -16,6 +16,13 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
   live series tiles; team, venue, player profiles; players/teams directories; rankings (15 ICC lists).
 - Search (client-side + `/api/search-index`); insights view; follows; automations + notifications
   (background/system-tray support, event-key dedup); dark/light theme; PWA.
+
+## Recently completed (uncommitted, 2026-10-07)
+
+- Home Live and All tabs: tiles on a 3D wave ribbon (`WaveRibbon`) — CSS scroll-driven
+  animations, native snap scrolling, a scrubbable scroll track, mouse drag, prev/next buttons on
+  fine pointers, focus brings a card to the lead spot. Grid fallback for a single match, reduced
+  motion, or no `animation-timeline` support.
 
 ## Recently completed (committed in 68cd364 / cf291e1)
 

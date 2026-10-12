@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-10-06. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-10-07. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -116,6 +116,14 @@ and PulseCrease news story pages (`/news/[slug]`). Worker changes (`inning` on
 `/match/commentary`, `/news/article`) need a deploy; both features already work without it, slower
 or via fallback. Story pages show the summary only and never mention crex (user decision); full article text
 is not republished (copyright) unless the user gets crex's permission.
+
+Uncommitted (2026-10-07, wave ribbon — from a user reference "Wave Gallery"): Home Live and All
+tabs show tiles on a 3D wave ribbon (`components/home/WaveRibbon`, see ARCHITECTURE › Home). Three
+cards in view (user ask, 2026-10-12): the centre one raised and forward, the two beside it set
+back; further cards fade out. From 1280px it shows four (2026-10-12): the middle pair raised,
+the outer two set back. A scroll track under it scrubs card by card; arrows on mouse devices. From 2
+matches up (user asked for all cards in 3D). Verified in Chrome 148 at 1440/1920/820/390, light,
+reduced motion, drag/buttons/track/Tab/click, and a prod build from a scratch copy.
 
 Not fixed (needs a decision): unknown match/team/player/series/venue URLs return 200 + noindex.
 `loading.tsx` boundaries (root, matches/[id], players, players/[id], teams, series) stream the

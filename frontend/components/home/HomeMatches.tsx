@@ -27,7 +27,7 @@ import ScoreTicker from './ScoreTicker';
 import UpcomingRail from './UpcomingRail';
 import ResultList from './ResultList';
 import MyCricketBand from './MyCricketBand';
-import MatchTile from '../match/MatchTile';
+import WaveRibbon from './WaveRibbon';
 import Segmented from '../ui/Segmented';
 import FilterSheet from '../ui/FilterSheet';
 import EmptyState from '../ui/EmptyState';
@@ -196,11 +196,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
           <BoardSkeleton />
         ) : tab === 'live' ? (
           liveList.length ? (
-            <div className={styles.grid}>
-              {liveList.map((m) => (
-                <MatchTile key={m.id} match={m} />
-              ))}
-            </div>
+            <WaveRibbon matches={liveList} label="Live matches" />
           ) : (
             <EmptyState
               icon="live"
@@ -222,11 +218,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
             <EmptyState icon="flag" title={`No ${typeNote}results this week`} />
           )
         ) : allList.length ? (
-          <div className={styles.grid}>
-            {allList.map((m) => (
-              <MatchTile key={m.id} match={m} />
-            ))}
-          </div>
+          <WaveRibbon matches={allList} label="All matches" />
         ) : (
           <EmptyState icon="signal" title={`No ${typeNote}matches listed right now`} />
         )}
