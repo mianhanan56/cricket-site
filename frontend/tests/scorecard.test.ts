@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
-import { getCrexScorecard, getCrexMatchFeed } from '../lib/crex';
+import { getCrexScorecard, getCrexMatchFeed, resultText, toMatch } from '../lib/crex';
 import { matchSituation, creaseContext } from '../lib/situation';
 import type { InningsScore, Match, Team } from '../types';
 
@@ -391,5 +391,90 @@ describe('over summaries', () => {
 
     assert.equal(feed.exhausted, true);
     assert.equal(feed.oldest, '1787650674733');
+  });
+});
+
+// --- follow-ons in the match list ---------------------------------------------
+//
+// The list's j/k/l/m are innings in batting order. Rows as /matches/live served
+// them on 2026-10-21, trimmed to the fields the innings are read from.
+
+const feedNames = (teams: Record<string, string>) =>
+  ({
+    t: new Map(Object.entries(teams).map(([k, sn]) => [k, { f_key: k, n: sn, sn }])),
+    v: new Map(),
+    s: new Map(),
+    p: new Map(),
+    u: new Map(),
+  }) as Parameters<typeof toMatch>[2];
+
+const sides = (m: Match) =>
+  [m.homeTeam, m.awayTeam].map((t) =>
+    (m.scorecard?.innings ?? [])
+      .filter((i) => i.teamId === t.id)
+      .map((i) => `${i.runs}/${i.wickets}${i.phase === 'CURRENT' ? '*' : ''}`)
+      .join(' & ')
+  );
+
+describe('follow-ons in the match list', () => {
+  const row = { a: '', ti: 1792310400000, v: 'V', q: 'S', fo: 'Test' };
+
+  it('puts a live follow-on innings on the side that followed on', () => {
+    const m = toMatch(
+      '10MR',
+      { ...row, n: 42, a: '$d', b: 'P', c: 'Q', d: 4, j: '!425/9(127.1', k: '99/10(42.3', l: '50/1(17.0', res: 'Tea Break' } as never,
+      feedNames({ P: 'SA', Q: 'AUS' })
+    );
+    assert.deepEqual(sides(m), ['425/9', '99/10 & 50/1*']);
+  });
+
+  it('leaves a normal fourth innings where it is', () => {
+    const m = toMatch(
+      '133Z',
+      { ...row, n: 30, a: '$l', b: '3L', c: '3K', d: 6, j: '!440/6(110.0', k: '339/10(105.1', l: '!262/5(51.3', m: '30/3(15.0', res: 'Stumps' } as never,
+      feedNames({ '3L': 'A', '3K': 'B' })
+    );
+    assert.deepEqual(sides(m), ['440/6 & 262/5', '339/10 & 30/3*']);
+  });
+
+  it('reads an innings win and drops the 0/0 nobody batted', () => {
+    const m = toMatch(
+      '146W',
+      { ...row, n: 46, b: 'GJ', c: 'H3', d: 4, j: '404/10(129.3', k: '225/10(84.1', l: '143/10(58.3', m: '0/0(0.0', res: 'KER won by an innings and 36 runs' } as never,
+      feedNames({ GJ: 'KER', H3: 'ODSA' })
+    );
+    assert.deepEqual(sides(m), ['404/10', '225/10 & 143/10']);
+  });
+
+  it('reads a chase after a follow-on from the result', () => {
+    const m = toMatch(
+      '1471',
+      { ...row, n: 46, b: 'HC', c: 'H0', d: 5, j: '456/10(152.5', k: '206/10(64.5', l: '335/10(116.2', m: '86/3(16.5', res: 'PUN won by 7 wickets' } as never,
+      feedNames({ HC: 'PUN', H0: 'CHG' })
+    );
+    assert.deepEqual(sides(m), ['456/10 & 86/3', '206/10 & 335/10']);
+  });
+
+  it('keeps the sides alternating on a win by runs', () => {
+    const m = toMatch(
+      '14R1',
+      { ...row, n: 46, b: '1CJ', c: '1CN', d: 6, j: '201/10(71.0', k: '250/10(63.0', l: '323/10(79.2', m: '264/10(72.5', res: 'KHU won by 10 runs' } as never,
+      feedNames({ '1CJ': 'KHU', '1CN': 'CHT' })
+    );
+    assert.deepEqual(sides(m), ['201/10 & 323/10', '250/10 & 264/10']);
+  });
+});
+
+describe('a finished match result line', () => {
+  it('waits out a stoppage crex left in place of the result', () => {
+    assert.equal(resultText('Tea Break'), null);
+    assert.equal(resultText('Stumps'), null);
+    assert.equal(resultText(''), null);
+  });
+
+  it('keeps real results, rain-affected ones too', () => {
+    assert.equal(resultText('SA won by an innings and 31 runs'), 'SA won by an innings and 31 runs');
+    assert.equal(resultText('Match abandoned due to rain'), 'Match abandoned due to rain');
+    assert.equal(resultText('Match drawn'), 'Match drawn');
   });
 });

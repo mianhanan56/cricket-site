@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-10-07. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-10-23. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -11,6 +11,31 @@ All data comes from crex.com's undocumented internal APIs through a Cloudflare W
 `worker-crex/`. **No backend, no database** — ignore any mention of Express/Prisma/Neon.
 
 ## Current objective
+
+2026-10-21: redesign for a friendlier, client-facing look, page by page — **home done** (two rounds:
+first colours/type only, which the user said still looked like the old design; then a real layout
+pass — see ARCHITECTURE › Home layout), next page when the user picks it. Shared pieces changed
+with it and now look new everywhere they're used: `MatchTile`, `ResultList`, `UpcomingRail`,
+`TeamBadge` (round), `Segmented` (pills). New palette/type/default light theme (ARCHITECTURE › Styling conventions);
+tokens and mixins are global, so every page already wears the new colours, but only home has had
+its layout pass. Player page (2026-10-22): Recent form and Series performance redesigned as one
+shared card style (`components/player/FormCard`), then merged into one "Form" section with a
+Recent / By series switch (`FormTabs`); career tables merged into one "Career" section with an
+International / Domestic switch (`CareerTabs`), both switches at the heading's right; hero, rankings and the aside are untouched
+so far. Match page (2026-10-22): the commentary sidebar is gone; crex's notes, stat cards and
+reviews show inside the feed (ARCHITECTURE › Commentary tab). Same day: series stats bottom row,
+match rows without stadium (format chip first), Insights out of the nav, Fixtures dropdown filters
++ week strip, Rankings controls regrouped (ARCHITECTURE › Styling conventions › Filters vs tabs).
+2026-10-23: series page match cards (`SeriesMatchStrip`) replace the numbered boxes; Fixtures
+filters sit in the page heading's aside; calendar foot is Today + Clear. Then the user asked for
+Follow to notify like alerts, news included: built (ARCHITECTURE › Automations), with My Cricket
+redesigned around it. Delivery is still tab-open only (no push server). Rankings' and the Series
+list's pill rows are now heading dropdowns like Fixtures. Live video streams were discussed: the user wanted CricHD/Tapmad/Tamasha
+restreams or iframes — declined (unlicensed). Agreed legal route, not built yet: "Watch live"
+link to the rights holder per match, official embeds where they exist, a second-screen live mode.
+
+2026-10-15: full code review (bugs) and a crex.com feature-gap survey, no code changed. Findings are
+new TODO.md rows dated 2026-10-15; the user picks what to fix.
 
 A strict UX / mobile audit of production was completed on 2026-09-29 (no code changed). Findings
 are queued in TODO.md by priority; the user decides which to fix. The earlier UI pass (dock,
@@ -117,6 +142,7 @@ and PulseCrease news story pages (`/news/[slug]`). Worker changes (`inning` on
 or via fallback. Story pages show the summary only and never mention crex (user decision); full article text
 is not republished (copyright) unless the user gets crex's permission.
 
+Superseded 2026-10-21: the wave ribbon below was deleted (user: "remove 3d"); Live/All are a flat grid.
 Uncommitted (2026-10-07, wave ribbon — from a user reference "Wave Gallery"): Home Live and All
 tabs show tiles on a 3D wave ribbon (`components/home/WaveRibbon`, see ARCHITECTURE › Home). Three
 cards in view (user ask, 2026-10-12): the centre one raised and forward, the two beside it set
@@ -131,6 +157,9 @@ shell before `notFound()` runs, so the status can't become 404 while they exist.
 `notFound()` from `generateMetadata` was tried and does not help (verified on a build).
 
 ## Recommended next step
+
+First: **deploy the Worker** (`cd worker-crex && npm run deploy`) — the user's call; the live
+scorecard/commentary hang (TODO, High) only clears with it. Then the match centre redesign.
 
 Deploy the Worker (`/news/tagged`, `/series/overview` TTL 30s). Next gap from the crex review: Stats Corner (TODO). Decide the 404-status trade-off (TODO). Then the
 user's pick from TODO.md. Earlier High rows: scorecard table clipping on

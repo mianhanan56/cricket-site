@@ -16,11 +16,9 @@
 }
 
 .dayTitle {
-  font-size: $fs-md;
+  font-size: $fs-lg;
   font-stretch: $stretch-display;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
 }
 
 .dayCount {
@@ -30,20 +28,23 @@
 }
 
 .list {
+  --inset: #{$space-3};
   position: relative;
+  padding: $space-1 var(--inset);
+  @include panel;
 
-  // The rail itself.
+  // The rail itself, through the middle of the node column.
   &::before {
     content: '';
     position: absolute;
-    top: 8px;
-    bottom: 8px;
-    left: 79.5px;
+    top: 14px;
+    bottom: 14px;
+    left: calc(var(--inset) + 79.5px);
     width: 1px;
     background: linear-gradient($line-2, $line-2 85%, transparent);
 
     @include tablet {
-      left: 103.5px;
+      left: calc(var(--inset) + 103.5px);
     }
   }
 }
@@ -76,7 +77,7 @@
   @include focus-ring;
 
   &:hover {
-    background: $surface;
+    background: $surface-2;
 
     .node {
       background: $data;
@@ -159,19 +160,22 @@
   min-width: 0;
 }
 
+// Codes on small phones, names from there up.
 .code {
   font-weight: 700;
-  font-stretch: $stretch-wide;
   @include truncate;
+
+  @include sm {
+    display: none;
+  }
 }
 
 .full {
   display: none;
-  font-size: $fs-sm;
-  color: $text-3;
+  font-weight: 700;
   @include truncate;
 
-  @include desktop {
+  @include sm {
     display: inline;
   }
 }
@@ -179,16 +183,6 @@
 .vs {
   font-size: $fs-xs;
   color: $text-3;
-}
-
-.meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: $space-1 $space-2;
-  font-size: $fs-xs;
-  color: $text-3;
-  min-width: 0;
 }
 
 .format {
@@ -199,25 +193,37 @@
   color: $text-2;
 }
 
-.series {
-  color: $text-2;
-  @include truncate;
-  max-width: 100%;
+.meta {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
 }
 
-.venue {
-  @include truncate;
+.series {
   max-width: 100%;
+  font-size: $fs-xs;
+  color: $text-3;
+  @include truncate;
+}
+
+// Phones keep both sides on one line by moving the format down beside the series; the series'
+// own page has no such line, so it stays with the sides there.
+.lead {
+  @include phone-only {
+    display: none;
+
+    .inSeries & {
+      display: inline-flex;
+    }
+  }
+}
+
+.trail {
+  display: none;
 
   @include phone-only {
-    flex-basis: 100%;
-  }
-
-  @include sm {
-    &::before {
-      content: '·';
-      margin-right: $space-2;
-    }
+    display: inline-flex;
   }
 }
 
@@ -232,7 +238,7 @@
   }
 }
 
-// Wide lists read as a table: sides, then where and what, then the state.
+// Wide lists read as a table: format and sides, then the series, then the state.
 @container rail (min-width: 840px) {
   .rail {
     .link {
@@ -249,23 +255,12 @@
 
     .meta {
       grid-column: 4;
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      align-items: center;
-      gap: 2px $space-2;
       padding-right: $space-4;
     }
 
     .series {
       font-size: $fs-sm;
-    }
-
-    .venue {
-      grid-column: 2;
-
-      &::before {
-        content: none;
-      }
+      color: $text-2;
     }
 
     .state {

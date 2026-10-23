@@ -1,9 +1,5 @@
 @use 'component' as *;
 
-$at-w: 44px;
-$col-gap: $space-3;
-$content-x: $at-w + $col-gap;
-$card-x: $content-x - $space-2-5;
 
 .controls {
   display: flex;
@@ -26,17 +22,28 @@ $card-x: $content-x - $space-2-5;
 }
 
 .feed {
+  // Ball number column, the gap from it to a highlight card, and the card's own inset.
+  --at-w: 40px;
+  --at-gap: #{$space-2};
+  --card-pad: #{$space-3};
+  --card-x: calc(var(--at-w) + var(--at-gap));
   position: relative;
+
+  @include tablet {
+    --at-w: 48px;
+    --at-gap: #{$space-3};
+    --card-pad: #{$space-4};
+  }
 }
 
 .event {
   --tone: var(--line-3);
   position: relative;
   display: grid;
-  grid-template-columns: $at-w minmax(0, 1fr);
+  grid-template-columns: var(--at-w) minmax(0, 1fr);
   align-items: start;
-  column-gap: $col-gap;
-  padding-block: $space-2;
+  column-gap: calc(var(--at-gap) + var(--card-pad));
+  padding-block: $space-2-5;
 }
 
 .at {
@@ -96,7 +103,7 @@ $card-x: $content-x - $space-2-5;
 
 // ---- dots whisper
 .k_dot {
-  padding-block: $space-1-5;
+  padding-block: $space-2;
 
   .text {
     font-size: $fs-sm;
@@ -140,14 +147,14 @@ $card-x: $content-x - $space-2-5;
     content: '';
     position: absolute;
     z-index: -1;
-    inset: 0 0 0 $card-x;
+    inset: 0 0 0 var(--card-x);
     border-radius: $r-md;
     background: color-mix(in oklab, var(--tone) 8%, transparent);
     border: 1px solid color-mix(in oklab, var(--tone) 22%, transparent);
   }
 
   .content {
-    padding-right: $space-3;
+    padding-right: var(--card-pad);
   }
 
 
@@ -186,7 +193,7 @@ $card-x: $content-x - $space-2-5;
 .overCard {
   position: relative;
   z-index: 1;
-  margin: $space-4 0 $space-4 $card-x;
+  margin: $space-4 0 $space-4 var(--card-x);
   padding: $space-3 $space-4;
   border-radius: $r-md;
   background: $surface;
@@ -254,7 +261,7 @@ $card-x: $content-x - $space-2-5;
 
 .t4 {
   background: $data;
-  color: #04161b;
+  color: $data-ink;
   border-color: transparent;
 }
 

@@ -8,6 +8,7 @@ export function SectionHead({
   count,
   action,
   children,
+  end = false,
   level = 2,
 }: {
   title: string;
@@ -17,6 +18,8 @@ export function SectionHead({
   action?: { href: string; label: string };
   /** Controls that sit on the heading's line. */
   children?: React.ReactNode;
+  /** Push the controls to the line's far end. */
+  end?: boolean;
   level?: 2 | 3;
 }) {
   const H = level === 2 ? 'h2' : 'h3';
@@ -26,7 +29,7 @@ export function SectionHead({
         {title}
         {count !== undefined && <span className={styles.count}>{count}</span>}
       </H>
-      {children && <div className={styles.controls}>{children}</div>}
+      {children && <div className={`${styles.controls} ${end ? styles.end : ''}`}>{children}</div>}
       {action && (
         <Link href={action.href} className={styles.action}>
           {action.label}
@@ -42,11 +45,13 @@ export function PageHeader({
   title,
   children,
   aside,
+  asideClassName,
 }: {
   eyebrow?: string;
   title: string;
   children?: React.ReactNode;
   aside?: React.ReactNode;
+  asideClassName?: string;
 }) {
   return (
     <header className={styles.page}>
@@ -55,7 +60,7 @@ export function PageHeader({
         <h1 className={styles.pageTitle}>{title}</h1>
         {children}
       </div>
-      {aside && <div className={styles.pageAside}>{aside}</div>}
+      {aside && <div className={`${styles.pageAside} ${asideClassName ?? ''}`}>{aside}</div>}
     </header>
   );
 }

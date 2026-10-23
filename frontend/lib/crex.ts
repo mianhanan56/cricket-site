@@ -65,6 +65,9 @@ import type {
   TeamProfile,
   TeamRankingPosition,
   HeadToHeadMatch,
+  FeedNote,
+  RichParagraph,
+  RichRun,
 } from '@/types';
 import {
   DEFAULT_BALLS_PER_OVER,
@@ -164,6 +167,11 @@ export interface CrexRawMatch {
   q: string;
   /** Human-readable status/result: "Innings Break", "UAE won by 97 runs". */
   res?: string;
+  /**
+   * Multi-day only, "2/1/135": the first figure is the session in play (crex's own "Day 4 -
+   * Session 2" read 2/1/57; tea after the second read 2/1/135). The rest is not decoded.
+   */
+  s?: string;
   /** Start time, epoch ms. Occasionally a countdown string ("02h : 23m"). */
   ti: number | string;
   /** Venue key. Resolve via /mapping `v`. */
@@ -931,15 +939,26 @@ function parseScore(score: string | undefined, teamShortName: string): InningsSc
  * so counting wickets identifies neither reliably. Everything else with a score
  * has been played, and once the match is over nothing is current.
  */
-function feedInnings(m: CrexRawMatch, home: Team, away: Team, status: MatchStatus): InningsScore[] {
+function feedInnings(
+  m: CrexRawMatch,
+  home: Team,
+  away: Team,
+  status: MatchStatus,
+  format: MatchFormat
+): InningsScore[] {
   const pair = (m.d ?? 1) <= 2 ? 1 : 2;
   const battingSide = (m.d ?? 1) % 2 === 1 ? 1 : 2;
+  const swap = format === 'TEST' && followedOn(m, home, away, status);
 
   const slots: Array<{ raw?: string; team: Team; side: 1 | 2; inningsNumber: number }> = [
     { raw: m.j, team: home, side: 1, inningsNumber: 1 },
     { raw: m.k, team: away, side: 2, inningsNumber: 1 },
-    { raw: m.l, team: home, side: 1, inningsNumber: 2 },
-    { raw: m.m, team: away, side: 2, inningsNumber: 2 },
+    swap
+      ? { raw: m.l, team: away, side: 2, inningsNumber: 2 }
+      : { raw: m.l, team: home, side: 1, inningsNumber: 2 },
+    swap
+      ? { raw: m.m, team: home, side: 1, inningsNumber: 2 }
+      : { raw: m.m, team: away, side: 2, inningsNumber: 2 },
   ];
 
   const out: InningsScore[] = [];
@@ -947,6 +966,8 @@ function feedInnings(m: CrexRawMatch, home: Team, away: Team, status: MatchStatu
   for (const slot of slots) {
     const parsed = parseScore(slot.raw, slot.team.shortName);
     if (!parsed) continue;
+    // A finished match can carry a 0/0 in an innings nobody batted (the last one after an innings win).
+    if (status === 'COMPLETED' && isUnplayed(parsed)) continue;
 
     const current =
       status === 'LIVE' && slot.inningsNumber === pair && slot.side === battingSide;
@@ -960,6 +981,38 @@ function feedInnings(m: CrexRawMatch, home: Team, away: Team, status: MatchStatu
   }
 
   return out;
+}
+
+function sessionOf(raw: string | undefined): number | null {
+  const n = Number(raw?.split('/')[0]);
+  return Number.isInteger(n) && n >= 1 && n <= 3 ? n : null;
+}
+
+const isUnplayed = (inn: InningsScore): boolean => inn.runs === 0 && inn.wickets === 0 && inn.overs === 0;
+
+/**
+ * Whether the side that batted second went straight back in. crex fills j/k/l/m in batting order
+ * and the slots above assume the sides alternate, so a follow-on swaps the last two.
+ *
+ * Only decided where the feed proves it: live, `d` names the side in and its innings (3 the home
+ * side's second, 4 the away side's), which a follow-on leaves pointing at the other slot; finished,
+ * the result says who batted last (won by wickets, or lost by runs) or once (won by an innings).
+ * A draw says neither, so it stays as sent.
+ */
+function followedOn(m: CrexRawMatch, home: Team, away: Team, status: MatchStatus): boolean {
+  if (!m.l) return false;
+  const fourth = parseScore(m.m, '');
+  const playedFourth = fourth !== null && !isUnplayed(fourth);
+
+  if (status === 'LIVE') return (m.d === 4 && !playedFourth) || (m.d === 3 && playedFourth);
+  if (status !== 'COMPLETED') return false;
+
+  const { winnerKey, method } = attributeResult(m.res, home, away);
+  if (!winnerKey) return false;
+  if (/innings/i.test(m.res ?? '')) return winnerKey === home.id;
+  if (!playedFourth || !method) return false;
+  const batLast = method === 'CHASED' ? winnerKey : winnerKey === home.id ? away.id : home.id;
+  return batLast === home.id;
 }
 
 /** crex sends epoch ms, but substitutes a countdown string on some fixtures. */
@@ -1342,7 +1395,7 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
   const status = toMatchStatus(m);
   const state = decodeMatchState(m.n);
   const format = toMatchFormat(m);
-  const innings = feedInnings(m, homeTeam, awayTeam, status);
+  const innings = feedInnings(m, homeTeam, awayTeam, status, format);
   // The Hundred is scored in sets of five, so an over quota has to be read against
   // its own balls-per-over rather than six.
   const perOver =
@@ -1366,7 +1419,7 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
     ballsLimit: m.hb ? HUNDRED_BALLS : null,
     // `res` carries mid-match states too, so only surface it as a result once
     // the match is actually over.
-    result: status === 'COMPLETED' ? m.res ?? m.a ?? null : null,
+    result: status === 'COMPLETED' ? resultText(m.res ?? m.a) : null,
     // Whatever has stopped play, in crex's words where they sent them, and
     // derived from the innings state where they did not. Independent of `status`:
     // a Test at stumps is LIVE with a STUMPS note, and both facts are needed to
@@ -1381,6 +1434,7 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
     matchNumber: Number(m.e) > 0 ? Number(m.e) : null,
     // Only meaningful where a match spans days; `n` reports 1 for the rest.
     day: state && state.format === 'TEST' ? state.day : null,
+    session: status === 'LIVE' && format === 'TEST' ? sessionOf(m.s) : null,
     // crex sets `mm` only on a finished match, so this needs no status guard of
     // its own — but it is still read through `status`, because a result and the
     // award that goes with it belong to the same moment.
@@ -1403,6 +1457,17 @@ export function toMatch(id: string, m: CrexRawMatch, names: typeof nameCache): M
  * land on a 404 for that reason alone. `getCrexArchivedMatch` is the fallback
  * for those.
  */
+// For a while after the finish crex can leave the last stoppage in `res` ("Tea Break" on a won Test).
+const STOPPAGE_TEXT = /\b(break|lunch|tea|drinks|stumps|timeout|delay(ed)?|rain|bad light|wet outfield)\b/i;
+const RESULT_TEXT = /\b(won|wins?|draw|drawn|tied?|no result|abandon|cancel|super over|forfeit|conceded|awarded)/i;
+
+/** A finished match's result line, or null while crex still shows a stoppage there. */
+export function resultText(raw: string | null | undefined): string | null {
+  const text = raw?.trim();
+  if (!text) return null;
+  return STOPPAGE_TEXT.test(text) && !RESULT_TEXT.test(text) ? null : text;
+}
+
 export async function getCrexMatch(id: string, opts: FetchOpts = {}): Promise<Match | null> {
   const raw = await getCrexMatches(opts);
   const match = raw[id];
@@ -2440,6 +2505,8 @@ export interface CrexMatchFeed {
   events: MatchEvent[];
   /** End-of-over cards, newest first. */
   overs: OverSummary[];
+  /** Writers' notes, stat cards, reviews and milestones between the balls. */
+  notes: FeedNote[];
   /**
    * The oldest feed id this walk reached, to be passed back as `before` to
    * continue further into the innings. Null when the walk found nothing.
@@ -2515,10 +2582,18 @@ function toOverSummary(f: CrexBallFeed): OverSummary | null {
  * so the caller sorts by `inning`.
  */
 export async function getCrexInningsBalls(matchKey: string, inning: number): Promise<CommentaryBall[]> {
+  return (await getCrexInningsFeed(matchKey, inning)).balls;
+}
+
+/** The same request decoded whole: the innings' balls, over summaries and notes. */
+export async function getCrexInningsFeed(
+  matchKey: string,
+  inning: number
+): Promise<Pick<CrexMatchFeed, 'balls' | 'events' | 'overs' | 'notes'>> {
   const qs = new URLSearchParams({ matchKey, lastDocId: '1' });
   if (inning >= 0 && inning <= 3) qs.set('inning', String(inning));
   const rows = (await crexGet<CrexBallFeed[]>(`/match/commentary?${qs}`, { revalidate: 5 })) ?? [];
-  return feedFromRows(rows).balls;
+  return feedFromRows(rows);
 }
 
 /**
@@ -2587,7 +2662,222 @@ export async function getCrexMatchFeed(
 export type CrexFeedRow = CrexBallFeed;
 
 /** Deliveries, events and over cards from feed rows already in hand — one walk's, or the live socket's page. */
-export function feedFromRows(feed: CrexBallFeed[]): Pick<CrexMatchFeed, 'balls' | 'events' | 'overs'> {
+const ENTITIES: Record<string, string> = { nbsp: ' ', amp: '&', quot: '"', apos: "'", lt: '<', gt: '>' };
+
+function decodeEntities(s: string): string {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, e: string) => {
+    if (e[0] !== '#') return ENTITIES[e.toLowerCase()] ?? whole;
+    const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : whole;
+  });
+}
+
+/**
+ * crex's commentary markup as text runs. It writes only `<b>`, `<u>` and line breaks (a blank
+ * line between paragraphs); every other tag is dropped, so nothing it sends is rendered as HTML.
+ */
+export function richText(raw: string | undefined): RichParagraph[] {
+  const paragraphs: RichParagraph[] = [];
+  let lines: RichRun[][] = [];
+  let line: RichRun[] = [];
+  let bold = 0;
+  let under = 0;
+
+  const endLine = () => {
+    const runs = line.map((r) => ({ ...r }));
+    if (runs.length) {
+      runs[0].text = runs[0].text.trimStart();
+      runs[runs.length - 1].text = runs[runs.length - 1].text.trimEnd();
+    }
+    const kept = runs.filter((r) => r.text);
+    if (kept.length) lines.push(kept);
+    else if (lines.length) {
+      paragraphs.push(lines);
+      lines = [];
+    }
+    line = [];
+  };
+
+  for (const token of (raw ?? '').split(/(<[^>]*>)/)) {
+    if (!token) continue;
+    const tag = /^<\s*(\/?)\s*([a-z0-9]+)/i.exec(token);
+    if (tag) {
+      const step = tag[1] ? -1 : 1;
+      const name = tag[2].toLowerCase();
+      if (name === 'br' || name === 'div' || name === 'p') endLine();
+      else if (name === 'b' || name === 'strong') bold = Math.max(0, bold + step);
+      else if (name === 'u') under = Math.max(0, under + step);
+      continue;
+    }
+    const text = decodeEntities(token).replace(/\s+/g, ' ');
+    if (!text) continue;
+    const run: RichRun = { text, ...(bold ? { strong: true } : null), ...(under ? { title: true } : null) };
+    const prev = line[line.length - 1];
+    if (prev && Boolean(prev.strong) === Boolean(run.strong) && Boolean(prev.title) === Boolean(run.title)) prev.text += text;
+    else line.push(run);
+  }
+  endLine();
+  if (lines.length) paragraphs.push(lines);
+  return paragraphs;
+}
+
+// Stat cards carry fields the delivery rows don't, numbers sometimes sent as strings.
+type LooseRow = Record<string, unknown>;
+const looseNum = (v: unknown): number | null => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : null;
+};
+const looseStr = (v: unknown): string | null =>
+  typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : null;
+const reviewsLeft = (v: unknown): Record<string, number> =>
+  v && typeof v === 'object'
+    ? Object.fromEntries(
+        Object.entries(v as Record<string, unknown>).flatMap(([k, n]) => (typeof n === 'number' ? [[k, n]] : []))
+      )
+    : {};
+
+/** One non-delivery row as the commentary shows it; polls and rows it has no card for are null. */
+function toFeedNote(f: CrexBallFeed): FeedNote | null {
+  if (typeof f.id !== 'number') return null;
+  const r = f as unknown as LooseRow;
+  const base = { id: String(f.id), inning: f.inning ?? 0, at: f.id };
+  const key = (v: unknown) => cleanKey(looseStr(v) ?? undefined) || null;
+
+  switch (f.type) {
+    case 't': {
+      const paragraphs = richText(f.c);
+      return paragraphs.length ? { ...base, kind: 'text', paragraphs, featured: r.sub_type === 'f' } : null;
+    }
+    case 'ps': {
+      const playerId = key(r.pf);
+      const name = looseStr(r.n);
+      if (!playerId || !name) return null;
+      const batter = looseStr(r.cat) === '1';
+      const rank = looseNum(r.r);
+      return {
+        ...base,
+        kind: 'player',
+        role: batter ? 'batter' : 'bowler',
+        playerId,
+        name,
+        teamId: key(r.tf),
+        age: looseNum(r.age),
+        rank: rank && rank > 0 ? rank : null,
+        position: batter ? looseNum(r.bp) : null,
+        // `match` is innings, `runs` the bowler's wickets and `sr` his economy.
+        career: {
+          innings: looseNum(r.match) ?? 0,
+          total: looseNum(r.runs) ?? 0,
+          average: looseNum(r.avg),
+          rate: looseNum(r.sr),
+          best: looseStr(r.c),
+        },
+      };
+    }
+    case 'pbc': {
+      const batterId = key(r.batsman_fkey);
+      const bowlerId = key(r.bowler_fkey);
+      const balls = looseNum(r.ball_faced) ?? 0;
+      if (!batterId || !bowlerId || !balls) return null;
+      return {
+        ...base,
+        kind: 'battle',
+        batterId,
+        bowlerId,
+        format: looseStr(r.fd),
+        since: looseNum(r.since),
+        innings: looseNum(r.innings) ?? 0,
+        runs: looseNum(r.runs) ?? 0,
+        balls,
+        outs: looseNum(r.out_count) ?? 0,
+        strikeRate: looseNum(r.strike_rate),
+      };
+    }
+    case 'pvtc': {
+      const playerId = key(r.player_fkey);
+      const opponentId = key(r.oppn_team_fkey);
+      if (!playerId || !opponentId) return null;
+      return {
+        ...base,
+        kind: 'versus',
+        playerId,
+        opponentId,
+        format: looseStr(r.fd),
+        innings: looseNum(r.innings) ?? 0,
+        runs: looseNum(r.runs) ?? 0,
+        balls: looseNum(r.balls) ?? 0,
+        average: looseNum(r.batting_average),
+        strikeRate: looseNum(r.strike_rate),
+      };
+    }
+    case 'ac': {
+      const text = plainText(f.c);
+      return text ? { ...base, kind: 'review', text, reviewsLeft: reviewsLeft(r.review_left) } : null;
+    }
+    case 'rc': {
+      const edge = looseStr(r.ultraedge);
+      return {
+        ...base,
+        kind: 'decision',
+        // `review_type` 0 is the batter's review, 1 the fielding side's; `result` 1 is out.
+        by: looseNum(r.review_type) === 1 ? 'fielding' : 'batting',
+        out: looseStr(r.result) === '1',
+        ultraEdge: edge === '1' ? true : edge === '0' ? false : null,
+        battingId: key(r.tbf),
+        fieldingId: key(r.tbwf),
+        reviewsLeft: reviewsLeft(r.review_left),
+      };
+    }
+    case 'pm':
+    case 'tm': {
+      const name = looseStr(r.n);
+      const score = looseNum(r.s);
+      if (!name || !score) return null;
+      return {
+        ...base,
+        kind: 'milestone',
+        name,
+        playerId: f.type === 'pm' ? key(r.pf) : null,
+        score,
+        balls: f.type === 'pm' ? looseNum(r.b) : null,
+        text: plainText(f.c),
+      };
+    }
+    case 'tc': {
+      const text = plainText(f.c);
+      return text ? { ...base, kind: 'target', text, rrr: looseStr(r.rrr) } : null;
+    }
+    case 'w': {
+      const name = looseStr(r.player_fullname) ?? looseStr(r.n);
+      if (!name) return null;
+      return {
+        ...base,
+        kind: 'wicket',
+        playerId: key(r.player_fkey),
+        name,
+        how: looseStr(r.wicketDesc) ?? '',
+        runs: looseNum(r.r) ?? 0,
+        balls: looseNum(r.b) ?? 0,
+        fours: looseNum(r.f) ?? 0,
+        sixes: looseNum(r.s) ?? 0,
+        strikeRate: looseStr(r.sr),
+      };
+    }
+    case 'to': {
+      const text = plainText(f.c);
+      return text ? { ...base, kind: 'toss', text } : null;
+    }
+    case 'ic2': {
+      const teamName = looseStr(r.n);
+      const score = looseStr(r.score);
+      return teamName && score ? { ...base, kind: 'inningsEnd', teamName, score, overs: looseStr(r.o) } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+export function feedFromRows(feed: CrexBallFeed[]): Pick<CrexMatchFeed, 'balls' | 'events' | 'overs' | 'notes'> {
   const balls = feed
     .filter(isDelivery)
     .map((f) => {
@@ -2630,7 +2920,9 @@ export function feedFromRows(feed: CrexBallFeed[]): Pick<CrexMatchFeed, 'balls' 
     .map(toOverSummary)
     .filter((o): o is OverSummary => o !== null);
 
-  return { balls, events, overs };
+  const notes = feed.map(toFeedNote).filter((n): n is FeedNote => n !== null);
+
+  return { balls, events, overs, notes };
 }
 
 // ---------------------------------------------------------------------------
@@ -3489,6 +3781,7 @@ export async function withSeriesSchedules(
 
 /** crex's illustrated player portraits, keyed by the same f_key. */
 const PLAYER_IMAGE_BASE = 'https://cricketvectors.akamaized.net/players/org';
+export const playerImageUrl = (key: string) => `${PLAYER_IMAGE_BASE}/${key}.png`;
 
 /** Basic info — crex's `a.bsi`. Only the fields the profile page reads. */
 interface CrexPlayerBasic {

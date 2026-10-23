@@ -1,0 +1,241 @@
+@use 'component' as *;
+
+.section {
+  margin-top: $space-12;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: $space-4;
+  }
+
+  @include desktop {
+    grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
+  }
+}
+
+// ---- a smaller story: a row with a thumbnail on phones, a card with its picture on top above
+.story {
+  position: relative;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: start;
+  gap: $space-3;
+  padding: $space-2-5;
+  overflow: hidden;
+  @include panel;
+  @include panel-interactive;
+
+  @include tablet {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+  }
+}
+
+.bare {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.image {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: $r-sm;
+  background: $surface-3;
+
+  @include tablet {
+    aspect-ratio: 16 / 9;
+    border-radius: 0;
+  }
+
+  @include motion {
+    transition: transform $dur-4 $ease-out;
+  }
+}
+
+.story:hover .image {
+  transform: scale(1.03);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1-5;
+  min-width: 0;
+
+  @include tablet {
+    flex: 1;
+    padding: $space-3 $space-4 $space-4;
+  }
+}
+
+.category {
+  font-size: $fs-xs;
+  font-weight: 700;
+  color: $signal-text;
+}
+
+.title {
+  font-family: $font-sans;
+  font-stretch: normal;
+  font-size: $fs-base;
+  font-weight: 700;
+  line-height: $leading-snug;
+  letter-spacing: 0;
+  @include truncate(3);
+}
+
+.link {
+  @include focus-ring;
+
+  // The whole card is the link.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+}
+
+.story:hover .title {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.time {
+  font-size: $fs-xs;
+  color: $text-3;
+
+  @include tablet {
+    margin-top: auto;
+    padding-top: $space-1;
+  }
+}
+
+.excerpt {
+  font-size: $fs-md;
+  color: $text-2;
+  @include truncate(2);
+}
+
+// ---- the lead: picture full bleed, headline set on it
+.lead {
+  @include on-pitch;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 320px;
+  padding: 0;
+  border: 0;
+  border-radius: $r-lg;
+
+  @include tablet {
+    grid-column: 1 / -1;
+    min-height: 380px;
+  }
+
+  @include desktop {
+    grid-column: auto;
+    grid-row: span 2;
+    min-height: 460px;
+  }
+
+  .image {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    aspect-ratio: auto;
+    border-radius: 0;
+  }
+
+  // Scrim so the headline holds on any picture.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(180deg, transparent 30%, rgb(4 20 14 / 55%) 58%, rgb(4 20 14 / 92%));
+    pointer-events: none;
+  }
+
+  // Fills the card so the headline link's cover reaches the picture too.
+  .body {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    justify-content: flex-end;
+    gap: $space-2;
+    padding: $space-5;
+
+    @include desktop {
+      padding: $space-8;
+    }
+  }
+
+  .category {
+    align-self: flex-start;
+    padding: 3px $space-2-5;
+    border-radius: $r-pill;
+    background: $surface-3;
+    color: $text;
+  }
+
+  .title {
+    font-family: $font-display;
+    font-stretch: $stretch-wide;
+    font-size: clamp(22px, 2.6vw, 32px);
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+  }
+
+  .time {
+    margin-top: 0;
+    padding-top: 0;
+    color: $text-2;
+  }
+
+  &:hover {
+    background-color: var(--pitch);
+  }
+}
+
+.lead.bare::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  @include mown-stripes;
+}
+
+.skLead {
+  min-height: 320px;
+  border-radius: $r-lg;
+
+  @include tablet {
+    grid-column: 1 / -1;
+    min-height: 380px;
+  }
+
+  @include desktop {
+    grid-column: auto;
+    grid-row: span 2;
+    min-height: 460px;
+  }
+}
+
+.skStory {
+  height: 92px;
+  border-radius: $r-md;
+
+  @include tablet {
+    height: 260px;
+  }
+}

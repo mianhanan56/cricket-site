@@ -1,10 +1,10 @@
 @use 'component' as *;
 
+// The heading's far side; phones get the filter sheet instead.
 .toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: $space-2 $space-3;
-  margin-bottom: $space-4;
 
   > * {
     max-width: 100%;
@@ -19,48 +19,38 @@
   margin-bottom: $space-3;
 }
 
-.dayBar {
-  display: flex;
-  align-items: stretch;
-  gap: $space-2;
+.dates {
+  @include panel;
+  display: grid;
+  gap: $space-3;
   margin-bottom: $space-8;
-  padding-bottom: $space-4;
-  border-bottom: 1px solid $line;
-}
+  padding: $space-3;
 
-.strip {
-  display: flex;
-  gap: $space-1-5;
-  min-width: 0;
-  flex: 1;
-  @include scroll-x;
-  scroll-behavior: smooth;
-  // Fade the scroller's trailing edge so it reads as continuing.
-  mask-image: linear-gradient(90deg, #000 calc(100% - 24px), transparent);
-
-  @media (prefers-reduced-motion: reduce) {
-    scroll-behavior: auto;
+  @include tablet {
+    padding: $space-4;
   }
 }
 
-.chip {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 3px;
-  flex-shrink: 0;
-  min-width: 58px;
-  min-height: 76px;
-  padding: $space-2;
-  border-radius: $r-sm;
-  border: 1px solid $line;
+.weekHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-2 $space-3;
+}
+
+.allDays {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  height: 36px;
+  padding-inline: $space-3;
+  border: 1px solid $line-2;
+  border-radius: $r-pill;
   background: $surface;
+  font-size: $fs-sm;
+  font-weight: 600;
   color: $text-2;
   cursor: pointer;
-  transition:
-    border-color $dur-2 $ease-out,
-    background-color $dur-2 $ease-out,
-    color $dur-2 $ease-out;
   @include focus-ring;
 
   &:hover {
@@ -69,51 +59,144 @@
   }
 
   &[aria-pressed='true'] {
-    border-color: $text;
-    background: $surface-3;
-    color: $text;
+    border-color: transparent;
+    background: $signal;
+    color: $signal-ink;
 
-    .chipFill {
-      fill: $signal-text;
+    .allCount {
+      color: inherit;
     }
   }
+}
 
-  &:last-child {
-    margin-right: $space-6;
+.allCount {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.weekNav {
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+}
+
+.navBtn {
+  @include icon-button;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+
+  @include phone-only {
+    width: 32px;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
   }
 }
 
-.chipDay {
-  @include eyebrow;
-  font-size: 10px;
-  color: inherit;
+.range {
+  min-width: 112px;
+  font-size: $fs-md;
+  font-weight: 700;
+  text-align: center;
   white-space: nowrap;
+
+  @include phone-only {
+    min-width: 0;
+  }
 }
 
-.chipDate {
+.calendarSlot {
+  margin-left: auto;
+}
+
+// The week, a day a column: every day of it in view, no scrolling.
+.week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: $space-1;
+
+  @include tablet {
+    gap: $space-2;
+  }
+}
+
+.day {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 72px;
+  padding: $space-2 2px;
+  border: 1px solid $line;
+  border-radius: $r-md;
+  background: $surface;
+  color: $text-2;
+  cursor: pointer;
+  @include focus-ring;
+
+  @include motion {
+    transition:
+      border-color $dur-2 $ease-out,
+      background-color $dur-2 $ease-out;
+  }
+
+  &:hover:not(:disabled) {
+    border-color: $line-3;
+    background: $surface-2;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  &[aria-pressed='true'] {
+    border-color: transparent;
+    background: $signal;
+    color: $signal-ink;
+
+    .dayName,
+    .dayNum,
+    .dayCount {
+      color: inherit;
+    }
+  }
+}
+
+.dayName {
+  @include eyebrow;
+  font-size: 11px;
+  color: inherit;
+  white-space: nowrap;
+
+  .today & {
+    font-weight: 700;
+    color: $signal-text;
+  }
+}
+
+.dayNum {
   @include display-num;
   font-size: $fs-xl;
   color: $text;
 }
 
-.chipBar {
-  display: block;
-  width: 32px;
-  height: 3px;
-}
-
-.chipTrack {
-  fill: $line-2;
-}
-
-.chipFill {
-  fill: $data;
-}
-
-.chipCount {
+.dayCount {
   @include data-num;
   font-size: $fs-2xs;
   color: $text-3;
+  white-space: nowrap;
+}
+
+.countWord {
+  @include phone-only {
+    display: none;
+  }
 }
 
 .list {

@@ -1,28 +1,35 @@
 import Skeleton, { stagger } from '../ui/Skeleton';
+import { PageHeader } from '../ui/Section';
 import page from '../../app/fixtures/fixtures.module.scss';
 import ff from './FixturesFilter.module.scss';
 import s from './FixturesSkeleton.module.scss';
 
-const CHIPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+const WEEK = [0, 1, 2, 3, 4, 5, 6];
 const ROWS = [0, 1, 2, 3, 4];
 
 export default function FixturesSkeleton() {
   return (
     <div className={page.page} role="status" aria-busy="true" aria-label="Loading fixtures">
-      <div className={s.head}>
-        <Skeleton variant="text" className={s.eyebrow} />
-        <Skeleton className={s.title} />
-      </div>
+      <PageHeader
+        eyebrow="Every match"
+        title="Fixtures"
+        asideClassName={ff.toolbar}
+        aside={
+          <>
+            <Skeleton className={s.menuFormat} />
+            <Skeleton className={s.menuType} />
+          </>
+        }
+      />
 
-      <div className={ff.toolbar}>
-        <Skeleton className={s.segFormat} />
-        <Skeleton className={s.segType} />
-      </div>
-
-      <div className={ff.dayBar}>
-        <div className={`${s.chips} ${stagger}`}>
-          {CHIPS.map((i) => (
-            <Skeleton key={i} className={s.chip} />
+      <div className={ff.dates}>
+        <div className={ff.weekHead}>
+          <Skeleton className={s.pill} />
+          <Skeleton className={s.range} />
+        </div>
+        <div className={`${ff.week} ${stagger}`}>
+          {WEEK.map((i) => (
+            <Skeleton key={i} className={s.cell} />
           ))}
         </div>
       </div>

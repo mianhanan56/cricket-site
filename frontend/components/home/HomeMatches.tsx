@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Match } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
 import { useFixturesAhead } from '@/hooks/useFixturesAhead';
@@ -26,8 +26,8 @@ import NextUpHero from './NextUpHero';
 import ScoreTicker from './ScoreTicker';
 import UpcomingRail from './UpcomingRail';
 import ResultList from './ResultList';
-import MyCricketBand from './MyCricketBand';
-import WaveRibbon from './WaveRibbon';
+import MyCricketBand, { FollowPrompt } from './MyCricketBand';
+import MatchGrid from './MatchGrid';
 import Segmented from '../ui/Segmented';
 import FilterSheet from '../ui/FilterSheet';
 import EmptyState from '../ui/EmptyState';
@@ -39,14 +39,17 @@ import styles from './HomeMatches.module.scss';
 const FINISHED_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const SERIES_PREVIEW = 4;
 const STAGE_GRACE_MS = 60_000;
+const ALL_PREVIEW = 12;
 
 export interface HomeMatchesProps {
   /** Active tab from the URL; '' means none picked yet. */
   initialTab: HomeTab | '';
   initialType: MatchTypeKey;
+  /** Streamed from the server; sits under the match board. */
+  news?: ReactNode;
 }
 
-export default function HomeMatches({ initialTab, initialType }: HomeMatchesProps) {
+export default function HomeMatches({ initialTab, initialType, news }: HomeMatchesProps) {
   const { matches, isLoading, error, refresh, isRefreshing } = useCrexMatches();
   const follows = useFollows();
   const [{ tab: picked, type: typeKey }, setQuery] = useQueryTabs(
@@ -139,12 +142,15 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
         ) : error && !hasData ? (
           <ErrorState onRetry={refresh} retrying={isRefreshing} />
         ) : featured ? (
-          <>
-            {liveList.length > 1 && (
-              <ScoreTicker matches={liveList} activeId={featured.id} onSelect={setFeaturedId} />
-            )}
-            <LiveHero key={featured.id} match={featured} />
-          </>
+          <LiveHero
+            key={featured.id}
+            match={featured}
+            switcher={
+              liveList.length > 1 ? (
+                <ScoreTicker matches={liveList} activeId={featured.id} onSelect={setFeaturedId} />
+              ) : undefined
+            }
+          />
         ) : upcomingList[0] ? (
           <NextUpHero match={upcomingList[0]} />
         ) : (
@@ -196,7 +202,7 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
           <BoardSkeleton />
         ) : tab === 'live' ? (
           liveList.length ? (
-            <WaveRibbon matches={liveList} label="Live matches" />
+            <MatchGrid matches={liveList} label="Live matches" />
           ) : (
             <EmptyState
               icon="live"
@@ -218,11 +224,15 @@ export default function HomeMatches({ initialTab, initialType }: HomeMatchesProp
             <EmptyState icon="flag" title={`No ${typeNote}results this week`} />
           )
         ) : allList.length ? (
-          <WaveRibbon matches={allList} label="All matches" />
+          <MatchGrid matches={allList} label="All matches" limit={ALL_PREVIEW} />
         ) : (
           <EmptyState icon="signal" title={`No ${typeNote}matches listed right now`} />
         )}
       </section>
+
+      <FollowPrompt />
+
+      {news}
 
       {seriesTotals && seriesTotals.length > 0 && (
         <section className={styles.board} aria-labelledby="series-title">

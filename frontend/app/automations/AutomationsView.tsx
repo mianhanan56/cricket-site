@@ -6,6 +6,9 @@ import { PageHeader, SectionHead } from '@/components/ui/Section';
 import AlertCreator, { NEW_ALERT_ID } from '@/components/automations/AlertCreator';
 import AutomationCard from '@/components/automations/AutomationCard';
 import BrowserNotifications from '@/components/automations/BrowserNotifications';
+import FollowAlertsPanel from '@/components/follow/FollowAlertsPanel';
+import { useFollows } from '@/lib/follows';
+import { followAlertsLive, useFollowAlerts } from '@/lib/followAlerts';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import EmptyState from '@/components/ui/EmptyState';
 import styles from './automations.module.scss';
@@ -18,6 +21,7 @@ const goToCreator = () => {
 
 export default function AutomationsView() {
   const automations = useAutomations();
+  const following = followAlertsLive(useFollows(), useFollowAlerts());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -62,6 +66,8 @@ export default function AutomationsView() {
         </div>
 
         <aside className={styles.side}>
+          <FollowAlertsPanel browser={false} />
+
           <section>
             <SectionHead title="Your alerts" count={automations.length} level={3} />
             {automations.length ? (
@@ -81,7 +87,11 @@ export default function AutomationsView() {
                 compact
                 icon="bell"
                 title="No alerts yet"
-                body="Nothing will notify you until you set one up. Pick a moment, like a wicket or a fifty, and who it’s for."
+                body={
+                  following
+                    ? 'What you follow already notifies you. Add an alert for anything else, like every six in a match.'
+                    : 'Follow a team or series, or set up an alert: pick a moment, like a wicket or a fifty, and who it’s for.'
+                }
                 action={{ label: 'Create an alert', onClick: goToCreator }}
               />
             )}

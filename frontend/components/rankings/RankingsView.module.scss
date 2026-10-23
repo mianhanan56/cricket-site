@@ -15,15 +15,12 @@
   color: $text-3;
 }
 
-.controls {
+// The heading's far side; phones get the filter sheet instead.
+.toolbar {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: $space-2 $space-3;
-  margin-bottom: $space-6;
-
-  @include tablet {
-    margin-bottom: $space-8;
-  }
 
   @include phone-only {
     display: none;

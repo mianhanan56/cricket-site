@@ -1,0 +1,137 @@
+@use 'component' as *;
+
+.root {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  height: 40px;
+  padding: 0 $space-3 0 $space-4;
+  border: 1px solid $line-2;
+  border-radius: $r-pill;
+  background: $surface;
+  font-size: $fs-sm;
+  cursor: pointer;
+  @include focus-ring;
+
+  @include motion {
+    transition:
+      border-color $dur-2 $ease-out,
+      background-color $dur-2 $ease-out;
+  }
+
+  &:hover,
+  &.open {
+    border-color: $line-3;
+    background: $surface-2;
+  }
+
+  // A filter that is narrowing the list says so.
+  &.on {
+    border-color: color-mix(in oklab, var(--signal) 45%, transparent);
+    background: $signal-soft;
+
+    .value {
+      color: $signal-text;
+    }
+  }
+}
+
+.label {
+  color: $text-3;
+}
+
+.value {
+  font-weight: 700;
+  color: $text;
+}
+
+.caret {
+  color: $text-3;
+
+  @include motion {
+    transition: transform $dur-2 $ease-out;
+  }
+
+  .open & {
+    transform: rotate(180deg);
+  }
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + #{$space-1-5});
+  left: 0;
+  z-index: $z-popover;
+  min-width: max(100%, 200px);
+  padding: $space-1;
+  background: $surface-2;
+  border: 1px solid $line-2;
+  border-radius: $r-md;
+  box-shadow: $shadow-pop;
+  outline: none;
+
+  @include motion {
+    animation: filter-menu-in $dur-2 $ease-out;
+  }
+
+  &.end {
+    left: auto;
+    right: 0;
+  }
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  min-height: 40px;
+  padding-inline: $space-3;
+  border-radius: $r-sm;
+  font-size: $fs-md;
+  color: $text-2;
+  cursor: pointer;
+
+  &[aria-selected='true'] {
+    font-weight: 600;
+    color: $text;
+  }
+}
+
+.optionLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: $space-2;
+}
+
+.count {
+  @include data-num;
+  font-size: $fs-xs;
+  font-weight: 500;
+  color: $text-3;
+}
+
+.optionActive {
+  background: $surface-3;
+}
+
+.check {
+  color: $signal-text;
+}
+
+@keyframes filter-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

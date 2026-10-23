@@ -63,6 +63,42 @@ export function LeaderFigure({ leader, seriesId }: { leader: SeriesLeader; serie
   );
 }
 
+/** Every four and six the tournament has seen, and what they were worth. */
+function Boundaries({ fours, sixes }: { fours: number | null; sixes: number | null }) {
+  const kinds = [
+    fours !== null ? { unit: 'fours', label: 'Fours', count: fours, runs: fours * 4 } : null,
+    sixes !== null ? { unit: 'sixes', label: 'Sixes', count: sixes, runs: sixes * 6 } : null,
+  ].filter((k) => k !== null);
+  const runs = kinds.reduce((n, k) => n + k.runs, 0);
+
+  return (
+    <section className={`${styles.tile} ${styles.boundaries}`} aria-labelledby="boundaries-title">
+      <h4 id="boundaries-title" className={`${styles.cardLabel} ${styles.tileLabel}`}>
+        Boundaries
+      </h4>
+      <dl className={styles.kinds}>
+        {kinds.map((k) => (
+          <div key={k.unit} className={styles.kind} data-kind={k.unit}>
+            <dt className={styles.sr}>{k.label}</dt>
+            <dd className={styles.value}>
+              {k.count}
+              <span className={styles.unit}>{k.unit}</span>
+            </dd>
+            <dd className={styles.kindRuns}>{k.runs.toLocaleString('en-GB')} runs</dd>
+            {runs > 0 && (
+              // Its share of the boundary runs, in twentieths; the stylesheet maps each step to a width.
+              <dd className={styles.meter} aria-hidden="true">
+                <span data-step={Math.round((k.runs / runs) * 20)} />
+              </dd>
+            )}
+          </div>
+        ))}
+      </dl>
+      <p className={styles.support}>{runs.toLocaleString('en-GB')} runs in boundaries</p>
+    </section>
+  );
+}
+
 /** The tournament's honours board; every card opens its full ranking. */
 export function SeriesLeadersBoard({
   leaders,
@@ -123,26 +159,12 @@ export function SeriesLeadersBoard({
         ))}
       </div>
 
-      {(leaders.fours !== null || leaders.sixes !== null) && (
+      {(leaders.fours !== null || leaders.sixes !== null || children) && (
         <div className={styles.foot}>
-          <dl className={styles.totals}>
-            {leaders.fours !== null && (
-              <div>
-                <dt>Tournament fours</dt>
-                <dd>{leaders.fours}</dd>
-              </div>
-            )}
-            {leaders.sixes !== null && (
-              <div>
-                <dt>Tournament sixes</dt>
-                <dd>{leaders.sixes}</dd>
-              </div>
-            )}
-          </dl>
+          {(leaders.fours !== null || leaders.sixes !== null) && <Boundaries fours={leaders.fours} sixes={leaders.sixes} />}
+          {children}
         </div>
       )}
-
-      {children}
     </div>
   );
 }

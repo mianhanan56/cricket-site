@@ -29,18 +29,14 @@
   width: 84px;
 }
 
-.segmented {
-  width: min(360px, 100%);
-  height: 42px;
+.menu {
+  width: 130px;
+  height: 40px;
+  border-radius: $r-pill;
 }
 
-.segmentedSm {
-  width: 260px;
-  height: 36px;
-
-  @include tablet {
-    margin-left: auto;
-  }
+.menuWide {
+  width: 230px;
 }
 
 .head {
@@ -79,9 +75,21 @@
   height: 6px;
 }
 
-.node {
-  width: 30px;
-  height: 30px;
+.strip {
+  display: flex;
+  gap: $space-2;
+  overflow: hidden;
+}
+
+.card {
+  flex: 1 0 128px;
+  max-width: 196px;
+  height: 112px;
+  border-radius: $r-md;
+
+  @include tablet {
+    flex-basis: 136px;
+  }
 }
 
 .figures {

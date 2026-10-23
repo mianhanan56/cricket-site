@@ -63,13 +63,21 @@ export default function BallTimeline({
   }, [compact]);
 
   if (!groups.length) return null;
+  // The match page's one-line strip sizes its balls to how many it has to fit.
+  const tokens = compact ? undefined : groups.reduce((n, g) => n + g.balls.length + g.pending, 0);
 
   return (
-    <div className={`${styles.strip} ${compact ? styles.compact : ''}`} ref={stripRef} aria-label={label} role="group">
+    <div
+      className={`${styles.strip} ${compact ? styles.compact : ''}`}
+      ref={stripRef}
+      aria-label={label}
+      role="group"
+      data-tokens={tokens}
+    >
       {groups.slice(skip).map((g) => (
         <section key={`${g.over}-${g.balls[0].id}`} className={styles.over}>
           <header className={styles.head}>
-            <h3 className={styles.overLabel}>{g.truncated ? '···' : overGroupLabel(g.over, perOver)}</h3>
+            <h3 className={styles.overLabel}>{overGroupLabel(g.over, perOver)}</h3>
             <span className={styles.total}>
               <span aria-hidden="true">{g.runs}</span>
               <span className={styles.sr}>{g.runs} runs off the over</span>

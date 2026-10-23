@@ -7,6 +7,7 @@ import {
   type FollowedEntity,
   type FollowedTeam,
 } from '@/lib/follows';
+import { askOnFollow } from '../automations/useNotificationPermission';
 import Icon from '../ui/Icon';
 import styles from './FollowButton.module.scss';
 
@@ -24,6 +25,7 @@ export default function FollowButton(props: Props) {
     e.stopPropagation();
     if (props.kind === 'teams') toggleFollow('teams', props.entity);
     else toggleFollow(props.kind, props.entity);
+    if (!on) askOnFollow();
   };
 
   return (

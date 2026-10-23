@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { OverSummary } from '@/types';
+import type { FeedNote, Match, MatchSquads, OverSummary } from '@/types';
 import { ballKind, runsLabel, type BallEntry, type BallKind } from '@/lib/balls';
+import { MATCH_FORMAT_LABEL } from '@/lib/seriesFormat';
 import Segmented from '../ui/Segmented';
 import FilterSheet from '../ui/FilterSheet';
 import PlayerLink from './PlayerLink';
+import FeedNoteRow, { type NoteContext } from './FeedNotes';
 import { CommentarySkeleton } from './MatchDetailSkeleton';
 import mc from './matchCenter.module.scss';
 import styles from './CommentaryFeed.module.scss';
@@ -28,6 +30,9 @@ const SEARCH_FILTERS: ReadonlySet<BallFilter> = new Set(['highlights', 'wickets'
 // Each walk is several upstream requests; past this the reader scrolls for more.
 const AUTO_WALK_BUDGET = 14;
 
+// A whole innings arrives at once; it is drawn this many rows at a time as the reader scrolls.
+const PAGE_ROWS = 160;
+
 function passesFilter(b: BallEntry, filter: BallFilter): boolean {
   switch (filter) {
     case 'all':
@@ -49,7 +54,57 @@ function passesFilter(b: BallEntry, filter: BallFilter): boolean {
 // 64th over, and its summary row for them is numbered 64.
 type FeedRow =
   | { kind: 'ball'; key: string; over: number; ball: BallEntry }
-  | { kind: 'over'; key: string; over: number; summary: OverSummary };
+  | { kind: 'over'; key: string; over: number; summary: OverSummary }
+  | { kind: 'note'; key: string; note: FeedNote };
+
+const ballTime = (b: BallEntry) => (b.timestamp ? Date.parse(b.timestamp) : Number(b.id));
+
+/**
+ * The "All" list, newest first: each innings' balls in over order, its over cards after their
+ * over, and every note after the last ball published before it. A note older than the oldest ball
+ * held is kept back until the innings start is, since there is no telling where it goes.
+ */
+function interleave(balls: BallEntry[], summaries: OverSummary[], notes: FeedNote[]): FeedRow[] {
+  const inningsOf = new Set<number>([
+    ...balls.map((b) => b.inning ?? 0),
+    ...summaries.map((o) => o.inning),
+    ...notes.map((n) => n.inning),
+  ]);
+  const newest = Math.max(...inningsOf);
+  const rows: FeedRow[] = [];
+
+  for (const inning of [...inningsOf].sort((a, b) => b - a)) {
+    const chrono = balls.filter((b) => (b.inning ?? 0) === inning).reverse();
+    const times = chrono.map(ballTime);
+    const startHeld = chrono.length > 0 ? chrono[0].over === 0 : inning === newest;
+    const placed: Array<{ pos: number; at: number; row: FeedRow }> = chrono.map((b, i) => ({
+      pos: i,
+      at: 0,
+      row: { kind: 'ball', key: b.id, over: b.over + 1, ball: b },
+    }));
+    const after = (test: (i: number) => boolean) => {
+      let last = -1;
+      for (let i = 0; i < chrono.length; i++) if (test(i)) last = i;
+      return last;
+    };
+
+    for (const o of summaries) {
+      if (o.inning !== inning) continue;
+      const anchor = after((i) => chrono[i].over + 1 <= o.over);
+      placed.push({ pos: anchor + 0.5, at: Number(o.id) || 0, row: { kind: 'over', key: `o-${o.id}`, over: o.over, summary: o } });
+    }
+    for (const n of notes) {
+      if (n.inning !== inning) continue;
+      const anchor = after((i) => times[i] <= n.at);
+      if (anchor < 0 && !startHeld) continue;
+      placed.push({ pos: anchor + 0.5, at: n.at, row: { kind: 'note', key: `n-${n.id}`, note: n } });
+    }
+
+    placed.sort((a, b) => b.pos - a.pos || b.at - a.at);
+    rows.push(...placed.map((p) => p.row));
+  }
+  return rows;
+}
 
 const WORD: Record<BallKind, string> = {
   wicket: 'Wicket',
@@ -162,6 +217,9 @@ export function OverCard({ summary }: { summary: OverSummary }) {
 export default function CommentaryFeed({
   balls,
   summaries,
+  notes,
+  match,
+  squads,
   pending,
   loadingMore,
   exhausted,
@@ -170,6 +228,10 @@ export default function CommentaryFeed({
   /** Deliveries, newest first. */
   balls: BallEntry[];
   summaries: OverSummary[];
+  /** Writers' notes, stat cards and reviews, shown between the balls under "All". */
+  notes: FeedNote[];
+  match: Pick<Match, 'format' | 'homeTeam' | 'awayTeam'>;
+  squads: MatchSquads | null;
   pending?: boolean;
   loadingMore?: boolean;
   exhausted?: boolean;
@@ -186,19 +248,59 @@ export default function CommentaryFeed({
     return [...seen].sort((a, b) => a - b);
   }, [balls, summaries]);
 
+  const ctx = useMemo<NoteContext>(() => {
+    const names = new Map<string, string>();
+    for (const p of [...(squads?.home ?? []), ...(squads?.away ?? [])]) names.set(p.id, p.name);
+    for (const o of summaries) {
+      for (const b of o.batsmen) if (b.playerId) names.set(b.playerId, b.name);
+      if (o.bowler?.playerId) names.set(o.bowler.playerId, o.bowler.name);
+    }
+    for (const n of notes) if (n.kind === 'player') names.set(n.playerId, n.name);
+
+    // A review is kept when its side has as many left as before it.
+    const retained = new Map<string, boolean>();
+    let before: Record<string, number> | null = null;
+    for (const n of [...notes].sort((a, b) => a.at - b.at)) {
+      if (n.kind !== 'review' && n.kind !== 'decision') continue;
+      if (n.kind === 'decision' && before) {
+        const side = n.by === 'batting' ? n.battingId : n.fieldingId;
+        const was = side ? before[side] : undefined;
+        const now = side ? n.reviewsLeft[side] : undefined;
+        if (was !== undefined && now !== undefined) retained.set(n.id, now >= was);
+      }
+      before = n.reviewsLeft;
+    }
+
+    const sides = [match.homeTeam, match.awayTeam];
+    return {
+      names,
+      team: (id) => sides.find((t) => t.id === id) ?? null,
+      format: MATCH_FORMAT_LABEL[match.format],
+      retained,
+    };
+  }, [squads, summaries, notes, match.homeTeam, match.awayTeam, match.format]);
+
   const rows = useMemo<FeedRow[]>(() => {
     const inScope = (n: number | undefined) => inningNum === null || n === inningNum;
-    const ballRows: FeedRow[] = balls
+    if (filter === 'all') {
+      return interleave(
+        balls.filter((b) => inScope(b.inning)),
+        summaries.filter((o) => inScope(o.inning)),
+        notes.filter((n) => inScope(n.inning))
+      );
+    }
+    type Row = Exclude<FeedRow, { kind: 'note' }>;
+    const ballRows: Row[] = balls
       .filter((b) => inScope(b.inning) && passesFilter(b, filter))
       .map((b) => ({ kind: 'ball' as const, key: b.id, over: b.over + 1, ball: b }));
     // A reader who asked for fours wants fours, not over summaries between them.
-    const withOvers = filter === 'all' || filter === 'overs' || filter === 'highlights';
-    const overRows: FeedRow[] = withOvers
+    const withOvers = filter === 'overs' || filter === 'highlights';
+    const overRows: Row[] = withOvers
       ? summaries
           .filter((o) => inScope(o.inning))
           .map((o) => ({ kind: 'over' as const, key: `o-${o.id}`, over: o.over, summary: o }))
       : [];
-    const inningOf = (row: FeedRow) => (row.kind === 'over' ? row.summary.inning : row.ball.inning ?? 0);
+    const inningOf = (row: Row) => (row.kind === 'over' ? row.summary.inning : row.ball.inning ?? 0);
     return [...overRows, ...ballRows].sort(
       (a, b) =>
         inningOf(b) - inningOf(a) ||
@@ -206,7 +308,12 @@ export default function CommentaryFeed({
         (a.kind === b.kind ? 0 : a.kind === 'over' ? -1 : 1) ||
         (a.kind === 'ball' && b.kind === 'ball' ? b.ball.ball - a.ball.ball : 0)
     );
-  }, [balls, summaries, filter, inningNum]);
+  }, [balls, summaries, notes, filter, inningNum]);
+
+  const [limit, setLimit] = useState(PAGE_ROWS);
+  useEffect(() => setLimit(PAGE_ROWS), [filter, inningNum]);
+  const shown = rows.slice(0, limit);
+  const moreDrawn = rows.length > limit;
 
   const autoWalks = useRef(0);
   const searching = SEARCH_FILTERS.has(filter);
@@ -227,17 +334,23 @@ export default function CommentaryFeed({
   }, [autoFilling, loadingMore, onLoadMore]);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
-  const canScrollLoad = Boolean(onLoadMore) && !exhausted && !autoFilling && (balls.length > 0 || loadingMore);
+  const canScrollLoad =
+    moreDrawn || (Boolean(onLoadMore) && !exhausted && !autoFilling && (balls.length > 0 || loadingMore));
 
   useEffect(() => {
     const node = sentinelRef.current;
-    if (!node || !canScrollLoad || loadingMore || !onLoadMore) return;
-    const observer = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && onLoadMore(), {
-      rootMargin: '400px 0px',
-    });
+    if (!node || !canScrollLoad || loadingMore) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        if (moreDrawn) setLimit((n) => n + PAGE_ROWS);
+        else onLoadMore?.();
+      },
+      { rootMargin: '400px 0px' }
+    );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [canScrollLoad, loadingMore, onLoadMore, rows.length]);
+  }, [canScrollLoad, loadingMore, onLoadMore, moreDrawn, rows.length]);
 
   const covered = useMemo(() => {
     const scope = inningNum ?? Math.max(...balls.map((b) => b.inning ?? 0), 0);
@@ -294,8 +407,14 @@ export default function CommentaryFeed({
 
         {rows.length ? (
           <ol className={styles.feed}>
-            {rows.map((row) =>
-              row.kind === 'over' ? <OverCard key={row.key} summary={row.summary} /> : <BallEvent key={row.key} b={row.ball} />
+            {shown.map((row) =>
+              row.kind === 'over' ? (
+                <OverCard key={row.key} summary={row.summary} />
+              ) : row.kind === 'note' ? (
+                <FeedNoteRow key={row.key} note={row.note} ctx={ctx} />
+              ) : (
+                <BallEvent key={row.key} b={row.ball} />
+              )
             )}
           </ol>
         ) : pending ? (

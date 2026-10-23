@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { HeadToHead, InningsScore, Match, OverSummary, PointsTableGroup, SeriesLeaders } from '@/types';
+import type { FeedNote, HeadToHead, InningsScore, Match, OverSummary, PointsTableGroup, SeriesLeaders } from '@/types';
 import {
   IDLE_INTERVAL_MS,
   useCrexCommentaryHistory,
@@ -13,7 +13,7 @@ import { useSeriesLeaders } from '@/hooks/useSeriesLeaders';
 import type { MatchTab } from '@/lib/tabs';
 import { useLiveStatus } from '@/lib/live/socket';
 import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
-import { battedInnings, formatTeamScore, inningsFor } from '@/lib/innings';
+import { battedInnings, formatTeamScore, inningsFor, withCard } from '@/lib/innings';
 import { creaseContext, matchSituation, type MatchSituation } from '@/lib/situation';
 import { isStaleStoppage, attributeResult } from '@/lib/crex';
 import { matchStateOf } from '@/lib/matchState';
@@ -41,6 +41,7 @@ type TabKey = MatchTab;
 const MAX_COMMENTARY = 60;
 // Three overs of recent balls — two is too short to read the shape of a spell.
 const MAX_DOTS = 18;
+const RECENT_OVERS = 3;
 
 const NO_SITUATION: MatchSituation = { margin: null, followOn: null, target: null };
 
@@ -101,10 +102,10 @@ export default function MatchDetail({
 
   // Polling is not gated on LIVE: a page opened before the toss has to keep
   // asking to learn the match has started. Status sets the cadence; a finished
-  // match is terminal and stops.
+  // match stops once its result line is in, which can land after the finish.
   const { match: polled, lastUpdated, error: listError } = useCrexMatch(matchId, {
     initial,
-    enabled: !preview && match.status !== 'COMPLETED',
+    enabled: !preview && (match.status !== 'COMPLETED' || !match.result),
     intervalMs: isLive ? undefined : IDLE_INTERVAL_MS,
   });
 
@@ -133,11 +134,7 @@ export default function MatchDetail({
   // The crex card is a complete card each poll, not a delta.
   useEffect(() => {
     if (!polled) return;
-    setMatch(
-      crexExtras.innings.length
-        ? { ...polled, scorecard: { ...polled.scorecard, innings: crexExtras.innings } }
-        : polled
-    );
+    setMatch(withCard(polled, crexExtras.innings.length ? crexExtras.innings : undefined));
   }, [polled, crexExtras.innings]);
 
   useEffect(() => {
@@ -203,8 +200,12 @@ export default function MatchDetail({
     [isLive, match, crexExtras.innings, lastBall]
   );
 
+  // The innings in play: the feed's newest ball, else the last one either card has started.
+  const startedInnings = (crexExtras.innings.length ? crexExtras.innings : innings).filter((i) => !i.notStarted).length;
+  const inningInPlay = commentary[0]?.inning ?? (startedInnings ? startedInnings - 1 : null);
   const history = useCrexCommentaryHistory(matchId, {
     enabled: !preview && (tab === 'commentary' || tab === 'live') && match.status !== 'UPCOMING',
+    inning: inningInPlay,
   });
 
   // Ordered by innings, over, ball — not by id, which can fall back to "64.3".
@@ -223,7 +224,24 @@ export default function MatchDetail({
     return [...byId.values()].sort((a, b) => b.inning - a.inning || b.over - a.over);
   }, [crexExtras.overs, history.overs]);
 
-  const ballGroups = useMemo(() => groupBalls(cardDots, perOver, commentary, state.alive), [cardDots, commentary, perOver, state.alive]);
+  const feedNotes = useMemo(() => {
+    const byId = new Map<string, FeedNote>();
+    for (const n of crexExtras.notes) byId.set(n.id, n);
+    for (const n of history.notes) byId.set(n.id, n);
+    return [...byId.values()];
+  }, [crexExtras.notes, history.notes]);
+
+  // The Live tab's strip: the innings' last three overs, from the whole feed rather than its newest page.
+  const recentBalls = useMemo(() => {
+    const inning = feedBalls[0]?.inning;
+    const chrono = feedBalls.filter((b) => b.inning === inning).reverse();
+    const overs = [...new Set(chrono.map((b) => b.over))].slice(-RECENT_OVERS);
+    return chrono.filter((b) => overs.includes(b.over));
+  }, [feedBalls]);
+  const ballGroups = useMemo(
+    () => groupBalls(recentBalls.length ? recentBalls : cardDots, perOver, feedBalls, state.alive),
+    [recentBalls, cardDots, perOver, feedBalls, state.alive]
+  );
 
   const winnerId =
     match.status === 'COMPLETED' ? attributeResult(match.result, match.homeTeam, match.awayTeam).winnerKey : null;
@@ -238,7 +256,7 @@ export default function MatchDetail({
     { key: 'scorecard', label: 'Scorecard' },
     { key: 'commentary', label: 'Commentary' },
     { key: 'info', label: match.status === 'UPCOMING' ? 'Preview' : 'Info' },
-    ...(hasTable ? [{ key: 'table' as const, label: 'Table' }] : []),
+    ...(hasTable ? [{ key: 'table' as const, label: 'Points table' }] : []),
     ...(hasStats ? [{ key: 'stats' as const, label: 'Stats' }] : []),
   ];
 
@@ -364,6 +382,9 @@ export default function MatchDetail({
           <CommentaryFeed
             balls={feedBalls}
             summaries={feedOvers}
+            notes={feedNotes}
+            match={match}
+            squads={squads}
             pending={extrasPending || (history.loading && !feedBalls.length)}
             loadingMore={history.loading}
             exhausted={history.exhausted}

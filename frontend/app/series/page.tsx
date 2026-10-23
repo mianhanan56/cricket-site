@@ -16,6 +16,9 @@ export const metadata = {
 // Series move on the scale of a result, not a ball: revalidated, not polled.
 export const revalidate = 300;
 
+const EYEBROW = 'Competitions';
+const TITLE = 'Series';
+
 export default async function SeriesPage({
   searchParams,
 }: {
@@ -42,12 +45,20 @@ export default async function SeriesPage({
 
   return (
     <div className={styles.page}>
-      <PageHeader eyebrow="Competitions" title="Series" />
-
       {failed ? (
-        <EmptyState icon="trophy" title="Could not load series" action={{ label: 'Try again', href: '/series' }} />
+        <>
+          <PageHeader eyebrow={EYEBROW} title={TITLE} />
+          <EmptyState icon="trophy" title="Could not load series" action={{ label: 'Try again', href: '/series' }} />
+        </>
       ) : (
-        <SeriesFilter matches={matches} totals={totals} initialStatus={status} initialType={type} />
+        <SeriesFilter
+          eyebrow={EYEBROW}
+          title={TITLE}
+          matches={matches}
+          totals={totals}
+          initialStatus={status}
+          initialType={type}
+        />
       )}
     </div>
   );

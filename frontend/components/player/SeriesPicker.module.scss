@@ -10,7 +10,7 @@
   align-items: center;
   gap: $space-3;
   width: 100%;
-  min-height: 52px;
+  min-height: 56px;
   padding: $space-2 $space-3 $space-2 $space-4;
   border: 1px solid $line-2;
   border-radius: $r-md;
@@ -39,15 +39,18 @@
   min-width: 0;
 }
 
-.triggerLabel {
-  @include eyebrow;
-}
-
 .triggerValue {
   font-size: $fs-base;
   font-weight: 700;
   font-stretch: $stretch-wide;
   color: $text;
+  @include truncate;
+}
+
+.triggerMeta {
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
   @include truncate;
 }
 

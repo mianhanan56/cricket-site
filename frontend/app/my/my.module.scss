@@ -5,24 +5,20 @@
   @include page-end;
 }
 
-.counts {
-  display: flex;
-  gap: $space-5;
-  font-size: $fs-sm;
-  color: $text-3;
+// Matches beside the reader's own things: what they follow and how they hear about it.
+.layout {
+  display: grid;
+  gap: $space-10;
 
-  strong {
-    @include display-num;
-    font-size: $fs-2xl;
-    margin-right: $space-1;
-    color: $text;
+  @include desktop {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    align-items: start;
+    gap: $space-8;
   }
 }
 
-.section + .section,
-.columns + .section,
-.section + .columns {
-  margin-top: $space-12;
+.main {
+  min-width: 0;
 }
 
 .grid {
@@ -33,32 +29,75 @@
   @include tablet {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  @include wide {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
-.columns {
+.side {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: $space-10;
+  gap: $space-4;
+  min-width: 0;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
 
   @include desktop {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
-.list {
+.following {
   @include panel;
-  overflow: hidden;
+  display: grid;
+  gap: $space-4;
+  padding: $space-4;
+
+  @include tablet {
+    padding: $space-5;
+  }
+}
+
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $fs-lg;
+  font-weight: 700;
+  line-height: $leading-tight;
+}
+
+.panelCount {
+  @include data-num;
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding-inline: $space-1-5;
+  border-radius: $r-pill;
+  background: $surface-3;
+  font-size: $fs-xs;
+  font-weight: 600;
+  color: $text-2;
+}
+
+.group {
+  display: grid;
+  gap: $space-1;
+}
+
+.groupTitle {
+  @include eyebrow;
+}
+
+.rows {
+  list-style: none;
 }
 
 .row {
   display: flex;
   align-items: center;
   gap: $space-2;
-  padding: $space-2 $space-2 $space-2 $space-3;
+  min-height: 48px;
 
   & + & {
     border-top: 1px solid $line;
@@ -67,30 +106,32 @@
 
 .rowLink {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: $space-3;
-  flex: 1;
   min-width: 0;
-  min-height: 40px;
+  min-height: 44px;
   border-radius: $r-sm;
-  color: $text-2;
   @include focus-ring;
 
   &:hover .rowName {
-    color: $text;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    color: $signal-text;
   }
 }
 
 .rowName {
+  @include truncate;
   font-weight: 600;
   color: $text;
-  @include truncate;
+
+  @include motion {
+    transition: color $dur-2 $ease-out;
+  }
 }
 
-.initial {
+.mark {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
   width: 28px;
   height: 28px;
@@ -98,55 +139,53 @@
   background: $surface-3;
   font-weight: 800;
   font-stretch: $stretch-display;
-  color: $text;
+  color: $text-2;
 }
 
-.quiet {
-  font-size: $fs-sm;
-  color: $text-3;
-}
-
-.alerts {
-  display: flex;
-  flex-wrap: wrap;
+.add {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: $space-2;
+  padding-top: $space-4;
+  border-top: 1px solid $line;
 }
 
-.alert {
-  display: inline-flex;
-  align-items: center;
-  gap: $space-2;
-  min-height: 44px;
-  padding: $space-2 $space-3;
-  border-radius: $r-sm;
-  border: 1px solid $line-2;
-  background: $surface;
+.addBtn {
+  @include button-secondary;
+  gap: $space-1-5;
+  min-height: 40px;
+  padding-inline: $space-2;
   font-size: $fs-sm;
-  text-align: left;
-  @include focus-ring;
 
-  svg:first-child {
+  svg {
     color: $signal-text;
   }
-
-  &:hover {
-    border-color: $signal-mark;
-  }
-}
-
-.alertPlus {
-  color: $text-3;
 }
 
 .picker {
+  margin-top: $space-12;
+  scroll-margin-top: calc(#{$navbar-height} + #{$space-4});
+
+  @include desktop {
+    margin-top: $space-16;
+  }
+
+  // Following nothing yet: the picker is the page.
+  &[data-alone] {
+    margin-top: 0;
+  }
+}
+
+.picks {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: $space-2;
+  list-style: none;
 
   // Two columns on a small phone leave a one-word name ("Bangladesh") cut mid-word.
   @include mobile-only {
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   }
-  gap: $space-2;
 }
 
 .pick {
@@ -154,7 +193,7 @@
   align-items: center;
   gap: $space-3;
   width: 100%;
-  min-height: 56px;
+  min-height: 60px;
   padding: $space-2 $space-3;
   @include panel;
   @include panel-interactive;
@@ -175,6 +214,11 @@
 }
 
 .pickPlus {
-  color: $text-3;
   flex-shrink: 0;
+  color: $text-3;
+}
+
+.quiet {
+  font-size: $fs-sm;
+  color: $text-3;
 }

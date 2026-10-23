@@ -14,25 +14,28 @@ function Side({ match, team, winner }: { match: Match; team: Team; winner: strin
   const won = winner === team.id;
   return (
     <span className={`${styles.side} ${won ? styles.won : winner ? styles.lost : ''}`}>
-      <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="xs" />
-      <span className={styles.code}>{team.shortName}</span>
+      <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="sm" />
+      <span className={styles.name}>{team.name}</span>
+      <span className={styles.mark}>{won && <Icon name="check" size={15} strokeWidth={2.6} className={styles.check} />}</span>
       <span className={styles.score}>{score}</span>
-      <span className={styles.mark}>{won && <Icon name="check" size={14} strokeWidth={2.6} className={styles.check} />}</span>
     </span>
   );
 }
 
-/** Finished matches, result first. */
-export default function ResultList({ matches }: { matches: Match[] }) {
+/** Finished matches, result first. `inSeries` leaves out the name of the series the page is about. */
+export default function ResultList({ matches, inSeries = false }: { matches: Match[]; inSeries?: boolean }) {
   return (
     <ul className={styles.list}>
       {matches.map((m) => {
         const { winnerKey } = attributeResult(m.result, m.homeTeam, m.awayTeam);
         const state = matchStateOf(m);
-        const potm = m.playerOfMatch;
         return (
           <li key={m.id}>
             <Link href={`/matches/${m.id}`} className={styles.row}>
+              <span className={styles.series}>
+                <span className={styles.format}>{matchFormat(m)}</span>
+                {!inSeries && <span className={styles.seriesName}>{m.series.name}</span>}
+              </span>
               <span className={styles.sides}>
                 <Side match={m} team={m.homeTeam} winner={winnerKey} />
                 <Side match={m} team={m.awayTeam} winner={winnerKey} />
@@ -46,20 +49,6 @@ export default function ResultList({ matches }: { matches: Match[] }) {
                     {m.result && <span className={styles.resultSub}>{m.result}</span>}
                   </span>
                 )}
-                <span className={styles.meta}>
-                  {potm && (
-                    <span className={styles.potm}>
-                      <span className={styles.potmLabel}>Player of the match</span>
-                      {potm.name}
-                      {(potm.batting || potm.bowling) && (
-                        <span className={styles.potmFig}>{[potm.batting, potm.bowling].filter(Boolean).join(' · ')}</span>
-                      )}
-                    </span>
-                  )}
-                  <span className={styles.series}>
-                    {matchFormat(m)} · {m.series.name}
-                  </span>
-                </span>
               </span>
             </Link>
           </li>

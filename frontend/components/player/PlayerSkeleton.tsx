@@ -1,10 +1,9 @@
 import Skeleton, { stagger } from '../ui/Skeleton';
 import page from '../../app/players/[id]/player.module.scss';
 import portrait from './PlayerPortrait.module.scss';
+import { FormCardSkeleton } from './FormCard';
 import s from './PlayerSkeleton.module.scss';
 
-const BARS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-const ROWS = [0, 1, 2, 3, 4];
 const TABLE_ROWS = [0, 1, 2, 3, 4];
 const ABOUT_ROWS = [0, 1, 2, 3, 4, 5];
 
@@ -38,21 +37,7 @@ export default function PlayerSkeleton() {
         <div className={page.main}>
           <section>
             <Skeleton variant="title" className={s.heading} />
-            <div className={page.formPanel}>
-              <div className={page.strip}>
-                <div className={`${s.bars} ${stagger}`}>
-                  {BARS.map((i) => (
-                    <Skeleton key={i} className={s.bar} />
-                  ))}
-                </div>
-              </div>
-              {ROWS.map((i) => (
-                <div key={i} className={s.row}>
-                  <Skeleton variant="body" className={s.rowFig} />
-                  <Skeleton variant="body" className={s.rowText} />
-                </div>
-              ))}
-            </div>
+            <FormCardSkeleton />
           </section>
           <section>
             <Skeleton variant="title" className={s.heading} />

@@ -1,0 +1,288 @@
+@use 'component' as *;
+
+// Every note sits in the column the over cards use (`--card-x` and `--card-pad` come from the feed).
+.note {
+  position: relative;
+  z-index: 1;
+  margin: $space-3 0 $space-3 var(--card-x);
+}
+
+// ---- writers' notes and records
+
+.text {
+  // Level with the deliveries' own text.
+  margin-left: calc(var(--card-x) + var(--card-pad));
+  font-size: $fs-md;
+  line-height: $leading-relaxed;
+  color: $text;
+
+  strong {
+    font-weight: 700;
+  }
+}
+
+.para + .para {
+  margin-top: $space-2;
+}
+
+.title {
+  font-weight: 700;
+  color: $text;
+}
+
+.record {
+  padding: $space-3 $space-4;
+  border-radius: $r-md;
+  background: $surface-2;
+  font-size: $fs-md;
+  line-height: $leading-relaxed;
+  color: $text-2;
+
+  .title {
+    font-size: $fs-base;
+    line-height: $leading-snug;
+  }
+
+  // crex bolds the line that is today's — the entry this match just made.
+  strong:not(.title) {
+    font-weight: 700;
+    color: $signal-text;
+  }
+}
+
+// ---- stat cards
+
+.card {
+  display: grid;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  border-radius: $r-md;
+  background: $surface;
+  border: 1px solid $line-2;
+}
+
+.cardHead {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-1 $space-3;
+
+  span {
+    @include eyebrow;
+  }
+}
+
+.player {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: $space-3;
+
+  .figs {
+    grid-column: 1 / -1;
+  }
+
+  @include tablet {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+
+    .figs {
+      grid-column: auto;
+    }
+  }
+}
+
+.who {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 700;
+  color: $text;
+}
+
+.sub {
+  font-size: $fs-xs;
+  color: $text-3;
+}
+
+.figs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2 $space-5;
+
+  > div {
+    display: grid;
+    gap: 2px;
+  }
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    @include data-num;
+    font-size: $fs-base;
+    font-weight: 700;
+    color: $text;
+  }
+}
+
+.pair {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-2;
+  font-size: $fs-base;
+}
+
+.v {
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+.body {
+  font-size: $fs-md;
+  line-height: $leading-snug;
+  color: $text;
+}
+
+// ---- reviews
+
+.review {
+  border-color: color-mix(in oklab, var(--warn) 35%, transparent);
+}
+
+.reviewsLeft {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-1 $space-3;
+  font-size: $fs-xs;
+  color: $text-3;
+
+  strong {
+    @include data-num;
+    font-weight: 700;
+    color: $warn;
+  }
+}
+
+.verdict {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-1 $space-3;
+}
+
+.call {
+  @include display-num;
+  font-size: $fs-xl;
+}
+
+.kept {
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: $text-2;
+}
+
+.notOut {
+  border-color: color-mix(in oklab, var(--signal) 35%, transparent);
+
+  .call {
+    color: $signal-text;
+  }
+}
+
+.out {
+  border-color: color-mix(in oklab, var(--wicket) 35%, transparent);
+
+  .call {
+    color: $wicket;
+  }
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2 $space-6;
+
+  > div {
+    display: grid;
+    gap: 2px;
+  }
+
+  dt {
+    @include eyebrow;
+  }
+
+  dd {
+    font-size: $fs-md;
+    font-weight: 600;
+    color: $text;
+  }
+}
+
+// ---- one-line moments
+
+.strip {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: $space-1 $space-3;
+  padding: $space-2-5 $space-4;
+  border-radius: $r-md;
+  background: $surface-2;
+  font-size: $fs-md;
+}
+
+.stripWord {
+  font-size: $fs-xs;
+  font-weight: 800;
+  letter-spacing: $tracking-label;
+  text-transform: uppercase;
+  color: $text-2;
+}
+
+.detail {
+  @include data-num;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.how {
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.milestone {
+  background: $signal-soft;
+
+  .stripWord {
+    color: $signal-text;
+  }
+}
+
+.wicket {
+  background: $wicket-soft;
+
+  .stripWord {
+    color: $wicket;
+  }
+}
+
+.target {
+  background: $warn-soft;
+
+  .stripWord {
+    color: $warn;
+  }
+}
+
+.inningsEnd {
+  background: $surface-3;
+
+  .stripWord {
+    color: $text;
+  }
+}

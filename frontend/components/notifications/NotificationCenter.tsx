@@ -16,6 +16,8 @@ import {
   type SystemPermission,
 } from '@/lib/notifications';
 import { useAutomations } from '@/lib/automations';
+import { useFollows } from '@/lib/follows';
+import { followAlertsLive, useFollowAlerts } from '@/lib/followAlerts';
 import { closeOverlay, useOverlay } from '@/lib/uiState';
 import Icon from '../ui/Icon';
 import EmptyState from '../ui/EmptyState';
@@ -27,6 +29,7 @@ export const KIND_LABEL: Record<NotificationKind, string> = {
   moment: 'Moment',
   alert: 'Alert',
   result: 'Result',
+  news: 'News',
 };
 
 export default function NotificationCenter() {
@@ -38,6 +41,7 @@ function Panel() {
   const router = useRouter();
   const items = useNotifications();
   const automations = useAutomations();
+  const following = followAlertsLive(useFollows(), useFollowAlerts());
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
   const [permission, setPermission] = useState<SystemPermission>('unsupported');
   const panelRef = useRef<HTMLDivElement>(null);
@@ -52,7 +56,7 @@ function Panel() {
   }, []);
 
   const shown = filter === 'unread' ? items.filter((n) => !n.read) : items;
-  const wantsSystem = automations.some((a) => a.enabled && a.action.system);
+  const wantsSystem = following || automations.some((a) => a.enabled && a.action.system);
 
   const open = (n: PulseNotification) => {
     markRead(n.id);
@@ -102,7 +106,7 @@ function Panel() {
         {wantsSystem && permission === 'default' && (
           <div className={styles.permission}>
             <Icon name="bell" size={18} />
-            <p>Get your alerts as browser notifications, even when this tab is in the background.</p>
+            <p>Get these as browser notifications, even when this tab is in the background.</p>
             <button
               type="button"
               className={styles.permBtn}
@@ -141,11 +145,13 @@ function Panel() {
                 icon="bell"
                 title={filter === 'unread' ? 'You’re all caught up' : 'No notifications yet'}
                 body={
-                  automations.length
-                    ? 'Your alerts land here as matches unfold.'
-                    : 'Create an alert and PulseCrease will tell you when a wicket falls, a match starts or a chase gets close.'
+                  following
+                    ? 'Matches and news from what you follow land here.'
+                    : automations.length
+                      ? 'Your alerts land here as matches unfold.'
+                      : 'Follow a team or series and PulseCrease will tell you when its matches start, wickets fall and news breaks.'
                 }
-                action={automations.length ? undefined : { label: 'Create an alert', href: '/automations' }}
+                action={following || automations.length ? undefined : { label: 'Pick your teams', href: '/my' }}
               />
             </div>
           )}

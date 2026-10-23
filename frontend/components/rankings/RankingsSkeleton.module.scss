@@ -4,21 +4,14 @@
   pointer-events: none;
 }
 
-.seg {
-  height: 42px;
-  border-radius: $r-sm;
-}
-
-.seg2 {
-  width: 150px;
-}
-
-.seg3 {
+.menu {
   width: 180px;
+  height: 40px;
+  border-radius: $r-pill;
 }
 
-.seg3w {
-  width: 260px;
+.menuSm {
+  width: 130px;
 }
 
 .pos {

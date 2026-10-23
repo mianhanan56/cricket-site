@@ -15,6 +15,9 @@ export const metadata = {
 
 export const revalidate = 300;
 
+const EYEBROW = 'Every match';
+const TITLE = 'Fixtures';
+
 export default async function FixturesPage({
   searchParams,
 }: {
@@ -39,16 +42,20 @@ export default async function FixturesPage({
 
   return (
     <div className={styles.page}>
-      <PageHeader eyebrow="Every match" title="Fixtures" />
       {failed ? (
-        <EmptyState
-          icon="calendar"
-          title="Fixtures could not be loaded"
-          action={{ label: 'Try again', href: '/fixtures' }}
-          secondary={{ label: 'Live matches', href: '/' }}
-        />
+        <>
+          <PageHeader eyebrow={EYEBROW} title={TITLE} />
+          <EmptyState
+            icon="calendar"
+            title="Fixtures could not be loaded"
+            action={{ label: 'Try again', href: '/fixtures' }}
+            secondary={{ label: 'Live matches', href: '/' }}
+          />
+        </>
       ) : (
         <FixturesFilter
+          eyebrow={EYEBROW}
+          title={TITLE}
           fixtures={fixtures}
           coveredUntil={coveredUntil}
           initialFormat={format}

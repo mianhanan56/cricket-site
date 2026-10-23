@@ -1,10 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { requestSystemPermission, systemPermission, type SystemPermission } from '@/lib/notifications';
+import { followAlertsStore } from '@/lib/followAlerts';
 
 const listeners = new Set<(p: SystemPermission) => void>();
 const broadcast = (p: SystemPermission) => listeners.forEach((l) => l(p));
+
+/** Asks the browser, then tells every component showing the permission. */
+export async function requestNotificationPermission(): Promise<SystemPermission> {
+  const next = await requestSystemPermission();
+  broadcast(next);
+  return next;
+}
+
+/** Called from a follow click — the gesture browsers want before they show the prompt. */
+export function askOnFollow(): void {
+  if (followAlertsStore.get().on && systemPermission() === 'default') void requestNotificationPermission();
+}
 
 /**
  * Browser notification permission, shared by every alerts component on the
@@ -37,11 +50,5 @@ export function useNotificationPermission() {
     };
   }, []);
 
-  const request = useCallback(async () => {
-    const next = await requestSystemPermission();
-    broadcast(next);
-    return next;
-  }, []);
-
-  return [permission, request] as const;
+  return [permission, requestNotificationPermission] as const;
 }

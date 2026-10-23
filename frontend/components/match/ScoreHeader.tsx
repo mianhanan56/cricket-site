@@ -115,7 +115,9 @@ export default function ScoreHeader({
     match.matchNumber
       ? `${ordinal(match.matchNumber)} ${isUnofficialTest(match) ? 'Match' : MATCH_FORMAT_LABEL[match.format]}`
       : matchFormat(match),
-    live && match.day && match.day > 1 && state.key !== 'STUMPS' ? `Day ${match.day}` : null,
+    live && match.day && state.key !== 'STUMPS' && (match.day > 1 || match.session)
+      ? `Day ${match.day}${match.session ? ` · Session ${match.session}` : ''}`
+      : null,
   ].filter(Boolean);
   const stumpsDay = state.key === 'STUMPS' && match.day ? match.day : null;
   const resumes = stumpsDay && nextPlay && +new Date(nextPlay) > Date.now() ? nextPlay : null;

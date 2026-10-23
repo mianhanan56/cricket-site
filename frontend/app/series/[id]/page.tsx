@@ -1,5 +1,4 @@
 import { Suspense } from 'react';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Match } from '@/types';
 import {
@@ -24,10 +23,10 @@ import UpcomingRail from '../../../components/home/UpcomingRail';
 import ResultList from '../../../components/home/ResultList';
 import StateChip from '../../../components/live/StateChip';
 import LiveSeriesTiles from '../../../components/series/LiveSeriesTiles';
+import SeriesMatchStrip from '../../../components/series/SeriesMatchStrip';
 import SeriesMilestones, { MilestonesSkeleton } from '../../../components/series/SeriesMilestones';
 import FollowButton from '../../../components/follow/FollowButton';
 import { NewsGrid } from '../../../components/news/NewsList';
-import LocalTime from '../../../components/ui/LocalTime';
 import EmptyState from '../../../components/ui/EmptyState';
 import BackButton from '../../../components/ui/BackButton';
 import { PageHeader, SectionHead } from '../../../components/ui/Section';
@@ -77,49 +76,6 @@ function toMatch(row: SeriesScheduleMatch, series: { id: string; name: string })
     matchNumber: Number.isInteger(n) ? n : null,
   };
 }
-
-type NodeState = 'finished' | 'void' | 'live' | 'upcoming';
-
-function nodeState(m: SeriesScheduleMatch): NodeState {
-  if (m.status === 'LIVE') return 'live';
-  if (m.status === 'UPCOMING') return 'upcoming';
-  return /abandon|no result|cancel/i.test(m.result ?? '') ? 'void' : 'finished';
-}
-
-/** "Qualifier 1" → "Q1", "Final" → "F", "12" → "12". */
-function nodeLabel(no: string | null, i: number): string {
-  if (!no) return String(i + 1);
-  if (/^\d+$/.test(no)) return no;
-  const letters = no.match(/\b[A-Za-z]/g)?.join('').toUpperCase().slice(0, 2) ?? '';
-  const digits = no.match(/\d+/)?.[0] ?? '';
-  return (letters.slice(0, digits ? 1 : 2) + digits) || String(i + 1);
-}
-
-/** Back-to-back matches of one format: a tour of three ODIs then five T20s is two runs. */
-function formatRuns(matches: SeriesScheduleMatch[]): Array<{ format: string; items: Array<{ m: SeriesScheduleMatch; i: number }> }> {
-  const runs: Array<{ format: string; items: Array<{ m: SeriesScheduleMatch; i: number }> }> = [];
-  matches.forEach((m, i) => {
-    const last = runs[runs.length - 1];
-    if (last && last.format === m.format) last.items.push({ m, i });
-    else runs.push({ format: m.format, items: [{ m, i }] });
-  });
-  return runs;
-}
-
-const LEGEND: Record<NodeState, string> = {
-  finished: 'Played',
-  void: 'No result',
-  live: 'Live',
-  upcoming: 'To play',
-};
-
-const NODE_WORD: Record<NodeState, string> = {
-  finished: 'finished',
-  void: 'no result',
-  live: 'live',
-  upcoming: 'upcoming',
-};
-
 
 function More({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -181,7 +137,6 @@ export default async function SeriesDetailPage({
     .reverse()
     .map(asMatch);
   const live = liveRows.map(asMatch);
-  const next = series.matches.find((m) => m.status === 'UPCOMING') ?? null;
   const total = series.matches.length || series.matchCount;
   const played = results.length;
   // A tour can run Tests and ODIs; one format label would misname half of it.
@@ -254,62 +209,8 @@ export default async function SeriesDetailPage({
 
           <ProgressRail played={played} total={total} live={live.length > 0} className={styles.rail} />
 
-          {series.matches.length > 1 && (
-            // A multi-format tour numbers each format from 1, so each gets its own labelled row.
-            <div className={styles.nodeRuns}>
-              {(formats.length > 1 ? formatRuns(series.matches) : [{ format: '', items: series.matches.map((m, i) => ({ m, i })) }]).map((run, r) => (
-                <div key={`${run.format}-${r}`} className={styles.nodeRun}>
-                  {run.format && (
-                    <span className={styles.runLabel}>
-                      {run.format}
-                      <span className={styles.runCount}>
-                        {run.items.filter(({ m }) => m.status === 'COMPLETED').length}/{run.items.length}
-                      </span>
-                    </span>
-                  )}
-                  <ol className={styles.nodes} aria-label={run.format ? `${run.format} matches` : 'Every match'}>
-                    {run.items.map(({ m, i }) => {
-                      const state = nodeState(m);
-                      const no = m.matchNo && /^\d+$/.test(m.matchNo) ? `Match ${m.matchNo}` : (m.matchNo ?? `Match ${i + 1}`);
-                      const title = `${run.format ? `${run.format} ` : ''}${no}: ${m.homeTeam.shortName} v ${m.awayTeam.shortName}, ${m.result ?? NODE_WORD[state]}`;
-                      return (
-                        <li key={m.key}>
-                          <Link href={`/matches/${m.id}`} className={styles.node} data-state={state} title={title} aria-label={title}>
-                            {nodeLabel(m.matchNo, run.format ? run.items.findIndex((x) => x.m === m) : i)}
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {(next || series.matches.length > 1) && (
-            <div className={styles.progressFoot}>
-              {next && (
-                <Link href={`/matches/${next.id}`} className={styles.next}>
-                  <span className={styles.label}>Next</span>
-                  <span className={styles.nextTeams}>
-                    {next.homeTeam.shortName} <span className={styles.vs}>v</span> {next.awayTeam.shortName}
-                  </span>
-                  <LocalTime iso={next.startTime} format="dayTime" className={styles.nextTime} />
-                </Link>
-              )}
-              {series.matches.length > 1 && (
-                <ul className={styles.legend} aria-hidden="true">
-                  {(['finished', 'void', 'live', 'upcoming'] as const)
-                    .filter((k) => series.matches.some((m) => nodeState(m) === k))
-                    .map((k) => (
-                      <li key={k}>
-                        <span className={styles.legendNode} data-state={k} />
-                        {LEGEND[k]}
-                      </li>
-                    ))}
-                </ul>
-              )}
-            </div>
+          {series.matches.length > 0 && (
+            <SeriesMatchStrip matches={series.matches} multiFormat={formats.length > 1} />
           )}
         </div>
 
@@ -333,10 +234,10 @@ export default async function SeriesDetailPage({
             {upcoming.length > 0 && (
               <section>
                 <SectionHead title="Coming up" count={upcoming.length} level={3} />
-                <UpcomingRail matches={upcoming.slice(0, UPCOMING_FIRST)} />
+                <UpcomingRail matches={upcoming.slice(0, UPCOMING_FIRST)} inSeries />
                 {upcoming.length > UPCOMING_FIRST && (
                   <More label={`${upcoming.length - UPCOMING_FIRST} more fixtures`}>
-                    <UpcomingRail matches={upcoming.slice(UPCOMING_FIRST)} />
+                    <UpcomingRail matches={upcoming.slice(UPCOMING_FIRST)} inSeries />
                   </More>
                 )}
               </section>
@@ -345,10 +246,10 @@ export default async function SeriesDetailPage({
             {results.length > 0 && (
               <section>
                 <SectionHead title="Results" count={results.length} level={3} />
-                <ResultList matches={results.slice(0, RESULTS_FIRST)} />
+                <ResultList matches={results.slice(0, RESULTS_FIRST)} inSeries />
                 {results.length > RESULTS_FIRST && (
                   <More label={`${results.length - RESULTS_FIRST} earlier results`}>
-                    <ResultList matches={results.slice(RESULTS_FIRST)} />
+                    <ResultList matches={results.slice(RESULTS_FIRST)} inSeries />
                   </More>
                 )}
               </section>

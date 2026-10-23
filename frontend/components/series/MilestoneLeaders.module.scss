@@ -1,30 +1,45 @@
 @use 'component' as *;
 
-.wrap {
-  display: grid;
-  gap: $space-3;
-  justify-items: start;
+// Sized like the honours board's cards, which lay these out in their last row.
+.card {
+  @include panel;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-width: 0;
+  padding: $space-5;
 
-  > * {
-    max-width: 100%;
+  @include mobile-only {
+    padding: $space-4;
   }
 }
 
-.card {
-  @include panel;
-  display: grid;
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: $space-3;
-  width: 100%;
-  padding: $space-4;
+  // A 24px row inside its padding, the same as the Boundaries heading beside it.
+  min-height: calc(24px + 2 * #{$space-1});
+  margin: calc(-1 * #{$space-1}) calc(-1 * #{$space-2});
+  padding: $space-1 $space-2;
+  border-radius: $r-sm;
+  @include focus-ring;
 
-  @include tablet {
-    max-width: 560px;
-    padding: $space-5;
+  @include motion {
+    transition: background-color $dur-2 $ease-out;
+  }
+
+  &:hover {
+    background: $surface-2;
   }
 }
 
 .title {
   @include eyebrow;
+  display: flex;
+  align-items: center;
+  min-height: 24px;
 }
 
 .list {
@@ -33,7 +48,7 @@
 
 .row {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
   align-items: center;
   gap: $space-3;
   padding-block: $space-2-5;
@@ -45,7 +60,7 @@
 
 .rank {
   @include data-num;
-  font-size: $fs-md;
+  font-size: $fs-sm;
   color: $text-3;
 }
 
@@ -80,22 +95,24 @@
   display: flex;
   align-items: baseline;
   gap: $space-1;
-  font-size: $fs-xl;
+  font-size: $fs-lg;
   color: $text;
 
   small {
     @include eyebrow;
     font-size: $fs-2xs;
-    text-transform: none;
   }
 }
 
 .empty {
+  padding-block: $space-2-5;
   font-size: $fs-md;
   color: $text-3;
 }
 
-.full {
-  @include button-secondary;
-  justify-self: start;
+// ---- loading
+
+.skRow {
+  height: 44px;
+  border-radius: $r-sm;
 }

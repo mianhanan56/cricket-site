@@ -12,6 +12,30 @@ import styles from './MyCricketBand.module.scss';
 
 const RANK: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
 
+/** Shown until the reader follows something; then the band takes over. */
+export function FollowPrompt() {
+  const follows = useFollows();
+  if (follows.teams.length + follows.series.length + follows.players.length > 0) return null;
+
+  return (
+    <aside className={styles.prompt} aria-labelledby="follow-title">
+      <span className={styles.promptIcon} aria-hidden="true">
+        <Icon name="star" size={22} />
+      </span>
+      <div className={styles.promptText}>
+        <h2 id="follow-title" className={styles.promptTitle}>
+          Make it yours
+        </h2>
+        <p>Follow teams, players and series and they lead the page.</p>
+      </div>
+      <Link href="/my" className={styles.promptAction}>
+        Choose teams
+        <Icon name="arrowRight" size={17} />
+      </Link>
+    </aside>
+  );
+}
+
 export default function MyCricketBand({ matches }: { matches: Match[] }) {
   const follows = useFollows();
   const any = follows.teams.length + follows.series.length + follows.players.length > 0;
@@ -31,21 +55,7 @@ export default function MyCricketBand({ matches }: { matches: Match[] }) {
     [matches, follows]
   );
 
-  if (!any) {
-    return (
-      <aside className={styles.prompt}>
-        <span className={styles.promptIcon} aria-hidden="true">
-          <Icon name="star" size={18} />
-        </span>
-        <p className={styles.promptText}>
-          <strong>Make it yours.</strong> Follow teams, players and series and they lead the page.
-        </p>
-        <Link href="/my" className={styles.promptAction}>
-          Choose teams
-        </Link>
-      </aside>
-    );
-  }
+  if (!any) return null;
 
   return (
     <section className={styles.band} aria-labelledby="mine-title">

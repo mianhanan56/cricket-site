@@ -1,0 +1,31 @@
+@use 'component' as *;
+
+.frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-5;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: $space-3;
+  width: 100%;
+
+  @include tablet {
+    gap: $space-4;
+  }
+
+  > li {
+    min-width: 0;
+  }
+}
+
+.more {
+  @include button-secondary;
+  min-height: 46px;
+  padding-inline: $space-6;
+  border-radius: $r-pill;
+  font-size: $fs-base;
+}

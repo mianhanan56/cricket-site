@@ -88,6 +88,8 @@ export interface IMatch {
    * T20s, which are always day 1 and where showing it would be noise.
    */
   day?: number | null;
+  /** Session of the day in play, 1–3, on a live multi-day match. */
+  session?: number | null;
   scorecard?: IScorecard | null;
   // Enrichments attached by GET /api/matches/:id (computed from the DB).
   teamForm?: { home: TeamFormEntry[]; away: TeamFormEntry[] } | null;
@@ -238,6 +240,87 @@ export interface MatchEvent {
   /** A wicket card's own fields, for matching it to the scorecard's fall of wickets. */
   wicket?: WicketRef;
 }
+
+/** A span of commentary text, decoded from crex's markup so nothing is rendered as HTML. */
+export interface RichRun {
+  text: string;
+  strong?: boolean;
+  /** Underlined in crex's markup — its headings ("Freak Stat:"). */
+  title?: boolean;
+}
+
+/** Lines of runs; crex marks a paragraph with a blank line. */
+export type RichParagraph = RichRun[][];
+
+/** Batting or bowling figures as crex counts them, the rest of the stat card around them. */
+export interface CareerCard {
+  innings: number;
+  /** Runs batting, wickets bowling. */
+  total: number;
+  average: number | null;
+  /** Strike rate batting, economy bowling. */
+  rate: number | null;
+  /** Highest score batting ("126"), best figures bowling ("3/50"). */
+  best: string | null;
+}
+
+/**
+ * Everything crex's commentary interleaves with the balls besides over summaries: its writers'
+ * notes, stat cards, reviews and milestones. `at` (epoch ms) places it between deliveries.
+ */
+export type FeedNote = { id: string; inning: number; at: number } & (
+  | { kind: 'text'; paragraphs: RichParagraph[]; featured: boolean }
+  | {
+      kind: 'player';
+      role: 'batter' | 'bowler';
+      playerId: string;
+      name: string;
+      teamId: string | null;
+      age: number | null;
+      rank: number | null;
+      /** Batting position; 1 and 2 open at the striker's and non-striker's end. */
+      position: number | null;
+      career: CareerCard;
+    }
+  | {
+      kind: 'battle';
+      batterId: string;
+      bowlerId: string;
+      format: string | null;
+      since: number | null;
+      innings: number;
+      runs: number;
+      balls: number;
+      outs: number;
+      strikeRate: number | null;
+    }
+  | {
+      kind: 'versus';
+      playerId: string;
+      opponentId: string;
+      format: string | null;
+      innings: number;
+      runs: number;
+      balls: number;
+      average: number | null;
+      strikeRate: number | null;
+    }
+  | { kind: 'review'; text: string; reviewsLeft: Record<string, number> }
+  | {
+      kind: 'decision';
+      by: 'batting' | 'fielding';
+      out: boolean;
+      ultraEdge: boolean | null;
+      battingId: string | null;
+      fieldingId: string | null;
+      reviewsLeft: Record<string, number>;
+    }
+  | { kind: 'milestone'; name: string; playerId: string | null; score: number; balls: number | null; text: string }
+  | { kind: 'target'; text: string; rrr: string | null }
+  | { kind: 'wicket'; playerId: string | null; name: string; how: string; runs: number; balls: number; fours: number; sixes: number; strikeRate: string | null }
+  | { kind: 'toss'; text: string }
+  | { kind: 'inningsEnd'; teamName: string; score: string; overs: string | null }
+);
 
 export interface WicketRef {
   playerId: string | null;

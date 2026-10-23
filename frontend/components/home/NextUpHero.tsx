@@ -17,7 +17,7 @@ export default function NextUpHero({ match }: { match: Match }) {
 
   return (
     <section className={styles.hero} aria-labelledby="next-title">
-      <div className={styles.grid} aria-hidden="true" />
+      <div className={styles.mow} aria-hidden="true" />
       <header className={styles.top}>
         <span className={styles.label}>Next first ball</span>
         {state.key !== 'UPCOMING' && <StateChip state={state} full />}

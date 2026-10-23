@@ -2,7 +2,7 @@
 
 import { createPersisted, isRecord, newId } from './persisted';
 
-export type NotificationKind = 'live' | 'moment' | 'alert' | 'result';
+export type NotificationKind = 'live' | 'moment' | 'alert' | 'result' | 'news';
 
 export interface PulseNotification {
   id: string;
@@ -18,7 +18,7 @@ export interface PulseNotification {
 }
 
 const MAX_KEPT = 100;
-const KINDS: ReadonlySet<string> = new Set<NotificationKind>(['live', 'moment', 'alert', 'result']);
+const KINDS: ReadonlySet<string> = new Set<NotificationKind>(['live', 'moment', 'alert', 'result', 'news']);
 
 /**
  * Stored notifications, minus anything that would break the panel: an entry

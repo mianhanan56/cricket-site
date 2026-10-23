@@ -87,7 +87,7 @@
 
 .board {
   display: grid;
-  gap: $space-6;
+  gap: $space-3;
 }
 
 .grid {
@@ -194,30 +194,101 @@
 }
 
 .foot {
+  display: grid;
+  gap: $space-3;
+
+  @include sm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  // In line with the three cards above it.
+  @include desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  > :only-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.tile {
+  @include panel;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: $space-4;
+  padding: $space-5;
+  min-width: 0;
+
+  @include mobile-only {
+    padding: $space-4;
+  }
+}
+
+// The height of a heading row with its "View all" cue, so it lines up with the rankings beside it.
+.tileLabel {
+  display: flex;
   align-items: center;
-  gap: $space-4 $space-8;
+  min-height: 24px;
 }
 
-.totals {
-  display: flex;
-  gap: $space-8;
-
-  div {
-    display: flex;
-    flex-direction: column;
-    gap: $space-1;
+// Two-column screens give it the row above the rankings.
+.boundaries {
+  @include sm {
+    grid-column: 1 / -1;
   }
 
-  dt {
-    @include eyebrow;
-  }
-
-  dd {
-    @include display-num;
-    font-size: $fs-xl;
-    color: $text;
+  @include desktop {
+    grid-column: auto;
   }
 }
 
+.kinds {
+  display: grid;
+  gap: $space-4;
+}
+
+.kind {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'value runs'
+    'meter meter';
+  align-items: baseline;
+  gap: $space-2 $space-3;
+}
+
+.kindRuns {
+  grid-area: runs;
+  @include data-num;
+  font-size: $fs-sm;
+  color: $text-2;
+}
+
+.meter {
+  grid-area: meter;
+  height: 6px;
+  overflow: hidden;
+  border-radius: $r-pill;
+  background: $surface-3;
+
+  span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: $data;
+
+    .kind[data-kind='sixes'] & {
+      background: $signal-mark;
+    }
+  }
+}
+
+@for $i from 0 through 20 {
+  .meter span[data-step='#{$i}'] {
+    width: $i * 5%;
+  }
+}
+
+.sr {
+  @include visually-hidden;
+}

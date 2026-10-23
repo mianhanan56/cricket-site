@@ -24,14 +24,15 @@ export default async function SeriesMilestones({ seriesId }: { seriesId: string 
 
 export function MilestonesSkeleton() {
   return (
-    <div className={styles.wrap} aria-busy="true" aria-label="Loading milestone rankings">
-      <Skeleton variant="chip" width="60" />
-      <div className={styles.card}>
-        <Skeleton variant="title" width="40" />
-        {Array.from({ length: SHOWN }, (_, i) => (
-          <Skeleton key={i} variant="body" width="100" />
-        ))}
-      </div>
-    </div>
+    <>
+      {[0, 1].map((card) => (
+        <div key={card} className={styles.card} aria-busy="true" aria-label="Loading milestone rankings">
+          <Skeleton variant="text" width="40" />
+          {Array.from({ length: SHOWN }, (_, i) => (
+            <Skeleton key={i} className={styles.skRow} />
+          ))}
+        </div>
+      ))}
+    </>
   );
 }

@@ -47,6 +47,10 @@
   --tone: var(--warn);
 }
 
+.news {
+  --tone: var(--text);
+}
+
 @keyframes toast-in {
   from {
     opacity: 0;

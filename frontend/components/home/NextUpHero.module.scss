@@ -1,6 +1,7 @@
 @use 'component' as *;
 
 .hero {
+  @include on-pitch;
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -9,23 +10,22 @@
   gap: $space-4;
   padding: $space-4 $space-5;
   border-radius: $r-lg;
-  border: 1px solid $line-2;
-  background:
-    radial-gradient(80% 70% at 100% 0%, color-mix(in oklab, var(--data) 9%, transparent), transparent 60%),
-    linear-gradient(180deg, var(--surface), var(--bg-raise));
+  background-image:
+    radial-gradient(80% 90% at 100% 0%, color-mix(in oklab, var(--data) 14%, transparent), transparent 62%),
+    linear-gradient(180deg, transparent 40%, color-mix(in oklab, var(--pitch-deep) 70%, transparent));
+  box-shadow: 0 28px 56px -32px color-mix(in oklab, var(--pitch-deep) 80%, transparent);
 
   @include desktop {
     padding: $space-6;
   }
 }
 
-.grid {
+.mow {
   position: absolute;
   inset: 0;
   z-index: -1;
-  @include grid-texture(40px);
-  mask-image: radial-gradient(70% 80% at 70% 20%, #000, transparent 75%);
-  -webkit-mask-image: radial-gradient(70% 80% at 70% 20%, #000, transparent 75%);
+  @include mown-stripes;
+  pointer-events: none;
 }
 
 .top {
@@ -36,12 +36,14 @@
 }
 
 .label {
-  font-family: $font-mono;
-  font-size: $fs-xs;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding-inline: $space-3;
+  border-radius: $r-pill;
+  background: $surface-3;
+  font-size: $fs-sm;
   font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: $data;
 }
 
 .body {
@@ -147,6 +149,6 @@
 }
 
 .open {
-  @include button-secondary;
+  @include button-primary;
   min-height: 44px;
 }

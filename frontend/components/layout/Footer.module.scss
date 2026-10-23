@@ -53,7 +53,9 @@
 
 .columns {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  // One track per column shown: phones drop the one that is all dock.
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: $space-4;
 
   @include tablet {

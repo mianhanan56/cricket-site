@@ -9,26 +9,13 @@
 }
 
 .syncBeats {
-  position: relative;
   display: inline-flex;
   gap: 6px;
   padding-block: 6px;
 
-  // The crease the beats travel along.
-  &::before {
-    content: '';
-    position: absolute;
-    left: -6px;
-    right: -6px;
-    top: 50%;
-    height: 1px;
-    background: $line-2;
-  }
-
   span {
-    position: relative;
-    width: 6px;
-    height: 6px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background: $signal-mark;
     opacity: 0.25;

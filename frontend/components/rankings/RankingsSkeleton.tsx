@@ -9,14 +9,18 @@ const ROWS = Array.from({ length: 7 }, (_, i) => i);
 export default function RankingsSkeleton() {
   return (
     <div className={`${rk.page} ${stagger}`} role="status" aria-busy="true" aria-label="Loading ICC rankings">
-      <PageHeader eyebrow="ICC Rankings" title="Rankings" />
-
-      <div className={rk.controls}>
-        <Skeleton className={`${s.seg} ${s.seg2}`} />
-        <Skeleton className={`${s.seg} ${s.seg2}`} />
-        <Skeleton className={`${s.seg} ${s.seg3}`} />
-        <Skeleton className={`${s.seg} ${s.seg3w}`} />
-      </div>
+      <PageHeader
+        eyebrow="ICC Rankings"
+        title="Rankings"
+        asideClassName={rk.toolbar}
+        aside={
+          <>
+            <Skeleton className={`${s.menu} ${s.menuSm}`} />
+            <Skeleton className={`${s.menu} ${s.menuSm}`} />
+            <Skeleton className={s.menu} />
+          </>
+        }
+      />
 
       <div className={rk.board}>
         <ol className={rk.podium}>

@@ -93,13 +93,18 @@ export default function LivePanel({
   const pulseOn = inningsUnderway(state);
   const started = innings.filter((i) => !i.notStarted);
   const current = started[started.length - 1];
-  const readings = useMemo(
-    () =>
-      pulseOn
-        ? matchPulse(window, match.format, perOver, current ? { ballsBowled: ballsFrom(current.overs, perOver), wickets: current.wickets } : undefined)
-        : null,
-    [pulseOn, window, match.format, perOver, current]
-  );
+  // Read whatever window is in hand (6 balls up) rather than wait on the older pages; the meters
+  // fill to the full window as they land. The card's wicket count still vets the window.
+  const readings = useMemo(() => {
+    if (!pulseOn) return null;
+    const inHand = legalBalls(window) + 1;
+    return matchPulse(
+      window,
+      match.format,
+      perOver,
+      current ? { ballsBowled: Math.min(ballsFrom(current.overs, perOver), inHand), wickets: current.wickets } : undefined
+    );
+  }, [pulseOn, window, match.format, perOver, current]);
   const trace = useMemo(() => pulseTrace(window), [window]);
   const worms = useMemo(() => inningsWorms(innings, overs, balls, perOver), [innings, overs, balls, perOver]);
   const moments = useMemo(() => axisMoments(events), [events]);
@@ -150,14 +155,14 @@ export default function LivePanel({
         <div className={styles.liveGrid}>
           <section className={`${mc.block} ${styles.cellOver}`}>
             <div className={mc.blockHead}>
-              <h2 className={mc.blockTitle}>Current over</h2>
+              <h2 className={mc.blockTitle}>Recent overs</h2>
             </div>
             <div className={mc.surface}>
               {groups.length ? (
                 <BallTimeline groups={groups} perOver={perOver} />
               ) : (
                 pending ? (
-                  <div className={styles.loadingBalls} aria-busy="true" aria-label="Loading the current over">
+                  <div className={styles.loadingBalls} aria-busy="true" aria-label="Loading recent overs">
                     {Array.from({ length: 6 }, (_, i) => (
                       <Skeleton key={i} variant="circle" size="26" />
                     ))}

@@ -81,3 +81,16 @@ export function formatTeamScore(list: InningsScore[], multiInnings = false): str
     })
     .join(' & ');
 }
+
+// The fetched card carries each side's key on every innings, so it reads first. It doesn't mark a
+// declaration; the feed does, for the same innings.
+export function withCard(match: Match, card: InningsScore[] | undefined): Match {
+  if (!card) return match;
+  const feed = match.scorecard?.innings ?? [];
+  const innings = card.map((i) =>
+    !i.declared && feed.some((f) => f.declared && f.teamId === i.teamId && f.runs === i.runs && f.wickets === i.wickets)
+      ? { ...i, declared: true }
+      : i
+  );
+  return { ...match, scorecard: { ...match.scorecard, innings } };
+}

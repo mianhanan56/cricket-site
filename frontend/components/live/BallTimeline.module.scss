@@ -14,6 +14,42 @@
   gap: $space-4;
 }
 
+// The match page's strip: its overs share one line from tablet, the balls sized to fit the box
+// (`data-tokens` counts them; 6px between balls, the over gaps and a little slack come off first).
+// On phones they stack.
+.strip:not(.compact) {
+  @include tablet {
+    container-type: inline-size;
+    --size: 32px;
+
+    .over {
+      flex: 1 1 0;
+      min-width: max-content;
+    }
+
+    @for $n from 6 through 30 {
+      &[data-tokens='#{$n}'] .over {
+        --size: clamp(22px, calc((100cqi - #{6 * $n + 40}px) / #{$n}), 34px);
+      }
+    }
+  }
+
+  @include phone-only {
+    flex-direction: column;
+    gap: $space-3;
+    overflow: visible;
+
+    .over + .over {
+      padding-top: $space-3;
+      border-top: 1px solid $line;
+
+      &::before {
+        content: none;
+      }
+    }
+  }
+}
+
 .over {
   position: relative;
   flex-shrink: 0;
@@ -113,7 +149,7 @@
 
 // ---- four: directional movement
 .four .token {
-  color: #04161b;
+  color: $data-ink;
   background: $data;
   border-color: transparent;
 }
@@ -245,10 +281,6 @@
 :global([data-theme='light']) {
   .six .token {
     box-shadow: none;
-  }
-
-  .four .token {
-    color: #fff;
   }
 }
 

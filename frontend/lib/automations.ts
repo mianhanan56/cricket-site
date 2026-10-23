@@ -84,7 +84,7 @@ export function scopePhrase(scope: AutomationScope): string {
     case 'ANY':
       return 'in any match';
     case 'FOLLOWED':
-      return 'in my teams’ matches';
+      return 'in teams and series I follow';
     case 'TEAM':
       return `in ${scope.name ?? 'this team'}’s matches`;
     case 'SERIES':

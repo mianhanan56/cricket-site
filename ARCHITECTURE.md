@@ -73,6 +73,9 @@ commands inside `frontend/` or `worker-crex/`.
   2s while changing, 10s/30s when quiet, stops with no subscribers. Frames carry `epoch` + a
   global rising `seq`; diffs carry `prev`. Origin checked against `ALLOWED_ORIGINS`. Upstream
   fetch shared with the HTTP path via `src/upstream.ts`.
+- Every upstream run on the HTTP path races `RUN_DEADLINE_MS` (fetch timeout + 2s), so an `inFlight`
+  key is always released even when a body read stalls past the fetch's own timeout (seen 2026-10-21:
+  live scorecard/commentary keys hung for good). Logged as `upstream unsettled`.
 - Logging (Workers observability): one `console.warn` per failed upstream call on the HTTP path
   (route + status/detail); the hub logs a topic once when it starts failing and once on recovery.
 
@@ -98,6 +101,14 @@ Shared vocabulary lives in one place each: `isChaseTight` (telemetry), `MATCH_FO
 (seriesFormat), `RANKING_FORMAT_LABEL`/`FORMAT_ORDER` (playersDirectory), `TeamCrest` (types).
 Stored alerts are rebuilt field by field in `parseAutomations`; an unreadable scope drops the alert.
 
+Match-list innings (`feedInnings`): crex's `j/k/l/m` are the innings in batting order. The slots
+assume the sides alternate; `followedOn` swaps the last two for a follow-on — live when `d` (3 = the
+side that batted first is in its second innings, 4 = the other side's) points at the other slot,
+finished from the result (won by wickets → batted last; lost by runs → batted last; won by an
+innings → batted once). Draws stay as sent. A finished match's 0/0 in 0 overs is an unplayed
+innings and is dropped. Pinned in `tests/scorecard.test.ts` › follow-ons. The home scoreboard
+still prefers the fetched card (`withCard` in `LiveHero`) and shows a Test's `matchSituation`.
+
 Formats: `MatchFormat` is `TEST | ODI | T20 | T10`. T10 comes from `fo`, the `n % 4 == 3` slot
 (unless `hb` marks The Hundred, which stays T20) or `ft` 4 on schedule rows.
 
@@ -108,23 +119,69 @@ progress" onto each series' own schedule (`withSeriesSchedules`) and renders not
 answers. Home's tabs (user rule, 2026-10-07): Live = play on or resuming today (`isLiveNow`);
 a multi-day match at stumps is in **All only** until the next day's play starts, then Live again;
 finished → Results. So All = Live + Upcoming + Results + matches at stumps. The ticker, stage and
-Insights show live-now matches only.
+Insights show live-now matches only. Insights is out of the header, dock, footer and sitemap
+(2026-10-22, user ask); `/insights` still renders for anyone who has the link.
 
-Home's Live and All tabs render `components/home/WaveRibbon` (2026-10-07): a full-bleed horizontal
-snap scroller showing three cards around a raised centre card, or from 1280px four cards around
-a raised centre pair (snap shifted half a card via `scroll-padding-inline-end`, `*-pair`
-keyframes); outer cards are set back and turned in, further ones fade out. Controls hide when
-nothing scrolls. All motion is CSS scroll-driven
-animation on each slot's `view-timeline` (`--slot`, inset to the three-card window so contain
-0%/50%/100% are right/centre/left), split by range because Sass rejects
-`entry 0%`-style keyframe selectors: `wave` (transform, `contain`), `rise`/`fall` (opacity +
-individual `translate`/`rotate`, `entry`/`exit`), `stack` (z-index), plus fog/gloss pseudo-elements.
-The transform sits on an inner `.card`, never the `li`: Chrome computes snap areas from the
-transformed box, which knocked snapping off by ~40px. A scroll track under the ribbon follows a
-`scroll-timeline` (`--ribbon`, shared through `timeline-scope`) and scrubs card by card. JS only
-handles mouse drag (snap off until the glide's `scrollend`), track scrubbing, prev/next buttons
-(fine pointers only) and focus-into-view. A single match, reduced motion, or no
-`animation-timeline` support (Firefox) gets the plain tile grid.
+Home layout (redesign, 2026-10-21; the 3D wave ribbon was removed at the user's ask): a match
+switcher strip (`ScoreTicker`, page colours, picked match = solid green pill) above the stage
+(`LiveHero`: on-pitch scoreboard — batting side big on the left, other side right, chase sentence,
+figure tiles, batter/batter/bowler cards, this over, match centre button; `NextUpHero` when nothing
+is live). `LiveHero` is keyed by match, so `ScoreTicker` scrolls the picked pill back into view on
+mount. Then Your cricket band (only when following), the Matches board — Live and All are a flat
+`MatchGrid` of `MatchTile`s (All opens at 12 with a "Show all" button), Upcoming is `UpcomingRail`,
+Results is `ResultList` cards (no Player of the match: the match page has it, user ask) — then
+`FollowPrompt` (only when following nothing), Top stories (`TopStories`, a server component streamed
+under Suspense and passed into the client `HomeMatches` as its `news` prop; latest news page 1, a
+lead with the picture full bleed plus four cards), and Series in progress when nothing is live.
+Scoreboard pitch (`components/live/PitchView`, 2026-10-22, user ask): a side-on SVG pitch in the
+face-off's middle column on desktop (replacing "vs"), a strip under the sides below that. It plays
+the newest delivery when one arrives while it's on screen (keyed by innings/over/ball/extra, never
+the ball present at mount), with a badge for every ball (Dot ball, `runsLabel` for runs and extras,
+Four/Six/Wicket): runs and byes roll into the field; a four streaks back along the ground, a six
+flies out, a wicket breaks the striker's stumps. The hero score is sized to its column (`cqi`) and
+runs/wickets never split across lines. Reduced
+motion gets the badge only. Colours `--clay`/`--stump` live in `on-pitch`.
+Commentary tab (2026-10-22, the sidebar was removed at the user's ask): one full-width feed with
+crex's own interleaved items between the balls under "All". `feedFromRows` decodes them into
+`FeedNote`s (`types/index.ts`) beside balls and overs: `t` writers' notes and `t/f` records
+(markup parsed by `richText` into bold/heading runs, never rendered as HTML), `ps` new-spell and
+new-batter cards (format career, rank, age; for bowlers `runs` is wickets and `sr` economy), `pbc`
+batter v bowler, `pvtc` player v the opponent, `ac`/`rc` reviews (`review_type` 0 batting, 1
+fielding; `result` 1 out; `ultraedge` 1 bat involved; retained/lost from the side's reviews-left
+before and after), `pm`/`tm` milestones, `w` dismissal lines, `tc` chase, `to` toss, `ic2` innings
+end; polls (`pl`) are dropped. `CommentaryFeed` places each note after the last ball published
+before it (`at` against the ball's timestamp), over cards by over number, and draws 160 rows at a
+time. Cards live in `components/match/FeedNotes`. History reads **one innings per request**
+(`getCrexInningsFeed`, the `lastDocId=1&inning=N` form the ball popups use): the innings in play
+when the tab opens, each earlier one on "load older". It answers in ~2s even while the deployed
+Worker hangs on the paged walk for a live key. Match-page Live pulse reads the
+window in hand (6 legal balls up) instead of waiting for 18; Insights keeps the full-window rule.
+`withCard` (`lib/innings.ts`) merges the fetched card into a match and keeps the feed's
+declaration flag (the card has none) — used by `LiveHero` and `MatchDetail`. Test `session`
+(1–3) is the first figure of the list row's `s`, live multi-day only: "Day 5 · Session 2" in
+the match header, a Session tile on the home scoreboard. Player career tables are one "Career"
+section (`components/player/CareerTabs`, client) with an International / Domestic switch on its
+heading; both levels' Batting and Bowling tables render on the server, the switch only swaps them,
+and a level with no rows is left out (no switch when only one remains). Loader beats have no line.
+Player Recent form (`components/player/RecentForm`, client, 2026-10-22): one card with a
+Batting/Bowling switch (opens on the player's role), four figures computed from the last innings
+(batting runs/average/SR/best; bowling wickets/average/best/3+ hauls), a bar chart oldest→latest
+with each figure above its bar and the opponent below (bar heights in 20 steps via `data-step`;
+batting draws a dashed average line), and the innings list behind a "Show all" button. The card's
+pieces (`StatTiles`, `FormBars`, `MoreToggle`, `FormRow`, `FormCardSkeleton`) and styles live in
+`components/player/FormCard` and are shared with Series performance. `FormBars` takes one column
+per match (a Test's two innings stand as a pair in it), hides itself when every bar is 0, and
+scrolls sideways instead of shrinking columns under 26px.
+Switcher pills show both sides' flags (no status dot). `TeamBadge` crests have a 2px white ring
+and the image scaled 1.56× — crex draws a national flag across the middle 64% of its canvas.
+Match page Live tab: "Recent overs" is the innings' last three overs from the whole feed (newest
+page + history): one line from tablet, the overs in equal columns and the balls sized to the box
+by how many there are (`data-tokens` on the strip, a container-query clamp of 22–34px per count in
+`BallTimeline.module.scss`), stacked one over a row on phones; `BallTimeline` labels every over (no
+"···" for a partial one).
+A finished match's result is `resultText(res)`: crex can leave the last stoppage there for a while
+after the finish ("Tea Break" on a won Test), which reads as no result, and the match page keeps
+its slow list poll until a real one arrives.
 
 `hooks/useCrexMatches.ts` is **one shared poll** of the match list: every subscriber reads the
 same snapshot and it runs at the fastest interval any subscriber requests.
@@ -156,9 +213,12 @@ under `Suspense`, hidden when empty); the series page gets a News tab only when 
 
 ## Player series performance
 
-`/players/[id]` has a "Series performance" section between Recent form and the career tables
-(`components/player/PlayerSeriesSection` streams it under Suspense; `SeriesPerformance` is the
-client part, `SeriesPicker` the searchable series listbox). Source is the Worker's
+`/players/[id]` has one "Form" section (`components/player/FormTabs`, client, 2026-10-22) with a
+Recent / By series switch at the heading's right end (`SectionHead end`). Both views stay mounted
+(the hidden one keeps its state) and share one Batting/Bowling pick through `useFormDiscipline`;
+a URL naming `?series=` or a format opens By series. "By series" is
+`components/player/PlayerSeriesSection` streamed under Suspense (an empty state when the route
+fails); `SeriesPerformance` is the client part, `SeriesPicker` the searchable series listbox. Source is the Worker's
 `/player/matches` (crex `getPlayerMatches`): every innings, grouped by series then format, newest
 series first, 6 series on page 0 and 3 per later page, batting (`bb=1`) and bowling (`bb=0`) as
 separate lists. Figures are computed from the innings (dismissal-based average, `*` kept, Test
@@ -166,6 +226,12 @@ innings counted separately) and were checked equal to crex's own per-series tota
 series×format groups. Selection lives in `?series=&format=` written with `history.replaceState`
 (no server round trip); the server reads it and pages back up to 8 pages to reach an older series.
 Client pages are deduped in a module-level map. If the route fails the section is omitted.
+Layout (2026-10-22, same card as Recent form): the picker trigger shows the series name with its
+side, month span and formats; the card has a Batting/Bowling switch (role first; the choice
+survives a series change), per format four tiles (batting runs/average/SR/highest; bowling
+wickets/economy/average/best) and a `FormBars` chart captioned by match name on a tour or by
+opponent in a tournament, then "Show all N innings" and "Open series" in the footer. A series
+with several formats under "All" repeats tiles and chart per format under a format heading.
 Format filter codes: 3 Test (crex also files first-class here), 1 ODI, 2 T20, 4 T10, 5 100B.
 
 ## Ball-by-ball popups
@@ -224,12 +290,35 @@ sixes/fours/50/100 from ball feeds). Nothing fires on the first snapshot; a shar
 across tabs, keyed per event (`event:<firing key>`), so overlapping rules send one notification.
 Feed watchers also read `feed:<key>` socket frames. Delivered to the notification center and,
 with permission, the system tray — only while a tab is open.
+Following is an alert of its own (2026-10-23, user ask): `lib/followAlerts.ts` turns the follows
+into rules the engine runs beside the stored ones — a `FOLLOWED` rule (followed teams and series)
+with the chosen moments, and a `PLAYER` 50/100 rule per followed player. They are built per render,
+never stored, ids start `follow:` (no `recordFire`), and deliver to the browser too. Settings
+(`pc.followAlerts`: on/off plus the moments switched off — Match start, Wickets, 50s and 100s, Close
+chase, Results, News) live in `components/follow/FollowAlertsPanel` on My Cricket and Alerts. News:
+the engine's `NewsWatcher` reads `/news/topics` page 1 (20) every 5 minutes and notifies stories
+under 3 hours old tagged with a followed team/series/player, at most 3 a read, each once
+(`claimEvent('news:<id>')`); notification kind `news`. The first Follow click asks for browser
+permission (`askOnFollow`, the click is the gesture). Still tab-open only: no push server.
 
 ## Styling conventions
 
 - SCSS Modules only; **no Tailwind, no inline styles**. Mobile-first, `min-width` breakpoints.
 - Tokens/mixins in `scss/component.scss` (colors map to CSS custom properties in `global.scss`);
-  dark is default, `data-theme="light"` the alternative. `sassOptions.includePaths` = `scss/`.
+  light ("Outfield") is default, `data-theme="dark"` ("Floodlights") the alternative (2026-10-21).
+  `sassOptions.includePaths` = `scss/`.
+- Design system (2026-10-21, user asked for a friendlier look): outfield green `--signal` (#0b6e4f
+  light / #3dcb92 dark), cherry `--wicket`, gold `--warn`, sky `--data` (+ `--data-ink` for text on
+  it), sage-white page, white cards with `$shadow-1` (the `panel` mixin). Type: Figtree
+  (`$font-sans`, body/labels) + Archivo (`$font-display`: headings, scores; `$font-data` = Archivo
+  tabular figures). `$font-mono` is a legacy alias of `$font-data` — JetBrains Mono is gone.
+  `eyebrow` labels are sentence case, not uppercase mono. Radii 4/8/14/20. Segmented controls are
+  pills on `--control-track` / `--control-on`.
+- Signature element: the home stage (`LiveHero`, `NextUpHero`) is a deep-green scoreboard with
+  mown stripes — `@include on-pitch` re-points every colour token inside it (any theme), and
+  `@include mown-stripes` paints a layer behind it. Tokens built with `var()` resolve where they're
+  declared, so `on-pitch` restates the derived ones (`*-soft`, `--sk-*`, `--glow-signal`); add any
+  new derived token there too.
 - Note: `design-standards.md` describes a generic 4-file `src/styles/` layout; this repo's actual
   layout is `scss/{component,global,main}.scss` + per-component modules. Follow the repo.
 - Banned patterns (CLAUDE.md): accent bars beside headings; tiny muted "View all"-style links;
@@ -237,9 +326,39 @@ with permission, the system tray — only while a tab is open.
 - Filters on phones (< 768px): each page keeps its inline `Segmented` filters for tablet and up
   (hidden with `phone-only`) and renders `components/ui/FilterSheet` beside them — a "Filters"
   button with an active count and removable chips, opening a bottom sheet with Reset / Apply. Used
-  on Home (competition only; status tabs stay visible), Fixtures (format, competition; the day strip
-  stays), Series, Rankings (no chips — the title states the selection), Players (search stays) and
-  match Commentary.
+  on Home (competition only; status tabs stay visible), Fixtures (format, competition; the week
+  strip stays), Series, Rankings (no chips — the title states the selection), Players (search stays)
+  and match Commentary.
+- Heading dropdowns (2026-10-22, Rankings joined 2026-10-23 on the user's ask): page-level choices
+  are `components/ui/FilterMenu` dropdowns ("Format · All ▾") in the `PageHeader` aside, hidden on
+  phones (which keep `FilterSheet`). Fixtures: Format, Competition; Series list: Status (with
+  counts — options take an optional `count`, shown in the open menu) and Competition. Both lit when
+  not the first option; the page passes the heading text to the client filter component.
+  Rankings: Gender · Format · Ranking (Batting / Bowling / All-rounder / Teams, one choice over
+  `group` + `category`), in the title's order, with `highlight={false}` since no option means
+  "everything". The phone sheet has the same three groups (`view` maps back to group/category).
+- Fixtures dates: `WeekStrip` in `FixturesFilter` — seven days from today a page, ‹ › by week,
+  "All days" with the total, each day its count (multi-pick toggles as before), and the month grid
+  (`FixtureCalendar`) behind a "Calendar" button at the head's end; its foot is Today + Clear.
+  The Format / Competition menus are the page heading's aside: `FixturesFilter` renders the
+  `PageHeader` (the page passes the eyebrow and title, and renders its own header only when the
+  schedule read fails). Strings exported from a `'use client'` file arrive on the server as client
+  references, so shared copy has to come in as props.
+- My Cricket (2026-10-23 redesign): matches (2 columns) beside a side column of a Following card
+  (teams, series, players grouped, unfollow star per row, + Teams / Players / Series) and the
+  Notifications card; tablet puts the two cards side by side; following nothing shows the team
+  picker alone. The old count aside and one-tap alert pills are gone.
+- Series match cards (2026-10-23, `components/series/SeriesMatchStrip`): one card per match in the
+  progress panel — "Match N", "2nd ODI" in a multi-format tour (each format numbers from 1), or
+  crex's own name ("Final", "1st Semi Final"); both sides, winner ticked; the margin, "Live now", or
+  the date (the time joins it once the card is ≥140px, a container query). The first upcoming match
+  is tinted `--data` with "Next". A horizontal scroller (fade edges, thin bar for fine pointers)
+  that scrolls itself to the live/next match with the last result beside it. Replaced the numbered
+  boxes, their legend and the "Next" footer.
+- Match rows (`UpcomingRail`, every page): the format chip leads the sides (on phones it moves to
+  the series line so both sides keep one line); no venue anywhere (user ask); `inSeries` drops the
+  series name on the series page. `ResultList` cards lead with the format chip; `inSeries` likewise.
+  `SectionHead end` pushes heading controls to the far end (Career, Form).
 - Server Components by default; `'use client'` only when needed. Few comments — only non-obvious *why*.
 - Live vs stumps: the ticker, stage, Insights and live counts filter with `isLiveNow`
   (`lib/matchState.ts`). `isAtStumps` matches are in Home's All tab only (not Live) and get a
@@ -256,9 +375,9 @@ with permission, the system tray — only while a tab is open.
   `history.replaceState` (a router navigation would re-render the dynamic page on the server).
 - Series rows (`SeriesCard`) take their columns from `SeriesFilter`'s `.list` via subgrid at
   tablet+; the list rule uses element selectors (`> li`, `> div`, `> li > a`) to outrank `.row`.
-- Lime has two roles: `$signal` is a fill behind `$signal-ink` text (buttons, badges, the six token);
-  `$signal-mark` is the lime as a mark on its own (live dots, rails, chart fills/strokes, nav
-  underlines, focus outlines, `--tone`). They are equal in dark; light darkens the mark to 3:1.
+- The brand green has two roles: `$signal` is a fill behind `$signal-ink` text (buttons, badges, the
+  six token); `$signal-mark` is the green as a mark on its own (live dots, rails, chart
+  fills/strokes, nav underlines, focus outlines, `--tone`). Both meet 3:1 on the page.
 - Dynamic module lookups (`styles[state.family]`) always end `?? ''`: a family without a rule
   otherwise prints the class "undefined".
 - Two CSS modules on one element tie on specificity and the build's stylesheet order picks the

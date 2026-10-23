@@ -44,13 +44,10 @@ function Row({
 
   return (
     <div className={`${styles.row} ${batting ? styles.batting : ''} ${won ? styles.won : ''} ${dim ? styles.dim : ''}`}>
-      <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="sm" />
-      <span className={styles.names}>
-        <span className={styles.code}>
-          {team.shortName}
-          {won && <Icon name="check" size={14} strokeWidth={2.6} className={styles.wonMark} />}
-        </span>
-        <span className={styles.name}>{team.name}</span>
+      <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="md" />
+      <span className={styles.name}>
+        <span className={styles.nameText}>{team.name}</span>
+        {won && <Icon name="check" size={15} strokeWidth={2.6} className={styles.wonMark} />}
       </span>
       {score ? (
         <span className={styles.scoreBlock}>

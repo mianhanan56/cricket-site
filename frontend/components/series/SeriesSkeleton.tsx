@@ -8,7 +8,7 @@ import row from './SeriesCard.module.scss';
 import s from './SeriesSkeleton.module.scss';
 
 const ROWS = [0, 1, 2, 3, 4, 5];
-const NODES = Array.from({ length: 18 }, (_, i) => i);
+const CARDS = [0, 1, 2, 3, 4, 5, 6];
 
 function RowSkeleton() {
   return (
@@ -30,12 +30,18 @@ function RowSkeleton() {
 
 export function SeriesListSkeleton() {
   return (
-    <div className={list.page} aria-busy="true">
-      <PageHeader eyebrow="Competitions" title="Series" aside={<SyncIndicator label="Loading series" />} />
-      <div className={filter.toolbar}>
-        <Skeleton className={s.segmented} />
-        <Skeleton className={s.segmentedSm} />
-      </div>
+    <div className={list.page} role="status" aria-busy="true" aria-label="Loading series">
+      <PageHeader
+        eyebrow="Competitions"
+        title="Series"
+        asideClassName={filter.toolbar}
+        aside={
+          <>
+            <Skeleton className={s.menu} />
+            <Skeleton className={`${s.menu} ${s.menuWide}`} />
+          </>
+        }
+      />
       <div className={`${filter.list} ${stagger}`}>
         {ROWS.map((i) => (
           <RowSkeleton key={i} />
@@ -58,9 +64,9 @@ export function SeriesDetailSkeleton() {
         <div className={detail.progress}>
           <Skeleton className={s.big} />
           <Skeleton className={s.bigRail} />
-          <div className={`${detail.nodes} ${stagger}`}>
-            {NODES.map((i) => (
-              <Skeleton key={i} className={s.node} />
+          <div className={`${s.strip} ${stagger}`}>
+            {CARDS.map((i) => (
+              <Skeleton key={i} className={s.card} />
             ))}
           </div>
         </div>

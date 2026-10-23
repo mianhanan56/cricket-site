@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Archivo, JetBrains_Mono } from 'next/font/google';
+import { Archivo, Figtree } from 'next/font/google';
 import '../scss/main.scss';
 import Navbar from '../components/layout/Navbar';
 import BottomNav from '../components/layout/BottomNav';
@@ -19,10 +19,9 @@ const archivo = Archivo({
   display: 'swap',
 });
 
-const jetbrains = JetBrains_Mono({
+const figtree = Figtree({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-jetbrains',
+  variable: '--font-figtree',
   display: 'swap',
 });
 
@@ -52,8 +51,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#090b0d' },
-    { media: '(prefers-color-scheme: light)', color: '#f1f3f5' },
+    { media: '(prefers-color-scheme: dark)', color: '#0c1413' },
+    { media: '(prefers-color-scheme: light)', color: '#f2f5f0' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -62,12 +61,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${archivo.variable} ${jetbrains.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${archivo.variable} ${figtree.variable}`} suppressHydrationWarning>
       <head>
-        {/* Theme is set before first paint so there is no flash. Dark unless chosen otherwise. */}
+        {/* Theme is set before first paint so there is no flash. Light unless chosen otherwise. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`,
           }}
         />
         {process.env.NODE_ENV === 'development' && (

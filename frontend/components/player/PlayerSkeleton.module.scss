@@ -53,24 +53,6 @@
   margin-bottom: $space-4;
 }
 
-.bars {
-  display: flex;
-  align-items: flex-end;
-  gap: $space-1;
-  height: 72px;
-}
-
-.bar {
-  flex: 1;
-  border-radius: $r-xs;
-
-  @for $i from 1 through 10 {
-    &:nth-child(#{$i}) {
-      height: #{20 + ($i * 37 % 50)}px;
-    }
-  }
-}
-
 .row {
   display: flex;
   align-items: center;
@@ -85,10 +67,6 @@
 
 .rowFig {
   width: 56px;
-}
-
-.rowText {
-  width: 40%;
 }
 
 .rowWide {

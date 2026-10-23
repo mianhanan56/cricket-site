@@ -173,8 +173,6 @@ export interface BallGroup {
   over: number;
   balls: BallEntry[];
   runs: number;
-  /** The oldest group, cut off mid-over by the window. */
-  truncated: boolean;
   /** Legal deliveries still to come in the over in progress. */
   pending: number;
 }
@@ -208,7 +206,6 @@ export function groupBalls(
       over: g.over,
       balls: g.balls,
       runs: runsByOver.get(`${g.inning}:${g.over}`) ?? g.balls.reduce((s, b) => s + b.runs, 0),
-      truncated: i === 0 && g.balls[0].ball > 1,
       pending: showPending && i === groups.length - 1 && legal < perOver ? perOver - legal : 0,
     };
   });

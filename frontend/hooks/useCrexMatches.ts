@@ -9,6 +9,7 @@ import type {
   MatchEvent,
   MatchStatus,
   OverSummary,
+  FeedNote,
   SquadPlayer,
 } from '@/types';
 import {
@@ -16,6 +17,7 @@ import {
   feedFromRows,
   getCrexMatches,
   getCrexMatchFeed,
+  getCrexInningsFeed,
   getCrexMatchInfo,
   getCrexScorecard,
   matchListFromRaw,
@@ -39,7 +41,7 @@ export const RECONCILE_MS = 30_000;
 const ENTRY_DEDUPE_MS = 1_000;
 
 /** Enough history for the strips and the momentum walk; MatchDetail merges deeper history itself. */
-const FEED_CAP = { balls: 360, events: 120, overs: 60 };
+const FEED_CAP = { balls: 360, events: 120, overs: 60, notes: 160 };
 
 /**
  * The cadence for a match that is not being played — fast enough to notice a
@@ -375,6 +377,8 @@ export interface UseCrexMatchExtrasResult {
   events: MatchEvent[];
   /** End-of-over cards from the same feed, newest first. */
   overs: OverSummary[];
+  /** Notes, stat cards and reviews from the same feed. */
+  notes: FeedNote[];
   loaded: boolean;
   /** When the ball feed last arrived — the clock a stale-stoppage check reads. */
   fetchedAt: number | null;
@@ -423,6 +427,7 @@ export function useCrexMatchExtras(
   const [commentary, setCommentary] = useState<CommentaryBall[]>([]);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [overs, setOvers] = useState<OverSummary[]>([]);
+  const [notes, setNotes] = useState<FeedNote[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
 
@@ -440,6 +445,7 @@ export function useCrexMatchExtras(
       setCommentary([]);
       setEvents([]);
       setOvers([]);
+      setNotes([]);
       setLoaded(false);
       setFetchedAt(null);
     }
@@ -464,10 +470,11 @@ export function useCrexMatchExtras(
       inningsRef.current = card;
       setInnings(card);
     };
-    const takeFeed = (feed: Pick<UseCrexMatchExtrasResult, 'commentary' | 'events' | 'overs'>) => {
+    const takeFeed = (feed: Pick<UseCrexMatchExtrasResult, 'commentary' | 'events' | 'overs' | 'notes'>) => {
       setCommentary((prev) => dedupeDeliveries(mergeFeedItems(prev, feed.commentary, FEED_CAP.balls)));
       setEvents((prev) => mergeFeedItems(prev, feed.events, FEED_CAP.events));
       setOvers((prev) => mergeFeedItems(prev, feed.overs, FEED_CAP.overs));
+      setNotes((prev) => mergeFeedItems(prev, feed.notes, FEED_CAP.notes));
       setFetchedAt(Date.now());
     };
 
@@ -493,7 +500,7 @@ export function useCrexMatchExtras(
       // Only overwrite on success — a failed poll keeps the last good card
       // rather than emptying the tab.
       if (card) takeCard(card);
-      if (feed) takeFeed({ commentary: feed.balls, events: feed.events, overs: feed.overs });
+      if (feed) takeFeed({ commentary: feed.balls, events: feed.events, overs: feed.overs, notes: feed.notes });
       if (card || feed) setLoaded(true);
 
       // Both halves failing is the signal to slow down — the same exponential
@@ -528,7 +535,7 @@ export function useCrexMatchExtras(
           subscribeLive(feedTopic, (frame) => {
             if (!Array.isArray(frame.data)) return;
             const feed = feedFromRows(frame.data as CrexFeedRow[]);
-            takeFeed({ commentary: feed.balls, events: feed.events, overs: feed.overs });
+            takeFeed({ commentary: feed.balls, events: feed.events, overs: feed.overs, notes: feed.notes });
             setLoaded(true);
           }),
           onLiveResync(() => void run()),
@@ -554,7 +561,7 @@ export function useCrexMatchExtras(
     };
   }, [active, matchKey, intervalMs, repeat, ballsPerOver, status]);
 
-  return { innings, commentary, events, overs, loaded, fetchedAt };
+  return { innings, commentary, events, overs, notes, loaded, fetchedAt };
 }
 
 /** How far a card has got, so a stale one can be recognised: balls bowled, then runs. */
@@ -568,71 +575,62 @@ function cardProgress(card: InningsScore[]): number {
  * The poll's walk stops at three overs, because it runs every couple of seconds
  * and every page of it is an upstream request (see MIN_BALLS in lib/crex). That
  * is the right window for the header's ball strip and far too small for a
- * commentary tab: with three overs held, a "wickets" filter is empty on almost
- * every match, and a reader who steps away for a session cannot catch up.
+ * commentary tab.
  *
- * So this walks the same feed deeper, once, when the tab is opened, and again
- * when the reader asks for more — never on the poll. The live tail keeps
- * arriving on its own and the caller merges the two by id.
+ * So this reads the innings in play whole — one request, see `getCrexInningsFeed` —
+ * when the tab is opened, and each earlier innings when the reader asks for more. The
+ * live tail keeps arriving on the poll and the caller merges the two by id.
  */
 export interface UseCrexCommentaryHistoryResult {
   balls: CommentaryBall[];
   overs: OverSummary[];
-  /** A walk is in flight — the first one, or a "load older". */
+  notes: FeedNote[];
+  /** A read is in flight — the first one, or a "load older". */
   loading: boolean;
-  /** The feed has nothing older left to hand back. */
+  /** Every innings back to the first is held. */
   exhausted: boolean;
-  /** Walk further back. No-op while one is already running, or once exhausted. */
+  /** Read the innings before the oldest held. No-op while one is running, or once exhausted. */
   loadMore: () => void;
 }
 
-/** Roughly ten overs on the first walk, and five more per "load older". */
-const HISTORY_BALLS = 60;
-const HISTORY_PAGES = 14;
-const MORE_BALLS = 30;
-const MORE_PAGES = 8;
-
 export function useCrexCommentaryHistory(
   matchKey: string,
-  options: { enabled?: boolean } = {}
+  options: { enabled?: boolean; inning: number | null }
 ): UseCrexCommentaryHistoryResult {
-  const { enabled = true } = options;
+  const { enabled = true, inning } = options;
 
   const [balls, setBalls] = useState<CommentaryBall[]>([]);
   const [overs, setOvers] = useState<OverSummary[]>([]);
+  const [notes, setNotes] = useState<FeedNote[]>([]);
   const [loading, setLoading] = useState(false);
   const [exhausted, setExhausted] = useState(false);
-  // The oldest id reached so far, and the cursor the next walk continues from.
-  const cursor = useRef<string | null>(null);
-  // Guards the first walk against an effect that re-runs, and both walks against
-  // a second one starting while the first is still out.
+  // The innings the next read asks for; null until the first one has landed.
+  const next = useRef<number | null>(null);
+  // Guards the first read against an effect that re-runs, and both against a
+  // second one starting while the first is still out.
   const inFlight = useRef(false);
   const started = useRef('');
 
-  const walk = useCallback(
-    async (from: string | null) => {
+  const read = useCallback(
+    async (target: number) => {
       if (inFlight.current) return;
       inFlight.current = true;
       setLoading(true);
-      // A walk still out when the page moves to another match must not land on it.
+      // A read still out when the page moves to another match must not land on it.
       const current = () => started.current === matchKey;
 
       try {
-        const feed = await getCrexMatchFeed(matchKey, {
-          minBalls: from ? MORE_BALLS : HISTORY_BALLS,
-          maxPages: from ? MORE_PAGES : HISTORY_PAGES,
-          ...(from ? { before: from } : null),
-        });
+        const feed = await getCrexInningsFeed(matchKey, target);
         if (!current()) return;
-
-        // Merged by id rather than replaced: a "load older" walk returns only
-        // the older window, and the overs already on screen must stay.
         setBalls((prev) => mergeFeedItems(prev, feed.balls, Infinity));
         setOvers((prev) => mergeFeedItems(prev, feed.overs, Infinity));
-        cursor.current = feed.oldest ?? cursor.current;
-        if (feed.exhausted || !feed.oldest) setExhausted(true);
+        setNotes((prev) => mergeFeedItems(prev, feed.notes, Infinity));
+        // A Worker without the innings filter sends the whole match, first innings included.
+        const reachedFirst = target <= 0 || feed.balls.some((b) => b.inning === 0);
+        next.current = target - 1;
+        if (reachedFirst) setExhausted(true);
       } catch {
-        // A failed walk leaves what is already held; the reader can ask again.
+        // A failed read leaves what is already held; the reader can ask again.
       } finally {
         if (current()) {
           inFlight.current = false;
@@ -644,24 +642,27 @@ export function useCrexCommentaryHistory(
   );
 
   useEffect(() => {
-    if (!enabled || !matchKey || started.current === matchKey) return;
+    if (!enabled || !matchKey || inning === null || started.current === matchKey) return;
     if (started.current) {
       setBalls([]);
       setOvers([]);
+      setNotes([]);
       setExhausted(false);
-      cursor.current = null;
       inFlight.current = false;
     }
+    next.current = null;
     started.current = matchKey;
-    void walk(null);
-  }, [enabled, matchKey, walk]);
+    void read(inning);
+  }, [enabled, matchKey, inning, read]);
 
   const loadMore = useCallback(() => {
-    if (exhausted || inFlight.current) return;
-    void walk(cursor.current);
-  }, [exhausted, walk]);
+    if (exhausted || inFlight.current || started.current !== matchKey) return;
+    // Nothing landed yet: the first read failed, so ask for it again.
+    const target = next.current ?? inning;
+    if (target !== null && target >= 0) void read(target);
+  }, [exhausted, read, inning, matchKey]);
 
-  return { balls, overs, loading, exhausted, loadMore };
+  return { balls, overs, notes, loading, exhausted, loadMore };
 }
 
 /**

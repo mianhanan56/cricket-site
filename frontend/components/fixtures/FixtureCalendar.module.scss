@@ -6,16 +6,16 @@
 }
 
 .trigger {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: $space-1-5;
-  width: 58px;
-  height: 100%;
-  min-height: 76px;
-  border-radius: $r-sm;
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  height: 36px;
+  padding-inline: $space-3;
+  border-radius: $r-pill;
   border: 1px solid $line-2;
-  background: $surface-2;
+  background: $surface;
+  font-size: $fs-sm;
+  font-weight: 600;
   color: $text;
   cursor: pointer;
   transition:
@@ -25,25 +25,33 @@
 
   &:hover {
     border-color: $line-3;
-    background: $surface-3;
+    background: $surface-2;
+  }
+
+  // Icon only on phones, where the week's head is short of room.
+  @include phone-only {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
   }
 }
 
 .triggerOpen {
-  border-color: $text;
-  background: $surface-3;
+  border-color: $line-3;
+  background: $surface-2;
 }
 
 .triggerLabel {
-  @include eyebrow;
-  font-size: 10px;
-  color: $text-2;
+  @include phone-only {
+    @include visually-hidden;
+  }
 }
 
 .panel {
   position: absolute;
   top: calc(100% + #{$space-2});
-  left: 0;
+  // It opens from the week's far end.
+  right: 0;
   z-index: $z-popover;
   width: min(312px, calc(100vw - #{$space-8}));
   padding: $space-3;
@@ -187,10 +195,11 @@
   border-top: 1px solid $line;
 }
 
-.clear {
+.footBtn {
   @include button-secondary;
   flex: 1;
-  min-height: 34px;
+  gap: $space-1-5;
+  min-height: 36px;
   font-size: $fs-sm;
   cursor: pointer;
 }

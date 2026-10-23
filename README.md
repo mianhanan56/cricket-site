@@ -140,7 +140,7 @@ hub with HTTP polling underneath.
 - Shared interfaces live in `frontend/types/index.ts`.
 - Mobile-first SCSS using `min-width` breakpoints from `scss/component.scss`.
 - Every colour is a token in `scss/component.scss` backed by a custom property in
-  `scss/global.scss`; dark is the default theme, `data-theme="light"` the other.
+  `scss/global.scss`; light is the default theme, `data-theme="dark"` the other.
 - The match list is one shared poll (`useCrexMatches`) — every subscriber reads the
   same snapshot, and it runs at the fastest interval any of them asks for.
 

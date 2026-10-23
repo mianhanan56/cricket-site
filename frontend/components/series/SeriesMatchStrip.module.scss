@@ -1,0 +1,167 @@
+@use 'component' as *;
+
+.strip {
+  @include scroll-x;
+  @include scroll-fade;
+  display: flex;
+  gap: $space-2;
+  // Room for the focus ring, which the scroller would otherwise clip.
+  margin: -4px;
+  padding: 4px;
+  list-style: none;
+
+  > li {
+    display: flex;
+    flex: 1 0 112px;
+    max-width: 196px;
+
+    @include desktop {
+      flex-basis: 104px;
+    }
+  }
+
+  > li[data-run] {
+    margin-left: $space-3;
+  }
+
+  // A mouse has no sideways swipe, so it gets a bar to drag.
+  @media (hover: hover) and (pointer: fine) {
+    padding-bottom: $space-2-5;
+    scrollbar-width: thin;
+    scrollbar-color: $line-3 transparent;
+  }
+}
+
+.chip {
+  container-type: inline-size;
+  display: grid;
+  gap: $space-1-5;
+  width: 100%;
+  min-width: 0;
+  padding: $space-2-5 $space-2-5 $space-3;
+  border: 1px solid $line;
+  border-radius: $r-md;
+  background: $surface-2;
+  @include focus-ring;
+
+  @include motion {
+    transition:
+      border-color $dur-2 $ease-out,
+      background-color $dur-2 $ease-out;
+  }
+
+  &:hover {
+    border-color: $line-3;
+  }
+
+  &[data-state='upcoming'] {
+    background: transparent;
+  }
+
+  &[data-state='next'] {
+    border-color: color-mix(in oklab, var(--data) 45%, transparent);
+    background: $data-soft;
+  }
+
+  &[data-state='live'] {
+    border-color: $signal-mark;
+    background: $signal-soft;
+  }
+
+  &[data-state='void'] {
+    border-style: dashed;
+    background: transparent;
+  }
+}
+
+.label {
+  @include eyebrow;
+  @include truncate;
+  margin-bottom: 2px;
+}
+
+.side {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+
+  &[data-outcome='lost'] {
+    .code {
+      font-weight: 600;
+      color: $text-3;
+    }
+  }
+}
+
+.code {
+  @include truncate;
+  font-size: $fs-sm;
+  font-weight: 700;
+  font-stretch: $stretch-wide;
+  color: $text;
+}
+
+.check {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: $signal-text;
+}
+
+.foot {
+  @include data-num;
+  @include truncate;
+  margin-top: 2px;
+  font-size: $fs-xs;
+  color: $text-2;
+
+  [data-state='void'] & {
+    color: $text-3;
+  }
+
+  [data-state='next'] & {
+    color: $data;
+  }
+}
+
+.nextWord {
+  margin-right: $space-1-5;
+  font-size: $fs-2xs;
+  font-weight: 700;
+  letter-spacing: $tracking-label;
+  text-transform: uppercase;
+}
+
+// The start time only where the card has room for it.
+.clock {
+  display: none;
+  white-space: pre;
+
+  > span {
+    color: $text-3;
+  }
+
+  @container (min-width: 140px) {
+    display: inline;
+  }
+}
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  font-weight: 700;
+  color: $signal-text;
+
+  &::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: $signal;
+
+    @include motion {
+      animation: live-pulse $dur-pulse ease-out infinite;
+    }
+  }
+}

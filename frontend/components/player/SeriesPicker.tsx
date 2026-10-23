@@ -113,11 +113,12 @@ export default function SeriesPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? `${id}-list` : undefined}
+        aria-label={`Series: ${selected?.name ?? 'choose a series'}`}
         onClick={() => (open ? close(false) : openMenu())}
       >
         <span className={styles.triggerText}>
-          <span className={styles.triggerLabel}>Series</span>
           <span className={styles.triggerValue}>{selected?.name ?? 'Choose a series'}</span>
+          {selected?.meta && <span className={styles.triggerMeta}>{selected.meta}</span>}
         </span>
         <Icon name="chevronDown" size={16} className={`${styles.caret} ${open ? styles.caretOpen : ''}`} />
       </button>

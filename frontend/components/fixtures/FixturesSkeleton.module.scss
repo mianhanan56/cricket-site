@@ -1,48 +1,31 @@
 @use 'component' as *;
 
-.head {
-  display: grid;
-  gap: $space-3;
-  padding-block: $space-8 $space-6;
-
-  @include tablet {
-    padding-block: $space-12 $space-8;
-  }
-}
-
-.eyebrow {
-  width: 72px;
-}
-
-.title {
-  width: 200px;
+.menuFormat,
+.menuType {
+  width: 150px;
   height: 40px;
+  border-radius: $r-pill;
+}
+
+.menuType {
+  width: 220px;
+}
+
+.pill {
+  width: 110px;
+  height: 36px;
+  border-radius: $r-pill;
+}
+
+.range {
+  width: 180px;
+  height: 36px;
   border-radius: $r-sm;
 }
 
-.segFormat {
-  width: 210px;
-  height: 42px;
-  border-radius: $r-sm;
-}
-
-.segType {
-  width: 284px;
-  max-width: 100%;
-  height: 42px;
-  border-radius: $r-sm;
-}
-
-.chips {
-  display: flex;
-  gap: $space-1-5;
-  overflow: hidden;
-}
-
-.chip {
-  width: 58px;
-  height: 76px;
-  border-radius: $r-sm;
+.cell {
+  height: 72px;
+  border-radius: $r-md;
 }
 
 .day {

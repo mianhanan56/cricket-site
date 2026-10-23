@@ -1,0 +1,331 @@
+@use 'component' as *;
+
+// Drawn for the on-pitch scoreboard: light lines on the green, a clay strip, white ball.
+.pitch {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 320 / 110;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.strip {
+  fill: var(--clay);
+  stroke: rgb(255 255 255 / 18%);
+  stroke-width: 1;
+}
+
+.crease {
+  stroke: rgb(255 255 255 / 75%);
+  stroke-width: 1.5;
+}
+
+.stumps line {
+  stroke: var(--stump);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.stumps .bail {
+  stroke-width: 2;
+}
+
+.ball {
+  fill: #fff;
+  opacity: 0;
+  filter: drop-shadow(0 0 4px rgb(255 255 255 / 70%));
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.burst,
+.streak {
+  opacity: 0;
+}
+
+.burst {
+  fill: none;
+  stroke: $warn;
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.streak {
+  stroke: $data;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 220;
+  stroke-dashoffset: 220;
+}
+
+.stumpL,
+.stumpM,
+.stumpR,
+.bailL,
+.bailR {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.badge {
+  position: absolute;
+  top: -4%;
+  left: 50%;
+  translate: -50% 0;
+  padding: $space-1 $space-3;
+  border-radius: $r-pill;
+  font-family: $font-display;
+  font-stretch: $stretch-display;
+  font-size: clamp(13px, 1.3vw, 16px);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--pitch-deep);
+  background: #fff;
+  white-space: nowrap;
+  box-shadow: 0 10px 24px -10px rgb(0 0 0 / 60%);
+}
+
+.six .badge {
+  background: $warn;
+}
+
+.four .badge {
+  background: $data;
+}
+
+.wicket .badge {
+  background: $wicket;
+}
+
+// Motion only: without it the label alone says what happened.
+@include motion {
+  .delivery .ball {
+    animation: deliver 1.2s $ease-in-out forwards;
+  }
+
+  .runs .ball {
+    animation: runs 1.6s $ease-out forwards;
+  }
+
+  .four .ball {
+    animation: four 1.9s $ease-out forwards;
+  }
+
+  .six .ball {
+    animation: six 1.9s $ease-out forwards;
+  }
+
+  .wicket .ball {
+    animation: bowled 1.2s $ease-in-out forwards;
+  }
+
+  .four .streak {
+    animation: streak 1.1s 0.85s $ease-out forwards;
+  }
+
+  .six .burst {
+    animation: burst 0.9s 0.85s $ease-out forwards;
+  }
+
+  .wicket .bailL {
+    animation: bail-l 0.9s 0.7s $ease-out forwards;
+  }
+
+  .wicket .bailR {
+    animation: bail-r 0.9s 0.7s $ease-out forwards;
+  }
+
+  .wicket .stumpM {
+    animation: tilt-m 0.5s 0.7s $ease-snap forwards;
+  }
+
+  .wicket .stumpR {
+    animation: tilt-r 0.5s 0.7s $ease-snap forwards;
+  }
+
+  .wicket .striker line {
+    transition: stroke $dur-2 0.7s;
+    stroke: $wicket;
+  }
+
+  .badge {
+    animation: badge 2.6s 0.75s $ease-out both;
+  }
+}
+
+// From the bowler's hand (56, 50): pitches at (200, 80), reaches the batter at (270, 62).
+@keyframes deliver {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  55% {
+    transform: translate(144px, 30px);
+  }
+  80% {
+    opacity: 1;
+    transform: translate(214px, 12px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(214px, 12px);
+  }
+}
+
+// Played into the field, short of the rope.
+@keyframes runs {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  34% {
+    transform: translate(144px, 30px);
+  }
+  50% {
+    transform: translate(214px, 12px);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(120px, 38px);
+  }
+}
+
+@keyframes four {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  28% {
+    transform: translate(144px, 30px);
+  }
+  42% {
+    transform: translate(214px, 12px);
+  }
+  52% {
+    transform: translate(190px, 34px);
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-110px, 44px);
+  }
+}
+
+@keyframes six {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+  28% {
+    transform: translate(144px, 30px) scale(1);
+  }
+  42% {
+    transform: translate(214px, 12px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(110px, -110px) scale(2.6);
+  }
+}
+
+@keyframes bowled {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  40% {
+    transform: translate(144px, 30px);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(223px, 16px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(214px, 24px);
+  }
+}
+
+@keyframes streak {
+  0% {
+    opacity: 0.9;
+    stroke-dashoffset: 220;
+  }
+  70% {
+    opacity: 0.9;
+    stroke-dashoffset: 0;
+  }
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes burst {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(4);
+  }
+}
+
+@keyframes bail-l {
+  to {
+    opacity: 0;
+    transform: translate(-16px, -28px) rotate(-75deg);
+  }
+}
+
+@keyframes bail-r {
+  to {
+    opacity: 0;
+    transform: translate(18px, -32px) rotate(85deg);
+  }
+}
+
+@keyframes tilt-m {
+  to {
+    transform: rotate(12deg);
+  }
+}
+
+@keyframes tilt-r {
+  to {
+    transform: rotate(20deg);
+  }
+}
+
+@keyframes badge {
+  0% {
+    opacity: 0;
+    scale: 0.6;
+  }
+  12% {
+    opacity: 1;
+    scale: 1.12;
+  }
+  22% {
+    scale: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

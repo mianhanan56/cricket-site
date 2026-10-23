@@ -11,33 +11,36 @@ import type {
 } from '@/lib/tabs';
 import type { RankingsData, TeamRankingsData } from '@/lib/rankings';
 import { PageHeader } from '../ui/Section';
-import Segmented, { type SegmentOption } from '../ui/Segmented';
+import FilterMenu, { type FilterMenuOption } from '../ui/FilterMenu';
 import FilterSheet from '../ui/FilterSheet';
 import EmptyState from '../ui/EmptyState';
 import RankingCrest from './RankingCrest';
 import styles from './RankingsView.module.scss';
 
-const GROUPS: readonly SegmentOption<Group>[] = [
-  { value: 'players', label: 'Players' },
-  { value: 'teams', label: 'Teams' },
-];
-
-const GENDERS: readonly SegmentOption<Gender>[] = [
+const GENDERS: readonly FilterMenuOption<Gender>[] = [
   { value: 'men', label: 'Men' },
   { value: 'women', label: 'Women' },
 ];
 
-const FORMATS: readonly SegmentOption<Format>[] = [
+const FORMATS: readonly FilterMenuOption<Format>[] = [
   { value: 'test', label: 'Test' },
   { value: 'odi', label: 'ODI' },
   { value: 't20i', label: 'T20I' },
 ];
 
-const CATEGORIES: readonly SegmentOption<Category>[] = [
+const CATEGORIES: readonly FilterMenuOption<Category>[] = [
   { value: 'batting', label: 'Batting' },
   { value: 'bowling', label: 'Bowling' },
   { value: 'all-rounder', label: 'All-rounder' },
 ];
+
+// Players' three tables and the teams' one, as a single choice of what to rank.
+type View = Category | 'teams';
+const VIEWS: readonly FilterMenuOption<View>[] = [...CATEGORIES, { value: 'teams', label: 'Teams' }];
+const viewQuery = (v: View): { group: Group; category?: Category } =>
+  v === 'teams' ? { group: 'teams' } : { group: 'players', category: v };
+const noWomensTests = <T extends { gender: Gender; format: Format }>(q: T): T =>
+  q.gender === 'women' && q.format === 'test' ? { ...q, format: 'odi' } : q;
 
 interface Row {
   id: string;
@@ -150,10 +153,11 @@ export default function RankingsView({ data, teams, asOf, initial }: RankingsVie
 
   // The ICC publishes no Women's Test rankings.
   const formats = gender === 'women' ? FORMATS.filter((f) => f.value !== 'test') : FORMATS;
-  const changeGender = (g: Gender) =>
-    setQuery(g === 'women' && format === 'test' ? { gender: g, format: 'odi' } : { gender: g });
+  const changeGender = (g: Gender) => setQuery(noWomensTests({ gender: g, format }));
 
   const isTeams = group === 'teams';
+  const view: View = isTeams ? 'teams' : category;
+  const changeView = (v: View) => setQuery(viewQuery(v));
   const rows: Row[] = isTeams
     ? (teams[format]?.[gender] ?? []).map(toTeamRow)
     : (data[format]?.[gender]?.[category] ?? []).map(toPlayerRow);
@@ -168,35 +172,32 @@ export default function RankingsView({ data, teams, asOf, initial }: RankingsVie
 
   return (
     <div className={styles.page}>
-      <PageHeader eyebrow="ICC Rankings" title={title}>
+      <PageHeader
+        eyebrow="ICC Rankings"
+        title={title}
+        // In the title's order — Men's · ODI · Batting. Phones choose in the filter sheet.
+        asideClassName={styles.toolbar}
+        aside={
+          <>
+            <FilterMenu label="Gender" value={gender} options={GENDERS} onChange={changeGender} highlight={false} />
+            <FilterMenu label="Format" value={format} options={formats} onChange={(f) => setQuery({ format: f })} highlight={false} />
+            <FilterMenu label="Ranking" value={view} options={VIEWS} onChange={changeView} highlight={false} align="end" />
+          </>
+        }
+      >
         {asOf?.[gender] && <p className={styles.asOf}>As of {asOf[gender]}</p>}
       </PageHeader>
 
-      <div className={styles.controls}>
-        <Segmented label="Ranking" value={group} options={GROUPS} onChange={(g) => setQuery({ group: g })} />
-        <Segmented label="Gender" value={gender} options={GENDERS} onChange={changeGender} />
-        <Segmented label="Format" value={format} options={formats} onChange={(f) => setQuery({ format: f })} />
-        {!isTeams && (
-          <Segmented
-            label="Discipline"
-            value={category}
-            options={CATEGORIES}
-            onChange={(c) => setQuery({ category: c })}
-          />
-        )}
-      </div>
-
       <FilterSheet
         groups={(d) => [
-          { key: 'group', label: 'Ranking', options: GROUPS },
           { key: 'gender', label: 'Gender', options: GENDERS },
           { key: 'format', label: 'Format', options: d.gender === 'women' ? FORMATS.filter((f) => f.value !== 'test') : FORMATS },
-          ...(d.group === 'teams' ? [] : [{ key: 'category', label: 'Discipline', options: CATEGORIES }]),
+          { key: 'view', label: 'Ranking', options: VIEWS },
         ]}
-        value={{ group, gender, format, category }}
-        defaults={{ group: 'players', gender: 'men', format: 'odi', category: 'batting' }}
-        normalize={(d) => (d.gender === 'women' && d.format === 'test' ? { ...d, format: 'odi' as const } : d)}
-        onApply={(next) => setQuery(next)}
+        value={{ gender, format, view }}
+        defaults={{ gender: 'men', format: 'odi', view: 'batting' }}
+        normalize={noWomensTests}
+        onApply={(next) => setQuery({ gender: next.gender, format: next.format, ...viewQuery(next.view) })}
         chips={false}
         className={styles.mobileFilter}
       />

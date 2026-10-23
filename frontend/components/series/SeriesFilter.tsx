@@ -4,24 +4,19 @@ import { useMemo } from 'react';
 import type { Match, MatchStatus, SeriesSummary } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import { seriesFromMatches } from '@/lib/crex';
-import {
-  MATCH_TYPE_KEY_OPTIONS,
-  MATCH_TYPE_OPTIONS,
-  filterByMatchType,
-  matchTypeKey,
-  parseMatchType,
-  type MatchType,
-  type MatchTypeKey,
-} from '@/lib/matchType';
+import { MATCH_TYPE_KEY_OPTIONS, filterByMatchType, parseMatchType, type MatchTypeKey } from '@/lib/matchType';
 import { SERIES_STATUS_TABS, type SeriesStatusKey } from '@/lib/tabs';
-import Segmented from '../ui/Segmented';
+import FilterMenu from '../ui/FilterMenu';
 import FilterSheet from '../ui/FilterSheet';
 import EmptyState from '../ui/EmptyState';
-import { SectionHead } from '../ui/Section';
+import { PageHeader, SectionHead } from '../ui/Section';
 import SeriesCard from './SeriesCard';
 import styles from './SeriesFilter.module.scss';
 
 export interface SeriesFilterProps {
+  /** The page's heading, which carries the status and competition menus. */
+  eyebrow: string;
+  title: string;
   /** The whole match feed; series are grouped out of it here. */
   matches: Match[];
   /** Real spans and totals from each series' own schedule, keyed by series id. */
@@ -54,7 +49,7 @@ export function SeriesList({ series }: { series: SeriesSummary[] }) {
   );
 }
 
-export default function SeriesFilter({ matches, totals, initialStatus, initialType }: SeriesFilterProps) {
+export default function SeriesFilter({ eyebrow, title, matches, totals, initialStatus, initialType }: SeriesFilterProps) {
   const [{ status, type }, setQuery] = useQueryTabs(
     { status: initialStatus, type: initialType },
     { status: 'all', type: 'all' }
@@ -91,36 +86,34 @@ export default function SeriesFilter({ matches, totals, initialStatus, initialTy
   );
 
   const typeWord = type === 'all' ? '' : `${type} `;
+  const statusOptions = SERIES_STATUS_TABS.map((t) => ({ value: t.key, label: t.label, count: counts[t.key] }));
 
   return (
     <>
-      <div className={styles.toolbar}>
-        <Segmented
-          label="Series status"
-          value={status}
-          options={SERIES_STATUS_TABS.map((t) => ({
-            value: t.key,
-            label: t.label,
-            count: counts[t.key],
-          }))}
-          onChange={(next: SeriesStatusKey) => setQuery({ status: next })}
-        />
-        <Segmented
-          label="Series type"
-          size="sm"
-          value={matchType}
-          options={MATCH_TYPE_OPTIONS}
-          onChange={(next: MatchType) => setQuery({ type: matchTypeKey(next) })}
-          className={styles.type}
-        />
-      </div>
+      <PageHeader
+        eyebrow={eyebrow}
+        title={title}
+        asideClassName={styles.toolbar}
+        aside={
+          <>
+            <FilterMenu label="Status" value={status} options={statusOptions} onChange={(next) => setQuery({ status: next })} />
+            <FilterMenu
+              label="Competition"
+              value={type}
+              options={MATCH_TYPE_KEY_OPTIONS}
+              onChange={(next) => setQuery({ type: next })}
+              align="end"
+            />
+          </>
+        }
+      />
 
       <FilterSheet
         groups={() => [
           {
             key: 'status',
             label: 'Status',
-            options: SERIES_STATUS_TABS.map((t) => ({ value: t.key, label: t.label, count: counts[t.key] })),
+            options: statusOptions,
           },
           { key: 'type', label: 'Competition', options: MATCH_TYPE_KEY_OPTIONS },
         ]}

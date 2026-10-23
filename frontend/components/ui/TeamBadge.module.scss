@@ -7,7 +7,7 @@
   flex-shrink: 0;
   width: var(--size);
   height: var(--size);
-  border-radius: 28%;
+  border-radius: 50%;
   overflow: hidden;
 }
 
@@ -33,26 +33,31 @@
 }
 
 .lg {
-  --size: 48px;
+  --size: 52px;
 }
 
 .xl {
   --size: 72px;
 }
 
+// A 2px white ring; the faint outer line keeps a white crest's edge on a white card.
 .crest {
-  background: color-mix(in oklab, white 92%, var(--surface));
-  border: 1px solid $line;
+  background: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px $line;
 }
 
+// crex draws a national flag across the middle 64% of its canvas, so 1.56x fills the ring; the
+// border edge clips it (club crests are smaller on the same canvas and stay whole).
 .badge img {
-  width: 78%;
-  height: 78%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  transform: scale(1.56);
 }
 
 .initials {
-  font-family: $font-sans;
+  font-family: $font-display;
   font-stretch: $stretch-display;
   font-weight: 800;
   font-size: calc(var(--size) * 0.3);

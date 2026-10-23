@@ -135,8 +135,8 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
         aria-label={`Pick a date. Showing ${label}`}
         onClick={() => (open ? close() : setOpen(true))}
       >
-        <Icon name="calendar" size={20} />
-        <span className={styles.triggerLabel}>Month</span>
+        <Icon name="calendar" size={17} />
+        <span className={styles.triggerLabel}>Calendar</span>
       </button>
 
       {open && (
@@ -206,14 +206,15 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
           </div>
 
           <div className={styles.foot}>
-            <button type="button" className={styles.clear} onClick={() => finish('')} disabled={!value}>
-              Coming week
-            </button>
             {todayKey && counts.get(todayKey) ? (
-              <button type="button" className={styles.clear} onClick={() => finish(todayKey)}>
+              <button type="button" className={styles.footBtn} onClick={() => finish(todayKey)}>
                 Today
               </button>
             ) : null}
+            <button type="button" className={styles.footBtn} onClick={() => finish('')} disabled={!value}>
+              <Icon name="close" size={14} />
+              Clear
+            </button>
           </div>
         </div>
       )}

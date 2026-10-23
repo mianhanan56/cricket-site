@@ -24,7 +24,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     '/rankings',
     '/teams',
     '/players',
-    '/insights',
     '/news',
   ].map((p) => ({
     url: `${SITE}${p}`,

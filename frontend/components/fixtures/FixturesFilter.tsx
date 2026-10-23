@@ -1,33 +1,31 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Fixture } from '@/lib/crex';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import {
+  addDays,
   dayDate,
   dayKey,
   dayKeyOf,
   describeSelection,
-  formatDayLabel,
   formatDayLong,
-  isRelativeDay,
   selectionDays,
   toggleDay,
 } from '@/lib/fixtureDays';
 import { LOCALE } from '@/lib/datetime';
 import {
   MATCH_TYPE_KEY_OPTIONS,
-  MATCH_TYPE_OPTIONS,
   filterByMatchType,
-  matchTypeKey,
   parseMatchType,
-  type MatchType,
   type MatchTypeKey,
 } from '@/lib/matchType';
 import { FIXTURE_FORMAT_TABS, type FixtureFormatKey } from '@/lib/tabs';
-import Segmented from '../ui/Segmented';
+import FilterMenu from '../ui/FilterMenu';
 import FilterSheet from '../ui/FilterSheet';
+import Icon from '../ui/Icon';
 import EmptyState from '../ui/EmptyState';
+import { PageHeader } from '../ui/Section';
 import UpcomingRail from '../home/UpcomingRail';
 import FixtureCalendar from './FixtureCalendar';
 import styles from './FixturesFilter.module.scss';
@@ -41,6 +39,9 @@ interface DayGroup {
 }
 
 export interface FixturesFilterProps {
+  /** The page's heading, which carries the format and competition menus. */
+  eyebrow: string;
+  title: string;
   fixtures: Fixture[];
   /** Where the schedule read stops mid-day (see `FixtureSchedule`); null when every day is whole. */
   coveredUntil: string | null;
@@ -51,72 +52,127 @@ export interface FixturesFilterProps {
   serverToday: string;
 }
 
-/** One chip per day; days toggle in and out, so several can be picked at once. */
-function DayStrip({
-  groups,
+const WEEK = 7;
+const FORMAT_OPTIONS = FIXTURE_FORMAT_TABS.map((t) => ({ value: t.key, label: t.label }));
+
+const daysBetween = (from: string, to: string) => Math.round((+dayDate(to) - +dayDate(from)) / 86_400_000);
+const dayMonth = (key: string) => dayDate(key).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
+
+/** "23 – 29 Oct", or "29 Oct – 4 Nov" across a month end. */
+function weekLabel(first: string, last: string): string {
+  return first.slice(0, 7) === last.slice(0, 7)
+    ? `${dayDate(first).getDate()} – ${dayMonth(last)}`
+    : `${dayMonth(first)} – ${dayMonth(last)}`;
+}
+
+/** Seven days from today at a time, each with its fixtures; days toggle in and out, so several can be picked at once. */
+function WeekStrip({
+  counts,
   picked,
   todayKey,
-  spanDays,
+  lastKey,
   total,
+  calendar,
   onToggle,
   onReset,
 }: {
-  groups: DayGroup[];
+  counts: Map<string, number>;
   picked: ReadonlySet<string>;
   todayKey: string;
-  spanDays: number;
+  lastKey: string | undefined;
   total: number;
+  /** The month calendar's button, at the head's far end. */
+  calendar: ReactNode;
   onToggle: (key: string) => void;
   onReset: () => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const max = Math.max(1, ...groups.map((g) => g.fixtures.length));
+  const weeks = lastKey ? Math.max(1, Math.ceil((daysBetween(todayKey, lastKey) + 1) / WEEK)) : 1;
+  const [week, setWeek] = useState(0);
 
-  // Bring the chosen day into view without moving the page.
+  // Follow a pick made elsewhere (the calendar, or a ?date= link) to its week.
+  const firstPicked = [...picked].sort()[0];
   useEffect(() => {
-    const strip = ref.current;
-    const chip = strip?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    if (!strip || !chip) return;
-    strip.scrollLeft = chip.offsetLeft - strip.clientWidth / 2 + chip.clientWidth / 2;
-  }, [picked]);
+    if (!firstPicked) return;
+    const w = Math.floor(daysBetween(todayKey, firstPicked) / WEEK);
+    if (w >= 0 && w < weeks) setWeek(w);
+  }, [firstPicked, todayKey, weeks]);
+
+  const start = addDays(todayKey, Math.min(week, weeks - 1) * WEEK);
+  const days = Array.from({ length: WEEK }, (_, i) => addDays(start, i));
 
   return (
-    <div className={styles.strip} ref={ref} role="group" aria-label="Choose a day">
-      <button type="button" className={styles.chip} aria-pressed={!picked.size} onClick={onReset}>
-        <span className={styles.chipDay}>Next</span>
-        <span className={styles.chipDate}>{spanDays}d</span>
-        <span className={styles.chipCount}>{total}</span>
-      </button>
-      {groups.map((g) => {
-        const d = dayDate(g.key);
-        const relative = isRelativeDay(g.key, todayKey);
-        const n = g.fixtures.length;
-        return (
+    <div className={styles.dates}>
+      <div className={styles.weekHead}>
+        <button type="button" className={styles.allDays} aria-pressed={!picked.size} onClick={onReset}>
+          All days
+          <span className={styles.allCount}>{total}</span>
+        </button>
+        <div className={styles.weekNav}>
           <button
-            key={g.key}
             type="button"
-            className={styles.chip}
-            aria-pressed={picked.has(g.key)}
-            aria-label={`${formatDayLong(g.key)}, ${n} ${n === 1 ? 'fixture' : 'fixtures'}`}
-            onClick={() => onToggle(g.key)}
+            className={styles.navBtn}
+            onClick={() => setWeek((w) => w - 1)}
+            disabled={week === 0}
+            aria-label="Previous week"
           >
-            <span className={styles.chipDay}>
-              {relative ? formatDayLabel(g.key, todayKey) : d.toLocaleDateString(LOCALE, { weekday: 'short' })}
-            </span>
-            <span className={styles.chipDate}>{d.getDate()}</span>
-            <svg className={styles.chipBar} viewBox="0 0 32 3" preserveAspectRatio="none" aria-hidden="true">
-              <rect x="0" y="0" width="32" height="3" className={styles.chipTrack} />
-              <rect x="0" y="0" width={(n / max) * 32} height="3" className={styles.chipFill} />
-            </svg>
-            <span className={styles.chipCount}>{n}</span>
+            <Icon name="chevronLeft" size={16} />
           </button>
-        );
-      })}
+          <span className={styles.range} aria-live="polite">
+            {weekLabel(days[0], days[WEEK - 1])}
+          </span>
+          <button
+            type="button"
+            className={styles.navBtn}
+            onClick={() => setWeek((w) => w + 1)}
+            disabled={week >= weeks - 1}
+            aria-label="Next week"
+          >
+            <Icon name="chevronRight" size={16} />
+          </button>
+        </div>
+        <div className={styles.calendarSlot}>{calendar}</div>
+      </div>
+
+      <div className={styles.week} role="group" aria-label="Choose a day">
+        {days.map((key) => {
+          const n = counts.get(key) ?? 0;
+          const on = picked.has(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`${styles.day} ${key === todayKey ? styles.today : ''}`}
+              aria-pressed={on}
+              // A picked day stays clickable even when a filter leaves it empty, so it can be unpicked.
+              disabled={!n && !on}
+              aria-label={`${formatDayLong(key)}, ${n} ${n === 1 ? 'fixture' : 'fixtures'}`}
+              onClick={() => onToggle(key)}
+            >
+              <span className={styles.dayName}>
+                {key === todayKey ? 'Today' : dayDate(key).toLocaleDateString(LOCALE, { weekday: 'short' })}
+              </span>
+              <span className={styles.dayNum}>{dayDate(key).getDate()}</span>
+              <span className={styles.dayCount}>
+                {n ? (
+                  <>
+                    {n}
+                    <span className={styles.countWord}> {n === 1 ? 'match' : 'matches'}</span>
+                  </>
+                ) : (
+                  '–'
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
 export default function FixturesFilter({
+  eyebrow,
+  title,
   fixtures,
   coveredUntil,
   initialFormat,
@@ -169,7 +225,6 @@ export default function FixturesFilter({
   const pickedGroups = useMemo(() => groups.filter((g) => picked.has(g.key)), [groups, picked]);
   const total = filtered.length;
   const lastKey = groups[groups.length - 1]?.key;
-  const spanDays = lastKey ? Math.max(1, Math.round((+dayDate(lastKey) - +dayDate(todayKey)) / 86_400_000) + 1) : 0;
 
   const [shownDays, setShownDays] = useState(DAYS_PER_PAGE);
   useEffect(() => setShownDays(DAYS_PER_PAGE), [format, type, date]);
@@ -198,24 +253,27 @@ export default function FixturesFilter({
 
   return (
     <>
-      <div className={styles.toolbar}>
-        <Segmented
-          label="Match format"
-          value={format}
-          onChange={(next) => setQuery({ format: next })}
-          options={FIXTURE_FORMAT_TABS.map((t) => ({ value: t.key, label: t.label }))}
-        />
-        <Segmented<MatchType>
-          label="Match type"
-          value={matchType}
-          onChange={(next) => setQuery({ type: matchTypeKey(next) })}
-          options={MATCH_TYPE_OPTIONS}
-        />
-      </div>
+      <PageHeader
+        eyebrow={eyebrow}
+        title={title}
+        asideClassName={styles.toolbar}
+        aside={
+          <>
+            <FilterMenu label="Format" value={format} options={FORMAT_OPTIONS} onChange={(next) => setQuery({ format: next })} />
+            <FilterMenu
+              label="Competition"
+              value={type}
+              options={MATCH_TYPE_KEY_OPTIONS}
+              onChange={(next) => setQuery({ type: next })}
+              align="end"
+            />
+          </>
+        }
+      />
 
       <FilterSheet
         groups={() => [
-          { key: 'format', label: 'Format', options: FIXTURE_FORMAT_TABS.map((t) => ({ value: t.key, label: t.label })) },
+          { key: 'format', label: 'Format', options: FORMAT_OPTIONS },
           { key: 'type', label: 'Competition', options: MATCH_TYPE_KEY_OPTIONS },
         ]}
         value={{ format, type }}
@@ -224,23 +282,23 @@ export default function FixturesFilter({
         className={styles.mobileFilter}
       />
 
-      <div className={styles.dayBar}>
-        <FixtureCalendar
-          value={date}
-          counts={counts}
-          todayKey={todayKey}
-          onChange={(next) => setQuery({ date: next })}
-        />
-        <DayStrip
-          groups={groups}
-          picked={picked}
-          todayKey={todayKey}
-          spanDays={spanDays}
-          total={total}
-          onToggle={(key) => setQuery({ date: toggleDay(date, key) })}
-          onReset={() => setQuery({ date: '' })}
-        />
-      </div>
+      <WeekStrip
+        counts={counts}
+        picked={picked}
+        todayKey={todayKey}
+        lastKey={lastKey}
+        total={total}
+        calendar={
+          <FixtureCalendar
+            value={date}
+            counts={counts}
+            todayKey={todayKey}
+            onChange={(next) => setQuery({ date: next })}
+          />
+        }
+        onToggle={(key) => setQuery({ date: toggleDay(date, key) })}
+        onReset={() => setQuery({ date: '' })}
+      />
 
       {visibleMatches.length ? (
         <div className={styles.list}>

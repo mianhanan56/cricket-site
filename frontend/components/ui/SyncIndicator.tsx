@@ -1,6 +1,6 @@
 import styles from './States.module.scss';
 
-/** The branded loading signal: three beats travelling along a crease. */
+/** The branded loading signal: three beats in turn. */
 export default function SyncIndicator({ label = 'Updating' }: { label?: string }) {
   return (
     <span className={styles.sync} role="status">

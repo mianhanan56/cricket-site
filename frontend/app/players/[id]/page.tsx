@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import type {
   PlayerBattingCareer,
   PlayerBowlingCareer,
-  PlayerFormEntry,
   PlayerProfile,
   PlayerRanking,
 } from '@/types';
@@ -15,7 +14,11 @@ import TableScroll from '@/components/ui/TableScroll';
 import BackButton from '@/components/ui/BackButton';
 import TeamBadge from '@/components/ui/TeamBadge';
 import FollowButton from '@/components/follow/FollowButton';
-import PlayerSeriesSection, { PlayerSeriesSkeleton } from '@/components/player/PlayerSeriesSection';
+import RecentForm from '@/components/player/RecentForm';
+import CareerTabs, { type CareerLevel } from '@/components/player/CareerTabs';
+import PlayerSeriesSection from '@/components/player/PlayerSeriesSection';
+import { SeriesPerformanceSkeleton } from '@/components/player/SeriesPerformance';
+import FormTabs from '@/components/player/FormTabs';
 import { isSeriesFormatKey, seriesFormatOptions } from '@/lib/playerSeries';
 import { SectionHead } from '@/components/ui/Section';
 import { TaggedNews } from '@/components/news/NewsList';
@@ -62,128 +65,8 @@ const fmtDate = (iso: string) => formatInZone(iso, 'date', SERVER_ZONE);
 const fmtRate = (value: number) => (value > 0 ? value.toFixed(2) : '—');
 const fmtCount = (value: number | null) => (value === null ? '—' : String(value));
 
-/** crex lists one undifferentiated set; international and club careers are not comparable. */
-function groupCareer<T extends { international: boolean }>(rows: T[]): Array<[string, T[]]> {
-  const international = rows.filter((r) => r.international);
-  const club = rows.filter((r) => !r.international);
-  if (!international.length || !club.length) return [['', rows]];
-  return [
-    ['International', international],
-    ['Domestic & franchise', club],
-  ];
-}
 
 const total = <T,>(rows: T[], pick: (row: T) => number) => rows.reduce((sum, row) => sum + pick(row), 0);
-
-// ---------------------------------------------------------------- Form
-
-const BAR_H = 72;
-
-type Discipline = 'batting' | 'bowling';
-
-/** Leading number of crex's composed figures: runs on "22 (34)", wickets on "3-41". */
-const leadOf = (entry: PlayerFormEntry) => Number.parseInt(entry.figures, 10) || 0;
-
-function tierOf(lead: number, discipline: Discipline): 'landmark' | 'notable' | 'plain' {
-  const [notable, landmark] = discipline === 'batting' ? [50, 100] : [3, 5];
-  return lead >= landmark ? 'landmark' : lead >= notable ? 'notable' : 'plain';
-}
-
-function FormStrip({ entries, discipline }: { entries: PlayerFormEntry[]; discipline: Discipline }) {
-  // crex sends newest first; the strip reads left to right in time.
-  const chrono = [...entries].reverse();
-  const scale = Math.max(discipline === 'batting' ? 100 : 5, ...chrono.map(leadOf));
-  const guides = (discipline === 'batting' ? [50, 100] : [3, 5]).filter((g) => g <= scale);
-  const y = (v: number) => BAR_H - (v / scale) * BAR_H;
-
-  return (
-    <div className={styles.strip}>
-      <ol className={styles.bars}>
-        {chrono.map((entry, i) => {
-          const lead = leadOf(entry);
-          const h = Math.max(2, (lead / scale) * BAR_H);
-          const figure = discipline === 'batting' ? `${lead}${entry.notOut ? '*' : ''}` : entry.figures.split(/\s/)[0];
-          const label = `${entry.figures}${entry.notOut ? ' not out' : ''}, ${entry.fixture}${entry.format ? `, ${entry.format}` : ''}`;
-          const body = (
-            <>
-              <svg className={styles.barSvg} viewBox={`0 0 20 ${BAR_H}`} preserveAspectRatio="none" aria-hidden="true">
-                {guides.map((g) => (
-                  <line key={g} x1="0" x2="20" y1={y(g)} y2={y(g)} className={styles.guide} />
-                ))}
-                <rect x="3" y={BAR_H - h} width="14" height={h} rx="1.5" className={styles[tierOf(lead, discipline)]} />
-              </svg>
-              <span className={styles.barFig}>{figure}</span>
-            </>
-          );
-          return (
-            <li key={`${entry.matchId}-${i}`} className={styles.barItem}>
-              {entry.matchId ? (
-                <Link href={`/matches/${entry.matchId}`} className={styles.bar} aria-label={label} title={label}>
-                  {body}
-                </Link>
-              ) : (
-                <span className={styles.bar} aria-label={label} title={label} role="img">
-                  {body}
-                </span>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-      <div className={styles.axis} aria-hidden="true">
-        <span>Older</span>
-        <span>Latest</span>
-      </div>
-    </div>
-  );
-}
-
-function FormList({ entries, discipline }: { entries: PlayerFormEntry[]; discipline: Discipline }) {
-  return (
-    <ol className={styles.formList}>
-      {entries.map((entry, i) => {
-        const tier = tierOf(leadOf(entry), discipline);
-        const body = (
-          <>
-            <span className={styles.formFig} data-tier={tier}>
-              {entry.figures}
-              {entry.notOut && <span className={styles.notOut}>*</span>}
-            </span>
-            <span className={styles.formFixture}>{entry.fixture}</span>
-            {entry.format && <span className={styles.formFormat}>{entry.format}</span>}
-            {entry.date && <span className={styles.formDate}>{fmtDate(entry.date)}</span>}
-          </>
-        );
-        return (
-          <li key={`${entry.matchId}-${i}`}>
-            {entry.matchId ? (
-              <Link href={`/matches/${entry.matchId}`} className={styles.formRow}>
-                {body}
-              </Link>
-            ) : (
-              <div className={styles.formRow}>{body}</div>
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function FormPanel({ title, entries, discipline }: { title: string; entries: PlayerFormEntry[]; discipline: Discipline }) {
-  if (!entries.length) return null;
-  return (
-    <section className={styles.formPanel} aria-label={`${title} form`}>
-      <h3 className={styles.panelTitle}>
-        {title}
-        <span className={styles.panelCount}>{entries.length}</span>
-      </h3>
-      {/* A part-timer's 0-12s draw a row of empty bars; the list below still has the figures. */}
-      {entries.filter((e) => leadOf(e) > 0).length >= 2 && <FormStrip entries={entries} discipline={discipline} />}
-      <FormList entries={entries} discipline={discipline} />
-    </section>
-  );
-}
 
 // ---------------------------------------------------------------- Career
 
@@ -197,9 +80,9 @@ function HighScore({ row }: { row: PlayerBattingCareer }) {
   );
 }
 
-function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
+function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: string }) {
   return (
-    <TableScroll className={styles.tableWrap} label="Batting career by format">
+    <TableScroll className={styles.tableWrap} label={`${level} batting career by format`}>
       <table className={styles.table}>
         <thead>
           <tr>
@@ -217,35 +100,26 @@ function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
             <th scope="col">Ducks</th>
           </tr>
         </thead>
-        {groupCareer(rows).map(([label, group]) => (
-          <tbody key={label || 'all'}>
-            {label && (
-              <tr className={styles.groupRow}>
-                <th colSpan={12} scope="colgroup">
-                  {label}
-                </th>
-              </tr>
-            )}
-            {group.map((r) => (
-              <tr key={r.format}>
-                <th scope="row">{r.format}</th>
-                <td>{r.matches}</td>
-                <td>{r.innings}</td>
-                <td className={styles.figure}>{r.runs}</td>
-                <td>
-                  <HighScore row={r} />
-                </td>
-                <td>{fmtRate(r.average)}</td>
-                <td>{fmtRate(r.strikeRate)}</td>
-                <td>{r.hundreds}</td>
-                <td>{r.fifties}</td>
-                <td>{r.fours}</td>
-                <td>{r.sixes}</td>
-                <td>{fmtCount(r.ducks)}</td>
-              </tr>
-            ))}
-          </tbody>
-        ))}
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.format}>
+              <th scope="row">{r.format}</th>
+              <td>{r.matches}</td>
+              <td>{r.innings}</td>
+              <td className={styles.figure}>{r.runs}</td>
+              <td>
+                <HighScore row={r} />
+              </td>
+              <td>{fmtRate(r.average)}</td>
+              <td>{fmtRate(r.strikeRate)}</td>
+              <td>{r.hundreds}</td>
+              <td>{r.fifties}</td>
+              <td>{r.fours}</td>
+              <td>{r.sixes}</td>
+              <td>{fmtCount(r.ducks)}</td>
+            </tr>
+          ))}
+        </tbody>
         {/* Averages and strike rates need dismissals and balls faced, which crex does not send per format. */}
         {rows.length > 1 && (
           <tfoot>
@@ -270,9 +144,9 @@ function BattingCareer({ rows }: { rows: PlayerBattingCareer[] }) {
   );
 }
 
-function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
+function BowlingCareer({ rows, level }: { rows: PlayerBowlingCareer[]; level: string }) {
   return (
-    <TableScroll className={styles.tableWrap} label="Bowling career by format">
+    <TableScroll className={styles.tableWrap} label={`${level} bowling career by format`}>
       <table className={styles.table}>
         <thead>
           <tr>
@@ -288,31 +162,22 @@ function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
             <th scope="col">5W</th>
           </tr>
         </thead>
-        {groupCareer(rows).map(([label, group]) => (
-          <tbody key={label || 'all'}>
-            {label && (
-              <tr className={styles.groupRow}>
-                <th colSpan={10} scope="colgroup">
-                  {label}
-                </th>
-              </tr>
-            )}
-            {group.map((r) => (
-              <tr key={r.format}>
-                <th scope="row">{r.format}</th>
-                <td>{r.matches}</td>
-                <td>{r.innings}</td>
-                <td className={styles.figure}>{r.wickets}</td>
-                <td>{r.best ?? '—'}</td>
-                <td>{fmtRate(r.average)}</td>
-                <td>{fmtRate(r.economy)}</td>
-                <td>{fmtRate(r.strikeRate)}</td>
-                <td>{r.threeWickets}</td>
-                <td>{r.fiveWickets}</td>
-              </tr>
-            ))}
-          </tbody>
-        ))}
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.format}>
+              <th scope="row">{r.format}</th>
+              <td>{r.matches}</td>
+              <td>{r.innings}</td>
+              <td className={styles.figure}>{r.wickets}</td>
+              <td>{r.best ?? '—'}</td>
+              <td>{fmtRate(r.average)}</td>
+              <td>{fmtRate(r.economy)}</td>
+              <td>{fmtRate(r.strikeRate)}</td>
+              <td>{r.threeWickets}</td>
+              <td>{r.fiveWickets}</td>
+            </tr>
+          ))}
+        </tbody>
         {rows.length > 1 && (
           <tfoot>
             <tr>
@@ -332,6 +197,37 @@ function BowlingCareer({ rows }: { rows: PlayerBowlingCareer[] }) {
       </table>
     </TableScroll>
   );
+}
+
+const CAREER_LEVELS: Array<{ value: CareerLevel; label: string; international: boolean }> = [
+  { value: 'international', label: 'International', international: true },
+  { value: 'domestic', label: 'Domestic', international: false },
+];
+
+/** Both tables for one level; a level with neither is left out. */
+function careerLevels(batting: PlayerBattingCareer[], bowling: PlayerBowlingCareer[]) {
+  return CAREER_LEVELS.flatMap(({ value, label, international }) => {
+    const bat = batting.filter((r) => r.international === international);
+    const bowl = bowling.filter((r) => r.international === international);
+    if (!bat.length && !bowl.length) return [];
+    const content = (
+      <div className={styles.career}>
+        {bat.length > 0 && (
+          <div>
+            <SectionHead title="Batting" level={3} />
+            <BattingCareer rows={bat} level={label} />
+          </div>
+        )}
+        {bowl.length > 0 && (
+          <div>
+            <SectionHead title="Bowling" level={3} />
+            <BowlingCareer rows={bowl} level={label} />
+          </div>
+        )}
+      </div>
+    );
+    return [{ value, label, content }];
+  });
 }
 
 // ---------------------------------------------------------------- Page
@@ -371,6 +267,7 @@ export default async function PlayerPage({
   // crex returns a row for every competition a player was ever listed under, played or not.
   const batting = player.batting.filter((r) => r.matches > 0);
   const bowling = player.bowling.filter((r) => r.innings > 0 || r.wickets > 0);
+  const career = careerLevels(batting, bowling);
   // A batter's handful of overs is not bowling form.
   const recentBowling = bowling.length > 0 ? player.recentBowling : [];
   const bestRank = player.rankings.length ? Math.min(...player.rankings.map((r) => r.position)) : null;
@@ -448,40 +345,33 @@ export default async function PlayerPage({
 
       <div className={styles.layout}>
         <div className={styles.main}>
-          {(player.recentBatting.length > 0 || recentBowling.length > 0) && (
-            <section className={styles.section}>
-              <SectionHead title="Recent form" />
-              <div className={styles.formGrid}>
-                <FormPanel title="Batting" entries={player.recentBatting} discipline="batting" />
-                <FormPanel title="Bowling" entries={recentBowling} discipline="bowling" />
-              </div>
-            </section>
-          )}
+          <FormTabs
+            className={styles.section}
+            // A link that names a series or a format came for the series view.
+            initial={seriesId || seriesFormat !== 'all' ? 'series' : 'recent'}
+            recent={
+              player.recentBatting.length > 0 || recentBowling.length > 0 ? (
+                <RecentForm
+                  batting={player.recentBatting}
+                  bowling={recentBowling}
+                  lead={/bowl/i.test(player.role) ? 'bowling' : 'batting'}
+                />
+              ) : null
+            }
+            series={
+              <Suspense fallback={<SeriesPerformanceSkeleton />}>
+                <PlayerSeriesSection
+                  playerId={player.id}
+                  role={player.role}
+                  formatCodes={player.formatCodes}
+                  format={seriesFormat}
+                  series={seriesId}
+                />
+              </Suspense>
+            }
+          />
 
-          <Suspense fallback={<PlayerSeriesSkeleton className={styles.section} />}>
-            <PlayerSeriesSection
-              className={styles.section}
-              playerId={player.id}
-              role={player.role}
-              formatCodes={player.formatCodes}
-              format={seriesFormat}
-              series={seriesId}
-            />
-          </Suspense>
-
-          {batting.length > 0 && (
-            <section className={styles.section}>
-              <SectionHead title="Career batting" />
-              <BattingCareer rows={batting} />
-            </section>
-          )}
-
-          {bowling.length > 0 && (
-            <section className={styles.section}>
-              <SectionHead title="Career bowling" />
-              <BowlingCareer rows={bowling} />
-            </section>
-          )}
+          {career.length > 0 && <CareerTabs className={styles.section} levels={career} />}
         </div>
 
         <aside className={styles.side}>

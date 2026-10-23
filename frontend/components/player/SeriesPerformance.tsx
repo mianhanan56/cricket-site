@@ -36,6 +36,9 @@ import EmptyState from '../ui/EmptyState';
 import ErrorState from '../ui/ErrorState';
 import Icon from '../ui/Icon';
 import SeriesPicker, { type SeriesOption } from './SeriesPicker';
+import { FormBars, FormCardSkeleton, FormRow, MoreToggle, StatTiles, tierOf, type FormColumn } from './FormCard';
+import { useFormDiscipline } from './FormTabs';
+import form from './FormCard.module.scss';
 import styles from './SeriesPerformance.module.scss';
 
 // One request per page for the life of the tab, however often a format is revisited.
@@ -61,22 +64,13 @@ function pageFetcher(playerId: string, format: SeriesFormatKey): PageFetcher {
 /** Older pages read to find a series named in the URL. */
 const URL_SEARCH_PAGES = 8;
 
-// Calendar dates in a fixed zone, so the server render and hydration agree.
-const fmtDate = (iso: string | null) => (iso ? formatInZone(iso, 'date', SERVER_ZONE) : '');
+// Calendar months in a fixed zone, so the server render and hydration agree.
 const monthYear = (iso: string) =>
   new Intl.DateTimeFormat('en-GB', {
     month: 'short',
     year: 'numeric',
     timeZone: SERVER_ZONE,
   }).format(new Date(iso));
-
-function dateRange(start: string | null, end: string | null): string {
-  if (!start || !end) return fmtDate(start ?? end);
-  const [a, b] = [fmtDate(start), fmtDate(end)];
-  if (a === b) return a;
-  const sameYear = a.slice(-4) === b.slice(-4);
-  return `${sameYear ? formatInZone(start, 'dateShort', SERVER_ZONE) : a} – ${b}`;
-}
 
 function optionMeta(s: PlayerSeries): string {
   const months = s.start && s.end ? [monthYear(s.start), monthYear(s.end)] : [];
@@ -94,221 +88,169 @@ function writeUrl(format: SeriesFormatKey, series: string | null) {
   window.history.replaceState(null, '', url);
 }
 
-const tierOf = (lead: number, discipline: PlayerDiscipline) => {
-  const [notable, landmark] = discipline === 'batting' ? [50, 100] : [3, 5];
-  return lead >= landmark ? 'landmark' : lead >= notable ? 'notable' : 'plain';
-};
-
 // ---------------------------------------------------------------- Pieces
 
-const RIBBON_W = 1000;
-const RIBBON_GAP = 8;
-const RIBBON_MIN = 6;
-
-/** The total, built from its innings: one segment each, sized by what it added. */
-function Ribbon({ innings, discipline }: { innings: PlayerSeriesInnings[]; discipline: PlayerDiscipline }) {
-  const value = (i: PlayerSeriesInnings) => (discipline === 'batting' ? i.runs : i.wickets);
-  const total = innings.reduce((sum, i) => sum + value(i), 0);
-  const room = RIBBON_W - RIBBON_GAP * (innings.length - 1) - RIBBON_MIN * innings.length;
-  if (room <= 0) return null;
-
-  let x = 0;
-  return (
-    <svg className={styles.ribbon} viewBox={`0 0 ${RIBBON_W} 10`} preserveAspectRatio="none" aria-hidden="true">
-      {innings.map((inn, i) => {
-        const width = RIBBON_MIN + (total > 0 ? (value(inn) / total) * room : room / innings.length);
-        const rect = (
-          <rect
-            key={i}
-            x={x}
-            y="0"
-            width={width}
-            height="10"
-            rx="2"
-            className={styles[tierOf(value(inn), discipline)]}
-          />
-        );
-        x += width + RIBBON_GAP;
-        return rect;
-      })}
-    </svg>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className={styles.stat}>
-      <dt>{label}</dt>
-      <dd>{value}</dd>
-    </div>
-  );
-}
-
 const rate = (n: number | null) => (n === null ? '—' : n.toFixed(2));
+const lead = (inn: PlayerSeriesInnings, d: PlayerDiscipline) => (d === 'batting' ? inn.runs : inn.wickets);
+const figure = (inn: PlayerSeriesInnings, d: PlayerDiscipline) =>
+  d === 'batting' ? `${inn.runs}${inn.notOut ? '*' : ''}` : `${inn.wickets}-${inn.runs}`;
+
+function workload(inn: PlayerSeriesInnings, d: PlayerDiscipline, format: PlayerSeriesFormatRecord): string {
+  if (d === 'batting') return `(${inn.balls})`;
+  return format.code === 5 ? `${inn.balls} b` : `${oversFrom(inn.balls)} ov`;
+}
+
+function spoken(inn: PlayerSeriesInnings, d: PlayerDiscipline, format: PlayerSeriesFormatRecord): string {
+  if (d === 'batting') return `${inn.runs}${inn.notOut ? ' not out' : ''} off ${inn.balls}`;
+  return `${inn.wickets} for ${inn.runs}${format.code === 5 ? ` off ${inn.balls} balls` : ` in ${oversFrom(inn.balls)} overs`}`;
+}
 
 function inningsName(inn: PlayerSeriesInnings, format: PlayerSeriesFormatRecord): string {
   if (!isMultiInnings(format)) return inn.matchLabel;
   return `${inn.matchLabel} · ${inn.inningsOfMatch === 2 ? '2nd' : '1st'} inns`;
 }
 
-function InningsList({ format, discipline }: { format: PlayerSeriesFormatRecord; discipline: PlayerDiscipline }) {
-  const hundred = format.code === 5;
-  return (
-    <ol className={styles.rows} aria-label={`${discipline === 'batting' ? 'Batting' : 'Bowling'} innings`}>
-      {format.innings.map((inn, i) => {
-        const lead = discipline === 'batting' ? inn.runs : inn.wickets;
-        const body = (
-          <>
-            <span className={styles.fig}>
-              <span className={styles.figMain} data-tier={tierOf(lead, discipline)}>
-                {discipline === 'batting' ? `${inn.runs}${inn.notOut ? '*' : ''}` : `${inn.wickets}-${inn.runs}`}
-              </span>
-              <span className={styles.figSub}>
-                {discipline === 'batting'
-                  ? `(${inn.balls})`
-                  : hundred
-                    ? `${inn.balls} b`
-                    : `${oversFrom(inn.balls)} ov`}
-              </span>
-            </span>
-            <span className={styles.match}>{inningsName(inn, format)}</span>
-            <span className={styles.meta}>
-              {[inn.opponent && `vs ${inn.opponent}`, inn.date && formatInZone(inn.date, 'dateShort', SERVER_ZONE)]
-                .filter(Boolean)
-                .join(' · ')}
-            </span>
-          </>
-        );
-        return (
-          <li key={`${inn.matchId}-${inn.inningsOfMatch}-${i}`}>
-            {inn.matchId ? (
-              <Link href={`/matches/${inn.matchId}`} className={styles.row}>
-                {body}
-                <Icon name="chevronRight" size={16} className={styles.chev} />
-              </Link>
-            ) : (
-              <div className={styles.row}>{body}</div>
-            )}
-          </li>
-        );
-      })}
-    </ol>
-  );
+/** A column per match, both innings of a Test side by side. */
+function columnsOf(format: PlayerSeriesFormatRecord, d: PlayerDiscipline): FormColumn[] {
+  const matches: PlayerSeriesInnings[][] = [];
+  for (const inn of format.innings) {
+    const last = matches[matches.length - 1];
+    if (last && inn.matchId && last[0].matchId === inn.matchId && last.length < 2) last.push(inn);
+    else matches.push([inn]);
+  }
+  // A tour plays one side throughout, so its matches are told apart by name; a tournament by opponent.
+  const byOpponent = new Set(format.innings.map((i) => i.opponent)).size > 1;
+  return matches.map((innings, n) => {
+    const [first] = innings;
+    const name = [first.matchLabel, first.opponent && `vs ${first.opponent}`].filter(Boolean).join(' ');
+    return {
+      key: `${first.matchId ?? 'm'}-${n}`,
+      bars: innings.map((i) => ({ lead: lead(i, d), label: figure(i, d) })),
+      caption: byOpponent ? (first.opponent ?? first.matchLabel) : first.matchLabel,
+      title: `${name}: ${innings.map((i) => spoken(i, d, format)).join(', ')}`,
+      href: first.matchId ? `/matches/${first.matchId}` : null,
+    };
+  });
 }
 
-function BattingBlock({ format, showFormat }: { format: PlayerSeriesFormatRecord; showFormat: boolean }) {
-  const s = battingSummary(format.innings);
-  return (
-    <section className={styles.block} aria-label={`Batting${showFormat ? `, ${format.label}` : ''}`}>
-      <BlockHead title="Batting" format={showFormat ? format.label : null} />
-      <p className={styles.headline}>
-        <span className={styles.total}>{s.runs}</span>
-        <span className={styles.unit}>{s.runs === 1 ? 'run' : 'runs'}</span>
-        <span className={styles.context}>
-          {s.innings} inns · {s.matches} {s.matches === 1 ? 'match' : 'matches'}
-        </span>
-      </p>
-      <Ribbon innings={format.innings} discipline="batting" />
-      <dl className={styles.stats}>
-        <Stat label="Avg" value={rate(s.average)} />
-        <Stat label="SR" value={rate(s.strikeRate)} />
-        <Stat label="HS" value={s.highest} />
-        <Stat label="50s" value={s.fifties} />
-        <Stat label="100s" value={s.hundreds} />
-        <Stat label="Not out" value={s.notOuts} />
-      </dl>
-      <InningsList format={format} discipline="batting" />
-    </section>
-  );
-}
-
-function BowlingBlock({ format, showFormat }: { format: PlayerSeriesFormatRecord; showFormat: boolean }) {
+function FormatRecord({ format, discipline }: { format: PlayerSeriesFormatRecord; discipline: PlayerDiscipline }) {
+  if (discipline === 'batting') {
+    const s = battingSummary(format.innings);
+    return (
+      <>
+        <StatTiles
+          stats={[
+            ['Runs', s.runs],
+            ['Average', rate(s.average)],
+            ['Strike rate', rate(s.strikeRate)],
+            ['Highest', s.highest],
+          ]}
+        />
+        <FormBars columns={columnsOf(format, 'batting')} discipline="batting" average={s.average} />
+      </>
+    );
+  }
   const s = bowlingSummary(format.innings, format.code);
   return (
-    <section className={styles.block} aria-label={`Bowling${showFormat ? `, ${format.label}` : ''}`}>
-      <BlockHead title="Bowling" format={showFormat ? format.label : null} />
-      <p className={styles.headline}>
-        <span className={styles.total}>{s.wickets}</span>
-        <span className={styles.unit}>{s.wickets === 1 ? 'wicket' : 'wickets'}</span>
-        <span className={styles.context}>
-          {s.innings} inns · {s.workload.value} {s.workload.unit}
-        </span>
-      </p>
-      <Ribbon innings={format.innings} discipline="bowling" />
-      <dl className={styles.stats}>
-        <Stat label="Runs" value={s.runs} />
-        <Stat label="Econ" value={rate(s.economy)} />
-        <Stat label="Avg" value={rate(s.average)} />
-        <Stat label="Best" value={s.best ?? '—'} />
-        <Stat label="4W" value={s.fourFors} />
-        <Stat label="5W" value={s.fiveFors} />
-      </dl>
-      <InningsList format={format} discipline="bowling" />
-    </section>
-  );
-}
-
-function BlockHead({ title, format }: { title: string; format: string | null }) {
-  return (
-    <h3 className={styles.blockTitle}>
-      {title}
-      {format && <span className={styles.formatChip}>{format}</span>}
-    </h3>
-  );
-}
-
-function SeriesRecord({ series, role }: { series: PlayerSeries; role: PlayerRoleLabel }) {
-  const order: PlayerDiscipline[] = role === 'Bowler' ? ['bowling', 'batting'] : ['batting', 'bowling'];
-  const codes = [...new Set([...series.batting, ...series.bowling].map((f) => f.code))];
-  const labelOf = (code: number) => [...series.batting, ...series.bowling].find((f) => f.code === code)?.label ?? '';
-  const showFormat = codes.length > 1;
-
-  return (
     <>
-      {codes.map((code) => {
-        const found = order.map((d) => [d, series[d].find((f) => f.code === code)] as const);
-        return found.map(([discipline, format], i) => {
-          if (!format) {
-            // Only the player's own discipline earns a "nothing here" line; a batter not bowling is normal.
-            return i === 0 ? (
-              <p key={`${code}-${discipline}`} className={styles.none}>
-                No {discipline} data available for this series
-                {showFormat ? ` (${labelOf(code)})` : ''}.
-              </p>
-            ) : null;
-          }
-          return discipline === 'batting' ? (
-            <BattingBlock key={`${code}-bat`} format={format} showFormat={showFormat} />
-          ) : (
-            <BowlingBlock key={`${code}-bowl`} format={format} showFormat={showFormat} />
-          );
-        });
-      })}
+      <StatTiles
+        stats={[
+          ['Wickets', s.wickets],
+          ['Economy', rate(s.economy)],
+          ['Average', rate(s.average)],
+          ['Best', s.best ?? '—'],
+        ]}
+      />
+      <FormBars columns={columnsOf(format, 'bowling')} discipline="bowling" />
     </>
   );
 }
 
-function RecordSkeleton() {
+function SeriesRecord({
+  series,
+  discipline,
+  onDiscipline,
+  busy,
+}: {
+  series: PlayerSeries;
+  discipline: PlayerDiscipline;
+  onDiscipline: (d: PlayerDiscipline) => void;
+  busy: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const offered = (['batting', 'bowling'] as const).filter((d) => series[d].length > 0);
+  const shown = offered.includes(discipline) ? discipline : offered[0];
+  const formats = shown ? series[shown] : [];
+  const innings = formats.flatMap((f) => f.innings.map((inn) => ({ inn, format: f })));
+  const count = (d: PlayerDiscipline) => series[d].reduce((n, f) => n + f.innings.length, 0);
+  const showFormat = formats.length > 1;
+
   return (
-    <div className={styles.panel} aria-busy="true" aria-label="Loading series performance">
-      <div className={styles.block}>
-        <Skeleton variant="title" width="30" />
-        <Skeleton variant="display" width="40" />
-        <Skeleton variant="text" width="100" />
-        <Skeleton variant="body" width="70" />
+    <article className={`${form.card} ${styles.record}`} aria-busy={busy || undefined} data-busy={busy || undefined}>
+      {offered.length > 1 && (
+        <div className={form.switch}>
+          <Segmented
+            label="Discipline"
+            value={shown}
+            options={offered.map((d) => ({ value: d, label: d === 'batting' ? 'Batting' : 'Bowling', count: count(d) }))}
+            onChange={(d) => {
+              onDiscipline(d);
+              setOpen(false);
+            }}
+          />
+        </div>
+      )}
+
+      {formats.map((f) =>
+        showFormat ? (
+          <section key={f.code} className={styles.formatBlock} aria-labelledby={`series-${series.id}-${f.code}`}>
+            <h3 id={`series-${series.id}-${f.code}`} className={styles.formatTitle}>
+              {f.label}
+            </h3>
+            <FormatRecord format={f} discipline={shown} />
+          </section>
+        ) : (
+          <FormatRecord key={f.code} format={f} discipline={shown} />
+        )
+      )}
+
+      <div className={styles.recordFoot}>
+        {innings.length > 0 && <MoreToggle open={open} count={innings.length} onToggle={() => setOpen((o) => !o)} />}
+        <Link href={`/series/${series.id}`} className={styles.seriesLink}>
+          Open series
+          <Icon name="arrowRight" size={16} />
+        </Link>
       </div>
-    </div>
+
+      {open && (
+        <ol className={form.list}>
+          {innings.map(({ inn, format }, n) => (
+            <FormRow
+              key={`${inn.matchId}-${inn.inningsOfMatch}-${n}`}
+              href={inn.matchId ? `/matches/${inn.matchId}` : null}
+              fig={figure(inn, shown)}
+              tier={tierOf(lead(inn, shown), shown)}
+              title={inningsName(inn, format)}
+              sub={[inn.opponent && `vs ${inn.opponent}`, inn.date && formatInZone(inn.date, 'dateShort', SERVER_ZONE)]
+                .filter(Boolean)
+                .join(' · ')}
+              aside={<span className={form.aside}>{workload(inn, shown, format)}</span>}
+            />
+          ))}
+        </ol>
+      )}
+    </article>
   );
 }
 
 /** The section as it streams in: the picker's box and one record. */
 export function SeriesPerformanceSkeleton() {
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} aria-busy="true" aria-label="Loading series performance">
       <div className={styles.controls}>
         <Skeleton className={styles.pickerSkeleton} />
       </div>
-      <RecordSkeleton />
+      <FormCardSkeleton />
     </div>
   );
 }
@@ -340,6 +282,7 @@ export default function SeriesPerformance({
   });
   const [status, setStatus] = useState<'ready' | 'loading' | 'error'>('ready');
   const [loadingMore, setLoadingMore] = useState(false);
+  const [discipline, setDiscipline] = useFormDiscipline(role === 'Bowler' ? 'bowling' : 'batting');
   const request = useRef(0);
 
   const formatOptions = useMemo(() => seriesFormatOptions(formatCodes), [formatCodes]);
@@ -450,21 +393,15 @@ export default function SeriesPerformance({
           onRetry={() => changeFormat(format)}
         />
       ) : shown ? (
-        <article className={styles.panel} aria-busy={busy || undefined} data-busy={busy || undefined}>
-          <header className={styles.panelHead}>
-            <p className={styles.panelMeta}>
-              {shown.team && <span className={styles.team}>{shown.team}</span>}
-              <span>{dateRange(shown.start, shown.end)}</span>
-            </p>
-            <Link href={`/series/${shown.id}`} className={styles.seriesLink}>
-              Open series
-              <Icon name="arrowRight" size={16} />
-            </Link>
-          </header>
-          <SeriesRecord series={shown} role={role} />
-        </article>
+        <SeriesRecord
+          key={`${format}|${shown.id}`}
+          series={shown}
+          discipline={discipline}
+          onDiscipline={setDiscipline}
+          busy={busy}
+        />
       ) : busy ? (
-        <RecordSkeleton />
+        <FormCardSkeleton />
       ) : (
         <EmptyState compact title="No series performance available yet." />
       )}

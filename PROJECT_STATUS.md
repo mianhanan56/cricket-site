@@ -1,6 +1,6 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-10-07
+Last updated: 2026-10-23
 
 ## Current milestone
 
@@ -17,9 +17,92 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Search (client-side + `/api/search-index`); insights view; follows; automations + notifications
   (background/system-tray support, event-key dedup); dark/light theme; PWA.
 
+## Recently completed (uncommitted, 2026-10-21, redesign — home)
+
+- New design system: light "Outfield" default (sage-white, white cards, outfield green, cherry
+  red, gold), dark "Floodlights" opt-in; Figtree + Archivo replace Archivo + JetBrains Mono;
+  sentence-case labels; larger radii; pill segmented controls. Applies site-wide via tokens.
+- Home: live/next-up stage is a green mown-stripe scoreboard (`on-pitch`); pill score ticker;
+  follow prompt as a solid card with a primary button. Manifest and viewport theme colours updated.
+- Layout pass (same day, user asked for more than a recolour): face-off scoreboard with batter/bowler
+  cards; switcher strip above it; 3D wave ribbon removed for a flat card grid (`MatchGrid`); new
+  `MatchTile` (full names, round flags, batting row highlighted, status band at the foot, hover
+  lift); results as cards without Player of the match; upcoming days on cards; Top stories news
+  section; follow prompt as its own card under the board.
+- Follow-on fix (user report, SA v AUS 2nd Test): the match list gave a follow-on innings to the
+  wrong side ("SA 425/9 d & 50/1"); now "AUS 99 & 50/1" on cards, results and the scoreboard, which
+  also shows earlier innings and the Test situation ("AUS trail by 276 runs", kept under a break
+  label). Switcher shows the latest score instead of "Live". 5 decoder tests added (145 pass).
+- Player Recent form redesigned as one card (switch, figures, chart, list on request); skeleton matches.
+- Player Series performance redesigned on the same card (shared `FormCard` pieces): one
+  Batting/Bowling switch instead of two stacked blocks, four tiles per format, a bar per innings
+  (Test innings paired per match) replacing the ribbon, innings list on request, Open series in the
+  footer; picker shows the series' side, months and formats. Checked 390/1440, light/dark, tour
+  (Test+ODI) and IPL; a 24-bar chart scrolls inside the card without widening the page.
+- Commentary sidebar removed; crex's own items now sit between the balls (writers' notes, records,
+  new-spell / new-batter career cards, batter v bowler, player v team, DRS reviews with
+  retained/lost, milestones, dismissal lines, chase, toss, innings end). History reads one innings
+  per request, so the tab fills even while the deployed Worker hangs on live keys. Recent overs
+  shows three full overs on one line from tablet (balls sized to fit), stacked on phones. Finished matches no longer show a leftover
+  "Tea Break" as the result. 6 + 2 tests added (153 pass). Checked on 13ND / 10MR, 390/1440.
+- 2026-10-23 (user follow-ups): series page numbered match boxes (1 2 3 … F), their legend and the
+  "Next" footer replaced by one card per match (`SeriesMatchStrip`) — label, both sides with the
+  winner ticked, margin / date (time when the card is wide) / "Live now", the next match tinted with
+  "Next"; scrolls itself to the live or next match. Checked on a tri-series (2M3), a T20/ODI/Test
+  tour (2GR), a 15-match qualifier (2O4) and U19 Asia Cup (2NW) at 375/768/1024/1280/1440, light and
+  dark. Fixtures: Format / Competition moved to the right of the page heading (phones keep the
+  Filters button); the calendar's "Coming week" button became Today + Clear (Clear greyed when
+  nothing is picked). Alert wording for "What I follow" now says teams and series (it never
+  included series in the text). The user's stadium/series-name screenshot was taken mid-edit; the
+  served page already had neither.
+- Series list (2026-10-23): Status (counts in the menu) and Competition dropdowns at the heading's
+  right, like Fixtures and Rankings. Checked 375/768/1440.
+- Rankings (2026-10-23, user ask): the three pill rows became Gender / Format / Ranking dropdowns
+  at the heading's right, like Fixtures; the phone sheet offers the same Ranking choice (Teams
+  included). Checked 375/768/1440, light/dark, menu open.
+- 2026-10-23 (later): following now notifies — match start, wickets, 50s/100s, close chase and
+  results for followed teams and series, 50s/100s for followed players, and fresh news tagged with
+  any of them — in the bell and as browser notifications (permission asked on the first Follow).
+  One switch plus per-moment pills on My Cricket and Alerts. My Cricket redesigned (matches beside
+  Following + Notifications cards). 4 tests added (157 pass). Checked 375/768/1440, light/dark,
+  with seeded follows; news notifications arrived live from the Worker.
+- Match page tab "Table" renamed "Points table", matching the series page.
+- Series Top performers: the loose fours/sixes totals and the half-width fifties/hundreds toggle
+  became the honours board's last row — a Boundaries card (fours, sixes, runs each, meters for their
+  share, runs in boundaries) and Most fifties / Most hundreds cards side by side with "View all".
+- Match rows site-wide: format chip in front of the teams, stadium removed; the series page also
+  drops the series name (rows and result cards). Insights removed from navigation (page still at
+  its URL). Fixtures: Format / Competition dropdowns and a one-week date strip with ‹ › and a
+  Calendar button replace the pill rows and the scrolling day cards. Rankings: Men/Women beside the
+  title, Batting/Bowling/All-rounder/Teams left, Test/ODI/T20I right. Checked 390/1024/1440.
+- Player page: Recent form and Series performance merged into one "Form" section with a Recent /
+  By series switch on the heading's right (a series link opens By series; the Batting/Bowling pick
+  carries across); the Career switch moved to the heading's right too. "Show the innings" when
+  there is one.
+- Player career tables (user asked for domestic back, behind a tab): one "Career" section with an
+  International / Domestic switch on the heading, Batting and Bowling tables under it. Checked on
+  Harry Brook (1IG) at 390/1440, light/dark.
+- 2026-10-22 batch: commentary spacing and companion sidebar (XI, top performers, head to head,
+  ground record); player careers international-only; loader line removed; Test session number;
+  match-page pulse shows from 6 balls; declared "d" kept when the card replaces feed innings.
+  Verified against `wrangler dev` (the deployed Worker still hangs on these keys' info,
+  scorecard and commentary).
+- Scoreboard pitch (2026-10-22): animated pitch in the live hero — ball run per delivery, four /
+  six / wicket animations with badges. Checked with a scratch-only trigger at 1440 and 390, light
+  and dark; real deliveries drive it through the commentary feed.
+- Follow-ups (user, same day): switcher dots → both teams' flags; flags fill their badge inside a
+  2px white ring (all `TeamBadge`s); match page shows the last 3 overs (stacked on phones). The
+  match page's empty Live pulse and one-over strip were the deployed Worker hanging on live
+  scorecard/commentary — fixed in `worker-crex/src/index.ts`, verified against `wrangler dev`
+  (pulse meters, 3 overs, crease), **needs a deploy**.
+- Verified in Chrome at 1440 and 390, light and dark, on a scratch dev server (:3007), plus /fixtures
+  and a series page (shared lists). `tsc`, lint on the changed folders and 140 unit tests pass.
+  Crease cards checked with stub data in the scratch copy only — the Worker's `/match/scorecard`
+  was hanging that day.
+
 ## Recently completed (uncommitted, 2026-10-07)
 
-- Home Live and All tabs: tiles on a 3D wave ribbon (`WaveRibbon`) — CSS scroll-driven
+- (Removed 2026-10-21.) Home Live and All tabs: tiles on a 3D wave ribbon (`WaveRibbon`) — CSS scroll-driven
   animations, native snap scrolling, a scrubbable scroll track, mouse drag, prev/next buttons on
   fine pointers, focus brings a card to the lead spot. Grid fallback for a single match, reduced
   motion, or no `animation-timeline` support.

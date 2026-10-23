@@ -5,9 +5,8 @@
   max-width: 100%;
   padding: 3px;
   gap: 2px;
-  border-radius: $r-sm;
-  background: $surface;
-  border: 1px solid $line;
+  border-radius: $r-pill;
+  background: var(--control-track);
   @include scroll-x;
   @include scroll-fade;
 }
@@ -18,10 +17,10 @@
   gap: $space-1-5;
   flex-shrink: 0;
   height: 34px;
-  padding-inline: $space-3;
-  border-radius: 4px;
+  padding-inline: $space-4;
+  border-radius: $r-pill;
   font-size: $fs-md;
-  font-weight: 500;
+  font-weight: 600;
   color: $text-2;
   white-space: nowrap;
   transition: color $dur-2 $ease-out, background-color $dur-2 $ease-out;
@@ -60,8 +59,8 @@
 
 .on {
   color: $text;
-  background: $surface-3;
-  box-shadow: inset 0 0 0 1px $line-2;
+  background: var(--control-on);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%), 0 2px 8px -4px rgb(0 0 0 / 18%);
 }
 
 .count {

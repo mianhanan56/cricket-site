@@ -9,7 +9,6 @@ import TeamBadge from '../ui/TeamBadge';
 import Countdown from '../live/Countdown';
 import StateChip from '../live/StateChip';
 import styles from './UpcomingRail.module.scss';
-import { venueText } from '@/lib/venue';
 import { matchFormat } from '@/lib/seriesFormat';
 
 function dayKeyIn(iso: string, zone: string): string {
@@ -30,11 +29,14 @@ export default function UpcomingRail({
   matches,
   limit,
   timeline = false,
+  inSeries = false,
 }: {
   matches: Match[];
   limit?: number;
   /** Draw the time rail — the schedule views only. */
   timeline?: boolean;
+  /** On the series' own page, where its name goes without saying. */
+  inSeries?: boolean;
 }) {
   const [zone, setZone] = useState(SERVER_ZONE);
   useEffect(() => setZone(readerZone()), []);
@@ -59,7 +61,7 @@ export default function UpcomingRail({
   }, [matches, zone, limit]);
 
   return (
-    <div className={`${styles.rail} ${timeline ? '' : styles.plain}`}>
+    <div className={`${styles.rail} ${timeline ? '' : styles.plain} ${inSeries ? styles.inSeries : ''}`}>
       {days.map((day) => (
         <section key={day.key} className={styles.day} aria-label={day.heading}>
           <header className={styles.dayHead}>
@@ -85,23 +87,25 @@ export default function UpcomingRail({
                     <span className={styles.node} aria-hidden="true" />
                     <span className={styles.body}>
                       <span className={styles.teams}>
+                        <span className={`${styles.format} ${styles.lead}`}>{matchFormat(m)}</span>
                         <span className={styles.side}>
-                          <TeamBadge name={m.homeTeam.name} shortName={m.homeTeam.shortName} logo={m.homeTeam.logo} size="xs" />
+                          <TeamBadge name={m.homeTeam.name} shortName={m.homeTeam.shortName} logo={m.homeTeam.logo} size="sm" />
                           <span className={styles.code}>{m.homeTeam.shortName}</span>
                           <span className={styles.full}>{m.homeTeam.name}</span>
                         </span>
                         <span className={styles.vs}>vs</span>
                         <span className={styles.side}>
-                          <TeamBadge name={m.awayTeam.name} shortName={m.awayTeam.shortName} logo={m.awayTeam.logo} size="xs" />
+                          <TeamBadge name={m.awayTeam.name} shortName={m.awayTeam.shortName} logo={m.awayTeam.logo} size="sm" />
                           <span className={styles.code}>{m.awayTeam.shortName}</span>
                           <span className={styles.full}>{m.awayTeam.name}</span>
                         </span>
                       </span>
-                      <span className={styles.meta}>
-                        <span className={styles.format}>{matchFormat(m)}</span>
-                        <span className={styles.series}>{m.series.name}</span>
-                        <span className={styles.venue}>{venueText(m.venue)}</span>
-                      </span>
+                      {!inSeries && (
+                        <span className={styles.meta}>
+                          <span className={`${styles.format} ${styles.trail}`}>{matchFormat(m)}</span>
+                          <span className={styles.series}>{m.series.name}</span>
+                        </span>
+                      )}
                     </span>
                     {state.key !== 'UPCOMING' && <StateChip state={state} className={styles.state} />}
                   </Link>

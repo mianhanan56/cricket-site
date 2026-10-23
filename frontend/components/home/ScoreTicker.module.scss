@@ -1,9 +1,9 @@
 @use 'component' as *;
 
 .rail {
+  position: relative;
   display: flex;
-  gap: $space-2;
-  padding-block: 2px;
+  gap: $space-1;
   @include scroll-x;
   scroll-snap-type: x proximity;
 }
@@ -14,17 +14,15 @@
   align-items: center;
   gap: $space-2-5;
   flex-shrink: 0;
-  height: 40px;
-  padding-inline: $space-3;
-  border-radius: $r-sm;
-  border: 1px solid $line;
-  background: $surface;
+  height: 44px;
+  padding-inline: $space-1-5 $space-4;
+  border-radius: $r-pill;
   scroll-snap-align: start;
-  transition: border-color $dur-2 $ease-out, background-color $dur-2 $ease-out;
+  transition: color $dur-2 $ease-out, background-color $dur-2 $ease-out;
   @include focus-ring;
 
-  &:hover {
-    border-color: $line-3;
+  &:hover:not(.active) {
+    background: $surface-3;
   }
 }
 
@@ -43,21 +41,36 @@
   --tone: var(--data);
 }
 
+// The picked match takes the board's green, so the strip reads as its control.
 .active {
-  border-color: color-mix(in oklab, var(--tone) 60%, transparent);
-  background: color-mix(in oklab, var(--tone) 7%, var(--surface));
+  background: $signal;
+  color: $signal-ink;
+
+  .teams,
+  .bat,
+  .ov,
+  .word {
+    color: inherit;
+  }
+
+  .teams,
+  .ov {
+    opacity: 0.85;
+  }
+
+  .flags > * + * {
+    box-shadow: 0 0 0 2px $signal;
+  }
 }
 
-.glyph {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--tone);
+// The two sides' flags, the second tucked under the first's edge.
+.flags {
+  display: inline-flex;
+  flex-shrink: 0;
 
-  .live & {
-    @include motion {
-      animation: live-pulse $dur-pulse ease-out infinite;
-    }
+  > * + * {
+    margin-left: -8px;
+    box-shadow: 0 0 0 2px $surface;
   }
 }
 

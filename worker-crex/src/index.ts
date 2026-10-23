@@ -36,6 +36,9 @@ export interface Env {
 // Stale scores beat a broken page.
 const STALE_GRACE_SECONDS = 300;
 
+// Ceiling on one upstream run, body included; past the fetch timeout, under the frontend's 15s.
+const RUN_DEADLINE_MS = UPSTREAM_TIMEOUT_MS + 2_000;
+
 
 /**
  * Upstream calls this isolate currently has open, keyed by the cache key.
@@ -205,7 +208,7 @@ function fetchAndStore(
   const open = inFlight.get(cacheKey.url);
   if (open) return open;
 
-  const run = (async (): Promise<FetchOutcome> => {
+  const work = (async (): Promise<FetchOutcome> => {
     try {
       const fresh = await fetchUpstream(route, params);
 
@@ -223,7 +226,22 @@ function fetchAndStore(
       console.warn('upstream unreachable', { route: route.match, detail });
       return { ok: false, status: 0, detail };
     }
-  })().finally(() => inFlight.delete(cacheKey.url));
+  })();
+
+  // The fetch's own timeout doesn't bound every await after it (a body that never finishes
+  // reading was seen on live matches, 2026-10-21), and a run that never settles keeps its key
+  // in `inFlight`, so every later request for that key hangs too. This one always settles.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<FetchOutcome>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn('upstream unsettled', { route: route.match });
+      resolve({ ok: false, status: 0, detail: `No reply within ${RUN_DEADLINE_MS / 1000}s` });
+    }, RUN_DEADLINE_MS);
+  });
+  const run = Promise.race([work, deadline]).finally(() => {
+    if (timer !== undefined) clearTimeout(timer);
+    inFlight.delete(cacheKey.url);
+  });
 
   inFlight.set(cacheKey.url, run);
   return run;

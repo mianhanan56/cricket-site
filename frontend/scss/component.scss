@@ -26,6 +26,8 @@ $signal-ink: var(--signal-ink);
 $signal-soft: var(--signal-soft);
 $data: var(--data);
 $data-soft: var(--data-soft);
+// Text on a `$data` fill (a four).
+$data-ink: var(--data-ink);
 $warn: var(--warn);
 $warn-soft: var(--warn-soft);
 $wicket: var(--wicket);
@@ -60,10 +62,12 @@ $sk-sheen: var(--sk-sheen);
 
 // ---------------------------------------------------------------- Type
 
-$font-sans: var(--font-archivo), 'Archivo', ui-sans-serif, system-ui, -apple-system, sans-serif;
-$font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+$font-sans: var(--font-figtree), 'Figtree', ui-sans-serif, system-ui, -apple-system, sans-serif;
+$font-display: var(--font-archivo), 'Archivo', ui-sans-serif, system-ui, -apple-system, sans-serif;
+// Figures (scores, overs, rates) set in the display face's tabular numerals.
+$font-data: $font-display;
+$font-mono: $font-data;
 $font-primary: $font-sans;
-$font-display: $font-sans;
 
 $stretch-display: 118%;
 $stretch-wide: 108%;
@@ -122,10 +126,10 @@ $space-24: 96px;
 
 // ---------------------------------------------------------------- Shape
 
-$r-xs: 3px;
-$r-sm: 6px;
-$r-md: 10px;
-$r-lg: 14px;
+$r-xs: 4px;
+$r-sm: 8px;
+$r-md: 14px;
+$r-lg: 20px;
 $r-pill: 999px;
 
 $radius-sm: $r-sm;
@@ -136,6 +140,7 @@ $radius-2xl: $r-lg;
 $radius-3xl: $r-lg;
 
 $shadow-1: var(--shadow-1);
+$shadow-2: var(--shadow-2);
 $shadow-pop: var(--shadow-pop);
 $shadow-card: $shadow-1;
 $shadow-glow: var(--glow-signal);
@@ -345,6 +350,7 @@ $gutter-wide: $space-8;
   background: $surface;
   border: 1px solid $line;
   border-radius: $r-md;
+  box-shadow: $shadow-1;
 }
 
 @mixin panel-interactive {
@@ -387,24 +393,23 @@ $gutter-wide: $space-8;
   background-position: -1px -1px;
 }
 
-// Small uppercase mono label that names a figure.
+// Small label that names a figure.
 @mixin eyebrow {
-  font-family: $font-mono;
-  font-size: $fs-2xs;
-  font-weight: 500;
-  letter-spacing: $tracking-label;
-  text-transform: uppercase;
+  font-family: $font-sans;
+  font-size: $fs-xs;
+  font-weight: 600;
+  letter-spacing: 0.01em;
   color: $text-3;
 }
 
 @mixin data-num {
-  font-family: $font-mono;
+  font-family: $font-data;
   font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum', 'zero';
+  font-feature-settings: 'tnum';
 }
 
 @mixin display-num {
-  font-family: $font-sans;
+  font-family: $font-display;
   font-stretch: $stretch-display;
   font-weight: 800;
   letter-spacing: $tracking-tight;
@@ -417,7 +422,7 @@ $gutter-wide: $space-8;
 }
 
 @mixin heading {
-  font-family: $font-sans;
+  font-family: $font-display;
   font-stretch: $stretch-wide;
   font-weight: 700;
   letter-spacing: -0.015em;
@@ -432,12 +437,63 @@ $gutter-wide: $space-8;
   padding-inline: $space-2-5;
   border-radius: $r-pill;
   border: 1px solid $line-2;
-  font-family: $font-mono;
+  font-family: $font-sans;
   font-size: $fs-2xs;
-  font-weight: 600;
-  letter-spacing: $tracking-label;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+// The live scoreboard: a mown outfield in any theme. Re-points the tokens so every
+// component inside reads light-on-green without its own overrides.
+@mixin on-pitch {
+  color-scheme: dark;
+  --bg: var(--pitch-deep);
+  --bg-raise: var(--pitch-deep);
+  --surface: rgb(255 255 255 / 6%);
+  --surface-2: rgb(255 255 255 / 9%);
+  --surface-3: rgb(255 255 255 / 13%);
+  --line: rgb(255 255 255 / 12%);
+  --line-2: rgb(255 255 255 / 20%);
+  --line-3: rgb(255 255 255 / 34%);
+  --text: #ffffff;
+  --text-2: rgb(255 255 255 / 80%);
+  --text-3: rgb(255 255 255 / 64%);
+  --signal: #ffffff;
+  --signal-ink: var(--pitch-deep);
+  --signal-text: #9df0c8;
+  --signal-mark: #7ee6b2;
+  --signal-soft: rgb(126 230 178 / 16%);
+  --data: #93cdff;
+  --data-ink: #04161b;
+  --warn: #ffd166;
+  --wicket: #ff9aa4;
+  // Tokens built from other tokens resolve where they're declared, so they're restated here.
+  --data-soft: rgb(147 205 255 / 16%);
+  --warn-soft: rgb(255 209 102 / 16%);
+  --wicket-soft: rgb(255 154 164 / 16%);
+  --glow-signal: 0 0 0 1px rgb(255 255 255 / 40%);
+  --sk-base: rgb(255 255 255 / 9%);
+  --sk-base-strong: rgb(255 255 255 / 14%);
+  --sk-sheen: linear-gradient(100deg, transparent 15%, rgb(255 255 255 / 10%) 50%, transparent 85%);
+  --grid: rgb(255 255 255 / 4%);
+  --clay: #c7b07a;
+  --stump: #f4ead0;
+  color: $text;
+  background-color: var(--pitch);
+}
+
+// Mown stripes for an on-pitch surface; goes on an absolutely placed layer behind the content.
+@mixin mown-stripes {
+  --stripe: clamp(44px, 6vw, 84px);
+  background: repeating-linear-gradient(
+    90deg,
+    rgb(255 255 255 / 4.5%) 0 var(--stripe),
+    transparent var(--stripe) calc(var(--stripe) * 2)
+  );
+  -webkit-mask-image: linear-gradient(180deg, #000 10%, rgb(0 0 0 / 30%));
+  mask-image: linear-gradient(180deg, #000 10%, rgb(0 0 0 / 30%));
 }
 
 @mixin button-base {

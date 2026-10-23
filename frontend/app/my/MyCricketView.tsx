@@ -4,13 +4,14 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { Match, TeamCrest } from '@/types';
 import { useCrexMatches } from '@/hooks/useCrexMatches';
-import { followCount, isFollowedMatch, toggleFollow, useFollows } from '@/lib/follows';
-import { addAutomation, describeAutomation, useAutomations, type Automation } from '@/lib/automations';
+import { followCount, isFollowedMatch, toggleFollow, useFollows, type Follows } from '@/lib/follows';
 import { loadRemoteIndex, type RemoteIndex } from '@/lib/searchIndex';
 import { PageHeader, SectionHead } from '@/components/ui/Section';
 import MatchTile from '@/components/match/MatchTile';
 import TeamBadge from '@/components/ui/TeamBadge';
 import FollowButton from '@/components/follow/FollowButton';
+import FollowAlertsPanel from '@/components/follow/FollowAlertsPanel';
+import { askOnFollow } from '@/components/automations/useNotificationPermission';
 import EmptyState from '@/components/ui/EmptyState';
 import Skeleton from '@/components/ui/Skeleton';
 import { BoardSkeleton } from '@/components/home/HomeSkeleton';
@@ -18,17 +19,90 @@ import Icon from '@/components/ui/Icon';
 import styles from './my.module.scss';
 
 const RANK: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
+const PICKER_ID = 'add-teams';
 
-const TEAM_ALERTS: Array<Pick<Automation, 'triggers' | 'scope'>> = [
-  { triggers: ['MATCH_START'], scope: { kind: 'FOLLOWED' } },
-  { triggers: ['WICKET'], scope: { kind: 'FOLLOWED' } },
-  { triggers: ['CLOSE_CHASE'], scope: { kind: 'FOLLOWED' } },
-  { triggers: ['RESULT'], scope: { kind: 'FOLLOWED' } },
-];
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className={styles.group}>
+      <h3 className={styles.groupTitle}>{title}</h3>
+      <ul className={styles.rows}>{children}</ul>
+    </div>
+  );
+}
+
+/** Everything followed in one card, grouped by kind; empty kinds stay out of the way. */
+function FollowingPanel({ follows }: { follows: Follows }) {
+  return (
+    <section className={styles.following} aria-labelledby="following">
+      <h2 className={styles.panelTitle} id="following">
+        Following
+        <span className={styles.panelCount}>{followCount(follows)}</span>
+      </h2>
+
+      {follows.teams.length > 0 && (
+        <Group title="Teams">
+          {follows.teams.map((t) => (
+            <li key={t.id} className={styles.row}>
+              <Link href={`/teams/${t.id}`} className={styles.rowLink}>
+                <TeamBadge name={t.name} shortName={t.shortName} logo={t.logo} size="sm" />
+                <span className={styles.rowName}>{t.name}</span>
+              </Link>
+              <FollowButton kind="teams" compact entity={t} />
+            </li>
+          ))}
+        </Group>
+      )}
+      {follows.series.length > 0 && (
+        <Group title="Series">
+          {follows.series.map((s) => (
+            <li key={s.id} className={styles.row}>
+              <Link href={`/series/${s.id}`} className={styles.rowLink}>
+                <span className={styles.mark} aria-hidden="true">
+                  <Icon name="trophy" size={15} />
+                </span>
+                <span className={styles.rowName}>{s.name}</span>
+              </Link>
+              <FollowButton kind="series" compact entity={s} />
+            </li>
+          ))}
+        </Group>
+      )}
+      {follows.players.length > 0 && (
+        <Group title="Players">
+          {follows.players.map((p) => (
+            <li key={p.id} className={styles.row}>
+              <Link href={`/players/${p.id}`} className={styles.rowLink}>
+                <span className={styles.mark} aria-hidden="true">
+                  {p.name.slice(0, 1)}
+                </span>
+                <span className={styles.rowName}>{p.name}</span>
+              </Link>
+              <FollowButton kind="players" compact entity={p} />
+            </li>
+          ))}
+        </Group>
+      )}
+
+      <div className={styles.add}>
+        <a href={`#${PICKER_ID}`} className={styles.addBtn}>
+          <Icon name="plus" size={15} />
+          Teams
+        </a>
+        <Link href="/players" className={styles.addBtn}>
+          <Icon name="plus" size={15} />
+          Players
+        </Link>
+        <Link href="/series" className={styles.addBtn}>
+          <Icon name="plus" size={15} />
+          Series
+        </Link>
+      </div>
+    </section>
+  );
+}
 
 export default function MyCricketView() {
   const follows = useFollows();
-  const automations = useAutomations();
   const { matches, isLoading } = useCrexMatches({ intervalMs: 15_000 });
   const [index, setIndex] = useState<RemoteIndex | null>(null);
   useEffect(() => {
@@ -59,132 +133,51 @@ export default function MyCricketView() {
     return [...seen.values()].filter((t) => !follows.teams.some((f) => f.id === t.id)).slice(0, total ? 12 : 24);
   }, [index, matches, follows.teams, total]);
 
-  const missingAlerts = TEAM_ALERTS.filter(
-    (t) => !automations.some((a) => a.triggers.includes(t.triggers[0]) && a.scope.kind === 'FOLLOWED')
-  );
+  const follow = (t: TeamCrest) => {
+    toggleFollow('teams', t);
+    askOnFollow();
+  };
 
   return (
     <div className={styles.page}>
-      <PageHeader
-        eyebrow="My Cricket"
-        title="Your cricket"
-        aside={
-          total > 0 ? (
-            <div className={styles.counts}>
-              <span>
-                <strong>{follows.teams.length}</strong> {follows.teams.length === 1 ? 'team' : 'teams'}
-              </span>
-              <span>
-                <strong>{follows.players.length}</strong> {follows.players.length === 1 ? 'player' : 'players'}
-              </span>
-              <span>
-                <strong>{follows.series.length}</strong> series
-              </span>
-            </div>
-          ) : undefined
-        }
-      />
+      <PageHeader eyebrow="My Cricket" title="Your cricket" />
 
       {total > 0 && (
-        <section className={styles.section}>
-          <SectionHead title="Your matches" count={mine.length} />
-          {isLoading && !matches.length ? (
-            <BoardSkeleton />
-          ) : mine.length ? (
-            <div className={styles.grid}>
-              {mine.slice(0, 9).map((m) => (
-                <MatchTile key={m.id} match={m} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState compact icon="calendar" title="Nothing from your teams in the feed right now" action={{ label: 'All fixtures', href: '/fixtures' }} />
-          )}
-        </section>
-      )}
+        <div className={styles.layout}>
+          <section className={styles.main} aria-labelledby="your-matches">
+            <SectionHead title="Your matches" id="your-matches" count={mine.length} />
+            {isLoading && !matches.length ? (
+              <BoardSkeleton />
+            ) : mine.length ? (
+              <div className={styles.grid}>
+                {mine.slice(0, 8).map((m) => (
+                  <MatchTile key={m.id} match={m} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                compact
+                icon="calendar"
+                title="No matches from what you follow right now"
+                action={{ label: 'All fixtures', href: '/fixtures' }}
+              />
+            )}
+          </section>
 
-      {total > 0 && (
-        <div className={styles.columns}>
-          <section>
-            <SectionHead title="Teams" count={follows.teams.length} level={3} />
-            {follows.teams.length ? (
-              <ul className={styles.list}>
-                {follows.teams.map((t) => (
-                  <li key={t.id} className={styles.row}>
-                    <Link href={`/teams/${t.id}`} className={styles.rowLink}>
-                      <TeamBadge name={t.name} shortName={t.shortName} logo={t.logo} size="sm" />
-                      <span className={styles.rowName}>{t.name}</span>
-                    </Link>
-                    <FollowButton kind="teams" compact entity={t} />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className={styles.quiet}>Follow a team from its page or below.</p>
-            )}
-          </section>
-          <section>
-            <SectionHead title="Players" count={follows.players.length} level={3} action={{ href: '/players', label: 'Find players' }} />
-            {follows.players.length ? (
-              <ul className={styles.list}>
-                {follows.players.map((p) => (
-                  <li key={p.id} className={styles.row}>
-                    <Link href={`/players/${p.id}`} className={styles.rowLink}>
-                      <span className={styles.initial}>{p.name.slice(0, 1)}</span>
-                      <span className={styles.rowName}>{p.name}</span>
-                    </Link>
-                    <FollowButton kind="players" compact entity={p} />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className={styles.quiet}>Star a player on their profile to keep them here.</p>
-            )}
-          </section>
-          <section>
-            <SectionHead title="Series" count={follows.series.length} level={3} action={{ href: '/series', label: 'Browse series' }} />
-            {follows.series.length ? (
-              <ul className={styles.list}>
-                {follows.series.map((s) => (
-                  <li key={s.id} className={styles.row}>
-                    <Link href={`/series/${s.id}`} className={styles.rowLink}>
-                      <Icon name="trophy" size={18} />
-                      <span className={styles.rowName}>{s.name}</span>
-                    </Link>
-                    <FollowButton kind="series" compact entity={s} />
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className={styles.quiet}>Star a competition on its page to follow it.</p>
-            )}
-          </section>
+          <aside className={styles.side}>
+            <FollowingPanel follows={follows} />
+            <FollowAlertsPanel />
+          </aside>
         </div>
       )}
 
-      {total > 0 && missingAlerts.length > 0 && (
-        <section className={styles.section}>
-          <SectionHead title="Alerts for your teams" level={3} action={{ href: '/automations', label: 'All alerts' }} />
-          <ul className={styles.alerts}>
-            {missingAlerts.map((t) => (
-              <li key={t.triggers[0]}>
-                <button type="button" className={styles.alert} onClick={() => addAutomation({ ...t, action: { inApp: true, system: false } })}>
-                  <Icon name="bolt" size={16} />
-                  {describeAutomation(t)}
-                  <Icon name="plus" size={16} className={styles.alertPlus} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section className={styles.section}>
-        <SectionHead title={total ? 'Add teams' : 'Pick your teams'} level={total ? 3 : 2} />
+      <section className={styles.picker} id={PICKER_ID} aria-labelledby="pick-teams" data-alone={!total || undefined}>
+        <SectionHead title={total ? 'Add teams' : 'Pick your teams'} id="pick-teams" level={total ? 3 : 2} />
         {suggestions.length ? (
-          <ul className={styles.picker}>
+          <ul className={styles.picks}>
             {suggestions.map((t) => (
               <li key={t.id}>
-                <button type="button" className={styles.pick} onClick={() => toggleFollow('teams', t)} aria-label={`Follow ${t.name}`}>
+                <button type="button" className={styles.pick} onClick={() => follow(t)} aria-label={`Follow ${t.name}`}>
                   <TeamBadge name={t.name} shortName={t.shortName} logo={t.logo} size="md" />
                   <span className={styles.pickName}>{t.name}</span>
                   <Icon name="plus" size={16} className={styles.pickPlus} />
@@ -193,7 +186,7 @@ export default function MyCricketView() {
             ))}
           </ul>
         ) : isLoading && !matches.length ? (
-          <ul className={styles.picker} aria-busy="true" aria-label="Loading teams">
+          <ul className={styles.picks} aria-busy="true" aria-label="Loading teams">
             {Array.from({ length: 8 }, (_, i) => (
               <li key={i}>
                 <Skeleton className={styles.pick} />

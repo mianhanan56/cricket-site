@@ -7,9 +7,9 @@ import styles from './ThemeToggle.module.scss';
 type Theme = 'light' | 'dark';
 
 const current = (): Theme =>
-  typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light'
-    ? 'light'
-    : 'dark';
+  typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
+    ? 'dark'
+    : 'light';
 
 export function setTheme(next: Theme) {
   document.documentElement.setAttribute('data-theme', next);
@@ -43,7 +43,7 @@ export default function ThemeToggle() {
       onClick={() => setTheme(next)}
       aria-label={`Switch to ${next} mode`}
     >
-      <span className={styles.icon} data-theme-icon={theme ?? 'dark'}>
+      <span className={styles.icon} data-theme-icon={theme ?? 'light'}>
         <Icon name={theme === 'light' ? 'moon' : 'sun'} size={18} />
       </span>
     </button>

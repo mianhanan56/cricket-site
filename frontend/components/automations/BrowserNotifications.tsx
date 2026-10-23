@@ -28,7 +28,7 @@ export default function BrowserNotifications() {
         ) : permission === 'unsupported' ? (
           <p>This browser doesn’t support notifications. Your alerts will still show inside PulseCrease.</p>
         ) : permission === 'granted' ? (
-          <p>Notifications are allowed. Switch on “Browser notification” when you create an alert.</p>
+          <p>Notifications are allowed. What you follow, and alerts with “Browser notification” on, show here even when this tab is in the background.</p>
         ) : (
           <p>Get instant alerts when important cricket events happen.</p>
         )}
