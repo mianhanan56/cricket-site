@@ -48,7 +48,7 @@ export default function ScorecardPanel({
   pending?: boolean;
   onShowSquads: () => void;
 }) {
-  // Follows the innings in progress (crex lists the side still to bat as an empty innings) until
+  // Follows the innings in progress (the upstream lists the side still to bat as an empty innings) until
   // the reader picks one.
   const [picked, setPicked] = useState<number | null>(null);
   const inPlay = innings.findIndex((i) => i.phase === 'CURRENT');
@@ -69,7 +69,7 @@ export default function ScorecardPanel({
   const fallOfWickets = current?.fallOfWickets ?? [];
   const partnerships = current?.partnerships ?? [];
 
-  // crex opens no innings slot until the first delivery.
+  // The upstream opens no innings slot until the first delivery.
   const awaitingFirstBall = !pending && !batting.length && !bowling.length && !yetToBat.length;
 
   if (awaitingFirstBall) {

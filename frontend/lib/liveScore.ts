@@ -16,7 +16,7 @@ function behind(a: [number, number, number], b: [number, number, number]): boole
 }
 
 /**
- * A poll's matches, minus any that went backwards. crex's list is served from
+ * A poll's matches, minus any that went backwards. The upstream's list is served from
  * a cache, and a stale copy can land after a fresher one — the ticker read 91/2
  * and then 85/2 in the same over. Play only moves forward, so a snapshot behind
  * the one already shown is dropped for it until the feed catches up.

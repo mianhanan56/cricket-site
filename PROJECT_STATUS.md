@@ -8,7 +8,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 
 ## Completed features
 
-- Worker-only architecture (backend + DB retired); `worker-crex` with 15 allowlisted routes.
+- Worker-only architecture (backend + DB retired); `worker` with 15 allowlisted routes.
 - Home: live hero, next-up hero, score ticker, upcoming rail, results, My Cricket band.
 - Match centre: score header, live panel (crease, pulse, ball timeline), scorecard, commentary
   (scroll-sentinel paging), momentum worm, win probability, head-to-head, pre-start info.
@@ -16,6 +16,35 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
   live series tiles; team, venue, player profiles; players/teams directories; rankings (15 ICC lists).
 - Search (client-side + `/api/search-index`); insights view; follows; automations + notifications
   (background/system-tray support, event-key dedup); dark/light theme; PWA.
+
+## Recently completed (uncommitted, 2026-10-23, refactor — no feature or design change)
+
+- The data client (one 5.8k-line file, a third of it comments) split into 22 domain modules under
+  `lib/api/` behind one import path (ARCHITECTURE › Frontend modules). The move was checked mechanically: every one of
+  270 declarations identical with comments stripped; then comments cut to the "why" (CLAUDE.md rule),
+  misplaced doc comments fixed, and repeated schedule-row → match code shared (`seriesRef`, `venueOf`,
+  `scheduleStatus/Format/Balls`, `scheduleRows`). Each of the 31 code-changed declarations was diffed
+  and reviewed.
+- Faster server renders: `React.cache` for loaders shared with `generateMetadata`; corpus read in
+  parallel with the match load; archived match card read alongside `/match/info` (5 sequential reads
+  → 3); squad roles beside the squad list; one mapping call in match info; `inWidth` a sliding pool.
+  Cold renders against a fixed-latency replay of the Worker (100 ms a call, 4 runs, medians): match
+  pages −13 to −36%, team pages −19/−35%, all 21 routes −15%; an unknown match id +50 ms (one
+  speculative scorecard read).
+- Client: no `isRefreshing` emit (a store-wide re-render) per routine poll — only while an error
+  shows; cached `Intl.DateTimeFormat`s; countdowns stop ticking once past; momentum bars group balls
+  once; commentary history mapped once per read; `backoff` helper; shared `ordinal`.
+- Verified: `tsc`, lint, 157/157 tests; production build from a scratch copy (first-load JS unchanged
+  ±1 kB on every route); 21 routes on old vs new build against the live Worker — same status, title
+  and visible text (digits masked). Audit follow-ups not done are in TODO (Medium/Low, 2026-10-23).
+
+## Recently completed (uncommitted, 2026-10-23, source name removed)
+
+- The data source's name is gone from code, comments, docs and URLs: `worker/` (Worker
+  `pulsecrease-api`, package `@pulsecrease/worker`), `frontend/lib/api`, `hooks/useApiMatches.ts`,
+  `getApi*` / `Api*` / `useApi*`, `NEXT_PUBLIC_WORKER_URL`, PWA cache `worker-api`, package
+  `@pulsecrease/frontend`. Prose says "the upstream". Exceptions: the upstream hosts and
+  `Origin`/`Referer` values the Worker must send. Not deployed yet (TODO, High).
 
 ## Recently completed (uncommitted, 2026-10-21, redesign — home)
 
@@ -39,7 +68,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
   (Test innings paired per match) replacing the ribbon, innings list on request, Open series in the
   footer; picker shows the series' side, months and formats. Checked 390/1440, light/dark, tour
   (Test+ODI) and IPL; a 24-bar chart scrolls inside the card without widening the page.
-- Commentary sidebar removed; crex's own items now sit between the balls (writers' notes, records,
+- Commentary sidebar removed; the upstream's own items now sit between the balls (writers' notes, records,
   new-spell / new-batter career cards, batter v bowler, player v team, DRS reviews with
   retained/lost, milestones, dismissal lines, chase, toss, innings end). History reads one innings
   per request, so the tab fills even while the deployed Worker hangs on live keys. Recent overs
@@ -93,7 +122,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Follow-ups (user, same day): switcher dots → both teams' flags; flags fill their badge inside a
   2px white ring (all `TeamBadge`s); match page shows the last 3 overs (stacked on phones). The
   match page's empty Live pulse and one-over strip were the deployed Worker hanging on live
-  scorecard/commentary — fixed in `worker-crex/src/index.ts`, verified against `wrangler dev`
+  scorecard/commentary — fixed in `worker/src/index.ts`, verified against `wrangler dev`
   (pulse meters, 3 overs, crease), **needs a deploy**.
 - Verified in Chrome at 1440 and 390, light and dark, on a scratch dev server (:3007), plus /fixtures
   and a series page (shared lists). `tsc`, lint on the changed folders and 140 unit tests pass.
@@ -116,7 +145,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Section heading count rendered as a pill; teams directory rank chip restyled.
 - Live panel: "Live pulse" block moved after the crease block.
 - Series stats tab: fifties/hundreds moved from footer links into a streamed `SeriesMilestones`
-  board (new `MilestoneLeaders` + `SeriesMilestones`), backed by new `getCrexSeriesStatTables`.
+  board (new `MilestoneLeaders` + `SeriesMilestones`), backed by new `getApiSeriesStatTables`.
 - `experimental.staleTimes` in `next.config.js`.
 
 ## Recently completed (uncommitted, 2026-09-30)
@@ -129,7 +158,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Player page "Series performance": pick a series (searchable, newest first, Load older series),
   filter by format, see batting (runs, inns, avg, SR, HS, 50s, 100s, not outs) and bowling
   (wickets, overs, runs, econ, avg, best, 4W, 5W) for that series plus every innings linked to its
-  match. New Worker route `/player/matches` — **needs `npm run deploy` in worker-crex**; until then
+  match. New Worker route `/player/matches` — **needs `npm run deploy` in worker**; until then
   the section is simply absent in production.
 
 ## Recently completed (uncommitted, 2026-10-02, data consistency)
@@ -177,7 +206,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 
 - `/news` page (12 per page, Newer/Older), News in header, phone More sheet, footer and sitemap.
 - News section on team and player pages; News tab on series pages (when there are articles).
-- Worker: `/news/tagged` route (crex `/api/articles/filter/{s|t|p}_{key}`), `{param}` path placeholders with a `pattern` check, `limit` on `/news/topics`.
+- Worker: `/news/tagged` route (upstream `/api/articles/filter/{s|t|p}_{key}`), `{param}` path placeholders with a `pattern` check, `limit` on `/news/topics`.
 - Match Live tab before the first ball: "Before the first ball" heading removed (user request); the status line labels the section.
 - Verified against a local Worker (`wrangler dev`) and a scratch `next dev` at 390/820/1280: /news, /news?page=2, /teams/O, /series/2FZ?tab=news, /players/B1. Decoder checked against live payloads (scratch tests, not kept).
 
@@ -186,14 +215,14 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Local QA: 41 routes × 320/768/1280 dark + 390 light (164 loads, CDP Chrome) against a local Worker, then a final 82-load pass — no overflow, broken images, exceptions or `undefined` classes.
 - Fixed: match Info squads rendered `class="… undefined"` for batters (`InfoPanel` role map); momentum readout guarded the same way.
 - Fixed: match pages had no `<h1>` — a visually hidden one names the match ("West Indies vs India, 1st T20").
-- Fixed: a Worker/crex outage made team, player, venue, series and series-stat pages a noindex 404. Now only an unknown id 404s (`isRejectedRequest` in `lib/crex.ts` reads crex's status out of the Worker's 502); an outage shows the error boundary. Pages with data in Next's cache keep rendering it.
+- Fixed: a Worker/upstream outage made team, player, venue, series and series-stat pages a noindex 404. Now only an unknown id 404s (`isRejectedRequest` in `lib/api` reads the upstream's status out of the Worker's 502); an outage shows the error boundary. Pages with data in Next's cache keep rendering it.
 - Fixed: error-boundary Retry only called `reset()`, which re-renders the failed server payload; `hooks/useErrorRetry` refreshes first (verified: Worker down → error → Worker up → Retry → page).
 - News: `?page=0`/`abc` redirect to /news, past 60 → 404; page titles carry the page number; keyboard focus rings the whole card.
 
 ## Recently completed (uncommitted, 2026-10-07)
 
 - Ball-by-ball popup for every batter and bowler on the scorecard (icon beside the name). One request per innings; <1s with the new Worker, 1–2.5s with the deployed one (whole match). Focus returns to the icon on close.
-- News cards open our own `/news/[slug]` story page (summary, image, tags, related) instead of crex.com; no crex link or mention anywhere in the UI. Story skeleton; slug redirect; unknown story → 404.
+- News cards open our own `/news/[slug]` story page (summary, image, tags, related) instead of the upstream site; no upstream link or mention anywhere in the UI. Story skeleton; slug redirect; unknown story → 404.
 - Worker: `inning` filter on `/match/commentary`, new `/news/article`.
 
 ## Recently completed (uncommitted, 2026-10-07, stumps rule)
@@ -208,7 +237,7 @@ See TODO.md.
 
 - `npm test` (frontend): **140/140 pass** (2026-10-06; +5: broken stand, pulse window/wickets, delivery dedupe ×2, format/category labels; scorecard fixtures given a consistent last stand).
 - Data-consistency fixes verified on a production build from an isolated copy against live data (2026-10-02): Home Live 3 = ticker 3 (ROI v J&K shows "Stumps"); Home Today 4 = Fixtures Today 4 (same rows); Home series cards equal /series (WI tour 27 Sept → 17 Oct, 2/8); Teams Men 12 incl. Ireland; 14MJ header "17th T10"; pulse "3 in 8 · Last 8 balls"; 360px clean on Home and Test team rankings.
-- Series performance: decoded/summed figures equal crex's own totals on 471 series×format groups (36 players incl. Tests, The Hundred, county); 320–1280px no overflow; select → format → load older → match → Back → reload flow verified (2026-10-02).
+- Series performance: decoded/summed figures equal the upstream's own totals on 471 series×format groups (36 players incl. Tests, The Hundred, county); 320–1280px no overflow; select → format → load older → match → Back → reload flow verified (2026-10-02).
 - `tsc --noEmit`: frontend clean, worker clean (2026-10-02). Lint clean.
 - UI pass visually verified at 320–1440px from an isolated copy; search reachable from the header on phones (2026-09-29).
 
@@ -234,6 +263,6 @@ Frontend on Vercel (`pulsecrease.vercel.app`), Worker on Cloudflare. User deploy
 - 2026-09-30: Home tabs are Live / Upcoming / Results / All (Overview removed; with no `?tab=` the page opens on Live, else Upcoming, else All, fixed once the feed answers). `Segmented` scrolls its active option into view. Alerts: one alert holds several moments (legacy single-trigger alerts migrate on read), Select all with a mixed state, current team/series chips under the picker, Edit (same creator, "Save changes") and Delete (confirm dialog) on each card; compact card (moments summary, who, delivery). Verified on a production build at 320–1440. Uncommitted.
 - 2026-09-30: Advanced alert builder removed (New alert already covers every working option). Timeline line removed from commentary, key moments and the upcoming list outside Home Upcoming / Fixtures (`UpcomingRail timeline` prop). Scorecard: all columns fit on phones, row dividers fixed (batter cell no longer `display:flex`), Playing XI rendered as the batting table. Key moments add scorecard fall-of-wickets the feed page no longer carries (`lib/keyMoments.ts`). Mobile pass: podium, insight card score clipping (`Ticker` never shrinks), series next-match wrap, fixture times, My Cricket picker, sm segmented tap height, empty-state padding, active tab kept in view (`useActiveInView`). 25 routes × 12 widths clean. Uncommitted.
 - 2026-09-30: Final mobile QA: series strip split per format; 16px inputs on phones (no iOS focus zoom) in Teams filter and alert picker; 34px series match nodes on phones; `TableScroll` fades the edge with hidden columns; series stat tables keep the headline figure in view on phones. User flow (20 steps) passed at 320/360/390/414/480; 27 routes × 12 widths clean. Worker hub confirmed live in production (handshake from pulsecrease.vercel.app).
-- 2026-09-30: Fixtures range: `getCrexFixtureSchedule` reads /fixtures pages in batches of 8 until 30 days ahead are covered (≈24 pages → Sep 30–Nov 15, 473 fixtures, was 12 pages ≈ 2 weeks); the list walks every day (was capped at the first 7 fixture days); the read's partial last day is held back (`coveredUntil`). Day headings in UpcomingRail fixed for UTC+12 and beyond. Uncommitted.
-- 2026-09-30: Context/discoverability pass: `formats[]` on series summaries + `lib/seriesFormat.ts` ("ODI and Test series", card chip "ODI + T20"); `ViewAllCue` on series leader figures and Top performers cards; series side column no longer shows Top of table; match page has a Stats tab (series leaders board, fetched with the points table via `getCrexSeriesLeaders`); match header shows a live stoppage in its centre, and reads drinks/lunch/tea off the newest commentary note after the last ball (`lib/feedBreak.ts`, tested) since /matches/live only latches break codes; units on leader figures; team page results name the opponent (`sides` on HeadToHeadMatch), Upcoming/Results expand in place, form caption counts the strip; venue results name both sides; player ICC rank tiles link to their rankings list; "Last ball" label on the match header dial; team chips read "TEST #1". 19 routes × 12 widths clean. Uncommitted.
-- 2026-10-02: Code-quality pass (no feature or design change). Removed verified-dead code (`FilterSelect`, `compact` variants of `UpcomingRail`/`ResultList`, `getCrexMatchSquads`, `getCrexCommentary`, `formatProgress`, `matchSublabel`, `pausedWord`, dead SCSS). One home each for `ordinal`/`plural` (`lib/text.ts`), fetch deadlines (`lib/timeout.ts`, now also on `/health` and the search index, with a Safari < 17.4 fallback), `SITE_URL` (`lib/site.ts`; production robots/sitemap were naming localhost), `isChaseTight`, format labels and `TeamCrest`. Fixes: history/squads hooks reset on match change; alert feed watchers follow scope edits; stored alerts validated field by field; `seriesSpan` year test in UTC; scorecard `!important`s replaced by specificity (computed styles identical); BackButton spacing no longer depends on stylesheet order. Worker: upstream-failure logs, hub skips unparseable stored topics. Docs: README/worker README/ARCHITECTURE corrected. Regression: 22 routes × 12 widths against a HEAD build, no overflow; differences were live data plus the BackButton spacing (now as authored). Uncommitted.
+- 2026-09-30: Fixtures range: `getApiFixtureSchedule` reads /fixtures pages in batches of 8 until 30 days ahead are covered (≈24 pages → Sep 30–Nov 15, 473 fixtures, was 12 pages ≈ 2 weeks); the list walks every day (was capped at the first 7 fixture days); the read's partial last day is held back (`coveredUntil`). Day headings in UpcomingRail fixed for UTC+12 and beyond. Uncommitted.
+- 2026-09-30: Context/discoverability pass: `formats[]` on series summaries + `lib/seriesFormat.ts` ("ODI and Test series", card chip "ODI + T20"); `ViewAllCue` on series leader figures and Top performers cards; series side column no longer shows Top of table; match page has a Stats tab (series leaders board, fetched with the points table via `getApiSeriesLeaders`); match header shows a live stoppage in its centre, and reads drinks/lunch/tea off the newest commentary note after the last ball (`lib/feedBreak.ts`, tested) since /matches/live only latches break codes; units on leader figures; team page results name the opponent (`sides` on HeadToHeadMatch), Upcoming/Results expand in place, form caption counts the strip; venue results name both sides; player ICC rank tiles link to their rankings list; "Last ball" label on the match header dial; team chips read "TEST #1". 19 routes × 12 widths clean. Uncommitted.
+- 2026-10-02: Code-quality pass (no feature or design change). Removed verified-dead code (`FilterSelect`, `compact` variants of `UpcomingRail`/`ResultList`, `getApiMatchSquads`, `getApiCommentary`, `formatProgress`, `matchSublabel`, `pausedWord`, dead SCSS). One home each for `ordinal`/`plural` (`lib/text.ts`), fetch deadlines (`lib/timeout.ts`, now also on `/health` and the search index, with a Safari < 17.4 fallback), `SITE_URL` (`lib/site.ts`; production robots/sitemap were naming localhost), `isChaseTight`, format labels and `TeamCrest`. Fixes: history/squads hooks reset on match change; alert feed watchers follow scope edits; stored alerts validated field by field; `seriesSpan` year test in UTC; scorecard `!important`s replaced by specificity (computed styles identical); BackButton spacing no longer depends on stylesheet order. Worker: upstream-failure logs, hub skips unparseable stored topics. Docs: README/worker README/ARCHITECTURE corrected. Regression: 22 routes × 12 widths against a HEAD build, no overflow; differences were live data plus the BackButton spacing (now as authored). Uncommitted.

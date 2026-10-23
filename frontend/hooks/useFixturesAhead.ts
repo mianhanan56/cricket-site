@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getCrexFixturesAhead, type Fixture } from '@/lib/crex';
+import { getApiFixturesAhead, type Fixture } from '@/lib/api';
 
 const REFRESH_MS = 5 * 60_000;
 
 /**
- * The next day or two of crex's schedule. The live feed is a window and leaves
+ * The next day or two of the upstream's schedule. The live feed is a window and leaves
  * out some fixtures that are already allocated, so lists of what is coming up
  * fill from here.
  */
@@ -16,7 +16,7 @@ export function useFixturesAhead(): Fixture[] {
   useEffect(() => {
     let cancelled = false;
     const load = () =>
-      getCrexFixturesAhead()
+      getApiFixturesAhead()
         .then((rows) => !cancelled && setFixtures(rows))
         .catch(() => {});
     load();

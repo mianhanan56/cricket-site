@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { feedFromRows, richText, type CrexFeedRow } from '../lib/crex';
+import { feedFromRows, richText, type ApiFeedRow } from '../lib/api';
 
-// Rows as crex sent them on ENG v SL, 3rd ODI 2026 (13ND).
-const row = (r: Record<string, unknown>) => ({ mfkey: '13ND', sh: 1, fv: 1, ...r }) as unknown as CrexFeedRow;
+// Rows as the upstream sent them on ENG v SL, 3rd ODI 2026 (13ND).
+const row = (r: Record<string, unknown>) => ({ mfkey: '13ND', sh: 1, fv: 1, ...r }) as unknown as ApiFeedRow;
 const notesOf = (...rows: Array<Record<string, unknown>>) => feedFromRows(rows.map(row)).notes;
 
 describe('commentary markup', () => {

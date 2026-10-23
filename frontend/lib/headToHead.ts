@@ -1,10 +1,10 @@
 // ============================================================================
 // headToHead.ts — a record between two sides, derived from the schedule
 //
-// crex has no head-to-head endpoint. What it has is a schedule whose finished
+// The upstream has no head-to-head endpoint. What it has is a schedule whose finished
 // rows carry a result *sentence*, and a sentence naming the winner is all a
 // record needs. So this module is pure: hand it the two sides and a corpus of
-// matches (see `getCrexFixtureRange`) and it counts.
+// matches (see `getApiFixtureRange`) and it counts.
 //
 // The honesty rule this is built around: a meeting whose result names no side we
 // recognise is counted as `unresolved`, not as a draw. `attributeResult` matches
@@ -14,7 +14,7 @@
 // ============================================================================
 
 import type { HeadToHead, HeadToHeadMatch, Match, Team } from '@/types';
-import { attributeResult } from './crex';
+import { attributeResult } from './api';
 
 /** Meetings listed on the page. Enough to show a pattern, short enough to read. */
 const RECENT_MEETINGS = 5;
@@ -25,7 +25,7 @@ function isMeeting(m: Match, a: string, b: string): boolean {
   return ids.includes(a) && ids.includes(b);
 }
 
-/** A drawn, tied or abandoned match, as crex words those. */
+/** A drawn, tied or abandoned match, as the upstream words those. */
 function isNoResult(result: string): boolean {
   return /\b(draw|drawn|tie|tied|no result|abandon|cancel)/i.test(result);
 }

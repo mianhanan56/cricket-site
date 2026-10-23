@@ -8,7 +8,7 @@ import { venueText } from '@/lib/venue';
 /**
  * The record between the two sides in this match.
  *
- * Derived, not fetched — crex has no head-to-head endpoint, so this is read off
+ * Derived, not fetched — the upstream has no head-to-head endpoint, so this is read off
  * the result sentences on a window of the schedule. See lib/headToHead.
  *
  * The split bar is the same idiom as WinProbability directly above it on this

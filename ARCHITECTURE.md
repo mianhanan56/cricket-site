@@ -1,21 +1,21 @@
 # Architecture — PulseCrease
 
 Live cricket site: scores, match telemetry, momentum, series stats and client-side alerts.
-Last verified against source: 2026-10-07.
+Last verified against source: 2026-10-23.
 
 ## System overview
 
 ```
 Browser ──(client polling)──┐
                             ▼
-Next.js 14 (Vercel) ──SSR/ISR fetch──▶ Cloudflare Worker `worker-crex` ──▶ crex.com internal APIs
+Next.js 14 (Vercel) ──SSR/ISR fetch──▶ Cloudflare Worker `worker` ──▶ upstream internal APIs
                                         (allowlist + edge cache + CORS)     (5 upstream hosts)
 ```
 
 - **There is no backend and no database.** The old Express + Prisma + Postgres (Neon) backend
   was retired and its directory deleted.
-- Every piece of data comes from crex.com's undocumented internal APIs, reached only through
-  the Worker. The frontend never calls crex directly.
+- Every piece of data comes from the upstream's undocumented internal APIs, reached only through
+  the Worker. The frontend never calls the upstream directly.
 - User state (follows, alert rules, notifications, theme) lives in the browser (`localStorage`).
 
 ## Folder structure
@@ -29,7 +29,7 @@ cricket/
 │   ├── components/          Grouped by domain: automations, brand, fixtures, follow, home,
 │   │                        insights, layout, live, match, notifications, player, rankings,
 │   │                        search, series, ui
-│   ├── hooks/               useCrexMatches (shared live poll), useQueryTabs (URL-synced tabs)
+│   ├── hooks/               useApiMatches (shared live poll), useQueryTabs (URL-synced tabs)
 │   ├── lib/                 Data client + pure domain logic (see "Modules")
 │   ├── data/                rankings.json — bundled fallback snapshot only
 │   ├── scss/                component.scss (tokens/mixins), global.scss (custom props, resets), main.scss
@@ -37,39 +37,39 @@ cricket/
 │   ├── scripts/check-live.mts  Network audit of today's live feed (not part of npm test)
 │   ├── types/index.ts       All shared interfaces
 │   └── next.config.js       PWA (next-pwa), image host allowlist, staleTimes, prod URL guard
-└── worker-crex/             Cloudflare Worker fronting crex.com
+└── worker/                  Cloudflare Worker fronting the upstream
     ├── src/index.ts         Request handling, CORS, cache, SWR
     ├── src/routes.ts        Route allowlist: upstream, method translation, typed params, TTLs
-    ├── src/upstreams.ts     The five crex hosts
+    ├── src/upstreams.ts     The five upstream hosts
     ├── scripts/probe.sh     Manual endpoint probing
-    └── wrangler.toml        Name `pulsecrease-crex`, dev port 8788, ALLOWED_ORIGINS
+    └── wrangler.toml        Name `pulsecrease-api`, dev port 8788, ALLOWED_ORIGINS
 ```
 
 There is **no root `package.json`**, despite the README describing npm workspaces — run
-commands inside `frontend/` or `worker-crex/`.
+commands inside `frontend/` or `worker/`.
 
-## Worker (`worker-crex`)
+## Worker (`worker`)
 
 - Every route is a plain **GET** with query params; the Worker translates to the upstream's
   POST/JSON where needed so responses stay cacheable.
 - Params are typed and enum-bounded; unknown params are dropped (keeps cache keys stable),
   bad values return 400 with the permitted set.
-- Sends `Origin`/`Referer: crex.com` (their hosts 400 with "Invalid Host header" otherwise).
-  Policy: no bot-protection circumvention — if crex adds a challenge, stop.
+- Sends the upstream site as `Origin`/`Referer` (their hosts 400 with "Invalid Host header" otherwise).
+  Policy: no bot-protection circumvention — if the upstream adds a challenge, stop.
 - No secrets, no KV. The allowlist is what keeps it from being an open relay.
 - Upstream hosts: `oc` (oc.crickapi.com), `stats`, `content` (commentary), `news`,
   `php` (api.goscorer.com — live match list). Wrong host ⇒ "Invalid Host header".
 - Routes (TTL): `/matches/live` 2s · `/rankings` 1h · `/rankings/players` 1h · `/mapping` 6h ·
   `/fixtures` 5m · `/news/topics` 15m · `/news/tagged` 15m · `/news/article` 15m · `/match/info` 5m · `/match/scorecard` 5s · `/match/commentary` 5s ·
   `/player/overview` 1h · `/player/matches` 1h · `/series/matches` 5m · `/series/table` 5m · `/series/squads` 1h ·
-  `/series/overview` 30s · `/team/matches` 5m. Full detail and wire formats: `worker-crex/README.md`
-  and `worker-crex/src/routes.ts`.
+  `/series/overview` 30s · `/team/matches` 5m. Full detail and wire formats: `worker/README.md`
+  and `worker/src/routes.ts`.
 - A route `path` may hold `{param}` placeholders (`/news/tagged` → `/api/articles/filter/{type}_{key}`);
   `upstreamTarget` fills them and leaves the rest as the query. A param filled into a path needs a `pattern`.
 - Responses use single-letter keys; team/series/venue/player f_keys resolve through `/mapping`.
 - **Live hub** (`src/live.ts`, Durable Object `LiveHub`, one instance): `/live` upgrades to a
   WebSocket. Topics `matches` (snapshot, then per-match diffs), `card:<key>`, `feed:<key>` (whole
-  scorecard / newest commentary page when changed). One crex poll per topic for all sockets:
+  scorecard / newest commentary page when changed). One upstream poll per topic for all sockets:
   2s while changing, 10s/30s when quiet, stops with no subscribers. Frames carry `epoch` + a
   global rising `seq`; diffs carry `prev`. Origin checked against `ALLOWED_ORIGINS`. Upstream
   fetch shared with the HTTP path via `src/upstream.ts`.
@@ -83,8 +83,8 @@ commands inside `frontend/` or `worker-crex/`.
 
 | Module | Responsibility |
 | --- | --- |
-| `crex.ts` (~5.1k lines) | The data client. Every Worker fetch, decoding crex's wire format into `types/index.ts` shapes: match list, scorecard, commentary/feed, fixtures, series (schedule, table, overview, leaders, stat tables, squads), team profile, player profile, rankings, mapping/name resolution, `attributeResult`. |
-| `headToHead.ts`, `venues.ts`, `venue.ts` | Records **derived** from the schedule corpus (`getCrexFixtureRange`) — crex has no H2H/venue/team-results endpoint. |
+| `api/` | The data client (split by domain 2026-10-23; import everything from `@/lib/api`, whose `index.ts` re-exports the public API). Layers, no runtime import cycles: `client` (`apiGet`, `WORKER_URL`, `FetchOpts`, `isRejectedRequest`, `inWidth` — at most N calls in flight) → `names` (the only door into the name cache: `resolveKeys`; `toTeam`, `seriesRef`, `venueOf`, crest/portrait URLs) → `codes` (schedule-row status/format/Hundred codes) → domains: `matches` (list + `toMatch`), `notes` (breaks/stumps/latched stoppages), `scorecard`, `matchInfo`, `commentary` + `feedNotes`, `schedule` (series rows, archived and `fx-` matches), `series`, `fixtures`, `player`, `playerMatches`, `standings`, `leaders`, `statTables`, `squads`, `attribution`, `teams`, `rankings`, `news`. |
+| `headToHead.ts`, `venues.ts`, `venue.ts` | Records **derived** from the schedule corpus (`getApiFixtureRange`) — the upstream has no H2H/venue/team-results endpoint. |
 | `matchState.ts`, `liveScore.ts`, `innings.ts`, `situation.ts`, `crease.ts`, `overs.ts`, `balls.ts` | Match state machine, innings reading, one-line situation text, crease context, ball parsing. |
 | `momentum.ts`, `pulse.ts`, `telemetry.ts` | Worm graph points, live pulse readings, chase telemetry. |
 | `automations.ts`, `notifications.ts`, `follows.ts`, `persisted.ts` | Browser-stored rules, alert ledger/keys, follows, localStorage wrapper. |
@@ -93,15 +93,15 @@ commands inside `frontend/` or `worker-crex/`.
 | `search.ts`, `searchIndex.ts` | Client-side search over matches + `/api/search-index`. |
 | `tabs.ts`, `queryParams.ts`, `uiState.ts`, `navigationDepth.ts` | URL tab vocabularies/validation, overlay state, back-button depth. |
 | `matchType.ts`, `featured.ts`, `fixtureDays.ts`, `datetime.ts`, `relativeTime.ts` | Classification, featured match choice, calendar keys, time formatting. |
-| `timeout.ts` | `withTimeout(ms, signal?)` — every client fetch's deadline (crex 15s, search index 15s, `/health` probe 10s); links signals by hand where `AbortSignal.any` is missing. |
-| `news.ts` | crex news decode: `/news/topics` (latest, keyed team/series/player tags, excerpt) and `/news/tagged` (one team/series/player; headline cards, no excerpt or keyed tags). Images rewritten to crex's resizing CDN (`?type=mq` lead, `lq` thumbs). Articles link out to crex.com — the article body is not republished. `getTaggedNews` never throws. |
+| `timeout.ts` | `withTimeout(ms, signal?)` — every client fetch's deadline (Worker 15s, search index 15s, `/health` probe 10s); links signals by hand where `AbortSignal.any` is missing. |
+| `news.ts` | the upstream news decode: `/news/topics` (latest, keyed team/series/player tags, excerpt) and `/news/tagged` (one team/series/player; headline cards, no excerpt or keyed tags). Images rewritten to the upstream's resizing CDN (`?type=mq` lead, `lq` thumbs). Articles link out to the upstream — the article body is not republished. `getTaggedNews` never throws. |
 | `text.ts`, `site.ts`, `seriesFormat.ts` | `ordinal`/`plural`; `SITE_URL` (env → Vercel production domain → localhost); `MATCH_FORMAT_LABEL` + series format phrases. |
 
 Shared vocabulary lives in one place each: `isChaseTight` (telemetry), `MATCH_FORMAT_LABEL`
 (seriesFormat), `RANKING_FORMAT_LABEL`/`FORMAT_ORDER` (playersDirectory), `TeamCrest` (types).
 Stored alerts are rebuilt field by field in `parseAutomations`; an unreadable scope drops the alert.
 
-Match-list innings (`feedInnings`): crex's `j/k/l/m` are the innings in batting order. The slots
+Match-list innings (`feedInnings`): the upstream's `j/k/l/m` are the innings in batting order. The slots
 assume the sides alternate; `followedOn` swaps the last two for a follow-on — live when `d` (3 = the
 side that batted first is in its second innings, 4 = the other side's) points at the other slot,
 finished from the result (won by wickets → batted last; lost by runs → batted last; won by an
@@ -142,7 +142,7 @@ flies out, a wicket breaks the striker's stumps. The hero score is sized to its 
 runs/wickets never split across lines. Reduced
 motion gets the badge only. Colours `--clay`/`--stump` live in `on-pitch`.
 Commentary tab (2026-10-22, the sidebar was removed at the user's ask): one full-width feed with
-crex's own interleaved items between the balls under "All". `feedFromRows` decodes them into
+The upstream's own interleaved items between the balls under "All". `feedFromRows` decodes them into
 `FeedNote`s (`types/index.ts`) beside balls and overs: `t` writers' notes and `t/f` records
 (markup parsed by `richText` into bold/heading runs, never rendered as HTML), `ps` new-spell and
 new-batter cards (format career, rank, age; for bowlers `runs` is wickets and `sr` economy), `pbc`
@@ -152,7 +152,7 @@ before and after), `pm`/`tm` milestones, `w` dismissal lines, `tc` chase, `to` t
 end; polls (`pl`) are dropped. `CommentaryFeed` places each note after the last ball published
 before it (`at` against the ball's timestamp), over cards by over number, and draws 160 rows at a
 time. Cards live in `components/match/FeedNotes`. History reads **one innings per request**
-(`getCrexInningsFeed`, the `lastDocId=1&inning=N` form the ball popups use): the innings in play
+(`getApiInningsFeed`, the `lastDocId=1&inning=N` form the ball popups use): the innings in play
 when the tab opens, each earlier one on "load older". It answers in ~2s even while the deployed
 Worker hangs on the paged walk for a live key. Match-page Live pulse reads the
 window in hand (6 legal balls up) instead of waiting for 18; Insights keeps the full-window rule.
@@ -173,28 +173,34 @@ pieces (`StatTiles`, `FormBars`, `MoreToggle`, `FormRow`, `FormCardSkeleton`) an
 per match (a Test's two innings stand as a pair in it), hides itself when every bar is 0, and
 scrolls sideways instead of shrinking columns under 26px.
 Switcher pills show both sides' flags (no status dot). `TeamBadge` crests have a 2px white ring
-and the image scaled 1.56× — crex draws a national flag across the middle 64% of its canvas.
+and the image scaled 1.56× — the upstream draws a national flag across the middle 64% of its canvas.
 Match page Live tab: "Recent overs" is the innings' last three overs from the whole feed (newest
 page + history): one line from tablet, the overs in equal columns and the balls sized to the box
 by how many there are (`data-tokens` on the strip, a container-query clamp of 22–34px per count in
 `BallTimeline.module.scss`), stacked one over a row on phones; `BallTimeline` labels every over (no
 "···" for a partial one).
-A finished match's result is `resultText(res)`: crex can leave the last stoppage there for a while
+A finished match's result is `resultText(res)`: the upstream can leave the last stoppage there for a while
 after the finish ("Tea Break" on a won Test), which reads as no result, and the match page keeps
 its slow list poll until a real one arrives.
 
-`hooks/useCrexMatches.ts` is **one shared poll** of the match list: every subscriber reads the
+Server pages wrap any loader that `generateMetadata` also calls in React `cache()` (match, player,
+team, venue, series, series stats, news story): `apiGet` always passes an abort signal, and Next skips
+its fetch dedupe for any fetch with one, so without it the read and decode ran twice per request.
+The match page starts the corpus read before awaiting the match; an archived match reads its card
+alongside `/match/info`; `getApiTeamSquad` reads roles alongside the squad list.
+
+`hooks/useApiMatches.ts` is **one shared poll** of the match list: every subscriber reads the
 same snapshot and it runs at the fastest interval any subscriber requests.
 
 `lib/live/socket.ts` is **one shared WebSocket** to the hub per page (module level, outside React;
 refcounted topics, heartbeat, 1→30s backoff, resync listeners after a reconnect, closes 20s after
 the last topic goes). It asks `/health` once and never dials a Worker without `live`. Pure frame
 rules (ordering, gap detection, list diffs, feed merging) are in `lib/live/frames.ts` and tested.
-The list store and `useCrexMatchExtras` apply frames through the same parsers as HTTP
+The list store and `useApiMatchExtras` apply frames through the same parsers as HTTP
 (`matchListFromRaw`, `scorecardFromRaw`, `feedFromRows`), guarded by `keepNewest` / card progress.
 Balls are merged by id, then `dedupeDeliveries` (`lib/balls.ts`) keeps one entry per delivery
-(innings/over/ball; wides and no balls also by score after) — crex re-publishes a ball under a new
-id. A scorecard stand is `unbroken` only while neither of its batters is out: crex adds the new
+(innings/over/ball; wides and no balls also by score after) — the upstream re-publishes a ball under a new
+id. A scorecard stand is `unbroken` only while neither of its batters is out: the upstream adds the new
 pair's stand a ball after the wicket.
 
 ## Pages (`frontend/app`)
@@ -205,8 +211,8 @@ pair's stand a ball after the wicket.
 `/api/search-index` · `sitemap.ts` · `robots.ts`. Data source and freshness per page: README table.
 
 News (`components/news/NewsList.tsx`): `/news` leads with the newest story, then rows; tag chips
-link to our team/series/player pages. Every card opens `/news/[slug]` (crex's slug, ending in the
-article id): headline, summary, cover, author, tags, related. No link to or mention of crex
+link to our team/series/player pages. Every card opens `/news/[slug]` (the upstream's slug, ending in the
+article id): headline, summary, cover, author, tags, related. No link to or mention of the upstream
 anywhere in the UI (user decision, 2026-10-07); the article body is not republished. `getNewsStory` reads `/news/article`, falling back
 to the first three latest-news pages; a mismatched slug redirects to the real one. Team and player pages stream a News section (`TaggedNews`,
 under `Suspense`, hidden when empty); the series page gets a News tab only when it has articles.
@@ -219,10 +225,10 @@ Recent / By series switch at the heading's right end (`SectionHead end`). Both v
 a URL naming `?series=` or a format opens By series. "By series" is
 `components/player/PlayerSeriesSection` streamed under Suspense (an empty state when the route
 fails); `SeriesPerformance` is the client part, `SeriesPicker` the searchable series listbox. Source is the Worker's
-`/player/matches` (crex `getPlayerMatches`): every innings, grouped by series then format, newest
+`/player/matches` (upstream `getPlayerMatches`): every innings, grouped by series then format, newest
 series first, 6 series on page 0 and 3 per later page, batting (`bb=1`) and bowling (`bb=0`) as
 separate lists. Figures are computed from the innings (dismissal-based average, `*` kept, Test
-innings counted separately) and were checked equal to crex's own per-series totals on 471
+innings counted separately) and were checked equal to the upstream's own per-series totals on 471
 series×format groups. Selection lives in `?series=&format=` written with `history.replaceState`
 (no server round trip); the server reads it and pages back up to 8 pages to reach an older series.
 Client pages are deduped in a module-level map. If the route fails the section is omitted.
@@ -232,23 +238,23 @@ survives a series change), per format four tiles (batting runs/average/SR/highes
 wickets/economy/average/best) and a `FormBars` chart captioned by match name on a tour or by
 opponent in a tournament, then "Show all N innings" and "Open series" in the footer. A series
 with several formats under "All" repeats tiles and chart per format under a format heading.
-Format filter codes: 3 Test (crex also files first-class here), 1 ODI, 2 T20, 4 T10, 5 100B.
+Format filter codes: 3 Test (the upstream also files first-class here), 1 ODI, 2 T20, 4 T10, 5 100B.
 
 ## Ball-by-ball popups
 
 Scorecard batter/bowler rows have a ball icon (`components/match/PlayerBalls.tsx`) opening a dialog
 (bottom sheet on phones) of that player's deliveries, over by over. `hooks/usePlayerBalls` keeps one
-store per match+innings, filled by `getCrexInningsBalls` — the whole innings in one request (see
+store per match+innings, filled by `getApiInningsBalls` — the whole innings in one request (see
 worker README › `/match/commentary`); a live innings is re-read after 15s. `lib/playerBalls.ts`
 picks a player's balls (`pf` striker / `bf` bowler on each delivery), counts faced (not wides) or
 legal balls, and keeps a W on a batter's ball only when it matches their own fall of wicket (a
 non-striker run-out sits on the striker's ball). Checked against the card: 123 of 125 players
-exact across four matches; the two misses are balls missing from crex's own commentary.
+exact across four matches; the two misses are balls missing from the upstream's own commentary.
 
 ## Not found vs outage
 
 Detail pages 404 only when the id is unknown: profile/schedule readers return `null` for that
-(crex refuses an unknown player key with a 400, which `isRejectedRequest` treats as unknown). Any
+(the upstream refuses an unknown player key with a 400, which `isRejectedRequest` treats as unknown). Any
 other failure throws to `app/error.tsx`, whose Retry (`hooks/useErrorRetry`) refreshes the route
 before `reset()`. `generateMetadata` still swallows failures so the page itself decides.
 
@@ -258,7 +264,7 @@ Worker edge TTL (per route) → Next.js per-fetch `revalidate` (ISR) → client 
 first, polling underneath. With a healthy topic the list and match-extras polls slow to a 30s
 reconcile (alert feed watcher 60s); without the socket they poll as before (2s list, 2s extras).
 Entry: a page that shows the list revalidates it on mount (components mounting together share one
-request); `useCrexMatchExtras` fetches on mount. Visibility return and socket reconnect both
+request); `useApiMatchExtras` fetches on mount. Visibility return and socket reconnect both
 revalidate over HTTP. `next.config.js` sets `experimental.staleTimes { dynamic: 0, static: 30 }`:
 dynamic routes fetch on every link navigation; static ISR routes (`/teams`) may reuse a prefetch
 made within 30s. Back/forward replays the router copy, so `NavigationTracker` calls
@@ -275,7 +281,7 @@ since the profile is cached for an hour.
 
 ## Fixtures
 
-`/fixtures` (ISR 300s) calls `getCrexFixtureSchedule`: Worker `/fixtures?wise=1&page=N` (edge TTL 300s, 20 rows a page), batches of 8 pages until the schedule reaches 30 days ahead (max 40 pages; stops early when crex runs out). All rows go to the client in one payload; `FixturesFilter` filters by format/type client-side and reveals 4 days at a time on scroll. The last, partly-read day is held back via `coveredUntil`. Team/venue/head-to-head pages use the separate `getCrexFixtureRange` corpus (45 back / 12 forward, 30-minute cache).
+`/fixtures` (ISR 300s) calls `getApiFixtureSchedule`: Worker `/fixtures?wise=1&page=N` (edge TTL 300s, 20 rows a page), batches of 8 pages until the schedule reaches 30 days ahead (max 40 pages; stops early when the upstream runs out). All rows go to the client in one payload; `FixturesFilter` filters by format/type client-side and reveals 4 days at a time on scroll. The last, partly-read day is held back via `coveredUntil`. Team/venue/head-to-head pages use the separate `getApiFixtureRange` corpus (45 back / 12 forward, 30-minute cache).
 
 ## Automations
 
@@ -350,7 +356,7 @@ permission (`askOnFollow`, the click is the gesture). Still tab-open only: no pu
   picker alone. The old count aside and one-tap alert pills are gone.
 - Series match cards (2026-10-23, `components/series/SeriesMatchStrip`): one card per match in the
   progress panel — "Match N", "2nd ODI" in a multi-format tour (each format numbers from 1), or
-  crex's own name ("Final", "1st Semi Final"); both sides, winner ticked; the margin, "Live now", or
+  The upstream's own name ("Final", "1st Semi Final"); both sides, winner ticked; the margin, "Live now", or
   the date (the time joins it once the card is ≥140px, a container query). The first upcoming match
   is tinted `--data` with "Next". A horizontal scroller (fade edges, thin bar for fine pointers)
   that scrolls itself to the live/next match with the last result beside it. Replaced the numbered
@@ -364,7 +370,7 @@ permission (`askOnFollow`, the click is the gesture). Still tab-open only: no pu
   (`lib/matchState.ts`). `isAtStumps` matches are in Home's All tab only (not Live) and get a
   "Stumps" tag/section in search. This has flip-flopped; the 2026-10-07 user rule is final. Don't filter on
   `status === 'LIVE'` for anything a reader sees as "live".
-- Format chips go through `matchFormat` / `meetingFormat` (`lib/seriesFormat.ts`): crex files every
+- Format chips go through `matchFormat` / `meetingFormat` (`lib/seriesFormat.ts`): the upstream files every
   multi-day match as a Test, and `isUnofficialTest` (`lib/matchType.ts`) relabels one that is not
   between two senior full-member sides as "Multi-day" (series: `unofficialTests`). National
   qualifiers stack when classifying international ("Pakistan U19 Women" → Pakistan).
@@ -393,15 +399,15 @@ permission (`askOnFollow`, the click is the gesture). Still tab-open only: no pu
 - **Unattributable results are counted separately, never guessed** (`attributeResult` exact
   full/short name match only).
 - **No average first-innings score**: schedule scores are per team, not per innings.
-- **Production build fails** if `NEXT_PUBLIC_CREX_WORKER_URL` points at localhost (it is inlined
+- **Production build fails** if `NEXT_PUBLIC_WORKER_URL` points at localhost (it is inlined
   into the client bundle). Local Worker dev uses `npm run local` / `.env.wrangler.local`, never `.env.local`.
 - **Image optimizer pinned** to `cricketvectors.akamaized.net` (avoids open proxy).
-- Series stat tables: `seriesStatRows` reads every card once; `getCrexSeriesStatTables` ranks several
+- Series stat tables: `seriesStatRows` reads every card once; `getApiSeriesStatTables` ranks several
   kinds off that single read.
 
 ## External services
 
-- crex.com internal APIs (undocumented, likely against ToS — personal project caveat in worker README).
-- Cloudflare Workers (`pulsecrease-crex.pulse-cricket.workers.dev`).
+- Upstream internal APIs (undocumented, likely against ToS — personal project caveat in worker README).
+- Cloudflare Workers (`pulsecrease-api.pulse-cricket.workers.dev`).
 - Vercel (frontend, root `frontend/`), Vercel Web Analytics.
 - Git remote: `git@github.com:mianhanan56/cricket-site.git`.

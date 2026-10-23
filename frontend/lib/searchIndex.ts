@@ -4,7 +4,7 @@ import type { Match, TeamCrest } from '@/types';
 import { createPersisted } from './persisted';
 import { withTimeout } from './timeout';
 import { isAtStumps } from './matchState';
-import { getCrexMatchList, getCrexScorecard } from './crex';
+import { getApiMatchList, getApiScorecard } from './api';
 
 export type EntityType = 'match' | 'team' | 'player' | 'series' | 'venue';
 
@@ -59,12 +59,12 @@ let livePlayersInflight: Promise<RemoteIndex['players']> | null = null;
 function loadLivePlayers(): Promise<RemoteIndex['players']> {
   if (livePlayers && Date.now() - livePlayers.at < LIVE_PLAYERS_MS) return Promise.resolve(livePlayers.players);
   if (livePlayersInflight) return livePlayersInflight;
-  livePlayersInflight = getCrexMatchList({ signal: withTimeout(REMOTE_TIMEOUT_MS) })
+  livePlayersInflight = getApiMatchList({ signal: withTimeout(REMOTE_TIMEOUT_MS) })
     .then(async (matches) => {
       const live = matches.filter((m) => m.status === 'LIVE').slice(0, LIVE_CARDS_MAX);
       const cards = await Promise.all(
         live.map((m) =>
-          getCrexScorecard(m.id, { ballsPerOver: m.ballsPerOver, signal: withTimeout(REMOTE_TIMEOUT_MS) })
+          getApiScorecard(m.id, { ballsPerOver: m.ballsPerOver, signal: withTimeout(REMOTE_TIMEOUT_MS) })
             .then((innings) => ({ m, innings }))
             .catch(() => ({ m, innings: [] }))
         )

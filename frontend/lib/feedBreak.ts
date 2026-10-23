@@ -1,6 +1,6 @@
 import type { MatchEvent, MatchNote } from '@/types';
 
-// How crex's commentators announce an interval: "7:44 PM IST & Local Time: Drinks Break!".
+// How the upstream's commentators announce an interval: "7:44 PM IST & Local Time: Drinks Break!".
 // Strict on purpose — a stats note that mentions tea is not tea.
 const ANNOUNCEMENTS: Array<[RegExp, string]> = [
   [/\bdrinks(\s+break)?\s*!|\bdrinks\s+break\b/i, 'Drinks Break'],
@@ -11,7 +11,7 @@ const ANNOUNCEMENTS: Array<[RegExp, string]> = [
 /**
  * An interval the commentary has announced and no delivery has followed.
  *
- * `/matches/live` only latches break codes (see `isStaleStoppage`), and crex's
+ * `/matches/live` only latches break codes (see `isStaleStoppage`), and the upstream's
  * own live stream is not read, so the feed's note rows are the one fresh signal:
  * a note posted after the last ball that calls drinks means drinks, and the next
  * ball bowled ends it.

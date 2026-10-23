@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import type { Match } from '@/types';
-import { useCrexMatches } from '@/hooks/useCrexMatches';
+import { useApiMatches } from '@/hooks/useApiMatches';
 import { isLiveNow, matchStateOf } from '@/lib/matchState';
 import { liveEquation } from '@/lib/telemetry';
 import { rankLive } from '@/lib/featured';
@@ -25,7 +25,7 @@ function tension(m: Match): number | null {
 }
 
 export default function InsightsView({ initial }: { initial: Match[] }) {
-  const { matches, isLoading, error, refresh, isRefreshing } = useCrexMatches({ initial });
+  const { matches, isLoading, error, refresh, isRefreshing } = useApiMatches({ initial });
   const follows = useFollows();
 
   const live = useMemo(

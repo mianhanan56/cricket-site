@@ -1,5 +1,5 @@
 import type { MetadataRoute } from 'next';
-import { getCrexMatchList, seriesFromMatches } from '../lib/crex';
+import { getApiMatchList, seriesFromMatches } from '../lib/api';
 import { SITE_URL as SITE } from '../lib/site';
 
 /**
@@ -34,7 +34,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   let dynamic: MetadataRoute.Sitemap = [];
   try {
-    const matches = await getCrexMatchList({ revalidate: 3600 });
+    const matches = await getApiMatchList({ revalidate: 3600 });
     dynamic = [
       ...matches.map((m) => ({
         url: `${SITE}/matches/${m.id}`,

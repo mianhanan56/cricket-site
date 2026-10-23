@@ -1,8 +1,8 @@
-import { Suspense } from 'react';
+import { Suspense, cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { HeadToHeadMatch, PlayerRole, SquadPlayer, TeamProfile, TeamRankingPosition } from '@/types';
-import { getCrexTeamProfile } from '../../../lib/crex';
+import { getApiTeamProfile } from '../../../lib/api';
 import TeamBadge from '../../../components/ui/TeamBadge';
 import LocalTime from '../../../components/ui/LocalTime';
 import BackButton from '../../../components/ui/BackButton';
@@ -20,10 +20,9 @@ import { meetingFormat } from '@/lib/seriesFormat';
 // notFound() path too, serving an unknown key as a soft 404.
 const REVALIDATE = 1800;
 
-// null only for a team crex doesn't know; an outage throws to the error boundary rather than a 404.
-async function loadTeam(key: string): Promise<TeamProfile | null> {
-  return getCrexTeamProfile(key, { revalidate: REVALIDATE });
-}
+// null only for a team the upstream doesn't know; an outage throws to the error boundary rather than a 404.
+// cache(): generateMetadata and the page share one read per request.
+const loadTeam = cache((key: string): Promise<TeamProfile | null> => getApiTeamProfile(key, { revalidate: REVALIDATE }));
 
 export async function generateMetadata({ params }: { params: { key: string } }) {
   const profile = await loadTeam(params.key).catch(() => null);

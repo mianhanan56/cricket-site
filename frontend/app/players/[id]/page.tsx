@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type {
@@ -7,7 +7,7 @@ import type {
   PlayerProfile,
   PlayerRanking,
 } from '@/types';
-import { getCrexPlayerProfile, isRejectedRequest, teamLogoUrl, withFreshForm } from '@/lib/crex';
+import { getApiPlayerProfile, isRejectedRequest, teamLogoUrl, withFreshForm } from '@/lib/api';
 import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
 import PlayerPortrait from '@/components/player/PlayerPortrait';
 import TableScroll from '@/components/ui/TableScroll';
@@ -28,13 +28,14 @@ import styles from './player.module.scss';
 // Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
 const REVALIDATE = 3600;
 
-// crex refuses an unknown player key with a 400, so that is the 404; an outage throws to the error boundary.
-async function loadPlayer(id: string): Promise<PlayerProfile | null> {
-  return getCrexPlayerProfile(id, { revalidate: REVALIDATE }).catch((err) => {
+// The upstream refuses an unknown player key with a 400, so that is the 404; an outage throws to the error boundary.
+// cache(): generateMetadata and the page share one read per request.
+const loadPlayer = cache(async (id: string): Promise<PlayerProfile | null> =>
+  getApiPlayerProfile(id, { revalidate: REVALIDATE }).catch((err) => {
     if (isRejectedRequest(err)) return null;
     throw err;
-  });
-}
+  })
+);
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
   const player = await loadPlayer(params.id).catch(() => null);
@@ -120,7 +121,7 @@ function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: st
             </tr>
           ))}
         </tbody>
-        {/* Averages and strike rates need dismissals and balls faced, which crex does not send per format. */}
+        {/* Averages and strike rates need dismissals and balls faced, which the upstream does not send per format. */}
         {rows.length > 1 && (
           <tfoot>
             <tr>
@@ -264,7 +265,7 @@ export default async function PlayerPage({
 
   const crest = teamLogoUrl(player.countryKey ?? undefined);
 
-  // crex returns a row for every competition a player was ever listed under, played or not.
+  // The upstream returns a row for every competition a player was ever listed under, played or not.
   const batting = player.batting.filter((r) => r.matches > 0);
   const bowling = player.bowling.filter((r) => r.innings > 0 || r.wickets > 0);
   const career = careerLevels(batting, bowling);
@@ -272,7 +273,7 @@ export default async function PlayerPage({
   const recentBowling = bowling.length > 0 ? player.recentBowling : [];
   const bestRank = player.rankings.length ? Math.min(...player.rankings.map((r) => r.position)) : null;
 
-  // Third slot marks crex's lower-case traits for capitalising; other fields keep their own casing ("6 ft 1 in").
+  // Third slot marks the upstream's lower-case traits for capitalising; other fields keep their own casing ("6 ft 1 in").
   const about = [
     ['Gender', player.gender],
     ['Role', player.role],

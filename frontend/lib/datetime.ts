@@ -70,10 +70,24 @@ export function formatInZone(iso: string, style: DateStyle, timeZone: string): s
   if (Number.isNaN(at.getTime())) return '—';
 
   try {
-    return new Intl.DateTimeFormat(LOCALE, { ...STYLES[style], timeZone }).format(at);
+    return formatter(style, timeZone).format(at);
   } catch {
-    return new Intl.DateTimeFormat(LOCALE, { ...STYLES[style], timeZone: SERVER_ZONE }).format(at);
+    return formatter(style, SERVER_ZONE).format(at);
   }
+}
+
+// Building an Intl.DateTimeFormat is costly and every tile re-renders on each poll; a
+// handful of styles × zones is all there ever is. A zone that throws is never stored.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
+function formatter(style: DateStyle, timeZone: string): Intl.DateTimeFormat {
+  const key = `${style}|${timeZone}`;
+  let f = formatters.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(LOCALE, { ...STYLES[style], timeZone });
+    formatters.set(key, f);
+  }
+  return f;
 }
 
 /**

@@ -4,7 +4,7 @@ import { battedInnings, formatInnings, inningsFor, isClosed } from '@/lib/inning
 import { formatProgressShort } from '@/lib/overs';
 import { matchStateOf } from '@/lib/matchState';
 import { equationSentence, inningsProgress, isChaseTight, liveEquation } from '@/lib/telemetry';
-import { attributeResult } from '@/lib/crex';
+import { attributeResult } from '@/lib/api';
 import TeamBadge from '../ui/TeamBadge';
 import Icon from '../ui/Icon';
 import CreaseLine from '../live/CreaseLine';

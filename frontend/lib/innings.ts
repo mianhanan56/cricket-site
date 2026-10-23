@@ -1,7 +1,7 @@
 // Reading a scorecard's innings list: whose an innings is, which one is being
 // played, and how to write a side's total out in one line.
 //
-// This lives apart from lib/crex because it is not decoding: every source hands
+// This lives apart from lib/api because it is not decoding: every source hands
 // us `InningsScore[]` already, and both the match card and the detail header
 // need the same three answers from it. They each had their own copy of the
 // team-matching rule, which is how the card came to show a Test side's *first*
@@ -12,7 +12,7 @@ import type { InningsScore, Match, Team } from '@/types';
 /**
  * The innings a side has batted, in card order (first innings, then second).
  *
- * `teamId` is preferred and is what the crex feed sets. The label match is the
+ * `teamId` is preferred and is what the upstream feed sets. The label match is the
  * fallback for a card that only names the batting side in text — and it is a
  * strict match, never positional: handing a side the wrong innings is worse than
  * showing none, because a wrong score reads as fact.

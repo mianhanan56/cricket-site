@@ -53,9 +53,9 @@ const PAR_PER_BALL: Record<Match['format'], number> = {
  * chase off that gets the target backwards whenever the away side batted first.
  */
 /**
- * Sessions of play left, from the day crex reports.
+ * Sessions of play left, from the day the upstream reports.
  *
- * Three a day, and the day in progress counted as half — crex publishes the day
+ * Three a day, and the day in progress counted as half — the upstream publishes the day
  * but not the session or the overs left in it, so the fraction is deliberately
  * coarse rather than a made-up over count. It only ever scales a draw weight,
  * and nothing in the UI prints it as a fact.
@@ -78,7 +78,7 @@ const SESSIONS_PER_DAY = 3;
  * first, from the time left and how many innings are still to come, and the two
  * win chances split what remains.
  *
- * Deliberately coarse, and ours rather than crex's: their number comes from a
+ * Deliberately coarse, and ours rather than the upstream's: their number comes from a
  * model that is not in any payload we read. What this is good for is the shape
  * of the match — a side 300 behind on day three is not favourite, and a fourth
  * innings needing 40 with nine standing very much is.
@@ -196,7 +196,7 @@ function compute(
 }
 
 /**
- * Whether the side batting is the home side. crex resolves no team id on some
+ * Whether the side batting is the home side. The upstream resolves no team id on some
  * sources, so the short name is the fallback — the same pairing the header's own
  * scores are matched on.
  */

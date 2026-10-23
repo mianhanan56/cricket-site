@@ -10,7 +10,7 @@ export interface LiveFrame {
   seq: number;
   /** A diff's predecessor on its topic; any other value held means one was missed. */
   prev?: number;
-  /** When the hub fetched this from crex. */
+  /** When the hub fetched this from the upstream. */
   ts: number;
   matchId?: string;
   data?: unknown;

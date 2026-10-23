@@ -12,7 +12,7 @@ function initialsOf(name: string): string {
   return (first + last).toUpperCase();
 }
 
-/** crex's illustrated portrait; a debutant's key 404s, so it falls back to initials. */
+/** The upstream's illustrated portrait; a debutant's key 404s, so it falls back to initials. */
 export default function PlayerPortrait({
   name,
   src,

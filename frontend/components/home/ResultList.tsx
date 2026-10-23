@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import type { Match, Team } from '@/types';
 import { formatTeamScore, inningsFor } from '@/lib/innings';
-import { attributeResult } from '@/lib/crex';
+import { attributeResult } from '@/lib/api';
 import { matchStateOf } from '@/lib/matchState';
 import TeamBadge from '../ui/TeamBadge';
 import StateChip from '../live/StateChip';

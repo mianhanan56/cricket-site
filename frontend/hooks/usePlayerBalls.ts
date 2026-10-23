@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { CommentaryBall, FallOfWicket } from '@/types';
-import { getCrexInningsBalls } from '@/lib/crex';
+import { getApiInningsBalls } from '@/lib/api';
 import { countedBalls, playerBalls, type BallRole } from '@/lib/playerBalls';
 
 /** Every delivery of one innings, fetched once and shared by every popup on it. */
@@ -36,7 +36,7 @@ function ensure(matchKey: string, inning: number, live: boolean): void {
   if (s.loadedAt && (!live || Date.now() - s.loadedAt < LIVE_FRESH_MS)) return;
 
   s.error = false;
-  s.loading = getCrexInningsBalls(matchKey, inning)
+  s.loading = getApiInningsBalls(matchKey, inning)
     .then((balls) => {
       // A Worker without the innings filter answers with the whole match: file every innings.
       const byInning = new Map<number, CommentaryBall[]>();

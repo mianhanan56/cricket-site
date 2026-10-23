@@ -3,7 +3,7 @@
  *
  * An "over" is not a decimal: 4.3 is four overs and three balls. How many balls
  * make one is a property of the competition — six everywhere except The Hundred,
- * which crex scores in sets of five. Every rate, limit and label that touches a
+ * which the upstream scores in sets of five. Every rate, limit and label that touches a
  * ball count has to go through here with the match's own `ballsPerOver`.
  */
 
@@ -51,7 +51,7 @@ export const SCHEDULED_OVERS: Record<MatchFormat, number | null> = {
  * How many balls the chasing side gets, given the innings it is chasing.
  *
  * The feed carries no innings limit, and the format's own is wrong for every
- * rain-shortened game (crex is listing 18- and 19-over T20s right now). So it is
+ * rain-shortened game (the upstream is listing 18- and 19-over T20s right now). So it is
  * read off the first innings instead: a side that was not bowled out batted
  * exactly its allocation, and a limited-overs innings only ends mid-over when
  * the batting side is out — so the ball count is the allocation, exactly.

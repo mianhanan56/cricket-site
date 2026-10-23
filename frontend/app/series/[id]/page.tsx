@@ -1,16 +1,16 @@
-import { Suspense } from 'react';
+import { Suspense, cache } from 'react';
 import { notFound } from 'next/navigation';
 import type { Match } from '@/types';
 import {
-  getCrexMatchList,
-  getCrexSeriesLeaders,
-  getCrexSeriesSchedule,
-  getCrexSeriesTable,
+  getApiMatchList,
+  getApiSeriesLeaders,
+  getApiSeriesSchedule,
+  getApiSeriesTable,
   seriesScheduleFromMatches,
   withFeedStatuses,
   type SeriesSchedule,
   type SeriesScheduleMatch,
-} from '../../../lib/crex';
+} from '../../../lib/api';
 import { pickParam } from '../../../lib/queryParams';
 import { seriesFormatPhrase } from '../../../lib/seriesFormat';
 import { getTaggedNews } from '../../../lib/news';
@@ -43,12 +43,11 @@ type TabKey = (typeof TAB_KEYS)[number];
 const UPCOMING_FIRST = 10;
 const RESULTS_FIRST = 8;
 
-async function loadSchedule(id: string): Promise<SeriesSchedule | null> {
-  return getCrexSeriesSchedule(id, { revalidate: REVALIDATE }).catch(() => null);
-}
+// cache(): generateMetadata and the page share one read per request; each attaches its own catch.
+const readSchedule = cache((id: string): Promise<SeriesSchedule | null> => getApiSeriesSchedule(id, { revalidate: REVALIDATE }));
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
-  const series = await loadSchedule(params.id);
+  const series = await readSchedule(params.id).catch(() => null);
   if (!series) return { title: 'Series' };
 
   return {
@@ -93,19 +92,19 @@ export default async function SeriesDetailPage({
   params: { id: string };
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const feedRead = getCrexMatchList({ revalidate: LIVE_REVALIDATE }).catch(() => [] as Match[]);
+  const feedRead = getApiMatchList({ revalidate: LIVE_REVALIDATE }).catch(() => [] as Match[]);
   let scheduleError: unknown = null;
   const [schedule, feed, table, leaders, news] = await Promise.all([
-    getCrexSeriesSchedule(params.id, { revalidate: REVALIDATE }).catch((err) => {
+    readSchedule(params.id).catch((err) => {
       scheduleError = err;
       return null;
     }),
     feedRead,
     // Empty for a bilateral tour; the standings section is then absent.
-    getCrexSeriesTable(params.id, { revalidate: REVALIDATE }).catch(() => []),
+    getApiSeriesTable(params.id, { revalidate: REVALIDATE }).catch(() => []),
     // Leaders move by the ball while one of the series' matches is in play.
     feedRead.then((list) =>
-      getCrexSeriesLeaders(params.id, {
+      getApiSeriesLeaders(params.id, {
         revalidate: list.some((m) => m.series.id === params.id && m.status === 'LIVE') ? LIVE_REVALIDATE : REVALIDATE,
       }).catch(() => null)
     ),
@@ -125,7 +124,7 @@ export default async function SeriesDetailPage({
   const span = seriesSpan(series.startDate, series.endDate);
 
   const feedById = new Map(feed.map((m) => [m.id, m]));
-  // Rendered with no ball feed to check a break against, and crex latches them for
+  // Rendered with no ball feed to check a break against, and the upstream latches them for
   // hours — so a paused note is dropped and the card says only what the status proves.
   const verifiable = (m: Match): Match => (m.note?.paused ? { ...m, note: null } : m);
   const asMatch = (row: SeriesScheduleMatch) => verifiable(feedById.get(row.id) ?? toMatch(row, ref));

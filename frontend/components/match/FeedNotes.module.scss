@@ -43,7 +43,7 @@
     line-height: $leading-snug;
   }
 
-  // crex bolds the line that is today's — the entry this match just made.
+  // The upstream bolds the line that is today's — the entry this match just made.
   strong:not(.title) {
     font-weight: 700;
     color: $signal-text;

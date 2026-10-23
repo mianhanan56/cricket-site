@@ -1,10 +1,10 @@
-/** What crex's mapping and the feeds both say when no ground has been named. */
+/** What the upstream's mapping and the feeds both say when no ground has been named. */
 export const VENUE_TBD = 'TBD';
 
 const VENUE_UNKNOWN = /^(tbd|tba|to be (decided|announced|confirmed))$/i;
 
 /**
- * A venue name as crex's mapping should have sent it: no control, format or
+ * A venue name as the upstream's mapping should have sent it: no control, format or
  * private-use characters (a stray box glyph opened "JB Marks Oval"), no doubled
  * spaces, no dangling separators, and every flavour of "not decided" read as TBD.
  */

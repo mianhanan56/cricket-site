@@ -1,7 +1,7 @@
 // Search, without a search index.
 //
 // This used to be a Postgres query over players, teams and series. With the
-// backend gone the only corpus available is the match list the crex Worker
+// backend gone the only corpus available is the match list the Worker
 // already serves — every live, upcoming and recent match, with both teams, the
 // series and the venue attached. That is a few hundred rows at most, so it is
 // searched in memory rather than by asking anything upstream.
@@ -13,14 +13,14 @@
 //      the three with a page to link to. Grouping results by entity would mean
 //      rows that navigate nowhere.
 //   2. **Players are not searchable.** A single player is now readable by key
-//      (see `getCrexPlayerProfile`), which is what the scorecard links with, but
-//      that is a lookup and not a corpus: crex has no search endpoint and no way
+//      (see `getApiPlayerProfile`), which is what the scorecard links with, but
+//      that is a lookup and not a corpus: the upstream has no search endpoint and no way
 //      to enumerate players, so there is nothing here to match a name against.
 //      Nothing is silently degraded — the placeholder text says teams, series
 //      and venues.
 
 import type { Match } from '@/types';
-import { getCrexMatchList } from './crex';
+import { getApiMatchList } from './api';
 
 /** How long a fetched match list is reused across queries. */
 const CACHE_MS = 60_000;
@@ -40,7 +40,7 @@ async function corpus(): Promise<Match[]> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.matches;
   if (inflight) return inflight;
 
-  inflight = getCrexMatchList()
+  inflight = getApiMatchList()
     .then((matches) => {
       cache = { at: Date.now(), matches };
       return matches;

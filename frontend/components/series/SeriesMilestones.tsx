@@ -1,4 +1,4 @@
-import { getCrexSeriesStatTables } from '@/lib/crex';
+import { getApiSeriesStatTables } from '@/lib/api';
 import Skeleton from '../ui/Skeleton';
 import MilestoneLeaders from './MilestoneLeaders';
 import styles from './MilestoneLeaders.module.scss';
@@ -8,7 +8,7 @@ const REVALIDATE = 900;
 const SHOWN = 5;
 
 export default async function SeriesMilestones({ seriesId }: { seriesId: string }) {
-  const tables = await getCrexSeriesStatTables(seriesId, ['FIFTIES', 'HUNDREDS'], {
+  const tables = await getApiSeriesStatTables(seriesId, ['FIFTIES', 'HUNDREDS'], {
     limit: SHOWN,
     revalidate: REVALIDATE,
   }).catch(() => null);

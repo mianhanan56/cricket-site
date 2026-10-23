@@ -15,15 +15,15 @@ import type {
 import {
   clearResumedStoppages,
   feedFromRows,
-  getCrexMatches,
-  getCrexMatchFeed,
-  getCrexInningsFeed,
-  getCrexMatchInfo,
-  getCrexScorecard,
+  getApiMatches,
+  getApiMatchFeed,
+  getApiInningsFeed,
+  getApiMatchInfo,
+  getApiScorecard,
   matchListFromRaw,
   scorecardFromRaw,
-} from '@/lib/crex';
-import type { CrexFeedRow, CrexMatchesResponse, CrexScorecardBody, StoppageWatch } from '@/lib/crex';
+} from '@/lib/api';
+import type { ApiFeedRow, ApiMatchesResponse, ApiScorecardBody, StoppageWatch } from '@/lib/api';
 import { keepNewest } from '@/lib/liveScore';
 import { dedupeDeliveries } from '@/lib/balls';
 import { applyMatchesFrame, mergeFeedItems, type FrameVerdict, type LiveFrame } from '@/lib/live/frames';
@@ -59,11 +59,15 @@ export const HIDDEN_INTERVAL_MS = 60_000;
 // Each consecutive failure doubles the wait, up to this ceiling.
 const MAX_BACKOFF_MS = 5 * 60_000;
 
-export interface UseCrexMatchesResult {
+/** The wait after `failures` failed polls in a row: doubling, capped. */
+const backoff = (every: number, failures: number): number =>
+  failures ? Math.min(every * 2 ** failures, MAX_BACKOFF_MS) : every;
+
+export interface UseApiMatchesResult {
   matches: Match[];
   /** True only during the very first load, so callers can skip a flash of empty. */
   isLoading: boolean;
-  /** True while a background poll is in flight. */
+  /** True while a poll retries after an error — what a Retry button spins on. */
   isRefreshing: boolean;
   error: Error | null;
   /** When the last successful poll landed. */
@@ -72,7 +76,7 @@ export interface UseCrexMatchesResult {
   refresh: () => void;
 }
 
-export interface UseCrexMatchesOptions {
+export interface UseApiMatchesOptions {
   /** Server-rendered matches to show until the first poll returns. */
   initial?: Match[];
   intervalMs?: number;
@@ -114,11 +118,14 @@ const channel = {
   timer: null as ReturnType<typeof setTimeout> | null,
   abort: null as AbortController | null,
   failures: 0,
+  // A poll is running. Kept off the published state so a routine poll doesn't re-render every
+  // subscriber; `isRefreshing` is only published while an error shows (the retry spinner).
+  inFlight: false,
   // What each match's reported break looked like last poll — see `clearResumedStoppages`.
   stoppages: new Map<string, StoppageWatch>(),
   visibilityBound: false,
   /** The last /matches/live body, poll's or socket's — the base socket diffs apply to. */
-  raw: null as CrexMatchesResponse | null,
+  raw: null as ApiMatchesResponse | null,
   deriving: 0,
   lastPollAt: 0,
   entryTimer: null as ReturnType<typeof setTimeout> | null,
@@ -165,27 +172,30 @@ async function poll(): Promise<void> {
   const controller = new AbortController();
   channel.abort = controller;
   channel.lastPollAt = Date.now();
-  emit({ isRefreshing: true });
+  channel.inFlight = true;
+  if (channel.state.error) emit({ isRefreshing: true });
 
   try {
-    const raw = await getCrexMatches({ signal: controller.signal });
+    const raw = await getApiMatches({ signal: controller.signal });
     const next = await matchListFromRaw(raw, { signal: controller.signal });
     if (controller.signal.aborted) return;
 
     channel.raw = raw;
     channel.deriving += 1;
     channel.failures = 0;
+    channel.inFlight = false;
     land(next, { isRefreshing: false });
     schedule(wantedInterval() ?? interval);
   } catch (err) {
     if (controller.signal.aborted) return;
+    channel.inFlight = false;
     channel.failures += 1;
     emit({
       error: err instanceof Error ? err : new Error(String(err)),
       isRefreshing: false,
       settled: true,
     });
-    schedule(Math.min(interval * 2 ** channel.failures, MAX_BACKOFF_MS));
+    schedule(backoff(interval, channel.failures));
   }
 }
 
@@ -225,12 +235,13 @@ function reschedule() {
     // left set would stop the next page's poll from ever starting.
     channel.abort?.abort();
     channel.abort = null;
+    channel.inFlight = false;
     if (channel.state.isRefreshing) emit({ isRefreshing: false });
     return;
   }
-  if (channel.state.isRefreshing) return;
+  if (channel.inFlight) return;
   const age = channel.state.lastUpdated ? Date.now() - channel.state.lastUpdated.getTime() : Infinity;
-  schedule(channel.failures ? Math.min(interval * 2 ** channel.failures, MAX_BACKOFF_MS) - age : interval - age);
+  schedule(backoff(interval, channel.failures) - age);
 }
 
 function bindVisibility() {
@@ -260,7 +271,7 @@ function revalidateOnEntry() {
   if (channel.entryTimer) return;
   channel.entryTimer = setTimeout(() => {
     channel.entryTimer = null;
-    if (!channel.subscribers.size || channel.state.isRefreshing) return;
+    if (!channel.subscribers.size || channel.inFlight) return;
     if (Date.now() - channel.lastPollAt < ENTRY_DEDUPE_MS) return;
     refreshMatches();
   }, 0);
@@ -297,7 +308,7 @@ export function refreshMatches(): void {
 }
 
 /**
- * Subscribe to the shared crex match list.
+ * Subscribe to the shared upstream match list.
  *
  *   - Pauses while the tab is hidden (unless a `background` subscriber needs it),
  *     and polls immediately on return.
@@ -307,7 +318,7 @@ export function refreshMatches(): void {
  *   - A subscriber that stops polling keeps the last list it saw, rather than
  *     falling back to its seed.
  */
-export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatchesResult {
+export function useApiMatches(options: UseApiMatchesOptions = {}): UseApiMatchesResult {
   const { initial = [], intervalMs = DEFAULT_INTERVAL_MS, enabled = true, background = false } = options;
   const snapshot = useSyncExternalStore(subscribeState, getState, getServerState);
 
@@ -332,40 +343,40 @@ export function useCrexMatches(options: UseCrexMatchesOptions = {}): UseCrexMatc
   };
 }
 
-export interface UseCrexMatchResult extends Omit<UseCrexMatchesResult, 'matches'> {
-  /** Null once polling has run and the id is no longer in crex's window. */
+export interface UseApiMatchResult extends Omit<UseApiMatchesResult, 'matches'> {
+  /** Null once polling has run and the id is no longer in the upstream's window. */
   match: Match | null;
 }
 
 /**
- * Track one match by crex key.
+ * Track one match by the upstream key.
  *
  * Deliberately built on the same list poll rather than a per-match endpoint:
- * `/matches/live` carries every match crex knows about, so the detail page
+ * `/matches/live` carries every match the upstream knows about, so the detail page
  * shares the Worker's cache entry with the home page instead of adding a second
  * upstream call per viewer.
  */
-export function useCrexMatch(
+export function useApiMatch(
   id: string,
   options: { initial?: Match | null; intervalMs?: number; enabled?: boolean } = {}
-): UseCrexMatchResult {
+): UseApiMatchResult {
   const { initial = null, intervalMs, enabled } = options;
 
-  const { matches, ...rest } = useCrexMatches({
+  const { matches, ...rest } = useApiMatches({
     initial: initial ? [initial] : [],
     intervalMs,
     enabled,
   });
 
   // Before the first poll lands, `matches` is just the seed — trust `initial`.
-  // After it lands, a missing id means crex has aged the match out; keep
+  // After it lands, a missing id means the upstream has aged the match out; keep
   // showing the last known state rather than blanking the page.
   const found = matches.find((m) => m.id === id) ?? null;
 
   return { ...rest, match: found ?? initial };
 }
 
-export interface UseCrexMatchExtrasResult {
+export interface UseApiMatchExtrasResult {
   /** Innings with batting cards, in innings order. Empty until the first fetch. */
   innings: InningsScore[];
   /** Deliveries, newest first. */
@@ -385,9 +396,9 @@ export interface UseCrexMatchExtrasResult {
 }
 
 /**
- * Poll a crex match's scorecard and commentary.
+ * Poll an upstream match's scorecard and commentary.
  *
- * Kept separate from `useCrexMatch` because these are two extra round trips per
+ * Kept separate from `useApiMatch` because these are two extra round trips per
  * tick and only the detail page needs them — the home page must not pay for
  * them. Both are fetched together so the card and the ball-by-ball never show
  * different moments of the same over.
@@ -395,7 +406,7 @@ export interface UseCrexMatchExtrasResult {
  * Failures are swallowed on purpose: the detail page is still perfectly usable
  * with the header score alone, and a blank tab beats an error banner.
  */
-export function useCrexMatchExtras(
+export function useApiMatchExtras(
   matchKey: string,
   options: {
     enabled?: boolean;
@@ -411,10 +422,10 @@ export function useCrexMatchExtras(
      */
     repeat?: boolean;
     ballsPerOver?: number;
-    /** Lets the card mark the innings in progress — see `getCrexScorecard`. */
+    /** Lets the card mark the innings in progress — see `getApiScorecard`. */
     status?: MatchStatus;
   } = {}
-): UseCrexMatchExtrasResult {
+): UseApiMatchExtrasResult {
   const {
     enabled = true,
     intervalMs = DEFAULT_INTERVAL_MS,
@@ -470,7 +481,7 @@ export function useCrexMatchExtras(
       inningsRef.current = card;
       setInnings(card);
     };
-    const takeFeed = (feed: Pick<UseCrexMatchExtrasResult, 'commentary' | 'events' | 'overs' | 'notes'>) => {
+    const takeFeed = (feed: Pick<UseApiMatchExtrasResult, 'commentary' | 'events' | 'overs' | 'notes'>) => {
       setCommentary((prev) => dedupeDeliveries(mergeFeedItems(prev, feed.commentary, FEED_CAP.balls)));
       setEvents((prev) => mergeFeedItems(prev, feed.events, FEED_CAP.events));
       setOvers((prev) => mergeFeedItems(prev, feed.overs, FEED_CAP.overs));
@@ -485,14 +496,14 @@ export function useCrexMatchExtras(
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
       const [card, feed] = await Promise.all([
-        getCrexScorecard(matchKey, {
+        getApiScorecard(matchKey, {
           signal: controller.signal,
           ballsPerOver,
           status,
         }).catch(() => null),
         // One walk of the ball feed for both halves, so the events strip and the
         // commentary can never show different moments of the same over.
-        getCrexMatchFeed(matchKey, { signal: controller.signal }).catch(() => null),
+        getApiMatchFeed(matchKey, { signal: controller.signal }).catch(() => null),
       ]);
 
       if (cancelled || controller.signal.aborted) return;
@@ -504,13 +515,13 @@ export function useCrexMatchExtras(
       if (card || feed) setLoaded(true);
 
       // Both halves failing is the signal to slow down — the same exponential
-      // back-off `useCrexMatches` uses, and for the same reason: a struggling
+      // back-off `useApiMatches` uses, and for the same reason: a struggling
       // Worker should not be asked twice a second while it recovers.
       failures = card || feed ? 0 : failures + 1;
 
       if (!repeat) return;
       const every = socketLive() ? Math.max(intervalMs, RECONCILE_MS) : intervalMs;
-      timer = setTimeout(run, failures ? Math.min(every * 2 ** failures, MAX_BACKOFF_MS) : every);
+      timer = setTimeout(run, backoff(every, failures));
     }
 
     void run();
@@ -524,7 +535,7 @@ export function useCrexMatchExtras(
     const offLive = repeat
       ? [
           subscribeLive(cardTopic, (frame) => {
-            scorecardFromRaw(frame.data as CrexScorecardBody, { ballsPerOver, status })
+            scorecardFromRaw(frame.data as ApiScorecardBody, { ballsPerOver, status })
               .then((card) => {
                 if (cancelled) return;
                 takeCard(card);
@@ -534,7 +545,7 @@ export function useCrexMatchExtras(
           }),
           subscribeLive(feedTopic, (frame) => {
             if (!Array.isArray(frame.data)) return;
-            const feed = feedFromRows(frame.data as CrexFeedRow[]);
+            const feed = feedFromRows(frame.data as ApiFeedRow[]);
             takeFeed({ commentary: feed.balls, events: feed.events, overs: feed.overs, notes: feed.notes });
             setLoaded(true);
           }),
@@ -573,15 +584,15 @@ function cardProgress(card: InningsScore[]): number {
  * Deliveries the live poll never reaches.
  *
  * The poll's walk stops at three overs, because it runs every couple of seconds
- * and every page of it is an upstream request (see MIN_BALLS in lib/crex). That
+ * and every page of it is an upstream request (see MIN_BALLS in lib/api). That
  * is the right window for the header's ball strip and far too small for a
  * commentary tab.
  *
- * So this reads the innings in play whole — one request, see `getCrexInningsFeed` —
+ * So this reads the innings in play whole — one request, see `getApiInningsFeed` —
  * when the tab is opened, and each earlier innings when the reader asks for more. The
  * live tail keeps arriving on the poll and the caller merges the two by id.
  */
-export interface UseCrexCommentaryHistoryResult {
+export interface UseApiCommentaryHistoryResult {
   balls: CommentaryBall[];
   overs: OverSummary[];
   notes: FeedNote[];
@@ -593,10 +604,10 @@ export interface UseCrexCommentaryHistoryResult {
   loadMore: () => void;
 }
 
-export function useCrexCommentaryHistory(
+export function useApiCommentaryHistory(
   matchKey: string,
   options: { enabled?: boolean; inning: number | null }
-): UseCrexCommentaryHistoryResult {
+): UseApiCommentaryHistoryResult {
   const { enabled = true, inning } = options;
 
   const [balls, setBalls] = useState<CommentaryBall[]>([]);
@@ -620,7 +631,7 @@ export function useCrexCommentaryHistory(
       const current = () => started.current === matchKey;
 
       try {
-        const feed = await getCrexInningsFeed(matchKey, target);
+        const feed = await getApiInningsFeed(matchKey, target);
         if (!current()) return;
         setBalls((prev) => mergeFeedItems(prev, feed.balls, Infinity));
         setOvers((prev) => mergeFeedItems(prev, feed.overs, Infinity));
@@ -668,7 +679,7 @@ export function useCrexCommentaryHistory(
 /**
  * Both squads for a match, keyed by team f_key.
  *
- * Fetched once rather than polled, and kept out of `useCrexMatchExtras` for the
+ * Fetched once rather than polled, and kept out of `useApiMatchExtras` for the
  * same reason: a squad is announced, not scored. It changes when a team names
  * its XI — a day or two before the toss — and never once play starts, so
  * putting it on the 5s tick would be a third round trip every poll for a list
@@ -677,7 +688,7 @@ export function useCrexCommentaryHistory(
  * Failures are swallowed, like the extras above: no squad simply means the
  * squad section is not shown.
  */
-export function useCrexMatchSquads(
+export function useApiMatchSquads(
   matchKey: string,
   options: { enabled?: boolean } = {}
 ): {
@@ -705,7 +716,7 @@ export function useCrexMatchSquads(
     let cancelled = false;
     const controller = new AbortController();
 
-    getCrexMatchInfo(matchKey, { signal: controller.signal })
+    getApiMatchInfo(matchKey, { signal: controller.signal })
       .then((next) => {
         if (cancelled || controller.signal.aborted) return;
         setSquads(next.squads);

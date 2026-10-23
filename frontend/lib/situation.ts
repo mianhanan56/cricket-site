@@ -20,7 +20,7 @@ import { plural } from './text';
  * by format: a five-day Test and a four-day first-class match are both TEST here
  * and the threshold differs.
  *
- * Only the five-day figure is applied. crex publishes no scheduled-days field,
+ * Only the five-day figure is applied. The upstream publishes no scheduled-days field,
  * so a four-day domestic match would need the number invented — and 200 is the
  * one the Test cricket this page is read for actually uses.
  */
@@ -68,7 +68,7 @@ function sameSide(inn: InningsScore, teamId: string | undefined): boolean {
 }
 
 /**
- * Where the match stands, in crex's own vocabulary.
+ * Where the match stands, in the upstream's own vocabulary.
  *
  * Fed the *fetched* card rather than `match.scorecard.innings`, for the reason
  * every other derivation on the match page is: only the scorecard endpoint
@@ -150,7 +150,7 @@ export interface CreaseContext {
  * The current partnership and the last wicket to fall, from the innings in
  * progress.
  *
- * Both are the card's own figures: the stand is crex's last partnership row,
+ * Both are the card's own figures: the stand is the upstream's last partnership row,
  * unbroken, and the wicket is the last entry of the fall-of-wickets ledger. A
  * side nought down has neither, which is the correct answer rather than a zero.
  */
@@ -163,10 +163,10 @@ export function creaseContext(innings: InningsScore[]): CreaseContext {
   const last = stands[stands.length - 1];
   const wickets = current.fallOfWickets ?? [];
 
-  // crex moves the innings total the moment a wicket falls and fills the batting
+  // The upstream moves the innings total the moment a wicket falls and fills the batting
   // lines a tick later, so a card can read 37/2 with one wicket on file. Both
   // readings below come off those lines, and both are then one wicket behind: the
-  // ledger's last entry is not the last wicket, and the stand crex still has open
+  // ledger's last entry is not the last wicket, and the stand the upstream still has open
   // is one it has already broken. The count is what says to wait — retirements are
   // left out of the ledger too, so it matches the total exactly.
   const caughtUp = wickets.length === current.wickets;

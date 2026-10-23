@@ -47,7 +47,7 @@ function Meta({ article }: { article: NewsArticle }) {
 function Thumb({ src, lead }: { src: string | null; lead?: boolean }) {
   if (!src) return null;
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- crex's CDN already serves resized WebP
+    // eslint-disable-next-line @next/next/no-img-element -- the upstream's CDN already serves resized WebP
     <img
       className={lead ? styles.leadImage : styles.thumb}
       src={lead ? src : (newsImage(src, 'lq') ?? src)}

@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import type { Match, MatchStatus, SeriesSummary } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
-import { seriesFromMatches } from '@/lib/crex';
+import { seriesFromMatches } from '@/lib/api';
 import { MATCH_TYPE_KEY_OPTIONS, filterByMatchType, parseMatchType, type MatchTypeKey } from '@/lib/matchType';
 import { SERIES_STATUS_TABS, type SeriesStatusKey } from '@/lib/tabs';
 import FilterMenu from '../ui/FilterMenu';

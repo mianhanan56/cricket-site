@@ -55,7 +55,7 @@ const FORMAT_OF_KEY: Record<Exclude<PlayersFormatKey, 'all'>, RankingFormat> = {
 };
 const GENDER_OF_KEY: Record<RankingsGender, RankingGender> = { men: 'MEN', women: 'WOMEN' };
 
-/** Every ranking entry, grouped by crex player key. Rows without a key can't link to a profile. */
+/** Every ranking entry, grouped by the upstream player key. Rows without a key can't link to a profile. */
 export function rankingsByPlayer(data: RankingsData): Map<string, DirectoryRanking[]> {
   const out = new Map<string, DirectoryRanking[]>();
   for (const byGender of Object.values(data)) {

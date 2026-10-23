@@ -2,7 +2,7 @@ import { pickParam } from '@/lib/queryParams';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '@/lib/matchType';
 import { FIXTURE_FORMAT_KEYS, type FixtureFormatKey } from '@/lib/tabs';
 import { dayKeyOf, pickDayParam } from '@/lib/fixtureDays';
-import { getCrexFixtureSchedule, type Fixture } from '@/lib/crex';
+import { getApiFixtureSchedule, type Fixture } from '@/lib/api';
 import FixturesFilter from '@/components/fixtures/FixturesFilter';
 import EmptyState from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/Section';
@@ -33,7 +33,7 @@ export default async function FixturesPage({
   let failed = false;
   try {
     // The schedule endpoint, not the live feed — the feed is only two or three days deep.
-    const schedule = await getCrexFixtureSchedule({ revalidate });
+    const schedule = await getApiFixtureSchedule({ revalidate });
     fixtures = schedule.fixtures.filter((m) => m.status === 'UPCOMING');
     coveredUntil = schedule.coveredUntil;
   } catch {

@@ -1,7 +1,7 @@
 // The scorecard decoders and the readings built on them, pinned to real
 // payloads.
 //
-// The packed strings crex serves have no field names in them, so a decoder that
+// The packed strings the upstream serves have no field names in them, so a decoder that
 // reads the wrong slot produces numbers that look plausible and are wrong — the
 // fall of wickets once read a 66-run first wicket as 102 because the batting
 // line's team runs and team balls are the other way round from what this file's
@@ -11,7 +11,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it, mock } from 'node:test';
-import { getCrexScorecard, getCrexMatchFeed, resultText, toMatch } from '../lib/crex';
+import { getApiScorecard, getApiMatchFeed, resultText, toMatch } from '../lib/api';
 import { matchSituation, creaseContext } from '../lib/situation';
 import type { InningsScore, Match, Team } from '../types';
 
@@ -57,7 +57,7 @@ const SL_INNINGS = {
 };
 
 /**
- * Answer crex's endpoints from the fixtures above.
+ * Answer the upstream's endpoints from the fixtures above.
  *
  * The mapping call is answered with an empty body on purpose: an unresolved key
  * must degrade to the key itself, never to `undefined` in a name.
@@ -100,7 +100,7 @@ describe('fall of wickets', () => {
     t.after(() => mock.restoreAll());
     stubFetch([IND_INNINGS, SL_INNINGS]);
 
-    const [ind, sl] = await getCrexScorecard('12WY');
+    const [ind, sl] = await getApiScorecard('12WY');
 
     // "15K.45.53.9.0.102.66.1..." — 102 balls, 66 runs. Read the other way round
     // this innings' ledger climbs to 817 on a total of 503.
@@ -128,7 +128,7 @@ describe('fall of wickets', () => {
     t.after(() => mock.restoreAll());
     stubFetch([IND_INNINGS]);
 
-    const [ind] = await getCrexScorecard('12WY');
+    const [ind] = await getApiScorecard('12WY');
 
     // The card lists Rahul second and he was out first.
     assert.equal(ind.fallOfWickets?.[0].name, 'AK');
@@ -146,7 +146,7 @@ describe('fall of wickets', () => {
       },
     ]);
 
-    const [inn] = await getCrexScorecard('12WY');
+    const [inn] = await getApiScorecard('12WY');
 
     assert.equal(inn.fallOfWickets?.length, 1);
     assert.equal(inn.fallOfWickets?.[0].name, 'AK');
@@ -154,11 +154,11 @@ describe('fall of wickets', () => {
 });
 
 describe('partnerships', () => {
-  it('keeps crex figures rather than summing the two batsmen', async (t) => {
+  it('keeps the upstream figures rather than summing the two batsmen', async (t) => {
     t.after(() => mock.restoreAll());
     stubFetch([IND_INNINGS, SL_INNINGS]);
 
-    const [ind] = await getCrexScorecard('12WY');
+    const [ind] = await getApiScorecard('12WY');
     const first = ind.partnerships?.[0];
 
     assert.equal(first?.runs, 37);
@@ -171,7 +171,7 @@ describe('partnerships', () => {
     t.after(() => mock.restoreAll());
     stubFetch([IND_INNINGS, SL_INNINGS]);
 
-    const [ind, sl] = await getCrexScorecard('12WY');
+    const [ind, sl] = await getApiScorecard('12WY');
 
     // Both innings are open, so both end in a stand still at the crease.
     assert.equal(ind.partnerships?.at(-1)?.unbroken, true);
@@ -183,12 +183,12 @@ describe('partnerships', () => {
     );
   });
 
-  // crex lists the new pair's stand a ball after the wicket; until then the last stand is a broken one.
+  // The upstream lists the new pair's stand a ball after the wicket; until then the last stand is a broken one.
   it('does not call a stand unbroken once one of its batters is out', async (t) => {
     t.after(() => mock.restoreAll());
     stubFetch([{ ...SL_INNINGS, p: SL_INNINGS.p.slice(0, -1) }]);
 
-    const [inn] = await getCrexScorecard('12WY');
+    const [inn] = await getApiScorecard('12WY');
 
     assert.equal((inn.partnerships ?? []).some((p) => p.unbroken), false);
     assert.equal(creaseContext([inn]).partnership, null);
@@ -198,7 +198,7 @@ describe('partnerships', () => {
     t.after(() => mock.restoreAll());
     stubFetch([{ ...IND_INNINGS, d: '503/10(828' }]);
 
-    const [inn] = await getCrexScorecard('12WY');
+    const [inn] = await getApiScorecard('12WY');
 
     assert.equal((inn.partnerships ?? []).some((p) => p.unbroken), false);
   });
@@ -209,7 +209,7 @@ describe('the crease context', () => {
     t.after(() => mock.restoreAll());
     stubFetch([IND_INNINGS, SL_INNINGS]);
 
-    const innings = await getCrexScorecard('12WY');
+    const innings = await getApiScorecard('12WY');
     const { partnership, lastWicket } = creaseContext(innings);
 
     assert.equal(partnership?.unbroken, true);
@@ -218,7 +218,7 @@ describe('the crease context', () => {
     assert.equal(lastWicket?.runs, 171);
   });
 
-  // PAK-W read 37/2 with one wicket on the card: crex moves the total the moment
+  // PAK-W read 37/2 with one wicket on the card: the upstream moves the total the moment
   // a wicket falls and fills the batting lines a tick later. Both readings come
   // off those lines, so both are a wicket behind — the page showed the *first*
   // wicket labelled "Last wicket", beside a stand it had already broken.
@@ -226,7 +226,7 @@ describe('the crease context', () => {
     t.after(() => mock.restoreAll());
     stubFetch([IND_INNINGS, { ...SL_INNINGS, d: '205/5(360' }]);
 
-    const innings = await getCrexScorecard('12WY');
+    const innings = await getApiScorecard('12WY');
     const { partnership, lastWicket } = creaseContext(innings);
 
     assert.equal(lastWicket, null);
@@ -247,7 +247,7 @@ const inn = (
 
 describe('the match situation', () => {
   it('states the deficit and the runs to avoid the follow on', () => {
-    // The position crex printed as "SL trail by 300" and "needs 101 more".
+    // The position the upstream printed as "SL trail by 300" and "needs 101 more".
     const situation = matchSituation(testMatch(), [
       inn('O', 'IND', 503, 9, 138),
       inn('T', 'SL', 203, 7, 58, { phase: 'CURRENT' }),
@@ -358,9 +358,9 @@ describe('over summaries', () => {
     t.after(() => mock.restoreAll());
     stubFetch(feedPage);
 
-    const feed = await getCrexMatchFeed('12WY', { minBalls: 1, maxPages: 1 });
+    const feed = await getApiMatchFeed('12WY', { minBalls: 1, maxPages: 1 });
 
-    // crex's 59.6 is the 60th over. A card numbered 59 would sit above the balls
+    // The upstream's 59.6 is the 60th over. A card numbered 59 would sit above the balls
     // of over 60 and show the wrong figures for them.
     assert.equal(feed.overs[0].over, 60);
     assert.equal(feed.balls[0].over, 59);
@@ -375,7 +375,7 @@ describe('over summaries', () => {
     t.after(() => mock.restoreAll());
     stubFetch(feedPage);
 
-    const feed = await getCrexMatchFeed('12WY', { minBalls: 1, maxPages: 1 });
+    const feed = await getApiMatchFeed('12WY', { minBalls: 1, maxPages: 1 });
 
     assert.equal(feed.balls[0].scoreAfter, '205/7');
     assert.equal(feed.balls[0].inning, 1);
@@ -387,7 +387,7 @@ describe('over summaries', () => {
 
     // minBalls is beyond what the stub can supply, so the walk only ends by
     // running out of new rows — the guard that keeps paging from spinning.
-    const feed = await getCrexMatchFeed('12WY', { minBalls: 99, maxPages: 4 });
+    const feed = await getApiMatchFeed('12WY', { minBalls: 99, maxPages: 4 });
 
     assert.equal(feed.exhausted, true);
     assert.equal(feed.oldest, '1787650674733');
@@ -466,7 +466,7 @@ describe('follow-ons in the match list', () => {
 });
 
 describe('a finished match result line', () => {
-  it('waits out a stoppage crex left in place of the result', () => {
+  it('waits out a stoppage the upstream left in place of the result', () => {
     assert.equal(resultText('Tea Break'), null);
     assert.equal(resultText('Stumps'), null);
     assert.equal(resultText(''), null);

@@ -5,7 +5,7 @@
 // topic slows its store's poll to a reconcile; no socket leaves it unchanged.
 
 import { useSyncExternalStore } from 'react';
-import { CREX_WORKER_URL } from '../crex';
+import { WORKER_URL } from '../api';
 import { withTimeout } from '../timeout';
 import { acceptFrame, isLiveFrame, type FrameVerdict, type LiveFrame, type SeqBook } from './frames';
 
@@ -14,7 +14,7 @@ export type LiveStatus = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'unav
 type Handler = (frame: LiveFrame, verdict: FrameVerdict) => void;
 
 const ENABLED = process.env.NEXT_PUBLIC_LIVE_WS !== 'off';
-const WORKER = CREX_WORKER_URL.replace(/\/$/, '');
+const WORKER = WORKER_URL.replace(/\/$/, '');
 const LIVE_URL = process.env.NEXT_PUBLIC_LIVE_WS_URL ?? `${WORKER.replace(/^http/, 'ws')}/live`;
 
 const HEARTBEAT_MS = 25_000;

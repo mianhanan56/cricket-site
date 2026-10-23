@@ -3,8 +3,9 @@
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import type { Team } from '@/types';
-import { attributeResult, type SeriesScheduleMatch } from '@/lib/crex';
+import { attributeResult, type SeriesScheduleMatch } from '@/lib/api';
 import { matchFormat } from '@/lib/seriesFormat';
+import { ordinal } from '@/lib/text';
 import { useScrollFade } from '@/hooks/useScrollFade';
 import TeamBadge from '../ui/TeamBadge';
 import LocalTime from '../ui/LocalTime';
@@ -27,11 +28,6 @@ const WON_BY = /\s+won\s+by\s+/i;
 function marginOf(result: string | null): string | undefined {
   const margin = result?.split(WON_BY)[1];
   return margin?.replace(/\s+method\)/i, ')').replace(/^an innings and /i, 'inns & ');
-}
-
-function ordinal(n: number): string {
-  const teen = n % 100 > 10 && n % 100 < 14;
-  return `${n}${teen ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th')}`;
 }
 
 function chipState(m: SeriesScheduleMatch, nextKey: string | undefined): ChipState {

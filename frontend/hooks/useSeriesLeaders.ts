@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { SeriesLeaders } from '@/types';
-import { getCrexSeriesLeaders } from '@/lib/crex';
+import { getApiSeriesLeaders } from '@/lib/api';
 
 const POLL_MS = 30_000;
 
@@ -24,7 +24,7 @@ export function useSeriesLeaders(
       controller?.abort();
       controller = new AbortController();
       const { signal } = controller;
-      getCrexSeriesLeaders(seriesId, { signal })
+      getApiSeriesLeaders(seriesId, { signal })
         .then((next) => !signal.aborted && next && setLeaders(next))
         .catch(() => {});
     };

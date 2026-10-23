@@ -16,7 +16,7 @@ const MOMENT_CLASS: Record<Moment, string | undefined> = {
   ball: styles.delivery,
 };
 
-// By position, not id: crex re-publishes a delivery under a new id.
+// By position, not id: the upstream re-publishes a delivery under a new id.
 const keyOf = (b: BallEntry) => `${b.inning ?? 0}:${b.over}.${b.ball}:${b.extra ?? ''}`;
 
 function momentOf(b: BallEntry): Moment {

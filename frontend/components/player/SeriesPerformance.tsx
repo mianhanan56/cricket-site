@@ -9,7 +9,7 @@ import type {
   PlayerSeriesInnings,
   PlayerSeriesPage,
 } from '@/types';
-import { getCrexPlayerSeriesPage } from '@/lib/crex';
+import { getApiPlayerSeriesPage } from '@/lib/api';
 import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
 import { oversFrom } from '@/lib/overs';
 import {
@@ -49,7 +49,7 @@ function pageFetcher(playerId: string, format: SeriesFormatKey): PageFetcher {
     const key = `${playerId}|${format}|${discipline}|${page}`;
     let request = pages.get(key);
     if (!request) {
-      request = getCrexPlayerSeriesPage(playerId, {
+      request = getApiPlayerSeriesPage(playerId, {
         format: seriesFormatCode(format),
         discipline,
         page,

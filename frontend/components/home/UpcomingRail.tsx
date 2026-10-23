@@ -11,10 +11,15 @@ import StateChip from '../live/StateChip';
 import styles from './UpcomingRail.module.scss';
 import { matchFormat } from '@/lib/seriesFormat';
 
+const dayKeyFormats = new Map<string, Intl.DateTimeFormat>();
+
 function dayKeyIn(iso: string, zone: string): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(
-    new Date(iso)
-  );
+  let f = dayKeyFormats.get(zone);
+  if (!f) {
+    f = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' });
+    dayKeyFormats.set(zone, f);
+  }
+  return f.format(new Date(iso));
 }
 
 function dayHeading(key: string, today: string, tomorrow: string): string {

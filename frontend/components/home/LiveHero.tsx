@@ -3,14 +3,14 @@
 import Link from 'next/link';
 import { useMemo, type ReactNode } from 'react';
 import type { Match, Team } from '@/types';
-import { useCrexMatchExtras } from '@/hooks/useCrexMatches';
+import { useApiMatchExtras } from '@/hooks/useApiMatches';
 import { matchStateOf } from '@/lib/matchState';
 import { PHASE_LABEL, equationSentence, inningsProgress, inningsStarted, isChaseTight, liveEquation } from '@/lib/telemetry';
 import { battedInnings, formatInnings, formatTeamScore, inningsFor, withCard } from '@/lib/innings';
 import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
 import { creaseContext, matchSituation } from '@/lib/situation';
 import { creaseFromCard } from '@/lib/crease';
-import { feedCheckedNote } from '@/lib/crex';
+import { feedCheckedNote } from '@/lib/api';
 import { groupBalls, toBallEntry } from '@/lib/balls';
 import TeamBadge from '../ui/TeamBadge';
 import Icon from '../ui/Icon';
@@ -33,7 +33,7 @@ function opponentLine(match: Match, team: Team): string | null {
 
 
 export default function LiveHero({ match, switcher }: { match: Match; switcher?: ReactNode }) {
-  const extras = useCrexMatchExtras(match.id, {
+  const extras = useApiMatchExtras(match.id, {
     intervalMs: HERO_INTERVAL_MS,
     ballsPerOver: match.ballsPerOver,
     status: match.status,
@@ -43,7 +43,7 @@ export default function LiveHero({ match, switcher }: { match: Match; switcher?:
   const eq = liveEquation(match, card) ?? liveEquation(match);
   const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
 
-  // Same check as the match page: crex latches break notes after play resumes.
+  // Same check as the match page: the upstream latches break notes after play resumes.
   const state = matchStateOf(
     match,
     feedCheckedNote(match, { innings: extras.innings, lastBallAt: extras.commentary[0]?.timestamp ?? null, now: extras.fetchedAt }),

@@ -1,13 +1,13 @@
 import type { NewsArticle, NewsPage, NewsTag, NewsTagKind } from '@/types';
 import {
-  getCrexNewsArticle,
-  getCrexNewsTopics,
-  getCrexTaggedNews,
+  getApiNewsArticle,
+  getApiNewsTopics,
+  getApiTaggedNews,
   isRejectedRequest,
-  type CrexNewsArticle,
-  type CrexNewsTopics,
-  type CrexTaggedNews,
-} from './crex';
+  type ApiNewsArticle,
+  type ApiNewsTopics,
+  type ApiTaggedNews,
+} from './api';
 
 export const NEWS_PAGE_SIZE = 12;
 // Matches the Worker's bound on /news/topics.
@@ -19,7 +19,7 @@ const IMAGE_HOSTS = new Set(['onecricketnews.akamaized.net', 'storage.googleapis
 
 /**
  * The same file is served from Google Storage as an original (~80 KB JPEG) and
- * from crex's CDN, which resizes to WebP on `type` (mq ~30 KB, lq ~8 KB).
+ * from the upstream's CDN, which resizes to WebP on `type` (mq ~30 KB, lq ~8 KB).
  */
 export function newsImage(raw: string | undefined, quality: 'mq' | 'lq'): string | null {
   if (!raw) return null;
@@ -49,7 +49,7 @@ function isoFromEpoch(ms: string | undefined): string | null {
   return Number.isFinite(n) && n > 0 ? new Date(n).toISOString() : null;
 }
 
-function decodeTags(raw: CrexNewsArticle['tags_array']): NewsTag[] {
+function decodeTags(raw: ApiNewsArticle['tags_array']): NewsTag[] {
   const seen = new Set<string>();
   const tags: NewsTag[] = [];
   for (const t of raw ?? []) {
@@ -62,14 +62,14 @@ function decodeTags(raw: CrexNewsArticle['tags_array']): NewsTag[] {
   return tags;
 }
 
-// crex's own slug, which ends in the article id — "kusal-mendis-…-6ac4e7776151a66b14efba17".
+// The upstream's own slug, which ends in the article id — "kusal-mendis-…-6ac4e7776151a66b14efba17".
 const SLUG = /^[a-z0-9-]*?([0-9a-f]{24})$/;
 
 export function idFromSlug(slug: string): string | null {
   return SLUG.exec(slug)?.[1] ?? null;
 }
 
-export function decodeArticle(raw: CrexNewsArticle, fallbackTime?: string): NewsArticle | null {
+export function decodeArticle(raw: ApiNewsArticle, fallbackTime?: string): NewsArticle | null {
   const id = raw._id ?? raw.id;
   const title = raw.header?.trim();
   const path = raw.newsUrl;
@@ -97,23 +97,23 @@ function uniqueNewestFirst(articles: Array<NewsArticle | null>): NewsArticle[] {
   return [...byId.values()].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 }
 
-export function newsFromTopics(raw: CrexNewsTopics, page: number): NewsPage {
+export function newsFromTopics(raw: ApiNewsTopics, page: number): NewsPage {
   const articles = (raw.topics ?? []).flatMap((t) => (t.articles ?? []).map((a) => decodeArticle(a, t.published_on)));
   return { articles: uniqueNewestFirst(articles), page, hasNext: !!raw.next && page < NEWS_MAX_PAGE };
 }
 
-export function newsFromTagged(raw: CrexTaggedNews): NewsArticle[] {
+export function newsFromTagged(raw: ApiTaggedNews): NewsArticle[] {
   return uniqueNewestFirst((raw.articles ?? []).map((a) => decodeArticle(a)));
 }
 
 export async function getLatestNews(page: number): Promise<NewsPage> {
-  return newsFromTopics(await getCrexNewsTopics(page, NEWS_PAGE_SIZE), page);
+  return newsFromTopics(await getApiNewsTopics(page, NEWS_PAGE_SIZE), page);
 }
 
 /** Never throws: news is a side section, and a failure should leave the page whole. */
 export async function getTaggedNews(kind: NewsTagKind, id: string): Promise<NewsArticle[]> {
   try {
-    return newsFromTagged(await getCrexTaggedNews(TAG_PARAM[kind], id));
+    return newsFromTagged(await getApiTaggedNews(TAG_PARAM[kind], id));
   } catch {
     return [];
   }
@@ -142,7 +142,7 @@ export async function getNewsStory(slug: string): Promise<NewsStory | null> {
   const id = idFromSlug(slug);
   if (!id) return null;
   try {
-    const body = await getCrexNewsArticle(id);
+    const body = await getApiNewsArticle(id);
     const article = body.articleData ? decodeArticle(body.articleData) : null;
     if (article) {
       const related = uniqueNewestFirst(

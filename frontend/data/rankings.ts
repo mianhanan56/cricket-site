@@ -1,13 +1,13 @@
 // Bundled snapshot of the ICC player rankings — the fallback, not the source.
 //
-// Live rankings come from crex via the Worker's /rankings/players route (see
+// Live rankings come from the upstream via the Worker's /rankings/players route (see
 // lib/rankings.ts). This file only renders when that is unreachable, and when it
 // does the page caption says "as of <date>" so the staleness is visible rather
 // than silent. Worth refreshing occasionally, along with `asOf` in the JSON, so
 // the floor does not drift too far from reality — but nothing breaks if it does.
 //
 // It briefly served a second purpose: rankings lived in Cloudflare KV for a
-// while, seeded from this same JSON, back when crex's rankings endpoint looked
+// while, seeded from this same JSON, back when the upstream's rankings endpoint looked
 // unreachable. It wasn't — see the Worker's README.
 //
 // NOTE: the ICC does not publish Women's Test rankings (women play almost no
@@ -24,7 +24,7 @@ export interface RankRow {
 }
 
 /**
- * One team row as stored. `teamKey` is crex's f_key, kept so the fallback can
+ * One team row as stored. `teamKey` is the upstream's f_key, kept so the fallback can
  * still draw crests — without it the floor renders initials where the live path
  * shows badges, which reads as a bug rather than as staleness.
  */

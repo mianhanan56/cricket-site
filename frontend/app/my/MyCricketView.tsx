@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import type { Match, TeamCrest } from '@/types';
-import { useCrexMatches } from '@/hooks/useCrexMatches';
+import { useApiMatches } from '@/hooks/useApiMatches';
 import { followCount, isFollowedMatch, toggleFollow, useFollows, type Follows } from '@/lib/follows';
 import { loadRemoteIndex, type RemoteIndex } from '@/lib/searchIndex';
 import { PageHeader, SectionHead } from '@/components/ui/Section';
@@ -103,7 +103,7 @@ function FollowingPanel({ follows }: { follows: Follows }) {
 
 export default function MyCricketView() {
   const follows = useFollows();
-  const { matches, isLoading } = useCrexMatches({ intervalMs: 15_000 });
+  const { matches, isLoading } = useApiMatches({ intervalMs: 15_000 });
   const [index, setIndex] = useState<RemoteIndex | null>(null);
   useEffect(() => {
     loadRemoteIndex().then(setIndex);

@@ -1,7 +1,8 @@
+import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { HeadToHeadMatch, VenueProfile } from '@/types';
-import { getCrexFixtureRange } from '@/lib/crex';
+import { getApiFixtureRange } from '@/lib/api';
 import { venueProfile } from '@/lib/venues';
 import TeamBadge from '@/components/ui/TeamBadge';
 import LocalTime from '@/components/ui/LocalTime';
@@ -15,14 +16,15 @@ import { meetingFormat } from '@/lib/seriesFormat';
 // Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
 const REVALIDATE = 1800;
 
-async function loadVenue(key: string): Promise<VenueProfile | null> {
-  const corpus = await getCrexFixtureRange({ revalidate: REVALIDATE });
+// cache(): generateMetadata and the page share one read per request.
+const loadVenue = cache(async (key: string): Promise<VenueProfile | null> => {
+  const corpus = await getApiFixtureRange({ revalidate: REVALIDATE });
   // Normally ~1,000 fixtures; none at all means the feed is down, which is not a missing venue.
   if (!corpus.length) throw new Error('Fixture list unavailable');
 
   const named = corpus.find((m) => m.venueId === key && m.venue !== 'TBD');
   return venueProfile(key, named?.venue ?? 'Unknown ground', corpus);
-}
+});
 
 export async function generateMetadata({ params }: { params: { key: string } }) {
   const venue = await loadVenue(params.key).catch(() => null);

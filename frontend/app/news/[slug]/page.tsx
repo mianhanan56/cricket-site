@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { getNewsStory, newsTagHref } from '@/lib/news';
@@ -7,8 +8,11 @@ import LocalTime from '../../../components/ui/LocalTime';
 import { SectionHead } from '../../../components/ui/Section';
 import styles from './story.module.scss';
 
+// cache(): generateMetadata and the page share one read per request.
+const loadStory = cache(getNewsStory);
+
 export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const story = await getNewsStory(params.slug).catch(() => null);
+  const story = await loadStory(params.slug).catch(() => null);
   if (!story) return { title: 'News' };
   const { article } = story;
   return {
@@ -25,7 +29,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function NewsStoryPage({ params }: { params: { slug: string } }) {
-  const story = await getNewsStory(params.slug);
+  const story = await loadStory(params.slug);
   if (!story) notFound();
   const { article, related } = story;
   // The id alone finds the story; a stale or hand-typed slug moves to the real one.
@@ -47,7 +51,7 @@ export default async function NewsStoryPage({ params }: { params: { slug: string
 
         {article.image && (
           <figure className={styles.figure}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- crex's CDN already serves resized WebP */}
+            {/* eslint-disable-next-line @next/next/no-img-element -- the upstream's CDN already serves resized WebP */}
             <img src={article.image} alt={article.imageCaption ?? ''} width={1280} height={720} className={styles.image} />
             {article.imageCaption && <figcaption className={styles.caption}>{article.imageCaption}</figcaption>}
           </figure>

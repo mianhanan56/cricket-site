@@ -53,7 +53,7 @@ export const toBallEntry = ({
 type Delivery = Pick<CommentaryBall, 'id' | 'over' | 'ball' | 'extra' | 'scoreAfter' | 'inning'>;
 
 /**
- * One entry per delivery. crex can re-publish a ball under a new id, which an id merge keeps
+ * One entry per delivery. The upstream can re-publish a ball under a new id, which an id merge keeps
  * twice. A legal ball is its innings, over and ball; a wide or no ball shares its number with
  * the next delivery, so the score after it tells two of them apart. The newer id wins.
  */

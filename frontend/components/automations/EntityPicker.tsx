@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useMemo, useState } from 'react';
-import { useCrexMatches } from '@/hooks/useCrexMatches';
+import { useApiMatches } from '@/hooks/useApiMatches';
 import { loadRemoteIndex, type RemoteIndex } from '@/lib/searchIndex';
 import { useFollows } from '@/lib/follows';
 import { activeSeries, activeTeams } from '@/lib/alertSuggestions';
@@ -33,7 +33,7 @@ export default function EntityPicker({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [remote, setRemote] = useState<RemoteIndex | null>(null);
-  const { matches } = useCrexMatches({ intervalMs: 60_000 });
+  const { matches } = useApiMatches({ intervalMs: 60_000 });
   const follows = useFollows();
 
   useEffect(() => {

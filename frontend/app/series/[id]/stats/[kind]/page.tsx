@@ -1,12 +1,13 @@
+import { cache } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { SeriesStatKind, SeriesStatRow, SeriesStatTable } from '@/types';
 import {
   SERIES_STAT_KINDS,
-  getCrexSeriesSchedule,
-  getCrexSeriesStatTable,
+  getApiSeriesSchedule,
+  getApiSeriesStatTable,
   seriesStatLabel,
-} from '../../../../../lib/crex';
+} from '../../../../../lib/api';
 import PlayerPortrait from '../../../../../components/player/PlayerPortrait';
 import TableScroll from '../../../../../components/ui/TableScroll';
 import TeamBadge from '../../../../../components/ui/TeamBadge';
@@ -51,11 +52,14 @@ const HEADLINE: Record<SeriesStatKind, { head: string; unit: string | null; repl
   ECONOMY: { head: 'Econ', unit: 'economy', replaces: 'Econ' },
 };
 
+// cache(): generateMetadata and the page share one read per request.
+const readSchedule = cache((id: string) => getApiSeriesSchedule(id, { revalidate: REVALIDATE }));
+
 export async function generateMetadata({ params }: { params: { id: string; kind: string } }) {
   const kind = SLUGS[params.kind];
   if (!kind) return { title: 'Series stats' };
 
-  const series = await getCrexSeriesSchedule(params.id, { revalidate: REVALIDATE }).catch(() => null);
+  const series = await readSchedule(params.id).catch(() => null);
   const label = seriesStatLabel(kind);
 
   return {
@@ -107,8 +111,8 @@ export default async function SeriesStatPage({ params }: { params: { id: string;
 
   // An unknown series reads back as null; an outage throws to the error boundary.
   const [series, table] = await Promise.all([
-    getCrexSeriesSchedule(params.id, { revalidate: REVALIDATE }),
-    getCrexSeriesStatTable(params.id, kind, { revalidate: REVALIDATE }).catch(() => null),
+    readSchedule(params.id),
+    getApiSeriesStatTable(params.id, kind, { revalidate: REVALIDATE }).catch(() => null),
   ]);
 
   if (!series) notFound();

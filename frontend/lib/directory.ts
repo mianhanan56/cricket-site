@@ -18,7 +18,7 @@ export interface DirectoryTeam extends TeamCrest {
   ranks: Array<{ format: RankingFormat; position: number }>;
 }
 
-/** Everyone on a live ICC list, once each, keyed by crex f_key. */
+/** Everyone on a live ICC list, once each, keyed by the upstream f_key. */
 export function rankedDirectory(rankings: Rankings): {
   players: DirectoryPlayer[];
   teams: DirectoryTeam[];

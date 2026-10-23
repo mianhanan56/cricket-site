@@ -4,18 +4,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FeedNote, HeadToHead, InningsScore, Match, OverSummary, PointsTableGroup, SeriesLeaders } from '@/types';
 import {
   IDLE_INTERVAL_MS,
-  useCrexCommentaryHistory,
-  useCrexMatch,
-  useCrexMatchExtras,
-  useCrexMatchSquads,
-} from '@/hooks/useCrexMatches';
+  useApiCommentaryHistory,
+  useApiMatch,
+  useApiMatchExtras,
+  useApiMatchSquads,
+} from '@/hooks/useApiMatches';
 import { useSeriesLeaders } from '@/hooks/useSeriesLeaders';
 import type { MatchTab } from '@/lib/tabs';
 import { useLiveStatus } from '@/lib/live/socket';
 import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
 import { battedInnings, formatTeamScore, inningsFor, withCard } from '@/lib/innings';
 import { creaseContext, matchSituation, type MatchSituation } from '@/lib/situation';
-import { isStaleStoppage, attributeResult } from '@/lib/crex';
+import { isStaleStoppage, attributeResult } from '@/lib/api';
 import { matchStateOf } from '@/lib/matchState';
 import { breakFromFeed } from '@/lib/feedBreak';
 import { inningsProgress, liveEquation } from '@/lib/telemetry';
@@ -67,11 +67,11 @@ export default function MatchDetail({
 }: {
   matchId: string;
   initial: Match;
-  /** A scheduled fixture with no crex key yet — nothing match-keyed exists upstream. */
+  /** A scheduled fixture with no upstream key yet — nothing match-keyed exists upstream. */
   preview?: boolean;
   headToHead?: HeadToHead | null;
   seriesTable?: PointsTableGroup[];
-  /** The series' leaders, for the Stats tab; null where crex has none yet. */
+  /** The series' leaders, for the Stats tab; null where the upstream has none yet. */
   seriesLeaders?: SeriesLeaders | null;
   /** `?tab=` from the URL; '' when absent or not a tab. */
   initialTab?: TabKey | '';
@@ -103,24 +103,24 @@ export default function MatchDetail({
   // Polling is not gated on LIVE: a page opened before the toss has to keep
   // asking to learn the match has started. Status sets the cadence; a finished
   // match stops once its result line is in, which can land after the finish.
-  const { match: polled, lastUpdated, error: listError } = useCrexMatch(matchId, {
+  const { match: polled, lastUpdated, error: listError } = useApiMatch(matchId, {
     initial,
     enabled: !preview && (match.status !== 'COMPLETED' || !match.result),
     intervalMs: isLive ? undefined : IDLE_INTERVAL_MS,
   });
 
   const extrasEnabled = !preview && match.status !== 'UPCOMING';
-  const crexExtras = useCrexMatchExtras(matchId, {
+  const apiExtras = useApiMatchExtras(matchId, {
     enabled: extrasEnabled,
     // A finished card is final: fetch once, then stop.
     repeat: isLive,
     ballsPerOver: match.ballsPerOver,
     status: match.status,
   });
-  const extrasPending = extrasEnabled && !crexExtras.loaded;
+  const extrasPending = extrasEnabled && !apiExtras.loaded;
 
   const squadsEnabled = !preview;
-  const { squads: squadsByTeam, conditions, loaded: squadsLoaded } = useCrexMatchSquads(matchId, {
+  const { squads: squadsByTeam, conditions, loaded: squadsLoaded } = useApiMatchSquads(matchId, {
     enabled: squadsEnabled,
   });
   const squads = useMemo(() => {
@@ -131,18 +131,18 @@ export default function MatchDetail({
   // Placeholders only before the toss, where the list is the tallest thing on the tab.
   const squadsPending = squadsEnabled && match.status === 'UPCOMING' && !squadsLoaded && !squads;
 
-  // The crex card is a complete card each poll, not a delta.
+  // The upstream card is a complete card each poll, not a delta.
   useEffect(() => {
     if (!polled) return;
-    setMatch(withCard(polled, crexExtras.innings.length ? crexExtras.innings : undefined));
-  }, [polled, crexExtras.innings]);
+    setMatch(withCard(polled, apiExtras.innings.length ? apiExtras.innings : undefined));
+  }, [polled, apiExtras.innings]);
 
   useEffect(() => {
-    if (!crexExtras.commentary.length) return;
-    const entries = crexExtras.commentary.map(toBallEntry);
+    if (!apiExtras.commentary.length) return;
+    const entries = apiExtras.commentary.map(toBallEntry);
     setCommentary(entries.slice(0, MAX_COMMENTARY));
     setDots([...entries].reverse().slice(-MAX_DOTS));
-  }, [crexExtras.commentary]);
+  }, [apiExtras.commentary]);
 
   const isConnected = Boolean(lastUpdated);
   const liveStatus = useLiveStatus();
@@ -151,7 +151,7 @@ export default function MatchDetail({
   const innings = match.scorecard?.innings ?? [];
   const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
 
-  // crex latches break codes after play resumes; this page holds the freshest
+  // The upstream latches break codes after play resumes; this page holds the freshest
   // score and the last ball's time, so it is best placed to drop a stale one.
   // The clock is the poll's own, not Date.now(), to keep hydration stable.
   const note =
@@ -167,7 +167,7 @@ export default function MatchDetail({
       : match.note;
   // An interval the commentary has just called, which the list feed cannot report fresh.
   // A stoppage the list does report as stopping play (rain, stumps) still wins over it.
-  const feedBreak = isLive ? breakFromFeed(crexExtras.events, commentary[0]?.timestamp) : null;
+  const feedBreak = isLive ? breakFromFeed(apiExtras.events, commentary[0]?.timestamp) : null;
   const listStoppage = Boolean(note?.paused && note.kind !== 'BREAK');
   const state = matchStateOf(match, feedBreak && !listStoppage ? feedBreak : note);
 
@@ -176,60 +176,63 @@ export default function MatchDetail({
   const awayScore = scoreParts(inningsFor(match, match.awayTeam), perOver, multiInnings);
 
   const cardDots = useMemo(
-    () => (isLive ? reachedByCard(dots, crexExtras.innings, perOver) : dots),
-    [isLive, dots, crexExtras.innings, perOver]
+    () => (isLive ? reachedByCard(dots, apiExtras.innings, perOver) : dots),
+    [isLive, dots, apiExtras.innings, perOver]
   );
   // Not while play is stopped: the newest delivery then belongs to an innings that has ended.
   const lastBall = isLive && state.alive ? cardDots[cardDots.length - 1] ?? null : null;
 
   // Rates and crease read the fetched card — only it returns innings in innings order.
   const eq = useMemo(
-    () => (isLive ? liveEquation(match, crexExtras.innings.length ? crexExtras.innings : undefined) : null),
-    [isLive, match, crexExtras.innings]
+    () => (isLive ? liveEquation(match, apiExtras.innings.length ? apiExtras.innings : undefined) : null),
+    [isLive, match, apiExtras.innings]
   );
   const situation = useMemo(
-    () => (isLive ? matchSituation(match, crexExtras.innings) : NO_SITUATION),
-    [isLive, match, crexExtras.innings]
+    () => (isLive ? matchSituation(match, apiExtras.innings) : NO_SITUATION),
+    [isLive, match, apiExtras.innings]
   );
   const stand = useMemo(
-    () => (isLive ? creaseContext(crexExtras.innings) : { partnership: null, lastWicket: null }),
-    [isLive, crexExtras.innings]
+    () => (isLive ? creaseContext(apiExtras.innings) : { partnership: null, lastWicket: null }),
+    [isLive, apiExtras.innings]
   );
   const crease = useMemo(
-    () => (isLive ? creaseFromCard(match, crexExtras.innings, lastBall?.text ?? null) : null),
-    [isLive, match, crexExtras.innings, lastBall]
+    () => (isLive ? creaseFromCard(match, apiExtras.innings, lastBall?.text ?? null) : null),
+    [isLive, match, apiExtras.innings, lastBall]
   );
 
   // The innings in play: the feed's newest ball, else the last one either card has started.
-  const startedInnings = (crexExtras.innings.length ? crexExtras.innings : innings).filter((i) => !i.notStarted).length;
+  const startedInnings = (apiExtras.innings.length ? apiExtras.innings : innings).filter((i) => !i.notStarted).length;
   const inningInPlay = commentary[0]?.inning ?? (startedInnings ? startedInnings - 1 : null);
-  const history = useCrexCommentaryHistory(matchId, {
+  const history = useApiCommentaryHistory(matchId, {
     enabled: !preview && (tab === 'commentary' || tab === 'live') && match.status !== 'UPCOMING',
     inning: inningInPlay,
   });
+
+  // Mapped once per history read, not on every live feed update.
+  const historyEntries = useMemo(() => history.balls.map(toBallEntry), [history.balls]);
 
   // Ordered by innings, over, ball — not by id, which can fall back to "64.3".
   const feedBalls = useMemo(() => {
     const byId = new Map<string, BallEntry>();
     for (const b of commentary) byId.set(b.id, b);
-    for (const b of history.balls) byId.set(b.id, toBallEntry(b));
+    for (const b of historyEntries) byId.set(b.id, b);
     const sorted = dedupeDeliveries([...byId.values()]).sort((a, b) => (b.inning ?? 0) - (a.inning ?? 0) || b.over - a.over || b.ball - a.ball);
-    return isLive ? reachedByCard(sorted, crexExtras.innings, perOver) : sorted;
-  }, [commentary, history.balls, isLive, crexExtras.innings, perOver]);
+    return isLive ? reachedByCard(sorted, apiExtras.innings, perOver) : sorted;
+  }, [commentary, historyEntries, isLive, apiExtras.innings, perOver]);
 
   const feedOvers = useMemo(() => {
     const byId = new Map<string, OverSummary>();
-    for (const o of crexExtras.overs) byId.set(o.id, o);
+    for (const o of apiExtras.overs) byId.set(o.id, o);
     for (const o of history.overs) byId.set(o.id, o);
     return [...byId.values()].sort((a, b) => b.inning - a.inning || b.over - a.over);
-  }, [crexExtras.overs, history.overs]);
+  }, [apiExtras.overs, history.overs]);
 
   const feedNotes = useMemo(() => {
     const byId = new Map<string, FeedNote>();
-    for (const n of crexExtras.notes) byId.set(n.id, n);
+    for (const n of apiExtras.notes) byId.set(n.id, n);
     for (const n of history.notes) byId.set(n.id, n);
     return [...byId.values()];
-  }, [crexExtras.notes, history.notes]);
+  }, [apiExtras.notes, history.notes]);
 
   // The Live tab's strip: the innings' last three overs, from the whole feed rather than its newest page.
   const recentBalls = useMemo(() => {
@@ -317,8 +320,8 @@ export default function MatchDetail({
           eq={eq}
           situation={situation}
           stand={stand}
-          progress={state.alive ? inningsProgress(match, crexExtras.innings.length ? crexExtras.innings : undefined) : null}
-          connecting={isLive && !isConnected && !crexExtras.fetchedAt}
+          progress={state.alive ? inningsProgress(match, apiExtras.innings.length ? apiExtras.innings : undefined) : null}
+          connecting={isLive && !isConnected && !apiExtras.fetchedAt}
           interrupted={interrupted}
           perOver={perOver}
           nextPlay={conditions?.nextPlay}
@@ -365,10 +368,10 @@ export default function MatchDetail({
             match={match}
             state={state}
             perOver={perOver}
-            innings={crexExtras.innings}
+            innings={apiExtras.innings}
             balls={feedBalls}
             overs={feedOvers}
-            events={crexExtras.events}
+            events={apiExtras.events}
             groups={ballGroups}
             crease={crease}
             pending={extrasPending}
@@ -394,7 +397,7 @@ export default function MatchDetail({
         {tab === 'info' && (
           <InfoPanel
             match={match}
-            events={crexExtras.events}
+            events={apiExtras.events}
             squads={squads}
             squadsPending={squadsPending}
             conditions={conditions}

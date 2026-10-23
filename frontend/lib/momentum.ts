@@ -74,10 +74,16 @@ export function inningsWorms(
         .filter((p) => p.balls <= total)
         .sort((a, b) => a.balls - b.balls);
 
-      const ownBalls = balls.filter((b) => b.inning === index);
+      const ballsByOver = new Map<number, typeof balls>();
+      for (const b of balls) {
+        if (b.inning !== index) continue;
+        const list = ballsByOver.get(b.over + 1);
+        if (list) list.push(b);
+        else ballsByOver.set(b.over + 1, [b]);
+      }
       const bars: OverBar[] = own
         .map((o) => {
-          const inOver = ownBalls.filter((b) => b.over + 1 === o.over);
+          const inOver = ballsByOver.get(o.over) ?? [];
           // Boundary counts only when every delivery of the over is on hand.
           const complete = inOver.filter((b) => b.extra !== 'wide' && b.extra !== 'noball').length >= perOver;
           return {

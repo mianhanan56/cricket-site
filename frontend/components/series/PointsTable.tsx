@@ -27,12 +27,12 @@ export default function PointsTable({
   );
 }
 
-// The fourth column is whichever crex sent: NR on limited-overs, Draw on Tests.
+// The fourth column is whichever the upstream sent: NR on limited-overs, Draw on Tests.
 function Group({ group, marked }: { group: PointsTableGroup; marked: Set<string> }) {
   const hasDrawn = group.rows.some((r) => r.drawn !== null);
   const hasNoResult = group.rows.some((r) => r.noResult !== null);
   const hasRate = group.rows.some((r) => r.netRunRate !== null);
-  // A bilateral series awards no points; crex sends a column of zeros there.
+  // A bilateral series awards no points; the upstream sends a column of zeros there.
   const hasPoints = group.tournament;
 
   return (
@@ -206,7 +206,7 @@ function StatusTag({ state }: { state: keyof typeof TAG }) {
 
 const FORM_WORD = { W: 'won', L: 'lost', N: 'no result' } as const;
 
-/** Last five, oldest first — crex's own order. */
+/** Last five, oldest first — the upstream's own order. */
 function FormStrip({ form, inline = false }: { form: Array<'W' | 'L' | 'N'>; inline?: boolean }) {
   return (
     <span className={`${styles.form} ${inline ? styles.formInline : ''}`}>

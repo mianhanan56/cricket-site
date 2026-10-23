@@ -1,6 +1,6 @@
 // International vs domestic classification.
 //
-// The crex feed carries no flag for this — a match is just two team keys and a
+// The upstream feed carries no flag for this — a match is just two team keys and a
 // series name. So it is derived: a match is INTERNATIONAL when BOTH sides
 // resolve to a national team, and DOMESTIC otherwise (franchise leagues, state
 // and provincial sides, club cricket).
@@ -21,7 +21,7 @@ export type MatchType = 'ALL' | 'INTERNATIONAL' | 'DOMESTIC';
 export type MatchTypeKey = 'all' | 'international' | 'domestic';
 export const MATCH_TYPE_KEYS: readonly MatchTypeKey[] = ['all', 'international', 'domestic'];
 
-/** ICC members that field a senior national team crex is likely to list. */
+/** ICC members that field a senior national team the upstream is likely to list. */
 const NATIONS = new Set(
   [
     // Full members
@@ -64,7 +64,7 @@ function baseName(name: string, suffixes: readonly string[] = NATIONAL_SUFFIXES)
   const parts = name
     .toLowerCase()
     .replace(/[.’']/g, '')
-    // crex short names and some names use a dash for the qualifier ("SRL-W", "IND-A", "U19-Women").
+    // The upstream short names and some names use a dash for the qualifier ("SRL-W", "IND-A", "U19-Women").
     .replace(/-/g, ' ')
     .replace(/\bunder 19\b/g, 'u19')
     .replace(/\bunder 23\b/g, 'u23')
@@ -89,7 +89,7 @@ const isTestSide = (team: Side) =>
   [team.name, team.shortName].some((n) => Boolean(n) && TEST_NATIONS.has(baseName(n, ['women', 'w'])));
 
 /**
- * crex files every multi-day match as a Test. Only one between two senior full-member sides
+ * The upstream files every multi-day match as a Test. Only one between two senior full-member sides
  * is; the rest (Irani Cup, President's Trophy, A-team and youth "Tests") are not.
  */
 export function isUnofficialTest(match: { format: Match['format']; homeTeam: Side; awayTeam: Side }): boolean {
@@ -101,7 +101,7 @@ const isNationalTeam = (name: string | undefined) =>
 
 /**
  * True when both sides are national teams. Checks the full name first and the
- * short name second — crex resolves most teams to a full name, but degrades to
+ * short name second — the upstream resolves most teams to a full name, but degrades to
  * the raw key when its mapping call misses.
  */
 export function isInternationalMatch(match: Match): boolean {

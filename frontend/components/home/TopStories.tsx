@@ -13,7 +13,7 @@ function Story({ article, lead }: { article: NewsArticle; lead?: boolean }) {
   return (
     <article className={`${styles.story} ${lead ? styles.lead : ''} ${src ? '' : styles.bare}`}>
       {src && (
-        // eslint-disable-next-line @next/next/no-img-element -- crex's CDN already serves resized WebP
+        // eslint-disable-next-line @next/next/no-img-element -- the upstream's CDN already serves resized WebP
         <img
           className={styles.image}
           src={src}

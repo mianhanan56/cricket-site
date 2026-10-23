@@ -2,7 +2,7 @@ import type { Match, SeriesSummary } from '@/types';
 import { pickParam } from '../../lib/queryParams';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '../../lib/matchType';
 import { SERIES_STATUS_KEYS, type SeriesStatusKey } from '../../lib/tabs';
-import { getCrexMatchList, seriesFromMatches, withSeriesSchedules } from '../../lib/crex';
+import { getApiMatchList, seriesFromMatches, withSeriesSchedules } from '../../lib/api';
 import SeriesFilter from '../../components/series/SeriesFilter';
 import EmptyState from '../../components/ui/EmptyState';
 import { PageHeader } from '../../components/ui/Section';
@@ -32,7 +32,7 @@ export default async function SeriesPage({
   let matches: Match[] = [];
   let failed = false;
   try {
-    matches = await getCrexMatchList({ revalidate });
+    matches = await getApiMatchList({ revalidate });
   } catch {
     failed = true;
   }

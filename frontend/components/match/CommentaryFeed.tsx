@@ -50,7 +50,7 @@ function passesFilter(b: BallEntry, filter: BallFilter): boolean {
   }
 }
 
-// `over` is the over as a reader counts it: crex's deliveries 63.1–63.6 are the
+// `over` is the over as a reader counts it: the upstream's deliveries 63.1–63.6 are the
 // 64th over, and its summary row for them is numbered 64.
 type FeedRow =
   | { kind: 'ball'; key: string; over: number; ball: BallEntry }

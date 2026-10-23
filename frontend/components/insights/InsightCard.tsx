@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Match } from '@/types';
-import { useCrexMatchExtras, useCrexMatchSquads } from '@/hooks/useCrexMatches';
-import { feedCheckedNote } from '@/lib/crex';
+import { useApiMatchExtras, useApiMatchSquads } from '@/hooks/useApiMatches';
+import { feedCheckedNote } from '@/lib/api';
 import { inningsUnderway, matchStateOf } from '@/lib/matchState';
 import { PHASE_LABEL, equationSentence, inningsProgress, inningsStarted, isChaseTight, liveEquation } from '@/lib/telemetry';
 import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
@@ -36,7 +36,7 @@ export default function InsightCard({ match }: { match: Match }) {
     return () => io.disconnect();
   }, []);
 
-  const extras = useCrexMatchExtras(match.id, {
+  const extras = useApiMatchExtras(match.id, {
     enabled: visible && match.status === 'LIVE',
     intervalMs: CARD_INTERVAL_MS,
     ballsPerOver: match.ballsPerOver,
@@ -51,7 +51,7 @@ export default function InsightCard({ match }: { match: Match }) {
   const eq = liveEquation(match);
   const started = inningsStarted(eq);
   // Before the first ball the card is the fixture: toss, conditions, and how the ground plays.
-  const { conditions } = useCrexMatchSquads(match.id, { enabled: visible && !started });
+  const { conditions } = useApiMatchSquads(match.id, { enabled: visible && !started });
   const weather = conditions?.weather;
   const ground = conditions?.venue;
 

@@ -1,5 +1,5 @@
 import type { Match } from '@/types';
-import { seriesFromMatches } from './crex';
+import { seriesFromMatches } from './api';
 
 export interface Suggestion {
   id: string;

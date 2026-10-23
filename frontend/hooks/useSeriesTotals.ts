@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { Match, SeriesSummary } from '@/types';
-import { withSeriesSchedules } from '@/lib/crex';
+import { withSeriesSchedules } from '@/lib/api';
 
 /**
  * Feed-derived series summaries with their real spans and totals, from each

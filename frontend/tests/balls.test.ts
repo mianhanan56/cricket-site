@@ -36,7 +36,7 @@ describe('one entry per delivery', () => {
   const d = (id: string, over: number, n: number, extra: BallEntry['extra'] = null, scoreAfter = '') =>
     ({ id, inning: 1, over, ball: n, extra, scoreAfter }) as BallEntry;
 
-  it('keeps the newer id of a ball crex re-published', () => {
+  it('keeps the newer id of a ball the upstream re-published', () => {
     const kept = dedupeDeliveries([d('902', 40, 1, null, '229/6'), d('901', 40, 1, null, '229/6')]);
     assert.deepEqual(kept.map((b) => b.id), ['902']);
   });

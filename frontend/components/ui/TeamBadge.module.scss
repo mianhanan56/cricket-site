@@ -47,7 +47,7 @@
   box-shadow: 0 0 0 1px $line;
 }
 
-// crex draws a national flag across the middle 64% of its canvas, so 1.56x fills the ring; the
+// The upstream draws a national flag across the middle 64% of its canvas, so 1.56x fills the ring; the
 // border edge clips it (club crests are smaller on the same canvas and stay whole).
 .badge img {
   width: 100%;

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { Match } from '@/types';
-import { getCrexMatchList } from '@/lib/crex';
+import { getApiMatchList } from '@/lib/api';
 import InsightsView from './InsightsView';
 
 export const metadata: Metadata = {
@@ -12,6 +12,6 @@ export const metadata: Metadata = {
 export const revalidate = 15;
 
 export default async function InsightsPage() {
-  const initial: Match[] = await getCrexMatchList({ revalidate }).catch(() => []);
+  const initial: Match[] = await getApiMatchList({ revalidate }).catch(() => []);
   return <InsightsView initial={initial} />;
 }

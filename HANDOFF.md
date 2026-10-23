@@ -7,8 +7,8 @@ If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS
 
 PulseCrease is a live cricket site (scores, match telemetry, momentum, series stats, client-side
 alerts). Next.js 14 App Router + TypeScript + SCSS Modules in `frontend/`, deployed to Vercel.
-All data comes from crex.com's undocumented internal APIs through a Cloudflare Worker in
-`worker-crex/`. **No backend, no database** — ignore any mention of Express/Prisma/Neon.
+All data comes from the upstream's undocumented internal APIs through a Cloudflare Worker in
+`worker/`. **No backend, no database** — ignore any mention of Express/Prisma/Neon.
 
 ## Current objective
 
@@ -22,7 +22,7 @@ its layout pass. Player page (2026-10-22): Recent form and Series performance re
 shared card style (`components/player/FormCard`), then merged into one "Form" section with a
 Recent / By series switch (`FormTabs`); career tables merged into one "Career" section with an
 International / Domestic switch (`CareerTabs`), both switches at the heading's right; hero, rankings and the aside are untouched
-so far. Match page (2026-10-22): the commentary sidebar is gone; crex's notes, stat cards and
+so far. Match page (2026-10-22): the commentary sidebar is gone; the upstream's notes, stat cards and
 reviews show inside the feed (ARCHITECTURE › Commentary tab). Same day: series stats bottom row,
 match rows without stadium (format chip first), Insights out of the nav, Fixtures dropdown filters
 + week strip, Rankings controls regrouped (ARCHITECTURE › Styling conventions › Filters vs tabs).
@@ -34,7 +34,7 @@ list's pill rows are now heading dropdowns like Fixtures. Live video streams wer
 restreams or iframes — declined (unlicensed). Agreed legal route, not built yet: "Watch live"
 link to the rights holder per match, official embeds where they exist, a second-screen live mode.
 
-2026-10-15: full code review (bugs) and a crex.com feature-gap survey, no code changed. Findings are
+2026-10-15: full code review (bugs) and an upstream feature-gap survey, no code changed. Findings are
 new TODO.md rows dated 2026-10-15; the user picks what to fix.
 
 A strict UX / mobile audit of production was completed on 2026-09-29 (no code changed). Findings
@@ -70,8 +70,8 @@ Uncommitted (2026-10-02, data-consistency fixes from a user bug report): Home Li
 matches at stumps (tab, ticker and Insights now count the same set) and the ticker names a stopped
 state instead of the overs; Home "Series in progress" uses each series' own schedule
 (`hooks/useSeriesTotals`); Home Upcoming/All merge the first two `/fixtures` pages for fixtures the
-live feed omits (`hooks/useFixturesAhead`, `getCrexFixturesAhead`); new `T10` match format
-(`n % 4 == 3` without `hb`, crex `ft` 4) plus a Fixtures T10 tab; pulse window counts 18 *legal*
+live feed omits (`hooks/useFixturesAhead`, `getApiFixturesAhead`); new `T10` match format
+(`n % 4 == 3` without `hb`, upstream `ft` 4) plus a Fixtures T10 tab; pulse window counts 18 *legal*
 balls; men's Test team list comes from the full `/rankings/players?category=team` list (12 Test
 nations, so Ireland is in the Teams directory); over-card tokens normalised to the strip's
 notation ("1nb" → "nb+1"); bare wicket cards in Key moments get the team score from the fall of
@@ -90,7 +90,7 @@ stays the fill behind `$signal-ink`; `Segmented fill` shares the Home status row
 buttons have aria-labels. "/" opens search (checked by key events through Chrome DevTools).
 
 Uncommitted (2026-10-02, follow-up): wicket events carry a `WicketRef` (batter f_key, innings,
-wicket number) from crex's `w` rows and `keyMoments` matches the fall of wickets by batter id —
+wicket number) from the upstream's `w` rows and `keyMoments` matches the fall of wickets by batter id —
 no prose/surname search (it hid wickets whose batter was named as a fielder elsewhere and
 doubled others); every wicket is the short "out for N (B) · TEAM r/w" line. Scorecard opens on
 the innings in progress (`phase === 'CURRENT'`, else last batted) until the reader picks one.
@@ -99,13 +99,13 @@ chips nowrap); skeleton rows (`div`) included.
 
 Uncommitted (2026-10-02, stumps rules — supersedes "Live tab includes stumps" above): one rule,
 `isLiveNow` / `isAtStumps` in `lib/matchState.ts`. A multi-day match at stumps (note kind STUMPS,
-from crex's `$l` status code first) is out of Home Live/count/strip/stage and Insights, and
+from the upstream's `$l` status code first) is out of Home Live/count/strip/stage and Insights, and
 appears in All only; search tags it "Stumps" (own section on /search). Breaks and delays stay
 Live. Play resuming clears the note (stale-stoppage logic) and it returns to Live on the next
 poll. Match centre at stumps: "Stumps · Day N", "Day N+1 starts <local time>" from match info
 `nt` (`MatchConditions.nextPlay`; omitted when absent), no tab dot, no batting mark. A Test
 side's earlier innings render small above the current one on phones (`ScoreParts.earlier`).
-Finishing (incl. a last-day draw) is crex's own status/result; nothing is inferred from stumps.
+Finishing (incl. a last-day draw) is the upstream's own status/result; nothing is inferred from stumps.
 
 Uncommitted (2026-10-06, fixes from a user bug report; supersedes "stumps in All only" above):
 Home Live tab lists matches at stumps after the live ones, and All is built from the three tabs, so
@@ -122,10 +122,10 @@ H2H "Draw"/"Tie"/"NR" mark, crest placeholders, pulse waits for a full window an
 wickets, Home stage holds its match through a 60s feed gap. PNG OG/Twitter/apple/manifest icons
 via `next/og`; sitemap has /teams, /players, /insights, not /search.
 
-Uncommitted (2026-10-06, news — from a crex.com gap review): `/news` page, News in nav/footer/
+Uncommitted (2026-10-06, news — from an upstream gap review): `/news` page, News in nav/footer/
 sitemap, News section on team and player pages, News tab on series pages (see ARCHITECTURE.md ›
 Pages). Worker: new `/news/tagged` route plus `{param}` path placeholders, `limit` on
-`/news/topics`. **Needs a Worker deploy** for team/series/player news. Articles open on crex.com.
+`/news/topics`. **Needs a Worker deploy** for team/series/player news. Articles open on the upstream.
 
 Uncommitted (2026-10-06, pre-launch QA): see PROJECT_STATUS › pre-launch QA. Outages no longer
 read as 404s on detail pages (ARCHITECTURE › Not found vs outage); match pages gained a hidden h1;
@@ -139,8 +139,8 @@ Results when finished. Tab counts no longer add up to All by design.
 Uncommitted (2026-10-07): ball-by-ball popups on the scorecard (ARCHITECTURE › Ball-by-ball popups)
 and PulseCrease news story pages (`/news/[slug]`). Worker changes (`inning` on
 `/match/commentary`, `/news/article`) need a deploy; both features already work without it, slower
-or via fallback. Story pages show the summary only and never mention crex (user decision); full article text
-is not republished (copyright) unless the user gets crex's permission.
+or via fallback. Story pages show the summary only and never mention the upstream (user decision); full article text
+is not republished (copyright) unless the user gets the upstream's permission.
 
 Superseded 2026-10-21: the wave ribbon below was deleted (user: "remove 3d"); Live/All are a flat grid.
 Uncommitted (2026-10-07, wave ribbon — from a user reference "Wave Gallery"): Home Live and All
@@ -158,10 +158,22 @@ shell before `notFound()` runs, so the status can't become 404 while they exist.
 
 ## Recommended next step
 
-First: **deploy the Worker** (`cd worker-crex && npm run deploy`) — the user's call; the live
+2026-10-23 refactor (ran alongside the rename; see PROJECT_STATUS): `lib/api` is now 22 modules —
+add new decoders to the domain module, shared lookups to `names.ts`, and export from `index.ts` only
+what callers outside `lib/api` need. Wrap any loader `generateMetadata` shares in React `cache()`.
+
+2026-10-23: the data source's name was removed from the whole repo (user request). The Worker is now
+`pulsecrease-api` in `worker/`, the client is `frontend/lib/api` (`getApi*`, `Api*` types, `apiGet`,
+`WORKER_URL`) and the env var is `NEXT_PUBLIC_WORKER_URL`. The frontend's default URL is
+`https://pulsecrease-api.pulse-cricket.workers.dev`, which exists only once the renamed Worker is
+deployed — **deploy before pushing the frontend**, or production loads no data. Comments and docs
+call the source "the upstream"; only the upstream hosts and `Origin`/`Referer` in `worker/src` and
+`worker/scripts/probe.sh` still name it, because the calls fail without them.
+
+First: **deploy the Worker** (`cd worker && npm run deploy`) — the user's call; the live
 scorecard/commentary hang (TODO, High) only clears with it. Then the match centre redesign.
 
-Deploy the Worker (`/news/tagged`, `/series/overview` TTL 30s). Next gap from the crex review: Stats Corner (TODO). Decide the 404-status trade-off (TODO). Then the
+Deploy the Worker (`/news/tagged`, `/series/overview` TTL 30s). Next gap from the upstream review: Stats Corner (TODO). Decide the 404-status trade-off (TODO). Then the
 user's pick from TODO.md. Earlier High rows: scorecard table clipping on
 phones, removing the Advanced alert builder plus alert/notification dedupe, the series stat value
 column, the insights score clipping, and team-page results.
@@ -170,12 +182,12 @@ column, the insights score clipping, and team-page results.
 
 ```bash
 cd frontend && npm install && npm run dev       # :3005, uses the deployed Worker by default
-cd worker-crex && npm install && npm run dev    # :8788 local Worker (optional)
+cd worker && npm install && npm run dev         # :8788 local Worker (optional)
 cd frontend && npm run local                    # frontend against local Worker (.env.wrangler.local)
 ```
 
 - There is **no root package.json**; the README's `--workspace` commands don't work from root.
-- Env vars are all optional (`NEXT_PUBLIC_CREX_WORKER_URL`, `NEXT_PUBLIC_SITE_URL`). Never put a
+- Env vars are all optional (`NEXT_PUBLIC_WORKER_URL`, `NEXT_PUBLIC_SITE_URL`). Never put a
   localhost Worker URL in `.env.local` — production builds throw on it by design.
 - Worker CORS allows only `http://localhost:3005` and `https://pulsecrease.vercel.app`.
 
@@ -185,7 +197,7 @@ cd frontend && npm run local                    # frontend against local Worker 
 cd frontend && npm test                 # node:test via tsx, offline
 cd frontend && npx tsc --noEmit -p .
 cd frontend && npm run check:live       # audits today's live feed (network)
-cd worker-crex && npm run typecheck
+cd worker && npm run typecheck
 ```
 
 ## Gotchas another agent must know
@@ -196,10 +208,10 @@ cd worker-crex && npm run typecheck
   into a scratch dir, symlink `node_modules`, build/start there on another port. Headless checks on
   other ports need CORS disabled in the browser.
 - Dev server runs on port 3005 (3000 is used by an unrelated app on this machine).
-- crex wire format is single-letter keys and changes without notice; if something breaks, probe
-  the Worker route first (`worker-crex/scripts/probe.sh`). "Invalid Host header" = wrong upstream host.
+- The upstream wire format is single-letter keys and changes without notice; if something breaks, probe
+  the Worker route first (`worker/scripts/probe.sh`). "Invalid Host header" = wrong upstream host.
 - Derived data (H2H, venues, team form) comes from the shared schedule window in
-  `getCrexFixtureRange`; keep callers on the same window so they share cache entries.
+  `getApiFixtureRange`; keep callers on the same window so they share cache entries.
 - Never guess result attribution; unattributable results are counted separately.
 
 ## User rules (from CLAUDE.md and prior feedback)

@@ -18,7 +18,7 @@
 // ============================================================================
 
 import type { HeadToHeadMatch, Match, Team, VenueProfile } from '@/types';
-import { attributeResult } from './crex';
+import { attributeResult } from './api';
 
 /** Sides listed as playing here regularly. A ground's tenants, not its visitors. */
 const REGULARS = 6;

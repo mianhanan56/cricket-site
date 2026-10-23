@@ -14,9 +14,9 @@ export interface PlayerSituationsProps {
 /**
  * Batsmen who left the middle without being dismissed.
  *
- * These are the only player-condition facts crex publishes as data — dismissal
+ * These are the only player-condition facts the upstream publishes as data — dismissal
  * codes 11, 12 and 13 on the card. A physio walking on gets mentioned in the
- * commentary prose and nowhere else, so it is reported there, in crex's own
+ * commentary prose and nowhere else, so it is reported there, in the upstream's own
  * words, rather than promoted here into an official status we cannot stand
  * behind.
  */

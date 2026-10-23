@@ -18,7 +18,7 @@ interface Innings {
   opponent: string;
 }
 
-// crex writes "22 (34)" batting and "3-41" bowling, the player's side first in "ENG vs PAK".
+// The upstream writes "22 (34)" batting and "3-41" bowling, the player's side first in "ENG vs PAK".
 function read(entry: PlayerFormEntry, discipline: Discipline): Innings {
   const m = discipline === 'batting' ? /^(\d+)\s*\((\d+)\)/.exec(entry.figures) : /^(\d+)-(\d+)/.exec(entry.figures);
   const lead = m ? Number(m[1]) : Number.parseInt(entry.figures, 10) || 0;
@@ -85,7 +85,7 @@ export default function RecentForm({
   const [open, setOpen] = useState(false);
 
   const entries = picked === 'batting' ? batting : bowling;
-  // crex sends newest first; the chart reads left to right in time.
+  // The upstream sends newest first; the chart reads left to right in time.
   const chrono = useMemo(() => [...entries].reverse().map((e) => read(e, picked)), [entries, picked]);
   const stats = useMemo(() => summary(chrono, picked), [chrono, picked]);
   const average = picked === 'batting' ? Number.parseFloat(stats[1][1]) : NaN;

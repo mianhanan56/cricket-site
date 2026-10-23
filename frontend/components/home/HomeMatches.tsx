@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Match } from '@/types';
-import { useCrexMatches } from '@/hooks/useCrexMatches';
+import { useApiMatches } from '@/hooks/useApiMatches';
 import { useFixturesAhead } from '@/hooks/useFixturesAhead';
 import { useSeriesTotals } from '@/hooks/useSeriesTotals';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
@@ -19,7 +19,7 @@ import type { HomeTab } from '@/lib/tabs';
 import { rankLive } from '@/lib/featured';
 import { isAtStumps, isLiveNow } from '@/lib/matchState';
 import { useFollows } from '@/lib/follows';
-import { seriesFromMatches } from '@/lib/crex';
+import { seriesFromMatches } from '@/lib/api';
 import { SeriesList } from '../series/SeriesFilter';
 import LiveHero from './LiveHero';
 import NextUpHero from './NextUpHero';
@@ -50,7 +50,7 @@ export interface HomeMatchesProps {
 }
 
 export default function HomeMatches({ initialTab, initialType, news }: HomeMatchesProps) {
-  const { matches, isLoading, error, refresh, isRefreshing } = useCrexMatches();
+  const { matches, isLoading, error, refresh, isRefreshing } = useApiMatches();
   const follows = useFollows();
   const [{ tab: picked, type: typeKey }, setQuery] = useQueryTabs(
     { tab: initialTab, type: initialType },

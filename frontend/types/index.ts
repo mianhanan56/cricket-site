@@ -45,7 +45,7 @@ export interface ISeriesSummary extends ISeries {
 }
 
 // The player entity and its batting/bowling stat blocks lived here, describing
-// the DB's Player table. There is still no player *corpus* — crex has no search
+// the DB's Player table. There is still no player *corpus* — the upstream has no search
 // endpoint, so nothing can enumerate players — but a single player, by key, is
 // now readable: see PlayerProfile at the foot of this file.
 
@@ -58,13 +58,13 @@ export interface IMatch {
   status: MatchStatus;
   venue: string;
   /**
-   * crex venue f_key, so the ground is a link and not just a caption. Null on a
-   * fixture crex has not allocated a venue to yet ("TBD"), which is most of a
+   * The upstream venue f_key, so the ground is a link and not just a caption. Null on a
+   * fixture the upstream has not allocated a venue to yet ("TBD"), which is most of a
    * league's playoff stage.
    */
   venueId?: string | null;
   startTime: string; // ISO string
-  /** 6 everywhere except The Hundred, which crex scores in sets of 5. */
+  /** 6 everywhere except The Hundred, which the upstream scores in sets of 5. */
   ballsPerOver?: number;
   /**
    * Balls in an innings when the format fixes that instead of an over count —
@@ -75,11 +75,11 @@ export interface IMatch {
   result?: string | null;
   /**
    * Official in-match state beyond `status` — the break, delay or stumps note
-   * crex is currently reporting. Null when play is simply going on.
+   * The upstream is currently reporting. Null when play is simply going on.
    */
   note?: MatchNote | null;
   /**
-   * Which match of the series this is, 1-based. Null where crex does not number
+   * Which match of the series this is, 1-based. Null where the upstream does not number
    * it — a one-off fixture, or a tour game outside the numbered rubber.
    */
   matchNumber?: number | null;
@@ -94,7 +94,7 @@ export interface IMatch {
   // Enrichments attached by GET /api/matches/:id (computed from the DB).
   teamForm?: { home: TeamFormEntry[]; away: TeamFormEntry[] } | null;
   squads?: MatchSquads | null;
-  /** Player of the match. Null until crex names one, which it does once the match is over. */
+  /** Player of the match. Null until the upstream names one, which it does once the match is over. */
   playerOfMatch?: PlayerOfMatch | null;
 }
 
@@ -106,7 +106,7 @@ export interface TeamFormEntry {
 }
 
 /**
- * The match award, as crex reports it: the player, the side they played for, and
+ * The match award, as the upstream reports it: the player, the side they played for, and
  * whichever of their two figures they earned it with. A specialist gets one of
  * the two — a batter has no bowling line to show — so both are nullable.
  */
@@ -116,7 +116,7 @@ export interface PlayerOfMatch {
   /** Team f_key, so the caller can name the side without a second lookup. */
   teamId: string;
   teamShortName: string;
-  /** Batting figures, crex's own notation: "65(36)", or "78(121)*" unbeaten. */
+  /** Batting figures, the upstream's own notation: "65(36)", or "78(121)*" unbeaten. */
   batting: string | null;
   /** Bowling figures, wickets first: "3/30". */
   bowling: string | null;
@@ -152,12 +152,12 @@ export type Match = IMatch;
 // LIVE / UPCOMING / COMPLETED answers "is this match on", and nothing more. A
 // reader watching a live page needs the next question answered too: play has
 // stopped — is that drinks, is it rain, is it the end of the day, or is it over?
-// crex sends that as a status code on the match feed, and these types carry it.
+// The upstream sends that as a status code on the match feed, and these types carry it.
 
 /**
  * Why play is stopped, or what the match state is beyond the three statuses.
  *
- * The kinds are display groupings, not crex codes: several codes share one
+ * The kinds are display groupings, not the upstream codes: several codes share one
  * (rain, bad light and a wet outfield are all `DELAY`) because a reader wants
  * the same thing from all of them — the label, and the fact that nobody is
  * batting right now.
@@ -175,14 +175,14 @@ export type MatchNoteKind =
   | 'TOSS'
   /** A terminal state that is not a win: drawn, tied, no result, super over. */
   | 'RESULT'
-  /** Something crex reported that this vocabulary has no code for. */
+  /** Something the upstream reported that this vocabulary has no code for. */
   | 'INFO';
 
 export interface MatchNote {
-  /** crex's own wording — "Drinks Break", "Stumps", "Match paused due to rain". */
+  /** The upstream's own wording — "Drinks Break", "Stumps", "Match paused due to rain". */
   label: string;
   kind: MatchNoteKind;
-  /** Qualifier crex sends alongside the status, e.g. "(wet outfield)". */
+  /** Qualifier the upstream sends alongside the status, e.g. "(wet outfield)". */
   detail?: string | null;
   /**
    * Play is stopped but the match is still alive. The one flag the UI needs to
@@ -206,7 +206,7 @@ export interface MatchNote {
    */
   preToss?: boolean;
   /**
-   * Came from crex's free-text `res` with no status code beside it. That text
+   * Came from the upstream's free-text `res` with no status code beside it. That text
    * outlives the break it names more often than the code does.
    */
   fromText?: boolean;
@@ -232,7 +232,7 @@ export interface MatchEvent {
   kind: MatchEventKind;
   /** Short heading — "Wicket", "End of over 22". */
   label: string;
-  /** crex's own sentence about it, when it sent one. Never synthesised. */
+  /** The upstream's own sentence about it, when it sent one. Never synthesised. */
   text?: string | null;
   /** Over the event belongs to, when the feed says. */
   over?: number | null;
@@ -241,18 +241,18 @@ export interface MatchEvent {
   wicket?: WicketRef;
 }
 
-/** A span of commentary text, decoded from crex's markup so nothing is rendered as HTML. */
+/** A span of commentary text, decoded from the upstream's markup so nothing is rendered as HTML. */
 export interface RichRun {
   text: string;
   strong?: boolean;
-  /** Underlined in crex's markup — its headings ("Freak Stat:"). */
+  /** Underlined in the upstream's markup — its headings ("Freak Stat:"). */
   title?: boolean;
 }
 
-/** Lines of runs; crex marks a paragraph with a blank line. */
+/** Lines of runs; the upstream marks a paragraph with a blank line. */
 export type RichParagraph = RichRun[][];
 
-/** Batting or bowling figures as crex counts them, the rest of the stat card around them. */
+/** Batting or bowling figures as the upstream counts them, the rest of the stat card around them. */
 export interface CareerCard {
   innings: number;
   /** Runs batting, wickets bowling. */
@@ -265,7 +265,7 @@ export interface CareerCard {
 }
 
 /**
- * Everything crex's commentary interleaves with the balls besides over summaries: its writers'
+ * Everything the upstream's commentary interleaves with the balls besides over summaries: its writers'
  * notes, stat cards, reviews and milestones. `at` (epoch ms) places it between deliveries.
  */
 export type FeedNote = { id: string; inning: number; at: number } & (
@@ -332,7 +332,7 @@ export interface WicketRef {
 }
 
 /**
- * A batsman who left the middle without being dismissed. crex has a dismissal
+ * A batsman who left the middle without being dismissed. The upstream has a dismissal
  * code for each, so these are read off the card rather than inferred from prose.
  */
 export type RetirementKind = 'HURT' | 'ABSENT' | 'OUT';
@@ -358,12 +358,12 @@ export interface InningsScore {
   /** XI members who have not batted yet, in card order. */
   yetToBat?: YetToBat[];
   /**
-   * Every stand of the innings, in order, as crex's card publishes them. The
+   * Every stand of the innings, in order, as the upstream's card publishes them. The
    * last one of an innings in progress is the partnership at the crease.
    */
   partnerships?: Partnership[];
   /**
-   * The score at each wicket, in order. Derived rather than fetched: crex writes
+   * The score at each wicket, in order. Derived rather than fetched: the upstream writes
    * the team's runs and balls at the moment of the dismissal onto the batsman's
    * own line, so the ledger is read off the card that already came down.
    */
@@ -385,7 +385,7 @@ export interface InningsScore {
 }
 
 /**
- * The five extras lines, as crex publishes them. Kept alongside the total so
+ * The five extras lines, as the upstream publishes them. Kept alongside the total so
  * the card can say *which* extras made up the number — a nine made of wides
  * reads very differently to one made of byes.
  */
@@ -411,7 +411,7 @@ export interface PartnershipBatsman {
 }
 
 /**
- * One stand, both halves and the total. Runs and balls are crex's own figures
+ * One stand, both halves and the total. Runs and balls are the upstream's own figures
  * rather than the sum of the two batsmen: extras charged during a stand belong
  * to the partnership and to neither batsman, so the two do not always agree.
  */
@@ -451,7 +451,7 @@ export interface BatsmanLine {
   dismissal?: string;
   /**
    * Set when the batsman left the middle without being dismissed — `HURT` and
-   * `ABSENT` are the injury signals crex actually publishes, `OUT` a tactical
+   * `ABSENT` are the injury signals the upstream actually publishes, `OUT` a tactical
    * retirement. `out` stays false for all three; this says which it was.
    */
   retired?: RetirementKind;
@@ -469,7 +469,7 @@ export interface BowlerLine {
 
 /**
  * `currentInnings`, `target` and `requiredRunRate` were fields here. No source
- * sets them: crex's card is a list of innings and nothing else, so the innings in
+ * sets them: the upstream's card is a list of innings and nothing else, so the innings in
  * progress is the last one that has batted and a target is the first innings'
  * total plus one. Both are derived where they are needed (lib/overs'
  * `inningsBallLimit`, MatchDetail's `computeRates`) rather than carried as
@@ -494,7 +494,7 @@ export interface IScorecard {
 export type BallExtra = 'wide' | 'noball' | 'bye' | 'legbye';
 
 /**
- * An over, as the ball feed's own summary row reports it — crex's numbers, not a
+ * An over, as the ball feed's own summary row reports it — the upstream's numbers, not a
  * roll-up of the deliveries we happen to have paged back for. It carries the two
  * batters and the bowler as they stood at the end of the over, which is what
  * makes it readable months later when nothing else on the page is live.
@@ -549,7 +549,7 @@ export type RankingFormat = 'TEST' | 'ODI' | 'T20I';
 export interface RankingEntry {
   id: string;
   /**
-   * crex player f_key, when the row came from a live list. Absent on the
+   * The upstream player f_key, when the row came from a live list. Absent on the
    * bundled snapshot, which stores names only — so a row links to a profile
    * exactly when there is a key to link with.
    */
@@ -582,7 +582,7 @@ export interface RankingEntry {
  */
 export interface TeamRankingEntry {
   id: string;
-  /** crex f_key — also what the crest URL is built from. */
+  /** The upstream f_key — also what the crest URL is built from. */
   teamKey: string;
   teamName: string;
   shortName: string;
@@ -601,31 +601,31 @@ export interface TeamRankingEntry {
 // article (there is no news source), the win-probability record (the widget
 // computes its own from the card — see components/match/WinProbability), and the
 // API-envelope and Socket.io payload types. The points table was in this list
-// too, on the belief that crex served no standings. It does —
+// too, on the belief that the upstream served no standings. It does —
 // `seriesInside/getPTableForSeriesID` — so the real shape is below. Nothing speaks that protocol now: every source is the
-// crex Worker, which returns plain JSON over HTTP.
+// The Worker, which returns plain JSON over HTTP.
 
 // ---------------------------------------------------------------------------
 // Player profile
 // ---------------------------------------------------------------------------
 //
-// One player, by crex f_key — the key already on every scorecard line, squad
+// One player, by the upstream f_key — the key already on every scorecard line, squad
 // member and ranking row, so every name the app prints can now open a page.
 //
 // Two shapes worth explaining before the fields:
 //
-//   *Format* here is a label, not the three-way MatchFormat enum. crex reports a
+//   *Format* here is a label, not the three-way MatchFormat enum. The upstream reports a
 //   career per competition — Test, ODI and T20I alongside the IPL, the PSL, the
 //   T20 Blast — and a batter's IPL record is not an entry in a TEST|ODI|T20
-//   union. The label is decoded from crex's own pair of codes; see
-//   `playerFormatLabel` in lib/crex.
+//   union. The label is decoded from the upstream's own pair of codes; see
+//   `playerFormatLabel` in lib/api.
 //
 //   *Figures* on a form entry arrive composed ("22 (34)", "3-41") rather than as
 //   parts. The two disciplines read differently — runs off balls faced, wickets
 //   for runs conceded — and one field that already says which is cheaper for
 //   every consumer than a union they each have to re-render.
 
-/** crex's own word for what a player is, from `rl` on the profile. */
+/** The upstream's own word for what a player is, from `rl` on the profile. */
 export type PlayerRoleLabel = 'Batter' | 'Bowler' | 'All Rounder' | 'Wicket-keeper';
 
 /** A batting career in one competition and format. */
@@ -633,7 +633,7 @@ export interface PlayerBattingCareer {
   /** Display label — "Test", "ODI", "T20I", "IPL", "T20-Blast". */
   format: string;
   /**
-   * Played for a country rather than a club. crex groups its own tables this
+   * Played for a country rather than a club. The upstream groups its own tables this
    * way and it is the split that matters: 1,300 T20 Blast runs and 1,300 Test
    * runs are not the same achievement, and averaging them together says nothing.
    */
@@ -648,7 +648,7 @@ export interface PlayerBattingCareer {
   average: number;
   fours: number;
   sixes: number;
-  /** crex sends this only on some formats; null where it does not. */
+  /** The upstream sends this only on some formats; null where it does not. */
   ducks: number | null;
   /** The match the highest score was made in, so the innings can be opened. */
   highScoreMatchId: string | null;
@@ -664,7 +664,7 @@ export interface PlayerBowlingCareer {
   wickets: number;
   economy: number;
   average: number;
-  /** Best innings figures, crex's notation: "5/23". Null when they have none. */
+  /** Best innings figures, the upstream's notation: "5/23". Null when they have none. */
   best: string | null;
   threeWickets: number;
   fiveWickets: number;
@@ -673,15 +673,15 @@ export interface PlayerBowlingCareer {
 
 /** One of a player's last ten innings, batting or bowling. */
 export interface PlayerFormEntry {
-  /** "22 (34)" batting, "3-41" bowling — wickets first, as crex prints it. */
+  /** "22 (34)" batting, "3-41" bowling — wickets first, as the upstream prints it. */
   figures: string;
   /** Batting only: they were still in at the end. */
   notOut: boolean;
   /** "PAK vs ENG", the player's side first. */
   fixture: string;
-  /** Competition label, or null when crex has no code for it. */
+  /** Competition label, or null when the upstream has no code for it. */
   format: string | null;
-  /** crex match key, so the innings can link to the match. Null when absent. */
+  /** The upstream match key, so the innings can link to the match. Null when absent. */
   matchId: string | null;
   date: string | null; // ISO string
 }
@@ -693,43 +693,43 @@ export interface PlayerRanking {
   discipline: 'Batter' | 'Bowler' | 'All Rounder';
 }
 
-/** When a player first played a format, in crex's own prose. */
+/** When a player first played a format, in the upstream's own prose. */
 export interface PlayerDebut {
   format: string;
   /** "England v South Africa Kennington Oval, London, 8-9-2022". */
   fixture: string;
-  /** The debut match itself, where crex still keys it. */
+  /** The debut match itself, where the upstream still keys it. */
   matchId: string | null;
 }
 
 export interface PlayerProfile {
-  /** crex f_key — what the page is routed by. */
+  /** The upstream f_key — what the page is routed by. */
   id: string;
   name: string;
-  /** Illustrated portrait crex serves off Akamai. Always built; may 404. */
+  /** Illustrated portrait the upstream serves off Akamai. Always built; may 404. */
   image: string | null;
   role: PlayerRoleLabel;
   gender: 'Male' | 'Female';
   dateOfBirth: string | null; // ISO string
-  /** Years, at today's date. Null when crex has no date of birth. */
+  /** Years, at today's date. Null when the upstream has no date of birth. */
   age: number | null;
   birthPlace: string | null;
   height: string | null;
   nationality: string | null;
-  /** "right handed · opener" — hand and position, as crex pairs them. */
+  /** "right handed · opener" — hand and position, as the upstream pairs them. */
   bats: string | null;
   /** "right-arm offbreak · spinner". Null for a player who does not bowl. */
   bowls: string | null;
-  /** Their signature shot, when crex names one. Rarely filled in. */
+  /** Their signature shot, when the upstream names one. Rarely filled in. */
   popularShot: string | null;
-  /** Every side they have played for, most senior first — crex's own order. */
+  /** Every side they have played for, most senior first — the upstream's own order. */
   teams: string[];
   /** National side's f_key, for the crest beside the name. */
   countryKey: string | null;
   countryShortName: string | null;
   /**
    * Editorial bio, sanitised to a handful of tags with every attribute dropped
-   * — crex sends Google-Docs HTML, inline styles and all. Null when unwritten.
+   * — the upstream sends Google-Docs HTML, inline styles and all. Null when unwritten.
    */
   bio: string | null;
   instagram: string | null;
@@ -740,7 +740,7 @@ export interface PlayerProfile {
   recentBatting: PlayerFormEntry[];
   recentBowling: PlayerFormEntry[];
   debuts: PlayerDebut[];
-  /** crex format codes (`ft`) the player has figures in — what the series filter offers. */
+  /** The upstream format codes (`ft`) the player has figures in — what the series filter offers. */
   formatCodes: number[];
 }
 
@@ -771,7 +771,7 @@ export interface PlayerSeriesInnings {
 
 /** One format's innings within a series — a tour can hold ODIs and T20Is. */
 export interface PlayerSeriesFormatRecord {
-  /** crex `ft`. */
+  /** The upstream `ft`. */
   code: number;
   /** "Test", "T20I", "100B" — the career tables' own labels. */
   label: string;
@@ -800,14 +800,14 @@ export interface PlayerSeriesPage {
 // Match conditions
 // ---------------------------------------------------------------------------
 //
-// The pre-match half of crex's own Match Info tab: the forecast, who is
+// The pre-match half of the upstream's own Match Info tab: the forecast, who is
 // standing, who is broadcasting, and what the ground has done historically. All
 // of it comes from the same `/match/info` response the squads do, so none of it
 // costs an extra call.
 
-/** The forecast at the ground, as crex publishes it. */
+/** The forecast at the ground, as the upstream publishes it. */
 export interface MatchWeather {
-  /** "29.2˚C" — crex's own string, degree symbol included. */
+  /** "29.2˚C" — the upstream's own string, degree symbol included. */
   temperature: string | null;
   min: string | null;
   max: string | null;
@@ -815,22 +815,22 @@ export interface MatchWeather {
   condition: string | null;
   /** Humidity, as a percentage figure without the sign: "75". */
   humidity: string | null;
-  /** Chance of rain — "96 %", crex's spacing. */
+  /** Chance of rain — "96 %", the upstream's spacing. */
   rainChance: string | null;
   /** "Windspeed: 13 km/h". */
   wind: string | null;
 }
 
-/** Who is standing. Names, resolved from crex's umpire key space. */
+/** Who is standing. Names, resolved from the upstream's umpire key space. */
 export interface MatchOfficials {
-  /** The two on-field umpires, in crex's order. */
+  /** The two on-field umpires, in the upstream's order. */
   onField: string[];
   thirdUmpire: string | null;
   referee: string | null;
 }
 
 /**
- * What the ground has done before — crex's own venue block for this format.
+ * What the ground has done before — the upstream's own venue block for this format.
  *
  * The averages are per innings of a match at this venue, which is why there are
  * four of them and why the later two are null outside multi-day cricket.
@@ -854,10 +854,10 @@ export interface VenueStats {
 export interface MatchConditions {
   weather: MatchWeather | null;
   officials: MatchOfficials | null;
-  /** Broadcasters, split out of crex's single comma-separated string. */
+  /** Broadcasters, split out of the upstream's single comma-separated string. */
   broadcast: string[];
   venue: VenueStats | null;
-  /** When play is next due — the next day's start on a multi-day match. crex's `nt`. */
+  /** When play is next due — the next day's start on a multi-day match. The upstream's `nt`. */
   nextPlay: string | null;
 }
 
@@ -868,24 +868,24 @@ export interface MatchConditions {
 // A league page without a table is a list of results the reader has to add up
 // themselves, which is the one thing standings exist to stop.
 //
-// Modelled as *groups*, not as a table, because crex sends groups: a league
+// Modelled as *groups*, not as a table, because the upstream sends groups: a league
 // answers with one, a World Cup group stage with one per group. A single flat
 // table would silently merge Group A and Group B into a standing that describes
 // no competition at all.
 
 /** One side's line in a points table. */
 export interface PointsTableRow {
-  /** crex team f_key — what the crest and the team page are keyed by. */
+  /** The upstream team f_key — what the crest and the team page are keyed by. */
   teamKey: string;
   team: ITeam;
-  /** crex's own position, which is not the order the rows arrive in. */
+  /** The upstream's own position, which is not the order the rows arrive in. */
   rank: number;
   played: number;
   won: number;
   lost: number;
   /**
    * Abandoned or washed out — a point each, and the reason W+L ≠ P. Null on a
-   * table that has no such column: crex sends `NR` on a limited-overs table and
+   * table that has no such column: the upstream sends `NR` on a limited-overs table and
    * `Draw` on a Test one, never both, so the two are carried separately and the
    * table draws whichever column it was actually given.
    */
@@ -894,11 +894,11 @@ export interface PointsTableRow {
   drawn: number | null;
   points: number;
   /**
-   * Net run rate, kept as crex's own signed string ("+1.805", "-0.119") rather
+   * Net run rate, kept as the upstream's own signed string ("+1.805", "-0.119") rather
    * than a number. It is a printed figure with a mandatory sign and exactly
    * three decimals; re-deriving that from a float only loses the "+".
    *
-   * Null where the format has no such figure — a Test table, where crex fills
+   * Null where the format has no such figure — a Test table, where the upstream fills
    * the field with a bare "0" that would otherwise print as a real run rate of
    * zero.
    */
@@ -914,7 +914,7 @@ export interface PointsTableRow {
 
 export interface PointsTableGroup {
   /**
-   * Group name, or null on a single-table league. crex sends the competition's
+   * Group name, or null on a single-table league. The upstream sends the competition's
    * own name there, which as a heading above one table is just the page title
    * again — so it is dropped rather than printed twice.
    */
@@ -925,7 +925,7 @@ export interface PointsTableGroup {
    *
    * False on a bilateral series, where the table is a scoreline: England and
    * Pakistan playing three Tests have wins, losses and draws but no competition
-   * points, and crex's `Pts` field is a column of zeros there. The table still
+   * points, and the upstream's `Pts` field is a column of zeros there. The table still
    * renders; the points column does not.
    */
   tournament: boolean;
@@ -937,7 +937,7 @@ export interface PointsTableGroup {
 // ---------------------------------------------------------------------------
 //
 // The tournament's own honours board — who has the most runs, the most wickets,
-// the highest score. crex answers this from one block of its series overview
+// the highest score. The upstream answers this from one block of its series overview
 // (`i4`), one leader per category, and a series page needs it for the reason a
 // reader opens one mid-tournament: the table says which side is winning, this
 // says who is.
@@ -961,17 +961,17 @@ export interface SeriesLeader {
   /** Printed heading — "Most runs", "Best figures". */
   label: string;
   /**
-   * The headline figure, kept as a string: crex sends "17/5" for figures and
+   * The headline figure, kept as a string: the upstream sends "17/5" for figures and
    * "169.79" for a rate, and both are printed as given rather than re-derived.
    */
   value: string;
-  /** crex player f_key — the link to the profile and the key the portrait uses. */
+  /** The upstream player f_key — the link to the profile and the key the portrait uses. */
   playerKey: string;
   playerName: string;
-  /** crex's illustrated portrait, or null where the player has none. */
+  /** The upstream's illustrated portrait, or null where the player has none. */
   playerImage: string | null;
   team: ITeam;
-  /** Innings batted or bowled in, where crex says. */
+  /** Innings batted or bowled in, where the upstream says. */
   innings: number | null;
   /**
    * The second figure that qualifies the first — a strike rate under a run
@@ -981,10 +981,10 @@ export interface SeriesLeader {
   support: string | null;
 }
 
-/** A tournament's honours board, plus the two totals crex sends with it. */
+/** A tournament's honours board, plus the two totals the upstream sends with it. */
 export interface SeriesLeaders {
   leaders: SeriesLeader[];
-  /** Fours hit in the whole tournament. Null where crex sends no total. */
+  /** Fours hit in the whole tournament. Null where the upstream sends no total. */
   fours: number | null;
   sixes: number | null;
 }
@@ -996,7 +996,7 @@ export interface SeriesLeaders {
 // The full ranking behind each honour — the top ten run scorers in a
 // tournament, with the innings, average and strike rate that produced them.
 //
-// Derived, not fetched: crex has no series-leaderboard endpoint (their own page
+// Derived, not fetched: the upstream has no series-leaderboard endpoint (their own page
 // builds it from a GraphQL id space that nothing in the public payloads
 // resolves). Every scorecard in the series is public, though, and a scorecard
 // carries every column this table needs, so the ranking is aggregated from them.
@@ -1080,14 +1080,14 @@ export interface SeriesStatTable {
 // Head to head
 // ---------------------------------------------------------------------------
 //
-// Derived, not fetched: crex has no h2h endpoint, but its schedule rows carry a
+// Derived, not fetched: the upstream has no h2h endpoint, but its schedule rows carry a
 // result *sentence*, and a sentence is enough. "won by 6 wickets" means the
 // winner batted second; "won by 34 runs" means they batted first. So a record
 // and a chased/defended split both fall out of text already on the wire.
 
 /** One previous meeting between two sides. */
 export interface HeadToHeadMatch {
-  /** Match key, or null where crex never allocated one. */
+  /** Match key, or null where the upstream never allocated one. */
   id: string | null;
   /** Stable list key — the match key or the fixture's slot. */
   key: string;
@@ -1095,11 +1095,11 @@ export interface HeadToHeadMatch {
   venue: string;
   format: MatchFormat;
   series: string;
-  /** crex's own sentence: "Guyana Amazon Warriors won by 5 wickets". */
+  /** The upstream's own sentence: "Guyana Amazon Warriors won by 5 wickets". */
   result: string;
   /**
    * f_key of the side that won, when the result names one. Null on a draw, a
-   * tie, a no-result — and on a win crex worded in a way this cannot attribute,
+   * tie, a no-result — and on a win the upstream worded in a way this cannot attribute,
    * which is why the record below counts `unresolved` separately rather than
    * quietly filing those as draws.
    */
@@ -1143,7 +1143,7 @@ export interface HeadToHead {
  * silent asterisk.
  */
 export interface VenueProfile {
-  /** crex venue f_key. */
+  /** The upstream venue f_key. */
   id: string;
   name: string;
   /**
@@ -1174,7 +1174,7 @@ export interface VenueProfile {
 // ---------------------------------------------------------------------------
 
 /**
- * crex's own colours for a side, off the mapping response. Three values, and the
+ * The upstream's own colours for a side, off the mapping response. Three values, and the
  * useful one is not the first: `cc` arrives as "0-#8F65E6" — a leading mode flag
  * and a hex — while `uc` and `dc` are plain hex. They are what makes a team page
  * look like that team rather than like the site's accent again.
@@ -1213,7 +1213,7 @@ export type NewsTagKind = 'team' | 'series' | 'player';
 
 export interface NewsTag {
   kind: NewsTagKind;
-  /** crex key — the same id our team, series and player routes take. */
+  /** The upstream key — the same id our team, series and player routes take. */
   id: string;
   name: string;
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useCrexMatches } from '@/hooks/useCrexMatches';
+import { useApiMatches } from '@/hooks/useApiMatches';
 import { closeOverlay, openOverlay, useOverlay } from '@/lib/uiState';
 import {
   buildIndex,
@@ -76,7 +76,7 @@ function SearchDialog() {
   const leaving = useRef(false);
   const opened = useRef(pathname);
 
-  const { matches, isLoading } = useCrexMatches({ intervalMs: 60_000 });
+  const { matches, isLoading } = useApiMatches({ intervalMs: 60_000 });
   const recent = recentSearchStore.use();
   const follows = useFollows();
 

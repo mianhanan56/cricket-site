@@ -7,7 +7,7 @@ export default function StateChip({
   className,
 }: {
   state: MatchStateView;
-  /** Print crex's full wording ("Toss delayed due to wet outfield") instead of the word. */
+  /** Print the upstream's full wording ("Toss delayed due to wet outfield") instead of the word. */
   full?: boolean;
   className?: string;
 }) {

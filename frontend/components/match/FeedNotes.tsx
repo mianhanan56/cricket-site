@@ -1,12 +1,12 @@
 import { Fragment } from 'react';
 import type { FeedNote, RichParagraph, Team } from '@/types';
-import { playerImageUrl } from '@/lib/crex';
+import { playerImageUrl } from '@/lib/api';
 import PlayerPortrait from '../player/PlayerPortrait';
 import PlayerLink from './PlayerLink';
 import styles from './FeedNotes.module.scss';
 
 export interface NoteContext {
-  /** Player names by key, for the cards crex sends with keys only. */
+  /** Player names by key, for the cards the upstream sends with keys only. */
   names: Map<string, string>;
   team: (id: string | null) => Team | null;
   /** "ODI", "T20", "Test". */
@@ -82,7 +82,7 @@ function batterContext(position: number | null): string {
 
 const MILESTONE_WORD: Record<number, string> = { 50: 'Fifty', 100: 'Hundred', 150: '150', 200: 'Double hundred', 300: 'Triple hundred' };
 
-/** One of crex's interleaved items, as a row of the commentary list. */
+/** One of the upstream's interleaved items, as a row of the commentary list. */
 export default function FeedNoteRow({ note, ctx }: { note: FeedNote; ctx: NoteContext }) {
   switch (note.kind) {
     case 'text':

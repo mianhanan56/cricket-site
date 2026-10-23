@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Match } from '@/types';
-import { HIDDEN_INTERVAL_MS, useCrexMatches } from '@/hooks/useCrexMatches';
-import { feedFromRows, getCrexMatchFeed, getCrexNewsTopics, type CrexFeedRow } from '@/lib/crex';
+import { HIDDEN_INTERVAL_MS, useApiMatches } from '@/hooks/useApiMatches';
+import { feedFromRows, getApiMatchFeed, getApiNewsTopics, type ApiFeedRow } from '@/lib/api';
 import { newsFromTopics } from '@/lib/news';
 import { isTopicLive, subscribeLive } from '@/lib/live/socket';
 import {
@@ -31,7 +31,7 @@ const MAX_FEED_MATCHES = 6;
 // A tab frozen, asleep or parked longer than this saw nothing happen live; what
 // changed meanwhile is history, not an alert.
 const STALE_GAP_MS = 5 * 60_000;
-// crex's news list is cached for 15 minutes at the edge; reading it more often finds nothing new.
+// The upstream's news list is cached for 15 minutes at the edge; reading it more often finds nothing new.
 const NEWS_INTERVAL_MS = 5 * 60_000;
 const NEWS_PER_READ = 3;
 
@@ -115,7 +115,7 @@ function NewsWatcher({ follows, background }: { follows: Follows; background: bo
       if (!isHidden() || backgroundRef.current) {
         readAt = Date.now();
         try {
-          const { articles } = newsFromTopics(await getCrexNewsTopics(1, 20), 1);
+          const { articles } = newsFromTopics(await getApiNewsTopics(1, 20), 1);
           if (cancelled) return;
           let sent = 0;
           for (const { article, about } of followedNews(articles, followsRef.current, Date.now())) {
@@ -153,7 +153,7 @@ function NewsWatcher({ follows, background }: { follows: Follows; background: bo
 
 function Runner({ rules, background }: { rules: Automation[]; background: boolean }) {
   const follows = useFollows();
-  const { matches } = useCrexMatches({ intervalMs: LIST_INTERVAL_MS, background });
+  const { matches } = useApiMatches({ intervalMs: LIST_INTERVAL_MS, background });
   const prev = useRef<{ matches: Match[]; at: number } | null>(null);
 
   const ctx = useMemo<ScopeContext>(
@@ -257,7 +257,7 @@ function FeedWatcher({
     const topic = `feed:${match.id}`;
 
     // Socket frames and polls land here alike; the seen sets make a repeat of either a no-op.
-    const consume = (feed: Pick<Awaited<ReturnType<typeof getCrexMatchFeed>>, 'balls' | 'events'>) => {
+    const consume = (feed: Pick<Awaited<ReturnType<typeof getApiMatchFeed>>, 'balls' | 'events'>) => {
       // A long gap means these balls are old news: learn them, don't announce them.
       if (Date.now() - readAt > STALE_GAP_MS) baseline = true;
       const found = feedFirings(matchRef.current, feed.balls, feed.events, seenBalls, seenEvents);
@@ -274,7 +274,7 @@ function FeedWatcher({
       if (timer) clearTimeout(timer);
       if (!isHidden() || backgroundRef.current) {
         try {
-          const feed = await getCrexMatchFeed(match.id, { minBalls: 6, maxPages: 1 });
+          const feed = await getApiMatchFeed(match.id, { minBalls: 6, maxPages: 1 });
           if (cancelled) return;
           consume(feed);
         } catch {
@@ -287,7 +287,7 @@ function FeedWatcher({
     };
 
     const offLive = subscribeLive(topic, (frame) => {
-      if (Array.isArray(frame.data)) consume(feedFromRows(frame.data as CrexFeedRow[]));
+      if (Array.isArray(frame.data)) consume(feedFromRows(frame.data as ApiFeedRow[]));
     });
 
     // Back on screen: read now rather than wait out a hidden-tab interval.

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { Fixture } from '@/lib/crex';
+import type { Fixture } from '@/lib/api';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import {
   addDays,

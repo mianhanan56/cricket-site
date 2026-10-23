@@ -2,12 +2,12 @@
 //
 // This suite exists because one bug kept coming back in different clothes: a
 // match that had stopped playing being shown as LIVE, or a match being played
-// being shown as stopped. Every case below is a real payload seen in the crex
+// being shown as stopped. Every case below is a real payload seen in the upstream
 // feed, kept as a fixture, so a future change to the rules has to say out loud
 // which of these it is willing to break.
 //
 // The rule the suite enforces, and the reason the cases read the way they do:
-// crex's own report of the match state wins unless something *observed*
+// The upstream's own report of the match state wins unless something *observed*
 // contradicts it — a delivery bowled seconds ago, a score that moved, or a card
 // that cannot be true alongside the label. Never a convention about how cricket
 // is usually run. Conventions are what produced the recurring bug: "a day's play
@@ -22,9 +22,9 @@ import {
   isStaleStoppage,
   toMatchFormat,
   toMatchStatus,
-  type CrexRawMatch,
+  type ApiRawMatch,
   type StoppageWatch,
-} from '../lib/crex';
+} from '../lib/api';
 import { isAtStumps, isLiveNow } from '../lib/matchState';
 import { isUnofficialTest, isInternationalMatch } from '../lib/matchType';
 import type { InningsScore, Match, MatchNote, Team } from '../types';
@@ -76,7 +76,7 @@ const T20_CHECK = { format: 'T20' as const, perOver: 6 };
 
 describe('stumps', () => {
   // IND v SL, Colombo, day 3: SL 265/8 in 83.4 overs, the day ended early with
-  // rain about. crex sent a:"$l", res:"Stumps"; the old over-boundary rule read
+  // rain about. The upstream sent a:"$l", res:"Stumps"; the old over-boundary rule read
   // the part-bowled over as proof of play and the card said LIVE.
   it('is kept when the day ended mid-over', () => {
     const check = {
@@ -146,7 +146,7 @@ describe('intervals inside an innings', () => {
 });
 
 describe('an innings break', () => {
-  // ACA v BAN-HP: crex still reported "Innings Break" with the chase 13.4 overs
+  // ACA v BAN-HP: the upstream still reported "Innings Break" with the chase 13.4 overs
   // deep. That is not a convention argument — no innings has just ended — so the
   // note goes, with no ball feed needed.
   it('is dropped when the innings under it is in progress', () => {
@@ -209,8 +209,8 @@ describe('weather', () => {
   });
 });
 
-describe('a toss crex still calls delayed', () => {
-  // THA-W v PAK-W, Women's Asian Games T20 2026: crex sent "Toss Delayed" with
+describe('a toss the upstream still calls delayed', () => {
+  // THA-W v PAK-W, Women's Asian Games T20 2026: the upstream sent "Toss Delayed" with
   // the chase 4.3 overs deep, and it stood all match. The match page lost the
   // last ball, the striker mark and the whole bowling panel with it, because all
   // three hang off there being no stoppage.
@@ -331,11 +331,11 @@ describe('a stoppage the score plays through', () => {
   });
 });
 
-// --- what crex sent, decoded ------------------------------------------------
+// --- what the upstream sent, decoded ------------------------------------------------
 
 describe('the raw feed', () => {
   // The exact fields the two Tests at stumps carried.
-  const atStumps: CrexRawMatch = {
+  const atStumps: ApiRawMatch = {
     a: '$l',
     b: 'W',
     c: 'Q',
@@ -385,7 +385,7 @@ describe('the raw feed', () => {
     assert.equal(extra?.detail, '(wet outfield)');
   });
 
-  // crex sends this one as prose as often as as a code — the wording in the feed
+  // The upstream sends this one as prose as often as as a code — the wording in the feed
   // that started all this was "Toss Delayed", with no "$s" beside it.
   it('flags the same status sent as text', () => {
     const note = decodeMatchNote(
@@ -408,10 +408,10 @@ describe('the raw feed', () => {
 
 describe('format', () => {
   it('reads a bare T10 off the format slot in n, and The Hundred off hb', () => {
-    assert.equal(toMatchFormat({ n: 7 } as CrexRawMatch), 'T10');
-    assert.equal(toMatchFormat({ n: 7, hb: 5 } as CrexRawMatch), 'T20');
-    assert.equal(toMatchFormat({ fo: 'T10', n: 4 } as CrexRawMatch), 'T10');
-    assert.equal(toMatchFormat({ fo: 'T20', n: 4 } as CrexRawMatch), 'T20');
+    assert.equal(toMatchFormat({ n: 7 } as ApiRawMatch), 'T10');
+    assert.equal(toMatchFormat({ n: 7, hb: 5 } as ApiRawMatch), 'T20');
+    assert.equal(toMatchFormat({ fo: 'T10', n: 4 } as ApiRawMatch), 'T10');
+    assert.equal(toMatchFormat({ fo: 'T20', n: 4 } as ApiRawMatch), 'T20');
   });
 });
 

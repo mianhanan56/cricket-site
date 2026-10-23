@@ -25,7 +25,8 @@ export default function Countdown({
       const t = Date.now();
       setNow(t);
       const left = target - t;
-      timer = setTimeout(tick, left < 3_600_000 ? 1000 : 30_000);
+      // Past the start the label is fixed, so there is nothing left to tick for.
+      if (left > 0) timer = setTimeout(tick, left < 3_600_000 ? 1000 : 30_000);
     };
     tick();
     return () => clearTimeout(timer);

@@ -4,8 +4,8 @@ const withPWAInit = require('@ducanh2912/next-pwa').default;
 // The Worker host the client bundle will be built against. Everything the app
 // renders comes from here, so it is also the runtime-caching pattern below.
 const WORKER_URL =
-  process.env.NEXT_PUBLIC_CREX_WORKER_URL ??
-  'https://pulsecrease-crex.pulse-cricket.workers.dev';
+  process.env.NEXT_PUBLIC_WORKER_URL ??
+  'https://pulsecrease-api.pulse-cricket.workers.dev';
 
 /**
  * The Worker's origin as a pattern the service worker can actually evaluate.
@@ -31,7 +31,7 @@ if (
   /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(WORKER_URL)
 ) {
   throw new Error(
-    `NEXT_PUBLIC_CREX_WORKER_URL points at ${WORKER_URL} in a production build. ` +
+    `NEXT_PUBLIC_WORKER_URL points at ${WORKER_URL} in a production build. ` +
       'That URL is inlined into the client bundle and would ship to production. ' +
       'Unset it (or point it at the deployed Worker) and rebuild.'
   );
@@ -58,7 +58,7 @@ const withPWA = withPWAInit({
         urlPattern: WORKER_ORIGIN_PATTERN,
         handler: 'NetworkFirst',
         options: {
-          cacheName: 'crex-api',
+          cacheName: 'worker-api',
           expiration: { maxEntries: 64, maxAgeSeconds: 300 },
           cacheableResponse: { statuses: [0, 200] },
         },
@@ -100,7 +100,7 @@ const nextConfig = {
   experimental: {
     // Switching tabs asks the server again instead of replaying the router's copy
     // of a page for up to 30s (5 min if static). The server's per-fetch revalidate
-    // still decides whether crex is actually called, so nothing is over-fetched.
+    // still decides whether the upstream is actually called, so nothing is over-fetched.
     staleTimes: { dynamic: 0, static: 30 },
   },
   eslint: {
@@ -113,12 +113,12 @@ const nextConfig = {
     includePaths: [path.join(__dirname, 'scss')],
   },
   images: {
-    // Pinned to the hosts crex actually serves media from. `hostname: '**'` made
+    // Pinned to the hosts the upstream actually serves media from. `hostname: '**'` made
     // the image optimizer an open proxy — anyone could route arbitrary remote
     // images through this deployment, on our bandwidth and under our domain.
     // Nothing uses next/image yet, which is the cheapest moment to close it.
-    // The one host crex serves media from: team crests (TEAM_LOGO_BASE) and
-    // player portraits (PLAYER_IMAGE_BASE) are both on it. See lib/crex.
+    // The one host the upstream serves media from: team crests (TEAM_LOGO_BASE) and
+    // player portraits (PLAYER_IMAGE_BASE) are both on it. See lib/api.
     remotePatterns: [{ protocol: 'https', hostname: 'cricketvectors.akamaized.net' }],
   },
 };

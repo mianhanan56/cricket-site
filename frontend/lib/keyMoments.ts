@@ -23,7 +23,7 @@ function findFow(innings: InningsScore[], ref: WicketRef): { index: number; inn:
 /**
  * The feed's events plus every wicket the scorecard knows about.
  *
- * The feed poll only carries crex's newest commentary page (about ten rows), so
+ * The feed poll only carries the upstream's newest commentary page (about ten rows), so
  * a wicket from a few overs back has already scrolled out of it. The scorecard's
  * fall of wickets covers the whole match and is already loaded, so those fill
  * the gap — newest first, after the feed's own (always newer) events. A feed

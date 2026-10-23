@@ -44,7 +44,7 @@ export interface MatchStateView {
   family: StateFamily;
   /** Short uppercase word for chips. */
   word: string;
-  /** crex's own wording where it sent some. */
+  /** The upstream's own wording where it sent some. */
   label: string;
   /** Play could still happen today. */
   alive: boolean;
@@ -165,7 +165,7 @@ export function inningsUnderway(state: MatchStateView): boolean {
 
 /**
  * A multi-day match between days: not finished, but nothing is bowled until tomorrow. The note
- * comes from crex's status code (`$l`) first and only falls back to its wording.
+ * comes from the upstream's status code (`$l`) first and only falls back to its wording.
  */
 export const isAtStumps = (m: Match): boolean => m.status === 'LIVE' && m.note?.kind === 'STUMPS';
 

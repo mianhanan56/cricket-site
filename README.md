@@ -2,7 +2,7 @@
 
 Live cricket intelligence — scores, match telemetry, momentum, and alerts that fire on their own.
 
-There is no backend and no database. Every page's data comes live from crex.com's
+There is no backend and no database. Every page's data comes live from the upstream's
 own internal APIs, reached through a Cloudflare Worker that allowlists the
 endpoints, caches at the edge and adds CORS. The Next.js app talks only to that
 Worker.
@@ -12,7 +12,7 @@ Worker.
 | Layer      | Tech                                                |
 | ---------- | --------------------------------------------------- |
 | Frontend   | Next.js 14 (App Router) · TypeScript · SCSS Modules |
-| Data       | Cloudflare Workers fronting crex.com                |
+| Data       | Cloudflare Workers fronting the upstream                |
 | Cache      | Cloudflare edge cache · Next.js ISR                 |
 | Live       | Durable Object WebSocket hub, HTTP polling fallback |
 
@@ -21,10 +21,10 @@ Worker.
 ```
 cricket/
 ├── frontend/     Next.js 14 app (App Router) — the whole application
-└── worker-crex/  Worker fronting crex.com — every route the app reads, plus the live hub
+└── worker/       Worker fronting the upstream — every route the app reads, plus the live hub
 ```
 
-There is no root `package.json`; run commands inside `frontend/` or `worker-crex/`.
+There is no root `package.json`; run commands inside `frontend/` or `worker/`.
 
 ## Getting started
 
@@ -38,7 +38,7 @@ the frontend defaults to the deployed Worker.
 To develop against a local Worker instead:
 
 ```bash
-cd worker-crex && npm install && npm run dev  # :8788
+cd worker && npm install && npm run dev       # :8788
 cd frontend && npm run local                  # reads .env.wrangler.local
 ```
 
@@ -63,13 +63,13 @@ client bundle, and a production build refuses it.
 | `/automations`, `/my` | the reader's own rules and follows, in `localStorage` | — |
 | `/api/search-index` | the live ICC ranking lists — players and teams for search | ISR 1h |
 
-See [worker-crex/README.md](worker-crex/README.md) for the route allowlist, the
-crex wire format, and how to add an endpoint.
+See [worker/README.md](worker/README.md) for the route allowlist, the
+The upstream wire format, and how to add an endpoint.
 
 ## The schedule corpus
 
 Three of the pages above — head-to-head, team form, and everything on a venue
-page — are **derived**, not fetched. crex publishes no head-to-head endpoint, no
+page — are **derived**, not fetched. The upstream publishes no head-to-head endpoint, no
 venue endpoint and no team-results endpoint. What it does publish is a schedule
 whose finished rows carry both sides, both scores and a result *sentence*, and
 that sentence is enough:
@@ -77,7 +77,7 @@ that sentence is enough:
 - `"GAW Won by 7 wickets"` — GAW won, and they batted second.
 - `"IND won by 165 runs"` — India won, and they batted first.
 
-So `getCrexFixtureRange` in [`frontend/lib/crex.ts`](frontend/lib/crex.ts) holds a
+So `getApiFixtureRange` in [`frontend/lib/api`](frontend/lib/api) holds a
 window of the schedule (about seven weeks back, two ahead) and
 [`lib/headToHead.ts`](frontend/lib/headToHead.ts) and
 [`lib/venues.ts`](frontend/lib/venues.ts) read records out of it. Every caller
@@ -105,15 +105,15 @@ All optional — every one has a working default.
 
 | Variable | Description |
 | -------- | ----------- |
-| `NEXT_PUBLIC_CREX_WORKER_URL` | crex Worker base URL. Defaults to the deployed one. |
+| `NEXT_PUBLIC_WORKER_URL` | Worker base URL. Defaults to the deployed one. |
 | `NEXT_PUBLIC_SITE_URL` | Canonical site URL for metadata, `robots.txt` and `sitemap.xml`. Falls back to Vercel's production domain, then localhost. |
 | `NEXT_PUBLIC_LIVE_WS` | Set to `off` to disable the live WebSocket (polling only). |
 | `NEXT_PUBLIC_LIVE_WS_URL` | Live hub URL. Defaults to the Worker's `/live`. |
 
 ## Rankings
 
-Live from crex, like everything else — nothing to maintain. `frontend/data/rankings.json`
-is a bundled snapshot used only as a fallback when crex is unreachable; when it is
+Live from the upstream, like everything else — nothing to maintain. `frontend/data/rankings.json`
+is a bundled snapshot used only as a fallback when the upstream is unreachable; when it is
 in play, the page caption says `as of <date>` so the staleness is visible. Refresh
 it occasionally (and bump `asOf`) so the floor does not drift too far.
 
@@ -122,13 +122,13 @@ it occasionally (and bump `asOf`) so the floor does not drift too far.
 Frontend to **Vercel** (root directory `frontend`, preset auto-detected), Worker
 via `wrangler deploy`. Nothing else to deploy.
 
-Add your production domain to `ALLOWED_ORIGINS` in `worker-crex/wrangler.toml` —
+Add your production domain to `ALLOWED_ORIGINS` in `worker/wrangler.toml` —
 the client-side polling on the home page and in search is subject to CORS.
 
 ## History
 
 An Express + Postgres backend once served rankings, search and player profiles
-from hand-seeded rows. It was retired; every page now reads crex through the
+from hand-seeded rows. It was retired; every page now reads the upstream through the
 Worker. Player profiles come from `/player/overview`, player search from the ICC
 ranking lists (`/api/search-index`), and live scores from the Worker's WebSocket
 hub with HTTP polling underneath.
@@ -141,7 +141,7 @@ hub with HTTP polling underneath.
 - Mobile-first SCSS using `min-width` breakpoints from `scss/component.scss`.
 - Every colour is a token in `scss/component.scss` backed by a custom property in
   `scss/global.scss`; light is the default theme, `data-theme="dark"` the other.
-- The match list is one shared poll (`useCrexMatches`) — every subscriber reads the
+- The match list is one shared poll (`useApiMatches`) — every subscriber reads the
   same snapshot, and it runs at the fastest interval any of them asks for.
 
 ## Automations

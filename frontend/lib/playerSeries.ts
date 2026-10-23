@@ -14,7 +14,7 @@ import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER, oversFrom } from './ove
 
 // ---------------------------------------------------------------- Formats
 
-/** URL value ↔ crex `ft`, in the order the filter shows them. */
+/** URL value ↔ the upstream `ft`, in the order the filter shows them. */
 export const SERIES_FORMATS = [
   { value: 'all', code: 0, label: 'All' },
   { value: 'test', code: 3, label: 'Test' },
@@ -43,7 +43,7 @@ export const isMultiInnings = (format: PlayerSeriesFormatRecord) => format.code 
 
 // ---------------------------------------------------------------- Lists
 
-/** One discipline's pages read so far. `next` is null once crex has no older series. */
+/** One discipline's pages read so far. `next` is null once the upstream has no older series. */
 export interface DisciplineList {
   series: PlayerSeriesRecord[];
   next: number | null;
@@ -166,7 +166,7 @@ const DAY_MS = 86_400_000;
 
 /**
  * The series to open on: one still running, else the one that finished last,
- * else the one with the latest innings. crex's end date is midnight at the start
+ * else the one with the latest innings. The upstream's end date is midnight at the start
  * of the last day, so a series runs until a day after it.
  */
 export function defaultSeries(series: PlayerSeries[], now: Date = new Date()): PlayerSeries | null {

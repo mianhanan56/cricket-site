@@ -1,9 +1,9 @@
-// Audit every match in the live crex feed against the invariants a scorecard
+// Audit every match in the live upstream feed against the invariants a scorecard
 // has to satisfy.  Run with `npm run check:live`.
 //
 // The unit suite in tests/ pins the rules against fixtures, which is what stops
 // a refactor breaking them. This is the other half: fixtures only cover the
-// shapes we thought to capture, and crex serves shapes nobody thought of — a day
+// shapes we thought to capture, and the upstream serves shapes nobody thought of — a day
 // called off mid-over, a batter who retired hurt and came back, a live match with
 // no published XI. This walks whatever is on today and complains about anything
 // that cannot be true.
@@ -13,12 +13,12 @@
 // site: it prints one line per match, so the odd one is usually obvious.
 
 import {
-  getCrexMatchList,
-  getCrexScorecard,
-  getCrexMatchInfo,
-  getCrexMatchFeed,
+  getApiMatchList,
+  getApiScorecard,
+  getApiMatchInfo,
+  getApiMatchFeed,
   isStaleStoppage,
-} from '../lib/crex';
+} from '../lib/api';
 import { creaseContext, matchSituation } from '../lib/situation';
 
 let problems = 0;
@@ -27,14 +27,14 @@ const flag = (message: string): void => {
   console.log(`  ⚠ ${message}`);
 };
 
-const matches = await getCrexMatchList();
+const matches = await getApiMatchList();
 console.log(`${matches.length} matches in the feed\n`);
 
 for (const match of matches) {
   const tag = `${match.id} ${match.homeTeam.shortName}v${match.awayTeam.shortName} ${match.format} ${match.status}`;
 
   try {
-    const innings = await getCrexScorecard(match.id, {
+    const innings = await getApiScorecard(match.id, {
       status: match.status,
       ballsPerOver: match.ballsPerOver,
     });
@@ -58,7 +58,7 @@ for (const match of matches) {
       // can be at the crease.
       //
       // Not checked: that the stands sum to the score at each wicket. They do
-      // not always, and both reasons are crex's rather than ours — a run the
+      // not always, and both reasons are the upstream's rather than ours — a run the
       // innings has that no stand is credited with, and a batter who retired
       // hurt and resumed, which opens a stand without a wicket falling.
       for (const p of stands) {
@@ -98,12 +98,12 @@ for (const match of matches) {
       flag(`${tag}: a ${match.status.toLowerCase()} match is reporting ${note.kind}`);
     }
 
-    const info = await getCrexMatchInfo(match.id);
+    const info = await getApiMatchInfo(match.id);
     const sides = Object.values(info.squads).map((s) => s.length);
 
     // The feed, and the one thing about it that has been wrong before: an over
     // card numbered against the deliveries it heads.
-    const feed = await getCrexMatchFeed(match.id, { minBalls: 24, maxPages: 6 });
+    const feed = await getApiMatchFeed(match.id, { minBalls: 24, maxPages: 6 });
     for (const over of feed.overs) {
       if (over.over < 1) flag(`${tag}: an over summary numbered ${over.over}`);
       if (over.balls.length > 12) flag(`${tag}: over ${over.over} has ${over.balls.length} deliveries`);

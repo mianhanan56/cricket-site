@@ -1,5 +1,5 @@
 import type { PlayerRoleLabel } from '@/types';
-import { getCrexPlayerSeriesPage } from '@/lib/crex';
+import { getApiPlayerSeriesPage } from '@/lib/api';
 import {
   defaultSeries,
   firstLists,
@@ -30,7 +30,7 @@ export default async function PlayerSeriesSection({
   series: string | null;
 }) {
   const fetchPage: PageFetcher = (discipline, page) =>
-    getCrexPlayerSeriesPage(playerId, { format: seriesFormatCode(format), discipline, page }, { revalidate: 3600 });
+    getApiPlayerSeriesPage(playerId, { format: seriesFormatCode(format), discipline, page }, { revalidate: 3600 });
 
   let lists = await firstLists(fetchPage).catch(() => null);
   if (!lists) return <EmptyState compact title="No series performance available yet." />;

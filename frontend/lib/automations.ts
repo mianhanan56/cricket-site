@@ -346,7 +346,7 @@ export function feedFirings(
     if (seenEvents.has(e.id)) continue;
     seenEvents.add(e.id);
     if (e.kind !== 'MILESTONE' || !e.text) continue;
-    // crex writes "R Ram Arvindh — Scored 50 in 28 Balls"; team milestones say "overs".
+    // The upstream writes "R Ram Arvindh — Scored 50 in 28 Balls"; team milestones say "overs".
     const m100 = /scored\s+(\d+)\s+in\s+\d+\s+balls/i.exec(e.text);
     if (!m100) continue;
     const runs = Number(m100[1]);
