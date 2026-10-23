@@ -1,6 +1,6 @@
-// crex.com does not have one API — it has five, and which host serves a given
+// The upstream does not have one API — it has five, and which host serves a given
 // endpoint is decided by the Angular service that calls it. The names below are
-// the ones crex's own bundle uses in its environment config, kept verbatim so a
+// the ones the upstream's own bundle uses in its environment config, kept verbatim so a
 // future re-check against their bundle is a straight comparison.
 //
 //   url           -> the default base; most endpoints live here
@@ -9,7 +9,7 @@
 //   newsUrl       -> editorial content
 //   phpBaseUrl    -> the legacy PHP tier; the live match list lives here
 //
-// Deliberately absent: cricket-exchange.firebaseio.com. crex streams live
+// Deliberately absent: cricket-exchange.firebaseio.com. The upstream streams live
 // scores out of a Firebase Realtime Database using credentials embedded in
 // their JS bundle. Proxying their REST endpoints is one thing; authenticating
 // into their Firebase project with keys lifted from their frontend is another,

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify a crex endpoint before adding it to src/routes.ts.
+# Verify an upstream endpoint before adding it to src/routes.ts.
 #
 # Calls the upstream host directly (bypassing the Worker) so you can confirm the
 # base, the method, the payload shape and the response in one step.
@@ -8,7 +8,7 @@
 #   ./scripts/probe.sh php /getLiveMatches
 #
 # Base is one of the keys in src/upstreams.ts. Passing a JSON body switches the
-# request to POST — which is what most crex endpoints want.
+# request to POST — which is what most upstream endpoints want.
 #
 # Reading the errors:
 #   "Invalid Host header"     -> wrong base; try another one
@@ -43,7 +43,7 @@ fi
 
 URL="${BASES[$BASE_NAME]}${ENDPOINT}"
 
-# crex's hosts reject requests that don't present as their own site.
+# The upstream's hosts reject requests that don't present as their own site.
 COMMON=(
   -sS --max-time 30
   -H "Accept: application/json"

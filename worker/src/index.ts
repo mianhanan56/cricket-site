@@ -1,13 +1,13 @@
-// Edge proxy in front of crex.com's internal APIs: collapse traffic with an
+// Edge proxy in front of the upstream's internal APIs: collapse traffic with an
 // edge cache, emit the CORS our origins need, and serve stale data rather than
 // an error when upstream hiccups.
 //
 //   - Upstream is five hosts, not one (see upstreams.ts), and most endpoints
 //     are POST. Callers here always use GET; the translation happens below.
-//   - crex's hosts reject requests that do not look like they came from their
-//     own site, so every upstream call carries an Origin/Referer of crex.com.
+//   - the upstream's hosts reject requests that do not look like they came from their
+//     own site, so every upstream call carries the upstream site as its Origin/Referer.
 //     That is the header their servers already expect from a browser on their
-//     site — it is not a bypass of any challenge or bot check. If crex adds
+//     site — it is not a bypass of any challenge or bot check. If the upstream adds
 //     real bot protection, this Worker will start failing, and the fix is to
 //     ask them for API access, not to defeat it.
 //
@@ -46,7 +46,7 @@ const RUN_DEADLINE_MS = UPSTREAM_TIMEOUT_MS + 2_000;
  * Without it, the cache collapses traffic only once a body has LANDED — and the
  * moment an entry goes stale, every request arriving in that window starts its
  * own refresh. On /matches/live, whose TTL is two seconds, that is the whole
- * readership fanning out to crex at once, which is the exact thing the edge
+ * readership fanning out to the upstream at once, which is the exact thing the edge
  * cache exists to prevent. The first request through starts the call; the rest
  * join it.
  *
@@ -95,7 +95,7 @@ export default {
       return json(
         {
           status: 'ok',
-          worker: 'pulsecrease-crex',
+          worker: 'pulsecrease-api',
           live: { path: '/live', topics: ['matches', 'card:<matchKey>', 'feed:<matchKey>'] },
           upstreams: UPSTREAMS,
           routes: ROUTES.map((r) => ({

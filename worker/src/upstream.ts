@@ -1,7 +1,7 @@
 import { UPSTREAMS } from './upstreams';
 import { upstreamTarget, type ParamValue, type RouteDef } from './routes';
 
-// crex's live list has hung rather than failed. Without a ceiling the call never
+// The upstream's live list has hung rather than failed. Without a ceiling the call never
 // settles, and every request joined to it in `inFlight` hangs with it. Kept under
 // the frontend's own 15s so the caller gets this Worker's 502, not its own abort.
 export const UPSTREAM_TIMEOUT_MS = 10_000;
@@ -10,7 +10,7 @@ export function fetchUpstream(route: RouteDef, params: Record<string, ParamValue
   const base = UPSTREAMS[route.base];
   const { path, query } = upstreamTarget(route, params);
 
-  // crex's hosts 400 with "Invalid Host header" unless the request presents as
+  // The upstream's hosts 400 with "Invalid Host header" unless the request presents as
   // one of their own pages. These are the headers their site already sends.
   const headers: Record<string, string> = {
     Accept: 'application/json',

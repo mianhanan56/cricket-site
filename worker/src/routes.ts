@@ -1,15 +1,15 @@
-// Allowlist of crex endpoints this Worker exposes.
+// Allowlist of the upstream endpoints this Worker exposes.
 //
 // Two things shape this file:
 //
-// 1. Most crex endpoints are POST with a JSON body, which is awkward to cache
+// 1. Most upstream endpoints are POST with a JSON body, which is awkward to cache
 //    and awkward to call. Every route here presents a plain GET with query
 //    params to the caller; the Worker translates to whatever the upstream
 //    actually wants. So `/rankings?category=0&gender=0` on the Worker becomes
 //    `POST /ranking/rankingFront {"category":0,"gender":0,"play":0}` upstream.
 //
 // 2. Params are declared, typed and bounded. A blind pass-through would make
-//    this Worker an open relay into crex's API from any origin — the allowlist
+//    this Worker an open relay into the upstream's API from any origin — the allowlist
 //    plus `params` is what keeps it to the calls your app actually makes.
 //
 // Verify a new endpoint with ./scripts/probe.sh before adding it here.
@@ -66,7 +66,7 @@ const INNING_FILTERS = ['firstInning', 'secondInning', 'thirdInning', 'fourthInn
 export const ROUTES: RouteDef[] = [
   {
     // The whole live/upcoming/recent match list in one payload. Keys are
-    // single letters (see README) — this is crex's own wire format, passed
+    // single letters (see README) — this is the upstream's own wire format, passed
     // through unchanged rather than normalized here.
     match: '/matches/live',
     base: 'php',
@@ -101,7 +101,7 @@ export const ROUTES: RouteDef[] = [
     //
     // It is a lookup by key, not a dump: you send the keys you saw and get back
     // only those. An empty request returns empty arrays, which is what made
-    // this look broken before. crex also gates it behind a `type` header.
+    // this look broken before. The upstream also gates it behind a `type` header.
     match: '/mapping',
     base: 'oc',
     path: '/mapping/getHomeMapData',
@@ -120,7 +120,7 @@ export const ROUTES: RouteDef[] = [
   },
   {
     // Per-innings scorecard, keyed by match. Response is two objects ("0", "1")
-    // of packed strings — see frontend/lib/crex.ts for the decode.
+    // of packed strings — see frontend/lib/api for the decode.
     match: '/match/scorecard',
     base: 'php',
     path: '/getSC4',
@@ -133,14 +133,14 @@ export const ROUTES: RouteDef[] = [
   },
   {
     // Pre-match info, keyed by match: squads, who is captain and who keeps, the
-    // broadcasters, the weather and the head-to-head. This is what crex's own
+    // broadcasters, the weather and the head-to-head. This is what the upstream's own
     // "Match info" tab is built from, and it is the only endpoint that names an
     // XI before a ball is bowled — /match/scorecard holds an empty slot until
     // the innings starts.
     //
     // Squads arrive in `tb` as two dot-packed lists, one per side, separated by
     // "/" in the order `t` gives ("S-U"); `x` is captain/keeper for each side in
-    // turn. See frontend/lib/crex.ts for the decode.
+    // turn. See frontend/lib/api for the decode.
     match: '/match/info',
     base: 'php',
     path: '/getIV4',
@@ -154,7 +154,7 @@ export const ROUTES: RouteDef[] = [
     note: 'Pre-match info: squads (tb), captain/keeper (x), broadcast, weather',
   },
   {
-    // Ball-by-ball. Unlike the rest of crex's live data this one is plain text
+    // Ball-by-ball. Unlike the rest of the upstream's live data this one is plain text
     // over HTTP — `c1` is the headline, `c2` the description — so it needs no
     // decoding and no Firebase.
     //
@@ -173,7 +173,7 @@ export const ROUTES: RouteDef[] = [
     params: {
       matchKey: { type: 'string', required: true },
       lastDocId: { type: 'string', default: '' },
-      // One innings only (0-based) — crex's own commentary filter, which also drops the editorial rows.
+      // One innings only (0-based) — the upstream's own commentary filter, which also drops the editorial rows.
       inning: { type: 'int', min: 0, max: 3 },
     },
     buildBody: (p) => ({
@@ -190,7 +190,7 @@ export const ROUTES: RouteDef[] = [
     // which is what made it look broken for so long: `category` selects player
     // vs team, and `play` is the discipline. Sending `category=batting` (the
     // obvious reading) gets you "category.toLowerCase is not a function" or a
-    // silent empty body. The names below come from crex's own rankings chunk,
+    // silent empty body. The names below come from the upstream's own rankings chunk,
     // where the request object is built as
     // `{category, gender, type, play, page}`.
     //
@@ -214,12 +214,12 @@ export const ROUTES: RouteDef[] = [
     note: 'ICC player rankings; type=test|odi|t20, play=batting|bowling|allrounder',
   },
   {
-    // The full schedule — past results and upcoming matches — from crex's own
+    // The full schedule — past results and upcoming matches — from the upstream's own
     // fixtures page. Lives on `stats`, not `oc`: their bundle builds it from
     // `baseNewUrl`, which is why probing `oc` for it only ever 404s.
     //
     // Upstream body is `{tl,type,page,wise,lang,formatType}`. `tl` is a
-    // three-slot filter array, and the three ints in it are ids from crex's own
+    // three-slot filter array, and the three ints in it are ids from the upstream's own
     // dropdowns — gender, format, level, in that order. `type` and `formatType`
     // are inert on the wire (their UI uses them for labels, not filtering), so
     // they are pinned in bodyDefaults rather than exposed.
@@ -293,18 +293,18 @@ export const ROUTES: RouteDef[] = [
     // answered on the first probe once the family was known.
     //
     // Unlike everything else here the response is *named*, not single-lettered:
-    // `P` `W` `L` `NR` `Pts` `NRR` are crex's own column headings, sent as
+    // `P` `W` `L` `NR` `Pts` `NRR` are the upstream's own column headings, sent as
     // strings even where they are numbers. It is an ARRAY of groups, not a table:
     // a league sends one entry, a World Cup group stage one per group, each with
     // its own `g_name` and `pt_info` rows. Treating it as a single table is what
     // would silently merge Group A and Group B into one standing.
     //
     // Fields worth naming, because the useful ones are not the obvious ones:
-    //   rank        crex's own ordering, which is NOT the array order
+    //   rank        the upstream's own ordering, which is NOT the array order
     //   rf          last five results, oldest first — ["W","L","W","W","W"]
     //   qualified   through to the knockouts; `eliminated` is the other end
     //   is_winner   lifted the trophy
-    //   cuprate     crex's qualification-chance figure; "--" when it has none
+    //   cuprate     the upstream's qualification-chance figure; "--" when it has none
     //   team_fkey   resolves through /mapping like every other team key
     match: '/series/table',
     base: 'oc',
@@ -322,12 +322,12 @@ export const ROUTES: RouteDef[] = [
   {
     // Tournament leaders — the "who has the most runs" block a league page needs,
     // and the only endpoint here that answers it. Lives on `stats`, not `oc`:
-    // crex's series service builds it from `baseNewUrl`, and every `oc`
+    // The upstream's series service builds it from `baseNewUrl`, and every `oc`
     // `seriesInside/get*StatsForSeriesID` spelling 404s. Body key is `sf` (a
     // series f_key) — `fkey` reaches the payload validator and 400s with
     // "Request Payload Error!", which is how the name was found.
     //
-    // The response is crex's whole series overview, `i1`–`i9`, and only `i4`
+    // The response is the upstream's whole series overview, `i1`–`i9`, and only `i4`
     // matters here: `i4.i` keyed by format id, each holding the leaders as
     // one-entry arrays — `mr` most runs, `mw` most wickets, `hs` highest score,
     // `bf` best figures, `ms`/`mf` sixes and fours, `bsr`/`bec` best strike rate
@@ -347,7 +347,7 @@ export const ROUTES: RouteDef[] = [
     note: 'Series overview; i4 carries the tournament leaders: /series/overview?key=2AW',
   },
   {
-    // Squads for every side in a series. Note the upstream path: crex spells it
+    // Squads for every side in a series. Note the upstream path: it is spelt
     // `getSqaudForSeriesID`, and the correctly-spelled version 404s. Their typo
     // is part of the contract.
     //
@@ -370,7 +370,7 @@ export const ROUTES: RouteDef[] = [
   },
   {
     // One team's fixtures, grouped by series f_key. `teamInside`, not `team`:
-    // both /team/getTeamOverview and /team/getMatchesForTeam are in crex's
+    // both /team/getTeamOverview and /team/getMatchesForTeam are in the upstream's
     // bundle and both 404 on the live host, which is a reminder that a name in
     // the bundle is not a live endpoint.
     //
@@ -396,7 +396,7 @@ export const ROUTES: RouteDef[] = [
     // A player's whole profile in one payload — the thing that blocked player
     // pages for so long. Two reasons it looked unreachable:
     //
-    //   1. It is on `stats`, not `oc`. crex's own service builds it from
+    //   1. It is on `stats`, not `oc`. The upstream's own service builds it from
     //      `newBaseUrl`, so every probe against `oc` 404s. `oc/player/getPlayerInfo`
     //      exists and answers "Not A Valid Request" to everything, which reads
     //      like a payload problem and is actually the wrong endpoint entirely.
@@ -404,10 +404,10 @@ export const ROUTES: RouteDef[] = [
     //      /rankings/players speak. Not `fkey`, which every other keyed route here
     //      wants.
     //
-    // Read out of crex's own lazy-loaded profile chunk, where the route resolver
+    // Read out of the upstream's own lazy-loaded profile chunk, where the route resolver
     // calls `getPlayerOverview({pf: playerFkey})`.
     //
-    // Response, all of it decoded in frontend/lib/crex.ts:
+    // Response, all of it decoded in frontend/lib/api:
     //   a.bsi   basic info — name, dob, birthplace, height, bio HTML, bats/bowls
     //   a.sts   career stats, `bt` batting and `bl` bowling, one row per
     //           (st, ft) — competition and format — plus the debut for each
@@ -429,7 +429,7 @@ export const ROUTES: RouteDef[] = [
   },
   {
     // Every innings a player has had, grouped by series and then by format —
-    // what crex's own player "Matches" tab pages through. Newest series first by
+    // what the upstream's own player "Matches" tab pages through. Newest series first by
     // start date; page 0 holds six series and each later page three. `bb` is the
     // discipline (1 batting, 0 bowling), `ft` the format (0 all, 1 ODI, 2 T20,
     // 3 Test, 4 T10, 5 The Hundred). Same `stats` host and `pf` body as the overview.
@@ -460,12 +460,12 @@ export const ROUTES: RouteDef[] = [
       // to fill the edge with pages nobody will read again. Articles are read
       // from the front; sixty pages is far past where anyone stops.
       page: { type: 'int', default: 1, min: 1, max: 60 },
-      // Five is what crex sends when no limit is asked for.
+      // Five is what the upstream sends when no limit is asked for.
       limit: { type: 'int', default: 5, min: 1, max: 20 },
     },
   },
   {
-    // Articles tagged with one series (s), team (t) or player (p) — what crex's
+    // Articles tagged with one series (s), team (t) or player (p) — what the upstream's
     // own team/series News tabs call. Headline cards only, no article body.
     match: '/news/tagged',
     base: 'news',
@@ -482,7 +482,7 @@ export const ROUTES: RouteDef[] = [
     note: 'News tagged with a team: /news/tagged?type=t&key=O',
   },
   {
-    // One article — headline, summary, cover, tags — plus crex's own "more news" and "more from the author".
+    // One article — headline, summary, cover, tags — plus the upstream's own "more news" and "more from the author".
     match: '/news/article',
     base: 'news',
     path: '/api/articlesoc/{id}',
@@ -520,7 +520,7 @@ export function readParams(route: RouteDef, search: URLSearchParams): Record<str
     const raw = search.get(name);
 
     if (raw === null) {
-      // A `list` param always goes upstream, empty if unasked-for: crex expects
+      // A `list` param always goes upstream, empty if unasked-for: the upstream expects
       // every bucket present in the body, not just the populated ones.
       if (spec.type === 'list') out[name] = [];
       else if (spec.default !== undefined) out[name] = spec.default;

@@ -1,8 +1,8 @@
 {
-  "name": "@crex/worker-crex",
+  "name": "@pulsecrease/worker",
   "version": "0.1.0",
   "private": true,
-  "description": "Cloudflare Worker — edge proxy + cache in front of crex.com's internal APIs",
+  "description": "Cloudflare Worker — edge proxy + cache in front of the upstream's internal APIs",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

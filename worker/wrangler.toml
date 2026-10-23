@@ -1,4 +1,4 @@
-name = "pulsecrease-crex"
+name = "pulsecrease-api"
 main = "src/index.ts"
 compatibility_date = "2026-08-08"
 
@@ -7,17 +7,17 @@ compatibility_date = "2026-08-08"
 # Add your production domain once deployed.
 ALLOWED_ORIGINS = "http://localhost:3005,https://pulsecrease.vercel.app"
 
-# No secrets. Every crex endpoint in src/routes.ts is unauthenticated — the
+# No secrets. Every upstream endpoint in src/routes.ts is unauthenticated — the
 # allowlist, not a token, is what keeps this from being an open relay.
 # No KV either. Rankings briefly lived in a KV namespace, back when
 # oc/ranking/getRanking looked unreachable; it turned out to take string params
-# (see the /rankings/players note in src/routes.ts), so they come from crex live
+# (see the /rankings/players note in src/routes.ts), so they come from the upstream live
 # like everything else and there is nothing to hand-maintain.
 
 [dev]
 port = 8788
 
-# One hub holds every live WebSocket and polls crex once for all of them (src/live.ts).
+# One hub holds every live WebSocket and polls the upstream once for all of them (src/live.ts).
 [[durable_objects.bindings]]
 name = "LIVE_HUB"
 class_name = "LiveHub"

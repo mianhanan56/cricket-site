@@ -1,4 +1,4 @@
-// One Durable Object holds every browser's live socket and polls crex once per
+// One Durable Object holds every browser's live socket and polls the upstream once per
 // topic for all of them, sending each socket only what changed.
 //   matches      snapshot, then per-match diffs of /matches/live
 //   card:<key>   the whole /match/scorecard body, when it changes
