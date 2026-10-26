@@ -23,10 +23,17 @@ import {
   matchListFromRaw,
   scorecardFromRaw,
 } from '@/lib/api';
-import type { ApiFeedRow, ApiMatchesResponse, ApiScorecardBody, StoppageWatch } from '@/lib/api';
+import type { ApiFeedRow, ApiMatchFeed, ApiMatchesResponse, ApiScorecardBody, StoppageWatch } from '@/lib/api';
 import { keepNewest } from '@/lib/liveScore';
 import { dedupeDeliveries } from '@/lib/balls';
-import { applyMatchesFrame, mergeFeedItems, type FrameVerdict, type LiveFrame } from '@/lib/live/frames';
+import {
+  applyMatchesFrame,
+  mergeFeedItems,
+  reuseUnchanged,
+  sameItems,
+  type FrameVerdict,
+  type LiveFrame,
+} from '@/lib/live/frames';
 import { isTopicLive, onLiveChange, onLiveResync, subscribeLive } from '@/lib/live/socket';
 
 // The Worker's live socket pushes changes when it is up (lib/live/socket). The
@@ -35,7 +42,7 @@ import { isTopicLive, onLiveChange, onLiveResync, subscribeLive } from '@/lib/li
 const DEFAULT_INTERVAL_MS = 2_000;
 
 /** Poll cadence while the socket is delivering — a check on it, not the feed. */
-export const RECONCILE_MS = 30_000;
+const RECONCILE_MS = 30_000;
 
 // Components mounting together on one page share a single entry revalidation.
 const ENTRY_DEDUPE_MS = 1_000;
@@ -58,6 +65,9 @@ export const HIDDEN_INTERVAL_MS = 60_000;
 
 // Each consecutive failure doubles the wait, up to this ceiling.
 const MAX_BACKOFF_MS = 5 * 60_000;
+
+/** A poll's cadence: with the socket delivering it is only a check, no faster than the reconcile rate. */
+const cadence = (every: number, socketLive: boolean): number => (socketLive ? Math.max(every, RECONCILE_MS) : every);
 
 /** The wait after `failures` failed polls in a row: doubling, capped. */
 const backoff = (every: number, failures: number): number =>
@@ -144,7 +154,7 @@ function wantedInterval(): number | null {
   if (!isHidden()) {
     if (!subs.length) return null;
     const fastest = Math.min(...subs.map((s) => s.interval));
-    return isTopicLive('matches') ? Math.max(fastest, RECONCILE_MS) : fastest;
+    return cadence(fastest, isTopicLive('matches'));
   }
   const background = subs.filter((s) => s.background);
   return background.length ? Math.max(HIDDEN_INTERVAL_MS, Math.min(...background.map((s) => s.interval))) : null;
@@ -199,11 +209,15 @@ async function poll(): Promise<void> {
   }
 }
 
-/** A fresh list from either source; one that went backwards keeps the newer copy. */
+/**
+ * A fresh list from either source; one that went backwards keeps the newer copy, and an
+ * unchanged match keeps its object, so most polls leave every memo keyed on it alone.
+ */
 function land(next: Match[], patch: Partial<ChannelState> = {}) {
   const landed = new Date();
+  const prev = channel.state.matches;
   emit({
-    matches: clearResumedStoppages(keepNewest(channel.state.matches, next), channel.stoppages, landed.getTime()),
+    matches: reuseUnchanged(prev, clearResumedStoppages(keepNewest(prev, next), channel.stoppages, landed.getTime())),
     lastUpdated: landed,
     error: null,
     settled: true,
@@ -301,7 +315,7 @@ const subscribeState = (listener: () => void) => {
 const getState = () => channel.state;
 const getServerState = () => SERVER_STATE;
 
-export function refreshMatches(): void {
+function refreshMatches(): void {
   channel.failures = 0;
   clearTimer();
   void poll();
@@ -475,17 +489,20 @@ export function useApiMatchExtras(
       timer = null;
     };
 
-    // A card from a cache a few seconds behind must not undo one already shown.
+    // A card from a cache a few seconds behind must not undo one already shown, and an
+    // identical one is not news.
     const takeCard = (card: InningsScore[]) => {
       if (!card.length || cardProgress(card) < cardProgress(inningsRef.current)) return;
+      if (JSON.stringify(card) === JSON.stringify(inningsRef.current)) return;
       inningsRef.current = card;
       setInnings(card);
     };
-    const takeFeed = (feed: Pick<UseApiMatchExtrasResult, 'commentary' | 'events' | 'overs' | 'notes'>) => {
-      setCommentary((prev) => dedupeDeliveries(mergeFeedItems(prev, feed.commentary, FEED_CAP.balls)));
-      setEvents((prev) => mergeFeedItems(prev, feed.events, FEED_CAP.events));
-      setOvers((prev) => mergeFeedItems(prev, feed.overs, FEED_CAP.overs));
-      setNotes((prev) => mergeFeedItems(prev, feed.notes, FEED_CAP.notes));
+    const takeFeed = (feed: Pick<ApiMatchFeed, 'balls' | 'events' | 'overs' | 'notes'>) => {
+      setCommentary((prev) => merged(prev, dedupeDeliveries(mergeFeedItems(prev, feed.balls, FEED_CAP.balls))));
+      setEvents((prev) => merged(prev, mergeFeedItems(prev, feed.events, FEED_CAP.events)));
+      setOvers((prev) => merged(prev, mergeFeedItems(prev, feed.overs, FEED_CAP.overs)));
+      setNotes((prev) => merged(prev, mergeFeedItems(prev, feed.notes, FEED_CAP.notes)));
+      // Still set when nothing changed: it is the clock a stale-stoppage check reads.
       setFetchedAt(Date.now());
     };
 
@@ -493,7 +510,7 @@ export function useApiMatchExtras(
       clear();
       // Same as the list poll: park the chain rather than re-arm a throttled
       // timer, and let the visibility listener below resume it.
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      if (isHidden()) return;
 
       const [card, feed] = await Promise.all([
         getApiScorecard(matchKey, {
@@ -511,7 +528,7 @@ export function useApiMatchExtras(
       // Only overwrite on success — a failed poll keeps the last good card
       // rather than emptying the tab.
       if (card) takeCard(card);
-      if (feed) takeFeed({ commentary: feed.balls, events: feed.events, overs: feed.overs, notes: feed.notes });
+      if (feed) takeFeed(feed);
       if (card || feed) setLoaded(true);
 
       // Both halves failing is the signal to slow down — the same exponential
@@ -520,8 +537,7 @@ export function useApiMatchExtras(
       failures = card || feed ? 0 : failures + 1;
 
       if (!repeat) return;
-      const every = socketLive() ? Math.max(intervalMs, RECONCILE_MS) : intervalMs;
-      timer = setTimeout(run, backoff(every, failures));
+      timer = setTimeout(run, backoff(cadence(intervalMs, socketLive()), failures));
     }
 
     void run();
@@ -545,8 +561,7 @@ export function useApiMatchExtras(
           }),
           subscribeLive(feedTopic, (frame) => {
             if (!Array.isArray(frame.data)) return;
-            const feed = feedFromRows(frame.data as ApiFeedRow[]);
-            takeFeed({ commentary: feed.balls, events: feed.events, overs: feed.overs, notes: feed.notes });
+            takeFeed(feedFromRows(frame.data as ApiFeedRow[]));
             setLoaded(true);
           }),
           onLiveResync(() => void run()),
@@ -555,7 +570,7 @@ export function useApiMatchExtras(
             if (now !== wasLive && timer) {
               // Losing the socket puts the fast poll straight back; gaining it slows the poll to a check.
               clear();
-              timer = now ? setTimeout(run, Math.max(intervalMs, RECONCILE_MS)) : null;
+              timer = now ? setTimeout(run, cadence(intervalMs, true)) : null;
               if (!now) void run();
             }
             wasLive = now;
@@ -575,23 +590,14 @@ export function useApiMatchExtras(
   return { innings, commentary, events, overs, notes, loaded, fetchedAt };
 }
 
+/** The held list when a merge changed nothing, so the state setter bails out. */
+const merged = <T,>(prev: T[], next: T[]): T[] => (sameItems(prev, next) ? prev : next);
+
 /** How far a card has got, so a stale one can be recognised: balls bowled, then runs. */
 function cardProgress(card: InningsScore[]): number {
   return card.reduce((n, i) => n + (i.notStarted ? 0 : Math.round(i.overs * 10) * 1_000 + i.runs), 0);
 }
 
-/**
- * Deliveries the live poll never reaches.
- *
- * The poll's walk stops at three overs, because it runs every couple of seconds
- * and every page of it is an upstream request (see MIN_BALLS in lib/api). That
- * is the right window for the header's ball strip and far too small for a
- * commentary tab.
- *
- * So this reads the innings in play whole — one request, see `getApiInningsFeed` —
- * when the tab is opened, and each earlier innings when the reader asks for more. The
- * live tail keeps arriving on the poll and the caller merges the two by id.
- */
 export interface UseApiCommentaryHistoryResult {
   balls: CommentaryBall[];
   overs: OverSummary[];
@@ -604,6 +610,11 @@ export interface UseApiCommentaryHistoryResult {
   loadMore: () => void;
 }
 
+/**
+ * Deliveries the live poll never reaches: its walk stops at three overs. Reads the innings in play
+ * whole (one request, `getApiInningsFeed`) when the tab opens and each earlier one on "load older";
+ * the caller merges the live tail in by id.
+ */
 export function useApiCommentaryHistory(
   matchKey: string,
   options: { enabled?: boolean; inning: number | null }

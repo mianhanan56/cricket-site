@@ -161,6 +161,8 @@ shell before `notFound()` runs, so the status can't become 404 while they exist.
 2026-10-23 refactor (ran alongside the rename; see PROJECT_STATUS): `lib/api` is now 22 modules —
 add new decoders to the domain module, shared lookups to `names.ts`, and export from `index.ts` only
 what callers outside `lib/api` need. Wrap any loader `generateMetadata` shares in React `cache()`.
+Polls that change nothing now keep the previous objects (match list, card, feed items), so code that
+needs a per-poll tick must read `lastUpdated` from `useApiMatches`, not wait for a new `matches` array.
 
 2026-10-23: the data source's name was removed from the whole repo (user request). The Worker is now
 `pulsecrease-api` in `worker/`, the client is `frontend/lib/api` (`getApi*`, `Api*` types, `apiGet`,

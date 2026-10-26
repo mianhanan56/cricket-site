@@ -87,7 +87,7 @@ commands inside `frontend/` or `worker/`.
 | `headToHead.ts`, `venues.ts`, `venue.ts` | Records **derived** from the schedule corpus (`getApiFixtureRange`) — the upstream has no H2H/venue/team-results endpoint. |
 | `matchState.ts`, `liveScore.ts`, `innings.ts`, `situation.ts`, `crease.ts`, `overs.ts`, `balls.ts` | Match state machine, innings reading, one-line situation text, crease context, ball parsing. |
 | `momentum.ts`, `pulse.ts`, `telemetry.ts` | Worm graph points, live pulse readings, chase telemetry. |
-| `automations.ts`, `notifications.ts`, `follows.ts`, `persisted.ts` | Browser-stored rules, alert ledger/keys, follows, localStorage wrapper. |
+| `automations.ts`, `notifications.ts`, `follows.ts`, `persisted.ts` | Browser-stored rules, alert ledger/keys, follows (and `followedMatches`, the order both My Cricket views use), localStorage wrapper. |
 | `playerSeries.ts` | Player series record: format vocabulary, merging the batting/bowling page lists (only series both lists have reached are shown), default series, batting/bowling summaries. Pure; pages come in through a fetcher. |
 | `rankings.ts`, `directory.ts`, `playersDirectory.ts` | Rankings with bundled fallback; team/player directories built from ICC ranking lists. Team lists come from rankingFront (top 10 per format) except men's Test, read in full from `/rankings/players?category=team&play=team` so all 12 Test nations are in the directory. |
 | `search.ts`, `searchIndex.ts` | Client-side search over matches + `/api/search-index`. |
@@ -150,8 +150,9 @@ batter v bowler, `pvtc` player v the opponent, `ac`/`rc` reviews (`review_type` 
 fielding; `result` 1 out; `ultraedge` 1 bat involved; retained/lost from the side's reviews-left
 before and after), `pm`/`tm` milestones, `w` dismissal lines, `tc` chase, `to` toss, `ic2` innings
 end; polls (`pl`) are dropped. `CommentaryFeed` places each note after the last ball published
-before it (`at` against the ball's timestamp), over cards by over number, and draws 160 rows at a
-time. Cards live in `components/match/FeedNotes`. History reads **one innings per request**
+before it (`at` against the ball's timestamp), over cards by over number — both by
+`lastIndexAtOrBelow` (`lib/balls.ts`), which tolerates out-of-order and missing times — and draws
+160 rows at a time. Cards live in `components/match/FeedNotes`. History reads **one innings per request**
 (`getApiInningsFeed`, the `lastDocId=1&inning=N` form the ball popups use): the innings in play
 when the tab opens, each earlier one on "load older". It answers in ~2s even while the deployed
 Worker hangs on the paged walk for a live key. Match-page Live pulse reads the
@@ -190,7 +191,9 @@ The match page starts the corpus read before awaiting the match; an archived mat
 alongside `/match/info`; `getApiTeamSquad` reads roles alongside the squad list.
 
 `hooks/useApiMatches.ts` is **one shared poll** of the match list: every subscriber reads the
-same snapshot and it runs at the fastest interval any subscriber requests.
+same snapshot and it runs at the fastest interval any subscriber requests. A poll that changes
+nothing keeps the previous `Match` objects (`reuseUnchanged`, `lib/live/frames.ts`), so a per-poll
+clock must read `lastUpdated`, not object identity; `isRefreshing` toggles only while an error shows.
 
 `lib/live/socket.ts` is **one shared WebSocket** to the hub per page (module level, outside React;
 refcounted topics, heartbeat, 1→30s backoff, resync listeners after a reconnect, closes 20s after

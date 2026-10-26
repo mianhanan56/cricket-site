@@ -106,7 +106,9 @@ export default function HomeMatches({ initialTab, initialType, news }: HomeMatch
     (pinnedGone && held?.match.id === featuredId && Date.now() - held.seen < STAGE_GRACE_MS ? held.match : null) ??
     liveList[0] ??
     null;
-  if (featured && featured !== held?.match) lastFeatured.current = { match: featured, seen: Date.now() };
+  // Seen while the poll lists it; an unchanged match keeps its object, so identity alone can't say so.
+  if (featured && (featured !== held?.match || liveList.includes(featured)))
+    lastFeatured.current = { match: featured, seen: Date.now() };
   if (featured && featured.id !== featuredId) setFeaturedId(featured.id);
 
   // With nothing live the page still has a job: the competitions under way.

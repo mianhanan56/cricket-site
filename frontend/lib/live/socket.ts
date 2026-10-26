@@ -45,14 +45,12 @@ const live = {
   statusListeners: new Set<() => void>(),
   resyncListeners: new Set<() => void>(),
   bound: false,
-  version: 0,
   /** Whether the Worker serves /live: null until asked, and skipped for an explicit socket URL. */
   capable: (process.env.NEXT_PUBLIC_LIVE_WS_URL ? true : null) as boolean | null,
   probing: false,
 };
 
 function notify() {
-  live.version += 1;
   live.statusListeners.forEach((l) => l());
 }
 
@@ -266,7 +264,7 @@ export function isTopicLive(topic: string): boolean {
   return live.status === 'open' && live.ready.has(topic);
 }
 
-export function getLiveStatus(): LiveStatus {
+function getLiveStatus(): LiveStatus {
   return live.status;
 }
 

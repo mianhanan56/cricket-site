@@ -81,10 +81,30 @@ export function applyMatchesFrame<T>(raw: Record<string, T> | null, frame: LiveF
 export function mergeFeedItems<T extends { id: string }>(prev: T[], next: T[], cap: number): T[] {
   const byId = new Map<string, T>();
   for (const item of prev) byId.set(item.id, item);
-  for (const item of next) byId.set(item.id, item);
+  for (const item of next) {
+    // An unchanged item keeps the held object, so a repeat poll leaves memoised views alone.
+    const held = byId.get(item.id);
+    byId.set(item.id, held && JSON.stringify(held) === JSON.stringify(item) ? held : item);
+  }
   const order = (item: T) => {
     const n = Number(item.id);
     return Number.isFinite(n) ? n : Number.MIN_SAFE_INTEGER;
   };
   return [...byId.values()].sort((a, b) => order(b) - order(a)).slice(0, cap);
+}
+
+/** The same items in the same order, by identity — what a state setter can bail out on. */
+export function sameItems<T>(a: readonly T[], b: readonly T[]): boolean {
+  return a.length === b.length && a.every((x, i) => x === b[i]);
+}
+
+/** `next` with every item that is unchanged from `prev` (same id, same JSON) swapped for the held one. */
+export function reuseUnchanged<T extends { id: string }>(prev: T[], next: T[]): T[] {
+  if (!prev.length) return next;
+  const held = new Map(prev.map((item) => [item.id, item]));
+  const out = next.map((item) => {
+    const old = held.get(item.id);
+    return old && (old === item || JSON.stringify(old) === JSON.stringify(item)) ? old : item;
+  });
+  return sameItems(prev, out) ? prev : out;
 }

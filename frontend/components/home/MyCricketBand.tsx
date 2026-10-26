@@ -3,19 +3,17 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 import type { Match } from '@/types';
-import { isFollowedMatch, useFollows } from '@/lib/follows';
+import { followCount, followedMatches, useFollows } from '@/lib/follows';
 import MatchTile from '../match/MatchTile';
 import TeamBadge from '../ui/TeamBadge';
 import Icon from '../ui/Icon';
 import { SectionHead } from '../ui/Section';
 import styles from './MyCricketBand.module.scss';
 
-const RANK: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
-
 /** Shown until the reader follows something; then the band takes over. */
 export function FollowPrompt() {
   const follows = useFollows();
-  if (follows.teams.length + follows.series.length + follows.players.length > 0) return null;
+  if (followCount(follows) > 0) return null;
 
   return (
     <aside className={styles.prompt} aria-labelledby="follow-title">
@@ -38,22 +36,9 @@ export function FollowPrompt() {
 
 export default function MyCricketBand({ matches }: { matches: Match[] }) {
   const follows = useFollows();
-  const any = follows.teams.length + follows.series.length + follows.players.length > 0;
+  const any = followCount(follows) > 0;
 
-  const mine = useMemo(
-    () =>
-      matches
-        .filter((m) => isFollowedMatch(follows, m))
-        .sort(
-          (a, b) =>
-            RANK[a.status] - RANK[b.status] ||
-            (a.status === 'UPCOMING'
-              ? +new Date(a.startTime) - +new Date(b.startTime)
-              : +new Date(b.startTime) - +new Date(a.startTime))
-        )
-        .slice(0, 4),
-    [matches, follows]
-  );
+  const mine = useMemo(() => followedMatches(follows, matches).slice(0, 4), [matches, follows]);
 
   if (!any) return null;
 

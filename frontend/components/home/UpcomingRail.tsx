@@ -46,10 +46,12 @@ export default function UpcomingRail({
   const [zone, setZone] = useState(SERVER_ZONE);
   useEffect(() => setZone(readerZone()), []);
 
+  // Read every render and passed to the memo, so the headings move on at midnight even when the list doesn't.
+  const now = new Date();
+  const today = dayKeyIn(now.toISOString(), zone);
+  const tomorrow = dayKeyIn(new Date(now.getTime() + 86_400_000).toISOString(), zone);
+
   const days = useMemo(() => {
-    const now = new Date();
-    const today = dayKeyIn(now.toISOString(), zone);
-    const tomorrow = dayKeyIn(new Date(now.getTime() + 86_400_000).toISOString(), zone);
     const list = [...matches]
       .sort((a, b) => +new Date(a.startTime) - +new Date(b.startTime))
       .slice(0, limit ?? matches.length);
@@ -63,7 +65,7 @@ export default function UpcomingRail({
       heading: dayHeading(key, today, tomorrow),
       items,
     }));
-  }, [matches, zone, limit]);
+  }, [matches, zone, limit, today, tomorrow]);
 
   return (
     <div className={`${styles.rail} ${timeline ? '' : styles.plain} ${inSeries ? styles.inSeries : ''}`}>

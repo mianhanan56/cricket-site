@@ -11,7 +11,7 @@ const current = (): Theme =>
     ? 'dark'
     : 'light';
 
-export function setTheme(next: Theme) {
+function setTheme(next: Theme) {
   document.documentElement.setAttribute('data-theme', next);
   try {
     localStorage.setItem('theme', next);
@@ -21,7 +21,7 @@ export function setTheme(next: Theme) {
   window.dispatchEvent(new Event('pc-theme'));
 }
 
-export function useTheme(): Theme | null {
+function useTheme(): Theme | null {
   const [theme, setThemeState] = useState<Theme | null>(null);
   useEffect(() => {
     const sync = () => setThemeState(current());

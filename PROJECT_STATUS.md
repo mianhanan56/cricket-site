@@ -37,6 +37,19 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Verified: `tsc`, lint, 157/157 tests; production build from a scratch copy (first-load JS unchanged
   ±1 kB on every route); 21 routes on old vs new build against the live Worker — same status, title
   and visible text (digits masked). Audit follow-ups not done are in TODO (Medium/Low, 2026-10-23).
+- Second pass (same day): a poll or socket frame that changes nothing keeps the previous objects
+  (`reuseUnchanged` for the match list, `mergeFeedItems` per ball/over/note, the card by JSON), so
+  memoised views and `memo(CommentaryFeed)` skip it; `AutomationEngine` reads `lastUpdated` and the home
+  featured-match clock refreshes while the poll lists its match, instead of both waiting on a new
+  object per poll. Commentary interleave
+  O(balls × anchors) → O((balls + anchors) log balls) via `lastIndexAtOrBelow` (`lib/balls.ts`,
+  tested against a linear scan with unsorted and NaN keys). Followed-matches sort shared
+  (`followedMatches`); seven in-file-only exports and the unread `live.version` removed.
+  Verified: `tsc`, lint, 159/159 tests; scratch builds (first-load JS ±0.1 kB); old vs new build
+  side by side in headless Chrome through one caching proxy of the live Worker, sockets stubbed
+  so both poll — live T20 and ODI pages, a finished match, home and My Cricket with follows: same
+  request counts per endpoint, same text in 54 of 55 samples (in the other the old build was still on
+  its loading skeleton), no errors.
 
 ## Recently completed (uncommitted, 2026-10-23, source name removed)
 

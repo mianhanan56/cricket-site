@@ -153,7 +153,7 @@ function NewsWatcher({ follows, background }: { follows: Follows; background: bo
 
 function Runner({ rules, background }: { rules: Automation[]; background: boolean }) {
   const follows = useFollows();
-  const { matches } = useApiMatches({ intervalMs: LIST_INTERVAL_MS, background });
+  const { matches, lastUpdated } = useApiMatches({ intervalMs: LIST_INTERVAL_MS, background });
   const prev = useRef<{ matches: Match[]; at: number } | null>(null);
 
   const ctx = useMemo<ScopeContext>(
@@ -193,6 +193,11 @@ function Runner({ rules, background }: { rules: Automation[]; background: boolea
   useEffect(() => {
     if (!matches.length) return;
     const now = Date.now();
+    // An unchanged list is still a fresh look: without this a quiet spell would read as a stale gap.
+    if (prev.current?.matches === matches) {
+      prev.current.at = now;
+      return;
+    }
     if (prev.current && now - prev.current.at < STALE_GAP_MS) {
       const byId = new Map(matches.map((m) => [m.id, m]));
       for (const f of listFirings(prev.current.matches, matches)) {
@@ -203,7 +208,7 @@ function Runner({ rules, background }: { rules: Automation[]; background: boolea
     prev.current = { matches, at: now };
     // `deliver` reads refs only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matches]);
+  }, [matches, lastUpdated]);
 
   const feedRules = rules.filter((r) => r.triggers.some((t) => triggerSpec(t).feed));
   // Keyed on the scopes, not the count: editing an alert's team must move its watchers.

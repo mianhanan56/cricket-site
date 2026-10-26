@@ -71,6 +71,33 @@ export function dedupeDeliveries<T extends Delivery>(balls: T[]): T[] {
   return balls.filter((b) => keep.has(b));
 }
 
+/**
+ * A lookup for the last index whose key is <= x, in log time and whatever order the keys are in:
+ * suffix minima never decrease, and the last i with suffixMin[i] <= x is that index. A NaN key never
+ * matches a finite x.
+ */
+export function lastIndexAtOrBelow(keys: readonly number[]): (x: number) => number {
+  const suffixMin = new Array<number>(keys.length);
+  let min = Infinity;
+  for (let i = keys.length - 1; i >= 0; i--) {
+    if (keys[i] < min) min = keys[i];
+    suffixMin[i] = min;
+  }
+  return (x) => {
+    let lo = 0;
+    let hi = keys.length - 1;
+    let found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (suffixMin[mid] <= x) {
+        found = mid;
+        lo = mid + 1;
+      } else hi = mid - 1;
+    }
+    return found;
+  };
+}
+
 export const EXTRA_LABELS: Record<BallExtra, { short: string; long: string }> = {
   wide: { short: 'wd', long: 'Wide' },
   noball: { short: 'nb', long: 'No Ball' },
@@ -133,7 +160,6 @@ export function ballTitle(b: BallEntry): string {
   return `${b.over}.${b.ball} — ${runsLabel(b)}`;
 }
 
-/** The last legal ball of an over reads as the next over's start: "66.0", never "65.6". */
 /**
  * Deliveries the scorecard has caught up with. The card and the ball feed are
  * separate Worker cache entries and the card can trail by a few seconds, so
@@ -156,6 +182,7 @@ export function reachedByCard<T extends Pick<BallEntry, 'over' | 'ball' | 'extra
   });
 }
 
+/** The last legal ball of an over reads as the next over's start: "66.0", never "65.6". */
 export function ballPosition(b: BallEntry, perOver: number): string {
   if (!isIllegal(b) && b.ball >= perOver) return `${b.over + 1}.0`;
   return `${b.over}.${b.ball}`;

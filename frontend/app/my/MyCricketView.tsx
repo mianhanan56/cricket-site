@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import type { Match, TeamCrest } from '@/types';
+import type { TeamCrest } from '@/types';
 import { useApiMatches } from '@/hooks/useApiMatches';
-import { followCount, isFollowedMatch, toggleFollow, useFollows, type Follows } from '@/lib/follows';
+import { followCount, followedMatches, toggleFollow, useFollows, type Follows } from '@/lib/follows';
 import { loadRemoteIndex, type RemoteIndex } from '@/lib/searchIndex';
 import { PageHeader, SectionHead } from '@/components/ui/Section';
 import MatchTile from '@/components/match/MatchTile';
@@ -18,7 +18,6 @@ import { BoardSkeleton } from '@/components/home/HomeSkeleton';
 import Icon from '@/components/ui/Icon';
 import styles from './my.module.scss';
 
-const RANK: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
 const PICKER_ID = 'add-teams';
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
@@ -111,19 +110,7 @@ export default function MyCricketView() {
 
   const total = followCount(follows);
 
-  const mine = useMemo(
-    () =>
-      matches
-        .filter((m) => isFollowedMatch(follows, m))
-        .sort(
-          (a, b) =>
-            RANK[a.status] - RANK[b.status] ||
-            (a.status === 'UPCOMING'
-              ? +new Date(a.startTime) - +new Date(b.startTime)
-              : +new Date(b.startTime) - +new Date(a.startTime))
-        ),
-    [matches, follows]
-  );
+  const mine = useMemo(() => followedMatches(follows, matches), [matches, follows]);
 
   // Sides worth offering: the ranked internationals first, then whoever is in the feed.
   const suggestions = useMemo(() => {

@@ -8,7 +8,7 @@ const listeners = new Set<(p: SystemPermission) => void>();
 const broadcast = (p: SystemPermission) => listeners.forEach((l) => l(p));
 
 /** Asks the browser, then tells every component showing the permission. */
-export async function requestNotificationPermission(): Promise<SystemPermission> {
+async function requestNotificationPermission(): Promise<SystemPermission> {
   const next = await requestSystemPermission();
   broadcast(next);
   return next;

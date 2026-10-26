@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { InningsScore } from '../types';
-import { dedupeDeliveries, reachedByCard, type BallEntry } from '../lib/balls';
+import { dedupeDeliveries, lastIndexAtOrBelow, reachedByCard, type BallEntry } from '../lib/balls';
 
 const inn = (overs: number, notStarted = false): InningsScore =>
   ({ teamShortName: 'A', runs: 100, wickets: 2, overs, notStarted }) as InningsScore;
@@ -44,5 +44,28 @@ describe('one entry per delivery', () => {
   it('keeps two wides on the same ball number apart', () => {
     const balls = [d('3', 12, 1), d('2', 12, 1, 'wide', '81/2'), d('1', 12, 1, 'wide', '80/2')];
     assert.equal(dedupeDeliveries(balls).length, 3);
+  });
+});
+
+describe('lastIndexAtOrBelow', () => {
+  const scan = (keys: number[], x: number) => {
+    let last = -1;
+    for (let i = 0; i < keys.length; i++) if (keys[i] <= x) last = i;
+    return last;
+  };
+
+  it('agrees with a linear scan on unsorted keys with gaps and NaN', () => {
+    let seed = 7;
+    const rand = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let round = 0; round < 200; round++) {
+      const keys = Array.from({ length: Math.floor(rand() * 40) }, () => (rand() < 0.1 ? NaN : Math.floor(rand() * 30)));
+      const find = lastIndexAtOrBelow(keys);
+      for (let x = -2; x < 33; x++) assert.equal(find(x), scan(keys, x), `keys ${keys} x ${x}`);
+    }
+  });
+
+  it('answers -1 for no keys, or none low enough', () => {
+    assert.equal(lastIndexAtOrBelow([])(5), -1);
+    assert.equal(lastIndexAtOrBelow([4, 6])(3), -1);
   });
 });

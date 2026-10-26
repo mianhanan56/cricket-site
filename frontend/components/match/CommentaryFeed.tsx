@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { FeedNote, Match, MatchSquads, OverSummary } from '@/types';
-import { ballKind, runsLabel, type BallEntry, type BallKind } from '@/lib/balls';
+import { ballKind, lastIndexAtOrBelow, runsLabel, type BallEntry, type BallKind } from '@/lib/balls';
 import { MATCH_FORMAT_LABEL } from '@/lib/seriesFormat';
 import Segmented from '../ui/Segmented';
 import FilterSheet from '../ui/FilterSheet';
@@ -75,27 +75,24 @@ function interleave(balls: BallEntry[], summaries: OverSummary[], notes: FeedNot
 
   for (const inning of [...inningsOf].sort((a, b) => b - a)) {
     const chrono = balls.filter((b) => (b.inning ?? 0) === inning).reverse();
-    const times = chrono.map(ballTime);
     const startHeld = chrono.length > 0 ? chrono[0].over === 0 : inning === newest;
     const placed: Array<{ pos: number; at: number; row: FeedRow }> = chrono.map((b, i) => ({
       pos: i,
       at: 0,
       row: { kind: 'ball', key: b.id, over: b.over + 1, ball: b },
     }));
-    const after = (test: (i: number) => boolean) => {
-      let last = -1;
-      for (let i = 0; i < chrono.length; i++) if (test(i)) last = i;
-      return last;
-    };
+    // The last ball at or before an over / a moment — a log-time lookup, not a scan per row.
+    const lastInOver = lastIndexAtOrBelow(chrono.map((b) => b.over + 1));
+    const lastBefore = lastIndexAtOrBelow(chrono.map(ballTime));
 
     for (const o of summaries) {
       if (o.inning !== inning) continue;
-      const anchor = after((i) => chrono[i].over + 1 <= o.over);
+      const anchor = lastInOver(o.over);
       placed.push({ pos: anchor + 0.5, at: Number(o.id) || 0, row: { kind: 'over', key: `o-${o.id}`, over: o.over, summary: o } });
     }
     for (const n of notes) {
       if (n.inning !== inning) continue;
-      const anchor = after((i) => times[i] <= n.at);
+      const anchor = lastBefore(n.at);
       if (anchor < 0 && !startHeld) continue;
       placed.push({ pos: anchor + 0.5, at: n.at, row: { kind: 'note', key: `n-${n.id}`, note: n } });
     }
@@ -162,7 +159,7 @@ function overTone(token: string): string {
   return '';
 }
 
-export function OverCard({ summary }: { summary: OverSummary }) {
+function OverCard({ summary }: { summary: OverSummary }) {
   return (
     <li className={styles.overCard}>
       <div className={styles.overHead}>
@@ -214,7 +211,7 @@ export function OverCard({ summary }: { summary: OverSummary }) {
   );
 }
 
-export default function CommentaryFeed({
+function CommentaryFeed({
   balls,
   summaries,
   notes,
@@ -449,3 +446,6 @@ export default function CommentaryFeed({
     </div>
   );
 }
+
+// Its inputs hold their identity across a poll that changed nothing, so it skips that render.
+export default memo(CommentaryFeed);

@@ -57,3 +57,18 @@ export function isFollowedMatch(follows: Follows, m: Match): boolean {
     follows.series.some((s) => s.id === m.series.id)
   );
 }
+
+const STATUS_RANK: Record<Match['status'], number> = { LIVE: 0, UPCOMING: 1, COMPLETED: 2 };
+
+/** The followed matches: live first, then the next to start, then the latest results. */
+export function followedMatches(follows: Follows, matches: Match[]): Match[] {
+  return matches
+    .filter((m) => isFollowedMatch(follows, m))
+    .sort(
+      (a, b) =>
+        STATUS_RANK[a.status] - STATUS_RANK[b.status] ||
+        (a.status === 'UPCOMING'
+          ? +new Date(a.startTime) - +new Date(b.startTime)
+          : +new Date(b.startTime) - +new Date(a.startTime))
+    );
+}
