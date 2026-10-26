@@ -16,7 +16,9 @@ import {
 } from '@/lib/searchIndex';
 import { useFollows } from '@/lib/follows';
 import Icon, { type IconName } from '../ui/Icon';
+import { playerImageUrl } from '@/lib/api';
 import TeamBadge from '../ui/TeamBadge';
+import PlayerPortrait from '../player/PlayerPortrait';
 import SyncIndicator from '../ui/SyncIndicator';
 import styles from './SearchOverlay.module.scss';
 
@@ -166,6 +168,8 @@ function SearchDialog() {
         <span className={styles.itemIcon}>
           {e.type === 'team' ? (
             <TeamBadge name={e.label} shortName={e.sub} logo={e.logo} size="sm" />
+          ) : e.type === 'player' ? (
+            <PlayerPortrait name={e.label} src={playerImageUrl(e.id)} size="xs" />
           ) : (
             <Icon name={ICON_FOR[e.type]} size={17} />
           )}

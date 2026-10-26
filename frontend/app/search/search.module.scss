@@ -103,7 +103,7 @@
 
 .entity {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) auto;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
   align-items: center;
   gap: $space-3;
   min-height: 52px;

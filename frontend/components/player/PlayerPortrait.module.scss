@@ -47,6 +47,19 @@
   }
 }
 
+.xs {
+  &,
+  &.portrait {
+    width: 32px;
+    height: 32px;
+    border-radius: $r-sm;
+  }
+
+  &.fallback {
+    font-size: $fs-xs;
+  }
+}
+
 .fallback {
   place-items: center;
   @include display-num;

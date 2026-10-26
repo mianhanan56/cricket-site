@@ -20,11 +20,11 @@ export default function PlayerPortrait({
 }: {
   name: string;
   src?: string | null;
-  /** `lg` at the head of a profile, `sm` in a card rail. */
-  size?: 'sm' | 'lg';
+  /** `lg` at the head of a profile, `sm` in a card rail, `xs` in a search row. */
+  size?: 'xs' | 'sm' | 'lg';
 }) {
   const [failed, setFailed] = useState(false);
-  const box = size === 'sm' ? styles.sm : '';
+  const box = size === 'lg' ? '' : styles[size];
 
   if (!src || failed) {
     return (

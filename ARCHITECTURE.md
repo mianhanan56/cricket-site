@@ -312,21 +312,36 @@ permission (`askOnFollow`, the click is the gesture). Still tab-open only: no pu
 
 ## Match quiz
 
-Finished match pages get a **Quiz** tab (2026-10-26): five multiple-choice questions about that
-match, written by Google Gemini (free tier) from its scorecard.
+Match pages get a **Quiz** tab (2026-10-26), written by Google Gemini (free tier) from scorecards.
+`quizKind` (`lib/quiz.ts`) decides which quiz a match has, on both server and client:
 
-- `app/api/quiz/route.ts` — `GET /api/quiz?match=<id>`. 404 unless the match is COMPLETED with a
-  result line, or when `GEMINI_API_KEY` is unset; 503 when generation fails. The status check runs
-  outside the cache so a live match never stores a miss.
-- `unstable_cache` keeps one quiz per match for 30 days (key `match-quiz-v1`; bump it to
+- **result** — the match is COMPLETED with a result line: five questions about this match.
+- **warmup** — from 6 hours before the start (`WARMUP_WINDOW_MS`), through live play, until the
+  result line arrives: each side's last finished match before this one (`lastMatches`, read from the
+  45-day `getApiFixtureRange` corpus), 3 questions from each (5 if both sides' last match was the
+  same game), each question labelled `about: "Pakistan v England"`. Each source match's quiz is the
+  same cached result quiz, so a game is generated once however many fixtures warm up from it. No
+  finished match in the corpus for either side = no tab. When the result arrives the hook refetches
+  and the result quiz replaces the warm-up (the warm-up stays up meanwhile).
+- none — earlier than 6 hours before the start.
+
+- `app/api/quiz/route.ts` — `GET /api/quiz?match=<id>`. 404 when `quizKind` is none, when no warm-up
+  source exists, or when `GEMINI_API_KEY` is unset; 503 when a result quiz fails. The kind check runs
+  outside the cache so a match that isn't ready never stores a miss.
+- `unstable_cache` keeps one result quiz per match for 30 days (key `match-quiz-v3`; bump it to
   regenerate every quiz), so each match costs one model call. A failed generation throws and caches
-  nothing. CDN `s-maxage` 1 day on success.
+  nothing. CDN `s-maxage`: 1 day for a result quiz, 5 minutes for a warm-up (it must give way to the
+  result quiz). A warm-up with one source failing serves the other's questions.
 - `lib/quiz.ts` — `matchSheet` turns the card into plain lines (result, player of the match, each
   innings' batting/bowling/fall of wickets, plus precomputed leaders, because the model is told not
   to do arithmetic). The model must return, per question, an `evidence` line copied from the sheet;
   `checkQuiz` drops any question whose evidence isn't in the sheet or doesn't contain the correct
   option (invented players, miscounts), plus malformed/duplicate ones, then shuffles options.
-  Fewer than 3 survivors = failure.
+  Fewer than 3 survivors = failure. Questions take 2–4 options, fitted to the question by
+  `fitOptions` against `quizCast` (the two sides + every player on the card), not trusted from the
+  model: a side's answer gets exactly the two sides as options; a player's answer keeps only
+  players on the card (fewer than 2 left = dropped). Added 2026-10-26 after "who won" offered the
+  ground's town names (Karwan, Ajman) as teams.
 - `lib/gemini.ts` — REST `generateContent` with `responseSchema` (JSON). Model `GEMINI_MODEL`,
   default alias `gemini-flash-latest` (a pinned version would silently die when Google retires it),
   given 15s; on a timeout, 404 (retired), 429 or 5xx it falls back to `gemini-flash-lite-latest`
@@ -335,9 +350,18 @@ match, written by Google Gemini (free tier) from its scorecard.
   quiz takes ~8–21s, a cached one ~10ms.
 - The sheet adds a `Winner:` line with the full team name — the result line uses short names, so
   "who won" answers never matched their evidence.
-- Client: `hooks/useMatchQuiz` fetches once for a finished match; the tab is offered only after
-  questions arrive, so no key / quota exhausted means no tab. `components/match/QuizPanel` — one
-  question at a time, a ball-per-question strip (lime right, red wrong), score + review at the end.
+- Client: `hooks/useMatchQuiz` fetches once per quiz kind; the tab is offered only after
+  questions arrive, so no key / quota exhausted means no tab. Title is plain "Quiz" for both kinds
+  (the user asked for no "warm-up" wording). `components/match/QuizPanel` — one card:
+  an on-pitch scoreboard (mown stripes; title, big count, a ball per question, green right / red
+  wrong) beside the question, stacked as a band on phones. Balls carry the question number; a
+  "N right · N wrong" tally sits under them. The question holds an 820px measure on wide cards.
+  Options are lettered A–D; keys A–D / 1–4 answer and Enter moves on (ignored while typing in a
+  field). Right pick pops, wrong pick shakes. End
+  screen headline by score (all right "Perfect innings!", ≥60% "Well played!", else "Have another
+  go" / 0 "Out for a duck"), review list, "Try again" unless perfect. ≥60% plays a one-off CSS
+  confetti + balloons burst (`Celebration`, positions via SCSS `@for`, `cqh` units) only right
+  after finishing, never on a reopened score; hidden under reduced motion.
   Picks persist in localStorage `pc.quiz` keyed by match, tied to `generatedAt`.
 
 ## Styling conventions

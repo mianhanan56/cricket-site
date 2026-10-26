@@ -1248,10 +1248,16 @@ export interface QuizQuestion {
   answer: number;
   /** Shown once the reader has answered. */
   explanation: string;
+  /** The match a warm-up question is about, e.g. "Pakistan v England". */
+  about?: string;
 }
+
+/** `result`: about this match, once it is over. `warmup`: about each side's previous match. */
+export type QuizKind = 'result' | 'warmup';
 
 export interface MatchQuiz {
   matchId: string;
+  kind: QuizKind;
   /** Stored answers belong to one generation; a regenerated quiz starts fresh. */
   generatedAt: string;
   questions: QuizQuestion[];

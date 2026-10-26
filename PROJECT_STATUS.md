@@ -18,12 +18,16 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - 2026-10-26: search finds series outside the live feed — `/api/search-index` now carries the series catalogue from `/fixtures?wise=2` (≈1,300 series, March 2022 onward — page −60 is the Worker's floor; older needs that bound raised and a Worker deploy). Verified "president trophy" → President Trophy 2026 (`/series/2MQ`, 29 matches); tsc clean, 159/159 tests.
 - 2026-10-26: knockout matches are named. The upstream sends the match number encoded for knockouts (`^0` Final, `^1` 1st Semi-final, `^c` Qualifier 1…; table now `knockoutStage` in `lib/api/codes.ts`, shared with player pages). New `Match.stage` from the feed's `e` and the schedule's `mn`; the score header and Match details show it, the series strip labels the chip "Final" (was "Match 29"). Archived/scheduled matches also get `matchNumber` now. Verified `/matches/14VQ` (President Trophy 2026 final); tsc clean, 159/159 tests.
 - 2026-10-26: search finds any player named in a recent series squad (~14,000, not just ICC-ranked + live cards) via `/api/search-players`. Verified "shad" → Shadab Khan, Shadman Islam, Shadley van Schalkwyk (CREX order); non-ranked profiles (Shadab Jakati, Shadhin Islam) open; production build from a scratch copy prerenders the route with 14,166 players; tsc clean, 159/159 tests.
+- 2026-10-26: player rows in search (overlay and /search) show the upstream portrait via `PlayerPortrait size="xs"` (32px; initials when the PNG 404s). Checked in headless Chrome at 1280 and 390 against a scratch production build: all portraits load.
   (background/system-tray support, event-key dedup); dark/light theme; PWA.
 
 ## Recently completed (uncommitted, 2026-10-26, match quiz)
 
 - AI match quiz: Quiz tab on finished match pages, questions from Gemini's free tier grounded in
-  the scorecard (ARCHITECTURE › Match quiz). Files: `app/api/quiz/route.ts`, `lib/quiz.ts`,
+  the scorecard (ARCHITECTURE › Match quiz). Same day, at the user's request: a warm-up quiz on
+  upcoming matches from 6 hours before the start and through live play, 3 questions from each
+  side's last finished match (tested on PAK v SL with the window widened in a scratch copy:
+  PAK v ENG + SL v ENG questions, ~25s first read, cached after). Files: `app/api/quiz/route.ts`, `lib/quiz.ts`,
   `lib/gemini.ts`, `lib/quizAnswers.ts`, `hooks/useMatchQuiz.ts`, `components/match/QuizPanel.*`;
   `quiz` added to `MATCH_TAB_KEYS`; `QuizQuestion`/`MatchQuiz` in `types/index.ts`.
 - Verified against the real Gemini API (key in `frontend/.env.local`) from an isolated build:

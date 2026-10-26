@@ -18,6 +18,7 @@ import { battedInnings, formatTeamScore, inningsFor, withCard } from '@/lib/inni
 import { creaseContext, matchSituation, type MatchSituation } from '@/lib/situation';
 import { isStaleStoppage, attributeResult } from '@/lib/api';
 import { matchStateOf } from '@/lib/matchState';
+import { quizKind } from '@/lib/quiz';
 import { breakFromFeed } from '@/lib/feedBreak';
 import { inningsProgress, liveEquation } from '@/lib/telemetry';
 import { creaseFromCard } from '@/lib/crease';
@@ -80,7 +81,8 @@ export default function MatchDetail({
 }) {
   const [match, setMatch] = useState<Match>(initial);
   // Offered only once questions exist, so a match the model can't quiz never shows an empty tab.
-  const quiz = useMatchQuiz(matchId, !preview && match.status === 'COMPLETED' && Boolean(match.result));
+  // The clock only gates a fetch, never markup, so reading it in render can't break hydration.
+  const quiz = useMatchQuiz(matchId, preview ? null : quizKind(match, Date.now()));
   const hasSummary = !preview && initial.status !== 'UPCOMING';
   const defaultTab: TabKey = hasSummary ? 'live' : 'info';
   const [picked, setPicked] = useState<TabKey>(initialTab || defaultTab);

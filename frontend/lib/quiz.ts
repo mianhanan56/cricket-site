@@ -1,9 +1,48 @@
-import type { InningsScore, Match, MatchQuiz, QuizQuestion } from '@/types';
+import type { InningsScore, Match, MatchQuiz, QuizKind, QuizQuestion } from '@/types';
 import { attributeResult } from './api';
 
 const QUIZ_LENGTH = 5;
 const MIN_QUESTIONS = 3;
-const OPTIONS = 4;
+const MAX_OPTIONS = 4;
+/** How long before the start the warm-up quiz opens. */
+const WARMUP_WINDOW_MS = 6 * 60 * 60 * 1000;
+/** Questions taken from each side's last match when there are two. */
+const WARMUP_PER_MATCH = 3;
+
+/**
+ * Which quiz a match offers now: its own once the result is in; a warm-up from six hours
+ * before the start until then, live play included; none earlier.
+ */
+export function quizKind(match: Match, now: number): QuizKind | null {
+  if (match.status === 'COMPLETED' && match.result) return 'result';
+  if (match.status === 'LIVE' || match.status === 'COMPLETED') return 'warmup';
+  if (match.status === 'UPCOMING' && +new Date(match.startTime) - now <= WARMUP_WINDOW_MS) return 'warmup';
+  return null;
+}
+
+/** Each side's most recent finished match before this one, home side first, one entry when they are the same game. */
+export function lastMatches<T extends Match & { matchKey: string | null }>(match: Match, corpus: T[]): T[] {
+  const before = corpus
+    .filter((f) => f.matchKey && f.matchKey !== match.id && f.status === 'COMPLETED' && f.result && f.startTime < match.startTime)
+    .sort((a, b) => +new Date(b.startTime) - +new Date(a.startTime));
+  const found = [match.homeTeam.id, match.awayTeam.id]
+    .map((id) => before.find((f) => f.homeTeam.id === id || f.awayTeam.id === id))
+    .filter((f): f is T => Boolean(f));
+  return found.filter((f, i) => found.findIndex((g) => g.matchKey === f.matchKey) === i);
+}
+
+/** The warm-up: each source match's own quiz, trimmed when there are two, each question labelled with its match. */
+export function warmupQuiz(match: Match, parts: Array<{ source: Match; quiz: MatchQuiz }>): MatchQuiz {
+  const per = parts.length > 1 ? WARMUP_PER_MATCH : QUIZ_LENGTH;
+  return {
+    matchId: match.id,
+    kind: 'warmup',
+    generatedAt: parts.map((p) => p.quiz.generatedAt).join('|'),
+    questions: parts.flatMap(({ source, quiz }) =>
+      quiz.questions.slice(0, per).map((q) => ({ ...q, about: `${source.homeTeam.name} v ${source.awayTeam.name}` }))
+    ),
+  };
+}
 
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -73,18 +112,38 @@ export function matchSheet(match: Match, innings: InningsScore[]): string {
   return lines.join('\n');
 }
 
+/** Who can be an option: the two sides and every player named on the card. */
+export interface QuizCast {
+  teams: Array<{ name: string; shortName: string }>;
+  players: Set<string>;
+}
+
+export function quizCast(match: Match, innings: InningsScore[]): QuizCast {
+  const names = innings.flatMap((i) => [
+    ...(i.batting ?? []).map((b) => b.name),
+    ...(i.bowling ?? []).map((b) => b.name),
+    ...(i.yetToBat ?? []).map((b) => b.name),
+  ]);
+  if (match.playerOfMatch) names.push(match.playerOfMatch.name);
+  return { teams: [match.homeTeam, match.awayTeam], players: new Set(names.map(norm)) };
+}
+
 /** Whether a card has enough in it to ask about. */
 export const quizzable = (match: Match, innings: InningsScore[]): boolean =>
   match.status === 'COMPLETED' && Boolean(match.result) && innings.some((i) => i.batting?.length);
 
 export const QUIZ_SYSTEM = `You write multiple-choice quiz questions for cricket fans about one finished match.
 Use only facts written in the match sheet. Never add, subtract or average numbers yourself: every correct answer must appear word for word in one line of the sheet.
-Wrong options must be the same kind of thing as the answer and plausible: other players from this match, nearby numbers, the other team.
+Give 2 to 4 options, and every option must be a real answer of the same kind as the correct one:
+- "Which team won" or any question about a side: only the two teams in this match, so 2 options.
+- A question about a player: only players named in the sheet.
+- A number or figures: nearby numbers or figures.
+Never use venues, cities, grounds or series names as options.
 Cover different things: the result, top scorers, best bowling, dismissals, partnerships, player of the match, extras.
 A question must not give away its answer. Keep questions under 20 words and options under 6 words.`;
 
 export const quizPrompt = (sheet: string) =>
-  `Write 8 questions with exactly ${OPTIONS} options each. "answer" is the 0-based index of the correct option. ` +
+  `Write 8 questions. "answer" is the 0-based index of the correct option. ` +
   `"evidence" is one line copied exactly from the sheet that proves the answer. ` +
   `"explanation" is one short sentence for the reader after they answer.\n\nMATCH SHEET\n${sheet}`;
 
@@ -122,10 +181,26 @@ function shuffled(q: QuizQuestion): QuizQuestion {
 }
 
 /**
+ * Options that fit the question, whatever the model offered: a side's answer is one of the
+ * two sides, a player's answer is chosen among players on the card. Null when too few remain.
+ */
+function fitOptions(opts: string[], answer: number, cast: QuizCast): { options: string[]; answer: number } | null {
+  const right = norm(opts[answer]);
+  const team = cast.teams.findIndex((t) => norm(t.name) === right || norm(t.shortName) === right);
+  if (team >= 0) return { options: cast.teams.map((t) => t.name), answer: team };
+
+  if (cast.players.has(right)) {
+    const options = opts.filter((o) => cast.players.has(norm(o)));
+    return options.length >= 2 ? { options, answer: options.indexOf(opts[answer]) } : null;
+  }
+  return { options: opts, answer };
+}
+
+/**
  * Keeps the questions the sheet backs: the quoted evidence must be in the sheet and must
  * contain the correct option. That drops invented players and miscounted figures.
  */
-export function checkQuiz(raw: unknown, sheet: string): QuizQuestion[] {
+export function checkQuiz(raw: unknown, sheet: string, cast: QuizCast): QuizQuestion[] {
   const list = (raw as { questions?: unknown })?.questions;
   if (!Array.isArray(list)) return [];
   const source = norm(sheet);
@@ -135,20 +210,22 @@ export function checkQuiz(raw: unknown, sheet: string): QuizQuestion[] {
   for (const item of list) {
     const { question, options, answer, evidence, explanation } = (item ?? {}) as Record<string, unknown>;
     if (typeof question !== 'string' || typeof evidence !== 'string' || typeof explanation !== 'string') continue;
-    if (!Array.isArray(options) || options.length !== OPTIONS || !options.every((o) => typeof o === 'string' && o.trim())) continue;
-    if (!Number.isInteger(answer) || (answer as number) < 0 || (answer as number) >= OPTIONS) continue;
+    if (!Array.isArray(options) || options.length < 2 || options.length > MAX_OPTIONS) continue;
+    if (!options.every((o) => typeof o === 'string' && o.trim())) continue;
+    if (!Number.isInteger(answer) || (answer as number) < 0 || (answer as number) >= options.length) continue;
     const opts = (options as string[]).map((o) => o.trim());
-    if (new Set(opts.map(norm)).size !== OPTIONS) continue;
+    if (new Set(opts.map(norm)).size !== opts.length) continue;
     const proof = norm(evidence);
     if (!proof || !source.includes(proof) || !proof.includes(norm(opts[answer as number]))) continue;
-    if (seen.has(norm(question))) continue;
+    const fit = fitOptions(opts, answer as number, cast);
+    if (!fit || seen.has(norm(question))) continue;
     seen.add(norm(question));
-    kept.push(shuffled({ question: question.trim(), options: opts, answer: answer as number, explanation: explanation.trim() }));
+    kept.push(shuffled({ question: question.trim(), ...fit, explanation: explanation.trim() }));
   }
   return kept.slice(0, QUIZ_LENGTH);
 }
 
 export function toQuiz(matchId: string, questions: QuizQuestion[]): MatchQuiz {
   if (questions.length < MIN_QUESTIONS) throw new Error(`only ${questions.length} questions passed the check`);
-  return { matchId, generatedAt: new Date().toISOString(), questions };
+  return { matchId, kind: 'result', generatedAt: new Date().toISOString(), questions };
 }

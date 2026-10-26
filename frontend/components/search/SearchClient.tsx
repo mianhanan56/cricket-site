@@ -17,7 +17,9 @@ import {
 import { PageHeader, SectionHead } from '../ui/Section';
 import EmptyState from '../ui/EmptyState';
 import Icon, { type IconName } from '../ui/Icon';
+import { playerImageUrl } from '@/lib/api';
 import TeamBadge from '../ui/TeamBadge';
+import PlayerPortrait from '../player/PlayerPortrait';
 import MatchTile from '../match/MatchTile';
 import UpcomingRail from '../home/UpcomingRail';
 import ResultList from '../home/ResultList';
@@ -37,6 +39,8 @@ function EntityLink({ entity, icon }: { entity: SearchEntity; icon: IconName }) 
       <span className={styles.entityIcon}>
         {entity.type === 'team' ? (
           <TeamBadge name={entity.label} shortName={entity.sub} logo={entity.logo} size="sm" />
+        ) : entity.type === 'player' ? (
+          <PlayerPortrait name={entity.label} src={playerImageUrl(entity.id)} size="xs" />
         ) : (
           <Icon name={icon} size={17} />
         )}

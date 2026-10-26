@@ -1,58 +1,192 @@
 @use 'component' as *;
 
+// The quiz reads as a scoreboard: a mown-pitch board (title, count, one ball per question)
+// beside the question. Phones stack the board as a band above it.
 .quiz {
-  max-width: 720px;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid $line;
+  border-radius: $r-lg;
+  background: $surface;
+  box-shadow: $shadow-1;
+
+  @include tablet {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  @include desktop {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
 }
 
-.head {
-  @include flex-between;
-  gap: $space-4;
-  margin-bottom: $space-4;
+// ---------------------------------------------------------------- Board
+
+.board {
+  @include on-pitch;
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'title count'
+    'over count';
+  align-items: center;
+  gap: $space-3 $space-4;
+  padding: $space-4 $space-5;
+  background-image: radial-gradient(90% 70% at 0% 0%, color-mix(in oklab, var(--data) 16%, transparent), transparent 65%);
+
+  @include tablet {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'title'
+      'count'
+      'over';
+    align-content: space-between;
+    gap: $space-6;
+    padding: $space-6;
+  }
+}
+
+.mow {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  @include mown-stripes;
+  pointer-events: none;
 }
 
 .title {
+  grid-area: title;
+  @include heading;
   font-size: $fs-lg;
   font-stretch: $stretch-display;
   font-weight: 800;
-  letter-spacing: -0.02em;
 }
 
-// One ball per question, read like an over: lime for a right answer, red for a wrong one.
+.count {
+  grid-area: count;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: $space-1;
+
+  @include tablet {
+    align-items: flex-start;
+  }
+}
+
+.countNum {
+  @include display-num;
+  font-size: 40px;
+
+  @include tablet {
+    font-size: $fs-live-score;
+  }
+}
+
+.countOf {
+  margin-left: $space-0-5;
+  font-size: 0.42em;
+  color: $text-2;
+}
+
+.countLabel {
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: $text-2;
+}
+
+.progress {
+  grid-area: over;
+  display: grid;
+  gap: $space-2;
+}
+
+// One ball per question, read like an over: green for a right answer, red for a wrong one.
 .over {
   display: flex;
+  flex-wrap: wrap;
   gap: $space-1-5;
   list-style: none;
+
+  @include tablet {
+    gap: $space-2;
+  }
 }
 
 .ball {
-  width: 14px;
-  height: 14px;
+  @include flex-center;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 1.5px solid $line-3;
-  transition: background-color $dur-2 $ease-out, border-color $dur-2 $ease-out;
+  font-family: $font-data;
+  font-size: $fs-xs;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: $text-3;
+  transition:
+    background-color $dur-3 $ease-out,
+    border-color $dur-3 $ease-out,
+    box-shadow $dur-3 $ease-out,
+    color $dur-3 $ease-out;
+
+  @include tablet {
+    width: 30px;
+    height: 30px;
+  }
 
   &.current {
     border: 2px solid $text;
+    color: $text;
+    box-shadow: 0 0 0 4px $surface-3;
+  }
+
+  &.right,
+  &.wrong {
+    border-color: transparent;
+    color: var(--pitch-deep);
   }
 
   &.right {
-    border-color: transparent;
     background: $signal-mark;
   }
 
   &.wrong {
-    border-color: transparent;
     background: $wicket;
   }
 }
 
-.card {
-  @include panel;
-  padding: $space-5 $space-4;
+.tally {
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: $text-2;
+  font-variant-numeric: tabular-nums;
+}
+
+// ---------------------------------------------------------------- Stage
+
+.stage {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  padding: $space-5 $space-4 $space-6;
 
   @include tablet {
-    padding: $space-6;
+    padding: $space-8;
   }
+
+  @include desktop {
+    padding: $space-10 $space-12;
+  }
+}
+
+// Holds the question to a readable measure on a wide card.
+.card {
+  width: 100%;
+  max-width: 820px;
 
   @include motion {
     animation: card-in $dur-3 $ease-out;
@@ -62,8 +196,15 @@
 @keyframes card-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
+}
+
+.about {
+  font-size: $fs-sm;
+  font-weight: 700;
+  color: $signal-text;
+  margin-bottom: $space-2;
 }
 
 .question {
@@ -71,12 +212,16 @@
   font-size: $fs-xl;
   line-height: $leading-snug;
   text-wrap: balance;
-  margin-bottom: $space-5;
+  margin-bottom: $space-6;
+
+  @include desktop {
+    font-size: $fs-2xl;
+  }
 }
 
 .options {
   display: grid;
-  gap: $space-2;
+  gap: $space-3;
 
   @include sm {
     grid-template-columns: 1fr 1fr;
@@ -86,12 +231,11 @@
 .option {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: $space-3;
-  min-height: 52px;
+  min-height: 60px;
   padding: $space-3 $space-4;
-  border-radius: $r-sm;
-  border: 1px solid $line-2;
+  border-radius: $r-md;
+  border: 1.5px solid $line-2;
   background: $surface-2;
   color: $text;
   font-size: $fs-base;
@@ -106,8 +250,13 @@
   @include focus-ring;
 
   &:hover:not(:disabled) {
-    border-color: $line-3;
+    border-color: $signal-mark;
     background: $surface-3;
+
+    .ring {
+      border-color: $signal-mark;
+      color: $signal-text;
+    }
   }
 
   &:active:not(:disabled) {
@@ -117,18 +266,32 @@
   &:disabled {
     cursor: default;
   }
+}
 
-  svg {
-    flex-shrink: 0;
-  }
+.ring {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid $line-3;
+  font-size: $fs-xs;
+  font-weight: 800;
+  color: $text-3;
+  transition:
+    color $dur-2 $ease-out,
+    background-color $dur-2 $ease-out,
+    border-color $dur-2 $ease-out;
 }
 
 .isAnswer {
   border-color: $signal-mark;
   background: $signal-soft;
 
-  svg {
-    color: $signal-text;
+  .ring {
+    border-color: $signal-mark;
+    background: $signal-mark;
+    color: $bg;
   }
 }
 
@@ -136,13 +299,49 @@
   border-color: $wicket;
   background: $wicket-soft;
 
-  svg {
-    color: $wicket;
+  .ring {
+    border-color: $wicket;
+    background: $wicket;
+    color: $bg;
   }
 }
 
 .isOther {
-  opacity: 0.5;
+  opacity: 0.45;
+}
+
+@include motion {
+  .isPick.isAnswer {
+    animation: pick-pop $dur-4 $ease-snap;
+  }
+
+  .isPick.isMiss {
+    animation: pick-shake $dur-4 $ease-out;
+  }
+}
+
+@keyframes pick-pop {
+  40% {
+    transform: scale(1.03);
+  }
+}
+
+@keyframes pick-shake {
+  20% {
+    transform: translateX(-6px);
+  }
+
+  40% {
+    transform: translateX(5px);
+  }
+
+  60% {
+    transform: translateX(-3px);
+  }
+
+  80% {
+    transform: translateX(2px);
+  }
 }
 
 .after {
@@ -152,7 +351,7 @@
   gap: $space-4;
 
   &:not(:empty) {
-    margin-top: $space-5;
+    margin-top: $space-6;
   }
 
   @include tablet {
@@ -176,35 +375,53 @@
   }
 }
 
-.next,
-.again {
+.primary {
   @include button-primary;
   flex-shrink: 0;
-  min-height: 44px;
+  min-height: 46px;
+  padding-inline: $space-6;
 }
 
-.score {
-  display: flex;
-  align-items: baseline;
-  gap: $space-3;
+.secondary {
+  @include button-secondary;
+  flex-shrink: 0;
+  min-height: 46px;
+  padding-inline: $space-6;
 }
 
-.scoreNum {
-  @include display-num;
-  font-size: $fs-live-score;
+// ---------------------------------------------------------------- Finish
+
+.headline {
+  @include heading;
+  font-size: clamp(28px, 4vw, 40px);
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  margin-bottom: $space-6;
 }
 
-.scoreLabel {
-  font-size: $fs-lg;
-  font-weight: 600;
-  color: $text-2;
+.headlineIn {
+  @include motion {
+    animation: headline-in $dur-4 $ease-snap;
+  }
+}
+
+@keyframes headline-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
 }
 
 .review {
   display: grid;
   gap: $space-4;
-  margin-block: $space-6;
+  margin-bottom: $space-6;
   list-style: none;
+
+  @include desktop {
+    grid-template-columns: 1fr 1fr;
+    gap: $space-5 $space-8;
+  }
 }
 
 .reviewRow {
@@ -219,15 +436,14 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
+  color: $bg;
 
   &.right {
-    background: $signal-soft;
-    color: $signal-text;
+    background: $signal-mark;
   }
 
   &.wrong {
-    background: $wicket-soft;
-    color: $wicket;
+    background: $wicket;
   }
 }
 
@@ -242,5 +458,162 @@
     margin-top: $space-0-5;
     font-size: $fs-base;
     color: $text;
+  }
+}
+
+.reviewAbout {
+  display: block;
+  font-size: $fs-xs;
+  font-weight: 700;
+  color: $signal-text;
+}
+
+// ---------------------------------------------------------------- Celebration
+
+// One burst over the whole card: confetti falls, balloons rise, then both are gone.
+.party {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: size;
+
+  @include motion {
+    display: block;
+  }
+}
+
+.confetti {
+  position: absolute;
+  top: -16px;
+  left: var(--x);
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--c);
+  opacity: 0;
+  animation: confetti-fall var(--t) var(--d) cubic-bezier(0.25, 0.6, 0.45, 1) forwards;
+
+  @for $i from 1 through 32 {
+    &:nth-of-type(#{$i}) {
+      --x: #{($i * 37) % 100}%;
+      --d: #{($i % 8) * 70}ms;
+      --t: #{1700 + ($i % 5) * 260}ms;
+      --drift: #{(($i % 7) - 3) * 18}px;
+      --spin: #{360 + ($i % 4) * 180}deg;
+    }
+  }
+
+  &:nth-of-type(4n + 1) {
+    --c: #{$signal-mark};
+  }
+
+  &:nth-of-type(4n + 2) {
+    --c: #{$data};
+  }
+
+  &:nth-of-type(4n + 3) {
+    --c: #{$warn};
+  }
+
+  &:nth-of-type(4n) {
+    --c: #{$wicket};
+  }
+
+  &:nth-of-type(3n) {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+}
+
+@keyframes confetti-fall {
+  0% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+
+  85% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift), 105cqh, 0) rotate(var(--spin));
+  }
+}
+
+.balloon {
+  position: absolute;
+  top: 100%;
+  left: var(--x);
+  width: 36px;
+  height: 44px;
+  border-radius: 50% 50% 48% 48% / 56% 56% 44% 44%;
+  background:
+    radial-gradient(circle at 32% 28%, rgb(255 255 255 / 55%) 0 12%, transparent 13%),
+    var(--c);
+  animation: balloon-rise var(--t) var(--d) $ease-out forwards;
+
+  // The knot, then the string.
+  &::before {
+    content: '';
+    position: absolute;
+    top: calc(100% - 2px);
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-bottom-color: var(--c);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    width: 1px;
+    height: 48px;
+    background: $line-3;
+  }
+
+  @for $i from 1 through 7 {
+    &:nth-of-type(#{$i}) {
+      --x: #{4 + ($i - 1) * 14}%;
+      --d: #{($i % 4) * 180}ms;
+      --t: #{3400 + ($i % 3) * 500}ms;
+      --sway: #{(($i % 3) - 1) * 22}px;
+    }
+  }
+
+  &:nth-of-type(4n + 1) {
+    --c: #{$signal-mark};
+  }
+
+  &:nth-of-type(4n + 2) {
+    --c: #{$data};
+  }
+
+  &:nth-of-type(4n + 3) {
+    --c: #{$warn};
+  }
+
+  &:nth-of-type(4n) {
+    --c: #{$wicket};
+  }
+}
+
+@keyframes balloon-rise {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-4deg);
+  }
+
+  50% {
+    transform: translate3d(var(--sway), -60cqh, 0) rotate(4deg);
+  }
+
+  100% {
+    transform: translate3d(calc(var(--sway) * -1), calc(-100cqh - 140px), 0) rotate(-3deg);
   }
 }
