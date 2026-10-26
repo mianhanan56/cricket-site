@@ -10,6 +10,7 @@ import {
   useApiMatchSquads,
 } from '@/hooks/useApiMatches';
 import { useSeriesLeaders } from '@/hooks/useSeriesLeaders';
+import { useMatchQuiz } from '@/hooks/useMatchQuiz';
 import type { MatchTab } from '@/lib/tabs';
 import { useLiveStatus } from '@/lib/live/socket';
 import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
@@ -33,6 +34,7 @@ import LivePanel from './LivePanel';
 import ScorecardPanel from './ScorecardPanel';
 import CommentaryFeed from './CommentaryFeed';
 import InfoPanel from './InfoPanel';
+import QuizPanel from './QuizPanel';
 import mc from './matchCenter.module.scss';
 import styles from './MatchDetail.module.scss';
 
@@ -77,6 +79,8 @@ export default function MatchDetail({
   initialTab?: TabKey | '';
 }) {
   const [match, setMatch] = useState<Match>(initial);
+  // Offered only once questions exist, so a match the model can't quiz never shows an empty tab.
+  const quiz = useMatchQuiz(matchId, !preview && match.status === 'COMPLETED' && Boolean(match.result));
   const hasSummary = !preview && initial.status !== 'UPCOMING';
   const defaultTab: TabKey = hasSummary ? 'live' : 'info';
   const [picked, setPicked] = useState<TabKey>(initialTab || defaultTab);
@@ -87,6 +91,7 @@ export default function MatchDetail({
     info: true,
     table: Boolean(seriesTable?.length),
     stats: Boolean(seriesLeaders && rankedLeaders(seriesLeaders).length),
+    quiz: Boolean(quiz),
   };
   // A shared ?tab= this match has no section for (no table, not started) opens the default.
   const tab: TabKey = offered[picked] ? picked : defaultTab;
@@ -261,6 +266,7 @@ export default function MatchDetail({
     { key: 'info', label: match.status === 'UPCOMING' ? 'Preview' : 'Info' },
     ...(hasTable ? [{ key: 'table' as const, label: 'Points table' }] : []),
     ...(hasStats ? [{ key: 'stats' as const, label: 'Stats' }] : []),
+    ...(quiz ? [{ key: 'quiz' as const, label: 'Quiz' }] : []),
   ];
 
   // The rail carries the score once the header has scrolled away.
@@ -414,6 +420,7 @@ export default function MatchDetail({
             <SeriesLeadersBoard leaders={leaders} seriesId={match.series.id} />
           </div>
         )}
+        {tab === 'quiz' && quiz && <QuizPanel quiz={quiz} />}
       </div>
     </div>
   );

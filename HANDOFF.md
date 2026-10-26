@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-10-23. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-10-26. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -33,6 +33,9 @@ redesigned around it. Delivery is still tab-open only (no push server). Rankings
 list's pill rows are now heading dropdowns like Fixtures. Live video streams were discussed: the user wanted CricHD/Tapmad/Tamasha
 restreams or iframes — declined (unlicensed). Agreed legal route, not built yet: "Watch live"
 link to the rights holder per match, official embeds where they exist, a second-screen live mode.
+
+2026-10-26: AI match quiz built (ARCHITECTURE › Match quiz) on Gemini's free tier — the user
+asked for a free model. Needs `GEMINI_API_KEY` before it shows anywhere (TODO).
 
 2026-10-15: full code review (bugs) and an upstream feature-gap survey, no code changed. Findings are
 new TODO.md rows dated 2026-10-15; the user picks what to fix.

@@ -1,7 +1,7 @@
 # Architecture — PulseCrease
 
 Live cricket site: scores, match telemetry, momentum, series stats and client-side alerts.
-Last verified against source: 2026-10-23.
+Last verified against source: 2026-10-26.
 
 ## System overview
 
@@ -310,6 +310,36 @@ under 3 hours old tagged with a followed team/series/player, at most 3 a read, e
 (`claimEvent('news:<id>')`); notification kind `news`. The first Follow click asks for browser
 permission (`askOnFollow`, the click is the gesture). Still tab-open only: no push server.
 
+## Match quiz
+
+Finished match pages get a **Quiz** tab (2026-10-26): five multiple-choice questions about that
+match, written by Google Gemini (free tier) from its scorecard.
+
+- `app/api/quiz/route.ts` — `GET /api/quiz?match=<id>`. 404 unless the match is COMPLETED with a
+  result line, or when `GEMINI_API_KEY` is unset; 503 when generation fails. The status check runs
+  outside the cache so a live match never stores a miss.
+- `unstable_cache` keeps one quiz per match for 30 days (key `match-quiz-v1`; bump it to
+  regenerate every quiz), so each match costs one model call. A failed generation throws and caches
+  nothing. CDN `s-maxage` 1 day on success.
+- `lib/quiz.ts` — `matchSheet` turns the card into plain lines (result, player of the match, each
+  innings' batting/bowling/fall of wickets, plus precomputed leaders, because the model is told not
+  to do arithmetic). The model must return, per question, an `evidence` line copied from the sheet;
+  `checkQuiz` drops any question whose evidence isn't in the sheet or doesn't contain the correct
+  option (invented players, miscounts), plus malformed/duplicate ones, then shuffles options.
+  Fewer than 3 survivors = failure.
+- `lib/gemini.ts` — REST `generateContent` with `responseSchema` (JSON). Model `GEMINI_MODEL`,
+  default alias `gemini-flash-latest` (a pinned version would silently die when Google retires it),
+  given 15s; on a timeout, 404 (retired), 429 or 5xx it falls back to `gemini-flash-lite-latest`
+  (30s). Measured 2026-10-26 on the free key: `gemini-3.8-flash` (= latest) hung >60s, 3.5 Flash
+  ~8s, 3.5 Flash-Lite ~3–8s with good questions; `gemini-2.5-flash` 404s for new users. A fresh
+  quiz takes ~8–21s, a cached one ~10ms.
+- The sheet adds a `Winner:` line with the full team name — the result line uses short names, so
+  "who won" answers never matched their evidence.
+- Client: `hooks/useMatchQuiz` fetches once for a finished match; the tab is offered only after
+  questions arrive, so no key / quota exhausted means no tab. `components/match/QuizPanel` — one
+  question at a time, a ball-per-question strip (lime right, red wrong), score + review at the end.
+  Picks persist in localStorage `pc.quiz` keyed by match, tied to `generatedAt`.
+
 ## Styling conventions
 
 - SCSS Modules only; **no Tailwind, no inline styles**. Mobile-first, `min-width` breakpoints.
@@ -413,4 +443,5 @@ permission (`askOnFollow`, the click is the gesture). Still tab-open only: no pu
 - Upstream internal APIs (undocumented, likely against ToS — personal project caveat in worker README).
 - Cloudflare Workers (`pulsecrease-api.pulse-cricket.workers.dev`).
 - Vercel (frontend, root `frontend/`), Vercel Web Analytics.
+- Google Gemini API, free tier (match quiz). Key `GEMINI_API_KEY` (server-only, `.env.local` + Vercel env); optional `GEMINI_MODEL`.
 - Git remote: `git@github.com:mianhanan56/cricket-site.git`.

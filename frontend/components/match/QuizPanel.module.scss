@@ -1,0 +1,246 @@
+@use 'component' as *;
+
+.quiz {
+  max-width: 720px;
+}
+
+.head {
+  @include flex-between;
+  gap: $space-4;
+  margin-bottom: $space-4;
+}
+
+.title {
+  font-size: $fs-lg;
+  font-stretch: $stretch-display;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+// One ball per question, read like an over: lime for a right answer, red for a wrong one.
+.over {
+  display: flex;
+  gap: $space-1-5;
+  list-style: none;
+}
+
+.ball {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid $line-3;
+  transition: background-color $dur-2 $ease-out, border-color $dur-2 $ease-out;
+
+  &.current {
+    border: 2px solid $text;
+  }
+
+  &.right {
+    border-color: transparent;
+    background: $signal-mark;
+  }
+
+  &.wrong {
+    border-color: transparent;
+    background: $wicket;
+  }
+}
+
+.card {
+  @include panel;
+  padding: $space-5 $space-4;
+
+  @include tablet {
+    padding: $space-6;
+  }
+
+  @include motion {
+    animation: card-in $dur-3 $ease-out;
+  }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.question {
+  @include heading;
+  font-size: $fs-xl;
+  line-height: $leading-snug;
+  text-wrap: balance;
+  margin-bottom: $space-5;
+}
+
+.options {
+  display: grid;
+  gap: $space-2;
+
+  @include sm {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  min-height: 52px;
+  padding: $space-3 $space-4;
+  border-radius: $r-sm;
+  border: 1px solid $line-2;
+  background: $surface-2;
+  color: $text;
+  font-size: $fs-base;
+  font-weight: 600;
+  line-height: $leading-snug;
+  text-align: left;
+  transition:
+    background-color $dur-2 $ease-out,
+    border-color $dur-2 $ease-out,
+    opacity $dur-2 $ease-out,
+    transform $dur-1 $ease-out;
+  @include focus-ring;
+
+  &:hover:not(:disabled) {
+    border-color: $line-3;
+    background: $surface-3;
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.isAnswer {
+  border-color: $signal-mark;
+  background: $signal-soft;
+
+  svg {
+    color: $signal-text;
+  }
+}
+
+.isMiss {
+  border-color: $wicket;
+  background: $wicket-soft;
+
+  svg {
+    color: $wicket;
+  }
+}
+
+.isOther {
+  opacity: 0.5;
+}
+
+.after {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: $space-4;
+
+  &:not(:empty) {
+    margin-top: $space-5;
+  }
+
+  @include tablet {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.verdict {
+  font-size: $fs-md;
+  line-height: $leading-normal;
+  color: $text-2;
+
+  .right {
+    color: $signal-text;
+  }
+
+  .wrong {
+    color: $wicket;
+  }
+}
+
+.next,
+.again {
+  @include button-primary;
+  flex-shrink: 0;
+  min-height: 44px;
+}
+
+.score {
+  display: flex;
+  align-items: baseline;
+  gap: $space-3;
+}
+
+.scoreNum {
+  @include display-num;
+  font-size: $fs-live-score;
+}
+
+.scoreLabel {
+  font-size: $fs-lg;
+  font-weight: 600;
+  color: $text-2;
+}
+
+.review {
+  display: grid;
+  gap: $space-4;
+  margin-block: $space-6;
+  list-style: none;
+}
+
+.reviewRow {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: $space-3;
+  align-items: start;
+}
+
+.reviewMark {
+  @include flex-center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+
+  &.right {
+    background: $signal-soft;
+    color: $signal-text;
+  }
+
+  &.wrong {
+    background: $wicket-soft;
+    color: $wicket;
+  }
+}
+
+.reviewText {
+  @include fluid-text;
+  font-size: $fs-md;
+  line-height: $leading-normal;
+  color: $text-2;
+
+  strong {
+    display: block;
+    margin-top: $space-0-5;
+    font-size: $fs-base;
+    color: $text;
+  }
+}

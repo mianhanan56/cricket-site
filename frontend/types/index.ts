@@ -1239,3 +1239,20 @@ export interface NewsPage {
   page: number;
   hasNext: boolean;
 }
+
+/** One multiple-choice question about a finished match, written from its card. */
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  /** Index into `options`. */
+  answer: number;
+  /** Shown once the reader has answered. */
+  explanation: string;
+}
+
+export interface MatchQuiz {
+  matchId: string;
+  /** Stored answers belong to one generation; a regenerated quiz starts fresh. */
+  generatedAt: string;
+  questions: QuizQuestion[];
+}

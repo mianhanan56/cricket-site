@@ -1,6 +1,6 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-10-23
+Last updated: 2026-10-26
 
 ## Current milestone
 
@@ -19,6 +19,16 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - 2026-10-26: knockout matches are named. The upstream sends the match number encoded for knockouts (`^0` Final, `^1` 1st Semi-final, `^c` Qualifier 1…; table now `knockoutStage` in `lib/api/codes.ts`, shared with player pages). New `Match.stage` from the feed's `e` and the schedule's `mn`; the score header and Match details show it, the series strip labels the chip "Final" (was "Match 29"). Archived/scheduled matches also get `matchNumber` now. Verified `/matches/14VQ` (President Trophy 2026 final); tsc clean, 159/159 tests.
 - 2026-10-26: search finds any player named in a recent series squad (~14,000, not just ICC-ranked + live cards) via `/api/search-players`. Verified "shad" → Shadab Khan, Shadman Islam, Shadley van Schalkwyk (CREX order); non-ranked profiles (Shadab Jakati, Shadhin Islam) open; production build from a scratch copy prerenders the route with 14,166 players; tsc clean, 159/159 tests.
   (background/system-tray support, event-key dedup); dark/light theme; PWA.
+
+## Recently completed (uncommitted, 2026-10-26, match quiz)
+
+- AI match quiz: Quiz tab on finished match pages, questions from Gemini's free tier grounded in
+  the scorecard (ARCHITECTURE › Match quiz). Files: `app/api/quiz/route.ts`, `lib/quiz.ts`,
+  `lib/gemini.ts`, `lib/quizAnswers.ts`, `hooks/useMatchQuiz.ts`, `components/match/QuizPanel.*`;
+  `quiz` added to `MATCH_TAB_KEYS`; `QuizQuestion`/`MatchQuiz` in `types/index.ts`.
+- Verified against the real Gemini API (key in `frontend/.env.local`) from an isolated build:
+  route generates in ~20s, cached reads ~10ms, 5 of 8 questions kept per match, tab on phone +
+  desktop, reload keeps the score. Not yet set in Vercel.
 
 ## Recently completed (uncommitted, 2026-10-23, refactor — no feature or design change)
 
