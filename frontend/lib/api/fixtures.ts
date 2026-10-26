@@ -159,6 +159,55 @@ export function getApiFixturesAhead(pages = 2, opts: FetchOpts = {}): Promise<Fi
   );
 }
 
+/** One series as /fixtures (wise=2) sends it, grouped under its month. */
+interface ApiFixtureSeriesRow {
+  sf?: string;
+  /** "17 September - 22 September". */
+  tp?: string;
+}
+
+export interface SeriesCatalogueEntry {
+  id: string;
+  name: string;
+  span: string;
+}
+
+// wise=2 pages step a month or two each. -60 is the Worker's floor (about four years
+// back); the upstream's forward schedule runs dry by page 6.
+const CATALOGUE_PAGES = { back: 60, forward: 6 };
+
+/** Every series the upstream schedules, past few months onward — the live feed only knows today's. */
+export async function getApiSeriesCatalogue(
+  opts: FetchOpts & { back?: number } = {}
+): Promise<SeriesCatalogueEntry[]> {
+  const pages: number[] = [];
+  for (let p = -(opts.back ?? CATALOGUE_PAGES.back); p <= CATALOGUE_PAGES.forward; p++) pages.push(p);
+  // Nearest to today first: search breaks ties in index order, so "Asia Cup" leads with the current edition.
+  pages.sort((a, b) => Math.abs(a) - Math.abs(b) || b - a);
+
+  const settled = await inWidth(pages, FIXTURE_FETCH_WIDTH, (page) =>
+    apiGet<Record<string, ApiFixtureSeriesRow[]>>(`/fixtures?wise=2&page=${page}`, { revalidate: 3600, ...opts }).catch(
+      () => ({}) as Record<string, ApiFixtureSeriesRow[]>
+    )
+  );
+
+  const spans = new Map<string, string>();
+  for (const months of settled) {
+    for (const rows of Object.values(months ?? {})) {
+      for (const row of Array.isArray(rows) ? rows : []) {
+        const key = cleanKey(row.sf);
+        if (key && !spans.has(key)) spans.set(key, row.tp ?? '');
+      }
+    }
+  }
+
+  const names = await resolveKeys({ s: spans.keys() }, opts);
+  return [...spans].flatMap(([key, span]) => {
+    const name = names.s.get(key)?.n;
+    return name ? [{ id: key, name, span }] : [];
+  });
+}
+
 async function fixturesFromPages(pages: number[], opts: FetchOpts = {}): Promise<Fixture[]> {
   const settled = await inWidth(pages, FIXTURE_FETCH_WIDTH, (page) =>
     getApiFixtures(page, opts).catch(() => [] as ApiFixtureRow[])

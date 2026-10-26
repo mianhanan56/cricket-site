@@ -4,7 +4,7 @@ import type { Match, TeamCrest } from '@/types';
 import { createPersisted } from './persisted';
 import { withTimeout } from './timeout';
 import { isAtStumps } from './matchState';
-import { getApiMatchList, getApiScorecard } from './api';
+import { getApiMatchList, getApiScorecard, type PlayerCatalogueRow, type SeriesCatalogueEntry } from './api';
 
 export type EntityType = 'match' | 'team' | 'player' | 'series' | 'venue';
 
@@ -20,13 +20,16 @@ export interface SearchEntity {
   /** In progress but between days — tagged Stumps, never Live. */
   stumps?: boolean;
   logo?: string | null;
+  /** Ties in score go to the higher weight: for players, how many squads name them. */
+  weight?: number;
 }
 
 const REMOTE_TIMEOUT_MS = 15_000;
 
 export interface RemoteIndex {
-  players: Array<{ id: string; name: string; country: string }>;
+  players: Array<{ id: string; name: string; country: string; picks?: number }>;
   teams: TeamCrest[];
+  series?: SeriesCatalogueEntry[];
 }
 
 let remote: RemoteIndex | null = null;
@@ -46,6 +49,30 @@ export function loadRemoteIndex(): Promise<RemoteIndex | null> {
       remoteInflight = null;
     });
   return remoteInflight;
+}
+
+const CATALOGUE_TIMEOUT_MS = 30_000;
+
+let catalogue: RemoteIndex['players'] | null = null;
+let catalogueInflight: Promise<RemoteIndex['players']> | null = null;
+
+/** Everyone named in a recent series squad — the long tail rankings and live cards miss. */
+function loadPlayerCatalogue(): Promise<RemoteIndex['players']> {
+  if (catalogue) return Promise.resolve(catalogue);
+  if (catalogueInflight) return catalogueInflight;
+  catalogueInflight = fetch('/api/search-players', { signal: withTimeout(CATALOGUE_TIMEOUT_MS) })
+    .then((r) => (r.ok ? (r.json() as Promise<PlayerCatalogueRow[]>) : []))
+    .then((rows) => {
+      const players = rows.map(([id, name, country, picks]) => ({ id, name, country, picks }));
+      // An empty list is a failed build upstream; leave it uncached so the next open retries.
+      if (players.length) catalogue = players;
+      return players;
+    })
+    .catch(() => [])
+    .finally(() => {
+      catalogueInflight = null;
+    });
+  return catalogueInflight;
 }
 
 /** Live games' cards are re-read at most this often for their players. */
@@ -95,15 +122,33 @@ function loadLivePlayers(): Promise<RemoteIndex['players']> {
   return livePlayersInflight;
 }
 
-/** The ranked index plus the players in today's live games. */
-export async function loadSearchIndex(): Promise<RemoteIndex | null> {
-  const [ranked, live] = await Promise.all([loadRemoteIndex(), loadLivePlayers()]);
-  if (!ranked && !live.length) return null;
-  const known = new Set((ranked?.players ?? []).map((p) => p.id));
-  return {
-    teams: ranked?.teams ?? [],
-    players: [...(ranked?.players ?? []), ...live.filter((p) => !known.has(p.id))],
-  };
+function mergeIndex(
+  ranked: RemoteIndex | null,
+  live: RemoteIndex['players'],
+  squads: RemoteIndex['players']
+): RemoteIndex | null {
+  if (!ranked && !live.length && !squads.length) return null;
+  const picks = new Map(squads.map((p) => [p.id, p.picks]));
+  const players: RemoteIndex['players'] = [];
+  const known = new Set<string>();
+  for (const p of [...(ranked?.players ?? []), ...live, ...squads]) {
+    if (known.has(p.id)) continue;
+    known.add(p.id);
+    players.push({ ...p, picks: picks.get(p.id) ?? p.picks });
+  }
+  return { teams: ranked?.teams ?? [], series: ranked?.series ?? [], players };
+}
+
+/**
+ * The ranked index plus the players in today's live games, then again with every
+ * squad player once that larger list lands, so search is usable before it does.
+ */
+export function loadSearchIndex(onIndex: (index: RemoteIndex | null) => void): void {
+  const base = Promise.all([loadRemoteIndex(), loadLivePlayers()]);
+  base.then(([ranked, live]) => onIndex(mergeIndex(ranked, live, [])));
+  Promise.all([base, loadPlayerCatalogue()]).then(([[ranked, live], squads]) => {
+    if (squads.length) onIndex(mergeIndex(ranked, live, squads));
+  });
 }
 
 const STATUS_WORD: Record<Match['status'], string> = { LIVE: 'Live', UPCOMING: 'Upcoming', COMPLETED: 'Result' };
@@ -177,6 +222,18 @@ export function buildIndex(matches: Match[], index: RemoteIndex | null): SearchE
     });
   }
 
+  for (const s of index?.series ?? []) {
+    if (series.has(s.id)) continue;
+    series.set(s.id, {
+      type: 'series',
+      id: s.id,
+      label: s.name,
+      sub: s.span,
+      href: `/series/${s.id}`,
+      hay: s.name.toLowerCase(),
+    });
+  }
+
   const players: SearchEntity[] = (index?.players ?? []).map((p) => ({
     type: 'player',
     id: p.id,
@@ -184,6 +241,7 @@ export function buildIndex(matches: Match[], index: RemoteIndex | null): SearchE
     sub: p.country,
     href: `/players/${p.id}`,
     hay: `${p.name} ${p.country}`.toLowerCase(),
+    weight: p.picks,
   }));
 
   return [...out, ...teams.values(), ...players, ...series.values(), ...venues.values()];
@@ -206,8 +264,8 @@ export function querySearch(entities: SearchEntity[], query: string, perGroup = 
       if (e.status) score += STATUS_RANK[e.status] * 0.5;
       return { e, score };
     })
-    // On a tie the plainer name first: "Pakistan" before "Pakistan U19 Women".
-    .sort((a, b) => a.score - b.score || a.e.label.length - b.e.label.length);
+    // On a tie the more widely picked player, then the plainer name: "Pakistan" before "Pakistan U19 Women".
+    .sort((a, b) => a.score - b.score || (b.e.weight ?? 0) - (a.e.weight ?? 0) || a.e.label.length - b.e.label.length);
 
   const counts = new Map<EntityType, number>();
   const out: SearchEntity[] = [];

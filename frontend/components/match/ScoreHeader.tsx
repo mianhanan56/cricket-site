@@ -112,6 +112,7 @@ export default function ScoreHeader({
   const detail = match.note?.detail && match.note.label === state.label ? match.note.detail : null;
 
   const meta = [
+    match.stage,
     match.matchNumber
       ? `${ordinal(match.matchNumber)} ${isUnofficialTest(match) ? 'Match' : MATCH_FORMAT_LABEL[match.format]}`
       : matchFormat(match),

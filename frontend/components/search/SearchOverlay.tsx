@@ -85,7 +85,7 @@ function SearchDialog() {
     inputRef.current?.focus();
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    loadSearchIndex().then((data) => {
+    loadSearchIndex((data) => {
       setIndex(data);
       setIndexLoading(false);
     });

@@ -15,6 +15,9 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Fixtures with calendar and filters; series list/detail with points table, leaders, stat pages,
   live series tiles; team, venue, player profiles; players/teams directories; rankings (15 ICC lists).
 - Search (client-side + `/api/search-index`); insights view; follows; automations + notifications
+- 2026-10-26: search finds series outside the live feed — `/api/search-index` now carries the series catalogue from `/fixtures?wise=2` (≈1,300 series, March 2022 onward — page −60 is the Worker's floor; older needs that bound raised and a Worker deploy). Verified "president trophy" → President Trophy 2026 (`/series/2MQ`, 29 matches); tsc clean, 159/159 tests.
+- 2026-10-26: knockout matches are named. The upstream sends the match number encoded for knockouts (`^0` Final, `^1` 1st Semi-final, `^c` Qualifier 1…; table now `knockoutStage` in `lib/api/codes.ts`, shared with player pages). New `Match.stage` from the feed's `e` and the schedule's `mn`; the score header and Match details show it, the series strip labels the chip "Final" (was "Match 29"). Archived/scheduled matches also get `matchNumber` now. Verified `/matches/14VQ` (President Trophy 2026 final); tsc clean, 159/159 tests.
+- 2026-10-26: search finds any player named in a recent series squad (~14,000, not just ICC-ranked + live cards) via `/api/search-players`. Verified "shad" → Shadab Khan, Shadman Islam, Shadley van Schalkwyk (CREX order); non-ranked profiles (Shadab Jakati, Shadhin Islam) open; production build from a scratch copy prerenders the route with 14,166 players; tsc clean, 159/159 tests.
   (background/system-tray support, event-key dedup); dark/light theme; PWA.
 
 ## Recently completed (uncommitted, 2026-10-23, refactor — no feature or design change)

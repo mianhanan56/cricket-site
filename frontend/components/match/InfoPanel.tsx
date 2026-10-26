@@ -187,7 +187,11 @@ export default function InfoPanel({
       ),
     ],
     ['Format', match.format],
-    ...(match.matchNumber ? ([['Match', `${ordinal(match.matchNumber)} of the series`]] as Array<[string, React.ReactNode]>) : []),
+    ...(match.stage
+      ? ([['Match', match.stage]] as Array<[string, React.ReactNode]>)
+      : match.matchNumber
+        ? ([['Match', `${ordinal(match.matchNumber)} of the series`]] as Array<[string, React.ReactNode]>)
+        : []),
     [
       'Series',
       match.series.id ? (

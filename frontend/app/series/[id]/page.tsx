@@ -73,6 +73,7 @@ function toMatch(row: SeriesScheduleMatch, series: { id: string; name: string })
     startTime: row.startTime,
     result: row.result,
     matchNumber: Number.isInteger(n) ? n : null,
+    stage: Number.isInteger(n) ? null : row.matchNo,
   };
 }
 

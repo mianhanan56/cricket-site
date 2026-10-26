@@ -1,7 +1,8 @@
 // /series/squads: each side's named squad for a series — announced weeks before
 // any match XI, so it is what a preview shows.
 import type { Match, MatchSquads, PlayerRole, SquadPlayer } from '@/types';
-import { apiGet, type FetchOpts } from './client';
+import { apiGet, inWidth, type FetchOpts } from './client';
+import { getApiSeriesCatalogue } from './fixtures';
 import { getApiMatchInfo } from './matchInfo';
 import { cleanKey, resolveKeys } from './names';
 import { getApiSeriesSchedule } from './series';
@@ -127,4 +128,43 @@ export async function getApiMatchSeriesSquads(
   ]);
 
   return home.length || away.length ? { home, away } : null;
+}
+
+/** [id, name, team short name, squads named in] — tuples, since the list runs to ~14,000 players. */
+export type PlayerCatalogueRow = [string, string, string, number];
+
+// About fourteen months of series; their squads name ~14,000 players.
+const PLAYER_CATALOGUE_BACK = 20;
+const SQUAD_FETCH_WIDTH = 8;
+
+/**
+ * Every player named in a squad for a recent or scheduled series — the upstream has no
+ * player search, and rankings name only a few hundred. Each player's team is from the
+ * most recent series they're in; the squad count is how widely they're picked.
+ */
+export async function getApiPlayerCatalogue(opts: FetchOpts = {}): Promise<PlayerCatalogueRow[]> {
+  const series = await getApiSeriesCatalogue({ ...opts, back: PLAYER_CATALOGUE_BACK });
+  const squads = await inWidth(series, SQUAD_FETCH_WIDTH, (s) =>
+    getApiSeriesSquads(s.id, opts).catch(() => [] as ApiSeriesSquad[])
+  );
+
+  const players = new Map<string, { team: string; count: number }>();
+  // Series come nearest to today first, so the first team seen is the current one.
+  for (const list of squads) {
+    for (const squad of Array.isArray(list) ? list : []) {
+      for (const raw of squad.pf ?? []) {
+        const id = cleanKey(raw);
+        if (!id) continue;
+        const seen = players.get(id);
+        if (seen) seen.count++;
+        else players.set(id, { team: cleanKey(squad.tf), count: 1 });
+      }
+    }
+  }
+
+  const names = await resolveKeys({ p: players.keys(), t: [...players.values()].map((p) => p.team) }, opts);
+  return [...players].flatMap(([id, { team, count }]): PlayerCatalogueRow[] => {
+    const name = names.p.get(id)?.n;
+    return name ? [[id, name, names.t.get(team)?.sn ?? '', count]] : [];
+  });
 }

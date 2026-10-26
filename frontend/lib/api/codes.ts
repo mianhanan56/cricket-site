@@ -35,3 +35,25 @@ export function scheduleBalls(ft: number | undefined): { ballsPerOver: number; b
     ? { ballsPerOver: HUNDRED_BALLS_PER_OVER, ballsLimit: HUNDRED_BALLS }
     : { ballsPerOver: DEFAULT_BALLS_PER_OVER, ballsLimit: null };
 }
+
+/** The upstream's knockout codes for a match number (`mn`, the feed's `e`), from their own match-number helper. */
+const KNOCKOUT_MATCHES: Record<string, string> = {
+  '^0': 'Final',
+  '^1': '1st Semi-final',
+  '^2': '2nd Semi-final',
+  '^3': '1st Quarter-final',
+  '^4': '2nd Quarter-final',
+  '^5': '3rd Quarter-final',
+  '^6': '4th Quarter-final',
+  '^c': 'Qualifier 1',
+  '^d': 'Qualifier 2',
+  '^e': 'Eliminator',
+  '^f': 'Eliminator 2',
+  '^m': 'Knockout',
+  '^n': 'Challenger',
+  '^s': 'Elimination final',
+};
+
+/** "Final", "Eliminator" — null for a plain number or an unknown code. */
+export const knockoutStage = (code: string | undefined | null): string | null =>
+  KNOCKOUT_MATCHES[code?.trim() ?? ''] ?? null;

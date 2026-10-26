@@ -1,6 +1,7 @@
 // /player/matches: a player's innings, grouped by series then format, newest series first.
 import type { PlayerDiscipline, PlayerSeriesPage, PlayerSeriesRecord } from '@/types';
 import { ordinal } from '../text';
+import { knockoutStage } from './codes';
 import { apiGet, type FetchOpts } from './client';
 import { cleanKey, resolveKeys } from './names';
 import { INTERNATIONAL_COMPETITIONS, playerFormatLabel } from './player';
@@ -36,28 +37,10 @@ interface ApiPlayerSeriesRow {
 /** The upstream sends six series on the first page and three on every later one. */
 const PLAYER_SERIES_PAGE = (page: number) => (page === 0 ? 6 : 3);
 
-/** The upstream's knockout codes for `mn`, from their own match-number helper. */
-const KNOCKOUT_MATCHES: Record<string, string> = {
-  '^0': 'Final',
-  '^1': '1st Semi-final',
-  '^2': '2nd Semi-final',
-  '^3': '1st Quarter-final',
-  '^4': '2nd Quarter-final',
-  '^5': '3rd Quarter-final',
-  '^6': '4th Quarter-final',
-  '^c': 'Qualifier 1',
-  '^d': 'Qualifier 2',
-  '^e': 'Eliminator',
-  '^f': 'Eliminator 2',
-  '^m': 'Knockout',
-  '^n': 'Challenger',
-  '^s': 'Elimination final',
-};
-
 /** "3rd Test", "22nd Match" where the upstream names no format (domestic, The Hundred), "Final". */
 export function seriesMatchLabel(mn: string | undefined, format: string | null | undefined): string {
   const code = (mn ?? '').trim();
-  if (code.startsWith('^')) return KNOCKOUT_MATCHES[code] ?? 'Knockout';
+  if (code.startsWith('^')) return knockoutStage(code) ?? 'Knockout';
   const n = Number.parseInt(code, 10);
   const noun = format?.trim() || 'Match';
   if (n === 0) return `Only ${noun}`;

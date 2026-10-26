@@ -2,7 +2,7 @@
 // aged-out results, and fixtures the upstream has not given a match key yet.
 import type { Match } from '@/types';
 import { apiGet, type FetchOpts } from './client';
-import { scheduleBalls, scheduleFormat, scheduleStatus } from './codes';
+import { knockoutStage, scheduleBalls, scheduleFormat, scheduleStatus } from './codes';
 import type { ApiMatchInfo } from './matchInfo';
 import { cleanKey, resolveKeys, seriesRef, toTeam, venueOf } from './names';
 import { scorecardFromRaw, type ApiScorecardBody } from './scorecard';
@@ -112,6 +112,8 @@ export async function getApiArchivedMatch(id: string, opts: FetchOpts = {}): Pro
     ...balls,
     result: row.r || null,
     note: null,
+    matchNumber: Number(row.mn) > 0 ? Number(row.mn) : null,
+    stage: knockoutStage(row.mn),
     day: null,
     playerOfMatch: null,
     scorecard: innings.length ? { innings } : null,
@@ -178,6 +180,8 @@ export async function getApiScheduledMatch(
     ...scheduleBalls(row.ft),
     result: row.r || null,
     note: null,
+    matchNumber: Number(row.mn) > 0 ? Number(row.mn) : null,
+    stage: knockoutStage(row.mn),
     day: null,
     playerOfMatch: null,
     scorecard: null,

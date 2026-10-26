@@ -83,6 +83,8 @@ export interface IMatch {
    * it — a one-off fixture, or a tour game outside the numbered rubber.
    */
   matchNumber?: number | null;
+  /** Knockout name in place of a number: "Final", "Qualifier 1". */
+  stage?: string | null;
   /**
    * Day of play, 1-based, on a format that has more than one. Null on ODIs and
    * T20s, which are always day 1 and where showing it would be noise.

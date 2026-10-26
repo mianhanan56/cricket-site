@@ -66,7 +66,7 @@ export default function SearchClient() {
   useEffect(() => setQ(urlQuery), [urlQuery]);
 
   useEffect(() => {
-    loadSearchIndex().then(setIndex);
+    loadSearchIndex(setIndex);
   }, []);
 
   useEffect(() => {

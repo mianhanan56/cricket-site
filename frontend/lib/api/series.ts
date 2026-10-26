@@ -4,7 +4,7 @@
 import type { Match, MatchFormat, MatchStatus, SeriesSummary, Team } from '@/types';
 import { isUnofficialTest } from '../matchType';
 import type { FetchOpts } from './client';
-import { scheduleFormat, scheduleStatus } from './codes';
+import { knockoutStage, scheduleFormat, scheduleStatus } from './codes';
 import { cleanKey, resolveKeys, toTeam, venueOf } from './names';
 import { getApiSeriesMatches, scheduleRows, scheduledMatchId, type ApiSeriesMatch } from './schedule';
 
@@ -145,8 +145,7 @@ export async function getApiSeriesSchedule(
     id: m.mf || scheduledMatchId(id, m.id),
     matchKey: m.mf || null,
     key: m.mf || `${id}-${i}`,
-    // The upstream sometimes sends the number encoded ("^0"); not worth decoding for a list index.
-    matchNo: m.mn && !m.mn.startsWith('^') ? m.mn : null,
+    matchNo: m.mn?.startsWith('^') ? knockoutStage(m.mn) : m.mn || null,
     format: scheduleFormat(m.ft, opts.fallback?.format),
     status: scheduleStatus(m.s),
     startTime: new Date(m.t).toISOString(),

@@ -3,7 +3,7 @@ import type { InningsScore, Match, MatchFormat, MatchStatus, PlayerOfMatch, Team
 import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER } from '../overs';
 import { attributeResult } from './attribution';
 import { apiGet, type FetchOpts } from './client';
-import { HUNDRED_BALLS } from './codes';
+import { HUNDRED_BALLS, knockoutStage } from './codes';
 import { cleanKey, resolveKeys, seriesRef, toTeam, venueOf, type NameCache } from './names';
 import { decodeMatchNote, inningsBreakNote, pickNote } from './notes';
 import { getApiArchivedMatch } from './schedule';
@@ -335,6 +335,7 @@ export function toMatch(id: string, m: ApiRawMatch, names: NameCache): Match {
       { innings, format, perOver }
     ),
     matchNumber: Number(m.e) > 0 ? Number(m.e) : null,
+    stage: knockoutStage(m.e),
     day: state && state.format === 'TEST' ? state.day : null,
     session: status === 'LIVE' && format === 'TEST' ? sessionOf(m.s) : null,
     playerOfMatch: status === 'COMPLETED' ? decodePlayerOfMatch(m, names) : null,
