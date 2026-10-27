@@ -175,7 +175,8 @@ with each figure above its bar and the opponent below (bar heights in 20 steps v
 batting draws a dashed average line), and the innings list behind a "Show all" button. The card's
 pieces (`StatTiles`, `FormBars`, `MoreToggle`, `FormRow`, `FormCardSkeleton`) and styles live in
 `components/player/FormCard` and are shared with Series performance. `FormBars` takes one column
-per match (a Test's two innings stand as a pair in it), hides itself when every bar is 0, and
+per match (a Test's two innings stand as a pair in it), draws even when every bar is 0 (3px stubs
+under their figures — the user wanted a wicketless ODI spell charted too), and
 scrolls sideways instead of shrinking columns under 26px.
 Switcher pills show both sides' flags (no status dot). `TeamBadge` crests have a 2px white ring
 and the image scaled 1.56× — the upstream draws a national flag across the middle 64% of its canvas.
@@ -193,6 +194,10 @@ team, venue, series, series stats, news story): `apiGet` always passes an abort 
 its fetch dedupe for any fetch with one, so without it the read and decode ran twice per request.
 The match page starts the corpus read before awaiting the match; an archived match reads its card
 alongside `/match/info`; `getApiTeamSquad` reads roles alongside the squad list.
+
+`/match/info` squads: `tp` is each side's XI, `tb` the squad. Once a side's XI is named, `tb`
+holds only the players left out of it, so `getApiMatchInfo` returns the XI as `squads` and the
+rest as `bench`; the Info tab prints the bench under each XI.
 
 `hooks/useApiMatches.ts` is **one shared poll** of the match list: every subscriber reads the
 same snapshot and it runs at the fastest interval any subscriber requests. A poll that changes

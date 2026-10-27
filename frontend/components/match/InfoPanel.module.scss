@@ -111,6 +111,26 @@
   padding-block: $space-1;
 }
 
+.benchHead {
+  display: flex;
+  align-items: center;
+  gap: $space-2-5;
+  padding: $space-2-5 $space-4;
+  border-block: 1px solid $line;
+  background: $bg-raise;
+}
+
+.benchTitle {
+  font-size: $fs-sm;
+  font-weight: 700;
+  color: $text-2;
+}
+
+// Same rows as the XI, a step quieter — they aren't playing.
+.bench .squadName {
+  color: $text-2;
+}
+
 .squadPlayer {
   display: flex;
   align-items: center;

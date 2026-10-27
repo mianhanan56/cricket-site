@@ -704,6 +704,8 @@ export function useApiMatchSquads(
   options: { enabled?: boolean } = {}
 ): {
   squads: Record<string, SquadPlayer[]>;
+  /** Squad players left out of each named XI. */
+  bench: Record<string, SquadPlayer[]>;
   /** The forecast, the officials, the broadcasters and the ground's record. */
   conditions: MatchConditions | null;
   loaded: boolean;
@@ -711,6 +713,7 @@ export function useApiMatchSquads(
   const { enabled = true } = options;
 
   const [squads, setSquads] = useState<Record<string, SquadPlayer[]>>({});
+  const [bench, setBench] = useState<Record<string, SquadPlayer[]>>({});
   const [conditions, setConditions] = useState<MatchConditions | null>(null);
   const [loaded, setLoaded] = useState(false);
   const keyRef = useRef(matchKey);
@@ -720,6 +723,7 @@ export function useApiMatchSquads(
     if (keyRef.current !== matchKey) {
       keyRef.current = matchKey;
       setSquads({});
+      setBench({});
       setConditions(null);
       setLoaded(false);
     }
@@ -731,6 +735,7 @@ export function useApiMatchSquads(
       .then((next) => {
         if (cancelled || controller.signal.aborted) return;
         setSquads(next.squads);
+        setBench(next.bench);
         setConditions(next.conditions);
         setLoaded(true);
       })
@@ -744,5 +749,5 @@ export function useApiMatchSquads(
     };
   }, [enabled, matchKey]);
 
-  return { squads, conditions, loaded };
+  return { squads, bench, conditions, loaded };
 }

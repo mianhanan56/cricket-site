@@ -127,14 +127,16 @@ export default function MatchDetail({
   const extrasPending = extrasEnabled && !apiExtras.loaded;
 
   const squadsEnabled = !preview;
-  const { squads: squadsByTeam, conditions, loaded: squadsLoaded } = useApiMatchSquads(matchId, {
+  const { squads: squadsByTeam, bench: benchByTeam, conditions, loaded: squadsLoaded } = useApiMatchSquads(matchId, {
     enabled: squadsEnabled,
   });
   const squads = useMemo(() => {
     const home = squadsByTeam[match.homeTeam.id] ?? match.squads?.home ?? [];
     const away = squadsByTeam[match.awayTeam.id] ?? match.squads?.away ?? [];
-    return home.length || away.length ? { home, away } : null;
-  }, [squadsByTeam, match.homeTeam.id, match.awayTeam.id, match.squads]);
+    if (!home.length && !away.length) return null;
+    const bench = { home: benchByTeam[match.homeTeam.id] ?? [], away: benchByTeam[match.awayTeam.id] ?? [] };
+    return bench.home.length || bench.away.length ? { home, away, bench } : { home, away };
+  }, [squadsByTeam, benchByTeam, match.homeTeam.id, match.awayTeam.id, match.squads]);
   // Placeholders only before the toss, where the list is the tallest thing on the tab.
   const squadsPending = squadsEnabled && match.status === 'UPCOMING' && !squadsLoaded && !squads;
 

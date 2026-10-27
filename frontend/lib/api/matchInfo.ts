@@ -4,7 +4,7 @@ import { apiGet, type FetchOpts } from './client';
 import { cleanKey, resolveKeys, type NameCache } from './names';
 
 export interface ApiMatchInfo {
-  /** The confirmed XIs, packed like `tb`. Preferred when longer: once play starts the upstream prunes `tb`. */
+  /** The confirmed XIs, packed like `tb`. Once a side's XI is named, `tb` lists only who is left out. */
   tp?: string;
   /** Broadcasters, comma-separated: "Sony Sports TEN Network, Sony LIV". */
   b?: string;
@@ -140,7 +140,20 @@ function decodeConditions(info: ApiMatchInfo | null, umpireKeys: string[], names
 
 export interface ApiMatchInfoResult {
   squads: Record<string, SquadPlayer[]>;
+  /** Squad players left out of a named XI, keyed by team key. Empty until an XI is named. */
+  bench: Record<string, SquadPlayer[]>;
   conditions: MatchConditions;
+}
+
+/** `tp`/`tb` split into sides, each a list of players' fields. */
+function packedSides(raw: string | undefined): string[][][] {
+  return (raw ?? '').split('/').map((side) =>
+    side
+      .split('-')
+      .filter(Boolean)
+      .map((entry) => entry.split('.'))
+      .filter((fields) => fields[SQUAD_KEY_INDEX])
+  );
 }
 
 /** Squads (keyed by team key) and conditions from one `/match/info` call. */
@@ -153,50 +166,43 @@ export async function getApiMatchInfo(
     { revalidate: 300, ...opts }
   );
 
-  // Whichever of the XI (`tp`) and the squad (`tb`) names more players is the better list.
-  const listed = (raw: string | undefined) =>
-    (raw ?? '').split('/').filter(Boolean);
-  const fromXI = listed(info?.tp);
-  const fromSquad = listed(info?.tb);
-  const sides =
-    fromXI.reduce((n, side) => n + side.split('-').length, 0) >=
-    fromSquad.reduce((n, side) => n + side.split('-').length, 0)
-      ? fromXI
-      : fromSquad;
   const teamKeys = (info?.t ?? '').split('-').map(cleanKey);
+  const xis = packedSides(info?.tp);
+  const squads = packedSides(info?.tb);
 
-  const players = sides.map((side) =>
-    side
-      .split('-')
-      .filter(Boolean)
-      .map((entry) => entry.split('.'))
-      .filter((fields) => fields[SQUAD_KEY_INDEX])
-  );
+  // Once a side's XI is named, `tb` keeps only the players left out of it.
+  const sides = teamKeys.map((_, i) => {
+    const xi = xis[i] ?? [];
+    const squad = squads[i] ?? [];
+    if (!xi.length) return { players: squad, bench: [] as string[][] };
+    const picked = new Set(xi.map((fields) => cleanKey(fields[SQUAD_KEY_INDEX])));
+    return { players: xi, bench: squad.filter((fields) => !picked.has(cleanKey(fields[SQUAD_KEY_INDEX]))) };
+  });
   const umpireKeys = (info?.u ?? '').split('/').map(cleanKey).filter(Boolean);
 
   const names = await resolveKeys(
-    { u: umpireKeys, p: players.flat().map((fields) => fields[SQUAD_KEY_INDEX]) },
+    {
+      u: umpireKeys,
+      p: sides.flatMap((side) => [...side.players, ...side.bench].map((fields) => fields[SQUAD_KEY_INDEX])),
+    },
     opts
   );
   const conditions = decodeConditions(info, umpireKeys, names);
 
-  // An id the upstream does not know answers with a bare `null`, not a 404.
-  if (!sides.length || !teamKeys.length) return { squads: {}, conditions };
-
   const roleMarks = (info?.x ?? '').split('/').map(cleanKey);
 
   const out: Record<string, SquadPlayer[]> = {};
-  players.forEach((side, i) => {
+  const bench: Record<string, SquadPlayer[]> = {};
+  sides.forEach((side, i) => {
     const teamKey = teamKeys[i];
-    if (!teamKey) return;
+    // An id the upstream does not know answers with a bare `null`, not a 404.
+    if (!teamKey || !side.players.length) return;
 
     const captain = roleMarks[i * 2];
     const keeper = roleMarks[i * 2 + 1];
-
-    out[teamKey] = side.map((fields) => {
+    const toPlayer = (fields: string[]): SquadPlayer => {
       const key = cleanKey(fields[SQUAD_KEY_INDEX]);
       const role = SQUAD_ROLES[fields[SQUAD_ROLE_INDEX]] ?? null;
-
       return {
         id: key,
         name: names.p.get(key)?.n ?? key,
@@ -204,8 +210,11 @@ export async function getApiMatchInfo(
         role: key === keeper ? 'WK' : role,
         isCaptain: key === captain,
       };
-    });
+    };
+
+    out[teamKey] = side.players.map(toPlayer);
+    if (side.bench.length) bench[teamKey] = side.bench.map(toPlayer);
   });
 
-  return { squads: out, conditions };
+  return { squads: out, bench, conditions };
 }

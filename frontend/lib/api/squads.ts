@@ -103,7 +103,7 @@ async function seriesRoles(seriesKey: string, teamKey: string, opts: FetchOpts):
   const roles = new Map<string, PlayerRole>();
   const infos = await Promise.all(keys.map((k) => getApiMatchInfo(k, opts).catch(() => null)));
   for (const info of infos) {
-    for (const p of info?.squads[teamKey] ?? []) {
+    for (const p of [...(info?.squads[teamKey] ?? []), ...(info?.bench[teamKey] ?? [])]) {
       // A keeper is marked over the role in a match squad, so it says nothing about discipline.
       if (p.role && p.role !== 'WK' && !roles.has(p.id)) roles.set(p.id, p.role);
     }

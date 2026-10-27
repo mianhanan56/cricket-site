@@ -76,7 +76,27 @@ function SquadColumnSkeleton({ team }: { team: Team }) {
   );
 }
 
-function SquadColumn({ team, players }: { team: Team; players: SquadPlayer[] }) {
+function PlayerList({ players, className = '' }: { players: SquadPlayer[]; className?: string }) {
+  return (
+    <ul className={`${styles.squadList} ${className}`}>
+      {players.map((p) => (
+        <li key={p.id} className={styles.squadPlayer}>
+          <span className={styles.squadName}>
+            <PlayerLink id={p.id} name={p.name} />
+            {p.isCaptain && (
+              <abbr className={styles.captain} title="Captain">
+                C
+              </abbr>
+            )}
+          </span>
+          {p.role && <span className={`${styles.role} ${ROLE_CLASS[p.role] ?? ''}`}>{ROLE_LABELS[p.role]}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SquadColumn({ team, players, bench = [] }: { team: Team; players: SquadPlayer[]; bench?: SquadPlayer[] }) {
   if (!players.length) return null;
   return (
     <div className={styles.squadCol}>
@@ -85,21 +105,16 @@ function SquadColumn({ team, players }: { team: Team; players: SquadPlayer[] }) 
         <h3 className={styles.squadTeam}>{team.name}</h3>
         <span className={styles.squadCount}>{players.length}</span>
       </header>
-      <ul className={styles.squadList}>
-        {players.map((p) => (
-          <li key={p.id} className={styles.squadPlayer}>
-            <span className={styles.squadName}>
-              <PlayerLink id={p.id} name={p.name} />
-              {p.isCaptain && (
-                <abbr className={styles.captain} title="Captain">
-                  C
-                </abbr>
-              )}
-            </span>
-            {p.role && <span className={`${styles.role} ${ROLE_CLASS[p.role] ?? ''}`}>{ROLE_LABELS[p.role]}</span>}
-          </li>
-        ))}
-      </ul>
+      <PlayerList players={players} />
+      {bench.length > 0 && (
+        <>
+          <header className={styles.benchHead}>
+            <h4 className={styles.benchTitle}>Bench</h4>
+            <span className={styles.squadCount}>{bench.length}</span>
+          </header>
+          <PlayerList players={bench} className={styles.bench} />
+        </>
+      )}
     </div>
   );
 }
@@ -287,8 +302,8 @@ export default function InfoPanel({
           <div className={styles.squads}>
             {squads ? (
               <>
-                <SquadColumn team={match.homeTeam} players={squads.home} />
-                <SquadColumn team={match.awayTeam} players={squads.away} />
+                <SquadColumn team={match.homeTeam} players={squads.home} bench={squads.bench?.home} />
+                <SquadColumn team={match.awayTeam} players={squads.away} bench={squads.bench?.away} />
               </>
             ) : (
               <>

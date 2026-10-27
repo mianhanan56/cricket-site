@@ -46,6 +46,9 @@ sides and before the old state/tight-chase score. Both uncommitted.
 2026-10-27: Alerts creator — "What I follow" now lists what is followed, and a new "Live match"
 scope picks one live match (ARCHITECTURE › Automations). Uncommitted.
 
+2026-10-27: match Info tab shows each side's bench (squad players not in the XI) under its
+Playing XI, from `/match/info`'s `tb` (ARCHITECTURE › Frontend modules). Uncommitted.
+
 2026-10-15: full code review (bugs) and an upstream feature-gap survey, no code changed. Findings are
 new TODO.md rows dated 2026-10-15; the user picks what to fix.
 

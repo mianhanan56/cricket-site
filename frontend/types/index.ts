@@ -128,6 +128,8 @@ export interface PlayerOfMatch {
 export interface MatchSquads {
   home: SquadPlayer[];
   away: SquadPlayer[];
+  /** Squad players left out of each named XI. */
+  bench?: { home: SquadPlayer[]; away: SquadPlayer[] };
 }
 
 export interface SquadPlayer {

@@ -54,7 +54,7 @@ export function FormBars({
   average?: number | null;
 }) {
   const leads = columns.flatMap((c) => c.bars.map((b) => b.lead));
-  if (!leads.some((l) => l > 0)) return null;
+  if (!leads.length) return null;
   const scale = Math.max(discipline === 'batting' ? 60 : 4, ...leads);
   const y = (v: number) => CHART_H - (v / scale) * CHART_H;
 
