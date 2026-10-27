@@ -49,6 +49,12 @@ scope picks one live match (ARCHITECTURE › Automations). Uncommitted.
 2026-10-27: match Info tab shows each side's bench (squad players not in the XI) under its
 Playing XI, from `/match/info`'s `tb` (ARCHITECTURE › Frontend modules). Uncommitted.
 
+2026-10-27: Key moments show milestones (50s, 100s, team 100s) from the whole innings, not just
+the live poll's newest page: `useApiCommentaryHistory` now keeps the events of the innings it reads
+whole, and `MatchDetail` merges them with the live ones (`feedEvents`) for the Live tab. Tests only
+get the innings in play (earlier innings' milestones aren't read); limited-overs matches walk back to
+the first innings. Uncommitted.
+
 2026-10-15: full code review (bugs) and an upstream feature-gap survey, no code changed. Findings are
 new TODO.md rows dated 2026-10-15; the user picks what to fix.
 

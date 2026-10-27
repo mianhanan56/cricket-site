@@ -239,6 +239,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - Ireland in the Teams directory (full Test team list).
 - No-ball/wide notation consistent between the ball strip and over cards.
 - Key moments: score on every wicket line; a same-surname wicket no longer hidden.
+- Key moments: milestones from the whole innings in play (history read's events merged in), not only the live page's ~10 rows. 2026-10-27, uncommitted.
 
 ## Recently completed (uncommitted, 2026-10-02, design/usability)
 

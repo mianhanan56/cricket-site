@@ -602,6 +602,8 @@ export interface UseApiCommentaryHistoryResult {
   balls: CommentaryBall[];
   overs: OverSummary[];
   notes: FeedNote[];
+  /** Milestones and wickets that have scrolled out of the live poll's page. */
+  events: MatchEvent[];
   /** A read is in flight — the first one, or a "load older". */
   loading: boolean;
   /** Every innings back to the first is held. */
@@ -624,6 +626,7 @@ export function useApiCommentaryHistory(
   const [balls, setBalls] = useState<CommentaryBall[]>([]);
   const [overs, setOvers] = useState<OverSummary[]>([]);
   const [notes, setNotes] = useState<FeedNote[]>([]);
+  const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [exhausted, setExhausted] = useState(false);
   // The innings the next read asks for; null until the first one has landed.
@@ -647,6 +650,7 @@ export function useApiCommentaryHistory(
         setBalls((prev) => mergeFeedItems(prev, feed.balls, Infinity));
         setOvers((prev) => mergeFeedItems(prev, feed.overs, Infinity));
         setNotes((prev) => mergeFeedItems(prev, feed.notes, Infinity));
+        setEvents((prev) => mergeFeedItems(prev, feed.events, Infinity));
         // A Worker without the innings filter sends the whole match, first innings included.
         const reachedFirst = target <= 0 || feed.balls.some((b) => b.inning === 0);
         next.current = target - 1;
@@ -669,6 +673,7 @@ export function useApiCommentaryHistory(
       setBalls([]);
       setOvers([]);
       setNotes([]);
+      setEvents([]);
       setExhausted(false);
       inFlight.current = false;
     }
@@ -684,7 +689,7 @@ export function useApiCommentaryHistory(
     if (target !== null && target >= 0) void read(target);
   }, [exhausted, read, inning, matchKey]);
 
-  return { balls, overs, notes, loading, exhausted, loadMore };
+  return { balls, overs, notes, events, loading, exhausted, loadMore };
 }
 
 /**

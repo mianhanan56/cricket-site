@@ -23,6 +23,7 @@ import { breakFromFeed } from '@/lib/feedBreak';
 import { inningsProgress, liveEquation } from '@/lib/telemetry';
 import { creaseFromCard } from '@/lib/crease';
 import { dedupeDeliveries, groupBalls, reachedByCard, toBallEntry, type BallEntry } from '@/lib/balls';
+import { mergeFeedItems } from '@/lib/live/frames';
 import { useActiveInView, useScrollFade } from '@/hooks/useScrollFade';
 import PointsTable from '../series/PointsTable';
 import { SeriesLeadersBoard, rankedLeaders } from '../series/SeriesLeaders';
@@ -243,6 +244,8 @@ export default function MatchDetail({
     return [...byId.values()];
   }, [apiExtras.notes, history.notes]);
 
+  const feedEvents = useMemo(() => mergeFeedItems(history.events, apiExtras.events, Infinity), [apiExtras.events, history.events]);
+
   // The Live tab's strip: the innings' last three overs, from the whole feed rather than its newest page.
   const recentBalls = useMemo(() => {
     const inning = feedBalls[0]?.inning;
@@ -381,7 +384,7 @@ export default function MatchDetail({
             innings={apiExtras.innings}
             balls={feedBalls}
             overs={feedOvers}
-            events={apiExtras.events}
+            events={feedEvents}
             groups={ballGroups}
             crease={crease}
             pending={extrasPending}
