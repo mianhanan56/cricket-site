@@ -402,7 +402,9 @@ empty arrays (which is what made it look broken at first). Strip the leading
 `^` before looking a key up; the upstream prefixes it on the match object but not in the
 map. The frontend client in
 [`frontend/lib/api`](../frontend/lib/api) caches resolved names for the
-life of the process and only asks for keys it has not seen.
+life of the process and only asks for keys it has not seen. The Worker does
+the same per isolate ([`src/names.ts`](src/names.ts)): the edge cache keys the
+whole key set, so without it one new key sent every key upstream again.
 
 **`/match/commentary` has two undocumented behaviours the frontend relies on.** `inning` (0–3)
 becomes the upstream's own filter (`firstInning`…`fourthInning`): that innings only, no editorial rows.

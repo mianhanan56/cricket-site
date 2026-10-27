@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { SeriesStatTable } from '@/types';
 import TeamBadge from '../ui/TeamBadge';
 import ViewAllCue from '../ui/ViewAllCue';
@@ -28,7 +29,7 @@ export default function MilestoneLeaders({
         return (
           <section key={spec.value} className={styles.card} aria-labelledby={titleId}>
             {table?.rows.length ? (
-              <Link
+              <Link {...ON_INTENT}
                 href={`/series/${seriesId}/stats/${spec.slug}`}
                 className={styles.head}
                 aria-label={`${spec.label}, full ranking`}

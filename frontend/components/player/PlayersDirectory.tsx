@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { useMemo, useState } from 'react';
 import type { RankingGender, RankingRole } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
@@ -81,7 +82,7 @@ function Row({ item }: { item: DirectoryItem }) {
         className={styles.crest}
       />
       <span className={styles.who}>
-        <Link href={`/players/${row.id}`} className={styles.name}>
+        <Link {...ON_INTENT} href={`/players/${row.id}`} className={styles.name}>
           {row.name}
         </Link>
         <span className={styles.meta}>

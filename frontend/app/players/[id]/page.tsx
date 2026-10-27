@@ -11,6 +11,7 @@ import { getApiPlayerProfile, isRejectedRequest, teamLogoUrl, withFreshForm } fr
 import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
 import PlayerPortrait from '@/components/player/PlayerPortrait';
 import TableScroll from '@/components/ui/TableScroll';
+import InfoTip from '@/components/ui/InfoTip';
 import BackButton from '@/components/ui/BackButton';
 import TeamBadge from '@/components/ui/TeamBadge';
 import FollowButton from '@/components/follow/FollowButton';
@@ -69,6 +70,29 @@ const fmtCount = (value: number | null) => (value === null ? '—' : String(valu
 
 const total = <T,>(rows: T[], pick: (row: T) => number) => rows.reduce((sum, row) => sum + pick(row), 0);
 
+type CareerRow = { format: string; partOf: string | null };
+
+/** Each slice row (WC ODI) moved directly under the row it belongs to. */
+function nestSlices<T extends CareerRow>(rows: T[]): T[] {
+  const slices = rows.filter((r) => r.partOf);
+  const nested = rows
+    .filter((r) => !r.partOf)
+    .flatMap((r) => [r, ...slices.filter((s) => s.partOf === r.format)]);
+  return [...nested, ...slices.filter((s) => !nested.includes(s))];
+}
+
+function FormatCell({ row }: { row: CareerRow }) {
+  if (!row.partOf) return <th scope="row">{row.format}</th>;
+  return (
+    <th scope="row" className={styles.slice}>
+      <span className={styles.sliceLabel}>
+        {row.format}
+        <InfoTip label={`About ${row.format}`} text={`Counted in ${row.partOf}, not in Career`} />
+      </span>
+    </th>
+  );
+}
+
 // ---------------------------------------------------------------- Career
 
 function HighScore({ row }: { row: PlayerBattingCareer }) {
@@ -82,6 +106,7 @@ function HighScore({ row }: { row: PlayerBattingCareer }) {
 }
 
 function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: string }) {
+  const counted = rows.filter((r) => !r.partOf);
   return (
     <TableScroll className={styles.tableWrap} label={`${level} batting career by format`}>
       <table className={styles.table}>
@@ -102,9 +127,9 @@ function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: st
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {nestSlices(rows).map((r) => (
             <tr key={r.format}>
-              <th scope="row">{r.format}</th>
+              <FormatCell row={r} />
               <td>{r.matches}</td>
               <td>{r.innings}</td>
               <td className={styles.figure}>{r.runs}</td>
@@ -122,20 +147,20 @@ function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: st
           ))}
         </tbody>
         {/* Averages and strike rates need dismissals and balls faced, which the upstream does not send per format. */}
-        {rows.length > 1 && (
+        {counted.length > 1 && (
           <tfoot>
             <tr>
               <th scope="row">Career</th>
-              <td>{total(rows, (r) => r.matches)}</td>
-              <td>{total(rows, (r) => r.innings)}</td>
-              <td className={styles.figure}>{total(rows, (r) => r.runs)}</td>
+              <td>{total(counted, (r) => r.matches)}</td>
+              <td>{total(counted, (r) => r.innings)}</td>
+              <td className={styles.figure}>{total(counted, (r) => r.runs)}</td>
               <td>{Math.max(...rows.map((r) => r.highScore)) || '—'}</td>
               <td>—</td>
               <td>—</td>
-              <td>{total(rows, (r) => r.hundreds)}</td>
-              <td>{total(rows, (r) => r.fifties)}</td>
-              <td>{total(rows, (r) => r.fours)}</td>
-              <td>{total(rows, (r) => r.sixes)}</td>
+              <td>{total(counted, (r) => r.hundreds)}</td>
+              <td>{total(counted, (r) => r.fifties)}</td>
+              <td>{total(counted, (r) => r.fours)}</td>
+              <td>{total(counted, (r) => r.sixes)}</td>
               <td>—</td>
             </tr>
           </tfoot>
@@ -146,6 +171,7 @@ function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: st
 }
 
 function BowlingCareer({ rows, level }: { rows: PlayerBowlingCareer[]; level: string }) {
+  const counted = rows.filter((r) => !r.partOf);
   return (
     <TableScroll className={styles.tableWrap} label={`${level} bowling career by format`}>
       <table className={styles.table}>
@@ -164,9 +190,9 @@ function BowlingCareer({ rows, level }: { rows: PlayerBowlingCareer[]; level: st
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {nestSlices(rows).map((r) => (
             <tr key={r.format}>
-              <th scope="row">{r.format}</th>
+              <FormatCell row={r} />
               <td>{r.matches}</td>
               <td>{r.innings}</td>
               <td className={styles.figure}>{r.wickets}</td>
@@ -179,19 +205,19 @@ function BowlingCareer({ rows, level }: { rows: PlayerBowlingCareer[]; level: st
             </tr>
           ))}
         </tbody>
-        {rows.length > 1 && (
+        {counted.length > 1 && (
           <tfoot>
             <tr>
               <th scope="row">Career</th>
-              <td>{total(rows, (r) => r.matches)}</td>
-              <td>{total(rows, (r) => r.innings)}</td>
-              <td className={styles.figure}>{total(rows, (r) => r.wickets)}</td>
+              <td>{total(counted, (r) => r.matches)}</td>
+              <td>{total(counted, (r) => r.innings)}</td>
+              <td className={styles.figure}>{total(counted, (r) => r.wickets)}</td>
               <td>—</td>
               <td>—</td>
               <td>—</td>
               <td>—</td>
-              <td>{total(rows, (r) => r.threeWickets)}</td>
-              <td>{total(rows, (r) => r.fiveWickets)}</td>
+              <td>{total(counted, (r) => r.threeWickets)}</td>
+              <td>{total(counted, (r) => r.fiveWickets)}</td>
             </tr>
           </tfoot>
         )}

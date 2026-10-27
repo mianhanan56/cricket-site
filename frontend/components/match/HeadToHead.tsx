@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { HeadToHead as H2H } from '@/types';
 import LocalTime from '../ui/LocalTime';
 import { meetingFormat } from '@/lib/seriesFormat';
@@ -91,7 +92,7 @@ export default function HeadToHead({ record }: { record: H2H }) {
           return (
             <li key={m.key}>
               {m.id ? (
-                <Link href={`/matches/${m.id}`} className={styles.meeting}>
+                <Link href={`/matches/${m.id}`} {...ON_INTENT} className={styles.meeting}>
                   {body}
                 </Link>
               ) : (

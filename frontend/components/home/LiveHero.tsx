@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { useMemo, type ReactNode } from 'react';
 import type { Match, Team } from '@/types';
 import { useApiMatchExtras } from '@/hooks/useApiMatches';
@@ -230,7 +231,7 @@ export default function LiveHero({ match, switcher }: { match: Match; switcher?:
                 {crease.batsmen.map(({ line, onStrike }) => (
                   <li key={line.playerId} className={`${styles.player} ${onStrike ? styles.onStrike : ''}`}>
                     <span className={styles.role}>{onStrike ? 'On strike' : 'Batting'}</span>
-                    <Link href={`/players/${line.playerId}`} className={styles.playerName}>
+                    <Link {...ON_INTENT} href={`/players/${line.playerId}`} className={styles.playerName}>
                       {line.name}
                     </Link>
                     <span className={styles.playerFig}>
@@ -245,7 +246,7 @@ export default function LiveHero({ match, switcher }: { match: Match; switcher?:
                 {crease.bowler && (
                   <li className={`${styles.player} ${styles.bowler}`}>
                     <span className={styles.role}>Bowling</span>
-                    <Link href={`/players/${crease.bowler.playerId}`} className={styles.playerName}>
+                    <Link {...ON_INTENT} href={`/players/${crease.bowler.playerId}`} className={styles.playerName}>
                       {crease.bowler.name}
                     </Link>
                     <span className={styles.playerFig}>

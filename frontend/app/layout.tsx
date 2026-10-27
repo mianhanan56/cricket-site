@@ -4,6 +4,7 @@ import '../scss/main.scss';
 import Navbar from '../components/layout/Navbar';
 import BottomNav from '../components/layout/BottomNav';
 import NavigationTracker from '../components/layout/NavigationTracker';
+import IntentPrefetch from '../components/layout/IntentPrefetch';
 import Footer from '../components/layout/Footer';
 import SearchOverlay, { SearchHotkeys } from '../components/search/SearchOverlay';
 import NotificationCenter from '../components/notifications/NotificationCenter';
@@ -83,6 +84,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <NavigationTracker />
+        <IntentPrefetch />
         <SearchHotkeys />
         <div className="app-shell">
           <Navbar />

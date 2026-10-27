@@ -4,9 +4,7 @@ import type { MatchStateView } from '@/lib/matchState';
 import type { MatchSituation, CreaseContext } from '@/lib/situation';
 import type { LiveEquation } from '@/lib/telemetry';
 import { PHASE_LABEL, equationSentence, isChaseTight } from '@/lib/telemetry';
-import { MATCH_FORMAT_LABEL, matchFormat } from '@/lib/seriesFormat';
-import { isUnofficialTest } from '@/lib/matchType';
-import { ordinal } from '@/lib/text';
+import { matchOrdinal } from '@/lib/seriesFormat';
 import { ballKind, ballPosition, runsLabel, shortLabel, type BallEntry } from '@/lib/balls';
 import TeamBadge from '../ui/TeamBadge';
 import LocalTime from '../ui/LocalTime';
@@ -113,9 +111,7 @@ export default function ScoreHeader({
 
   const meta = [
     match.stage,
-    match.matchNumber
-      ? `${ordinal(match.matchNumber)} ${isUnofficialTest(match) ? 'Match' : MATCH_FORMAT_LABEL[match.format]}`
-      : matchFormat(match),
+    matchOrdinal(match),
     live && match.day && state.key !== 'STUMPS' && (match.day > 1 || match.session)
       ? `Day ${match.day}${match.session ? ` · Session ${match.session}` : ''}`
       : null,

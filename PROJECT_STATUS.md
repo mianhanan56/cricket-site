@@ -22,13 +22,51 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
   (background/system-tray support, event-key dedup); dark/light theme; PWA.
 - 2026-10-27: Alerts creator shows the followed teams and series under "What I follow" and gains a "Live match" scope (`MATCH`) picked from the matches live now. Checked in headless Chrome against the dev server at 1440/1100/390, light and dark, with and without follows; tsc clean, lint clean, 159/159 tests.
 
+## Recently completed (uncommitted, 2026-10-27, scorecard striker)
+- Scorecard `*` now marks only the striker, not both unbeaten batters. MatchDetail passes
+  `strikerId` from `creaseFromCard` (last-ball headline); no `*` when the striker can't be matched
+  or the innings shown isn't the latest started one (not `isLatest` — the side yet to bat is listed
+  as an empty innings after the live one). Both at-crease rows keep their highlight.
+
+## Recently completed (uncommitted, 2026-10-27, career totals)
+- Player Career row no longer double-counts WC ODI: the upstream's `st=100` row is a slice of
+  ODI (`st=1`), so rows from `SUBSET_COMPETITIONS` (lib/api/player.ts) carry `partOf: 'ODI'` and
+  are left out of the batting and bowling totals. The WC ODI row still shows, moved directly under
+  ODI, with an `InfoTip` (components/ui/InfoTip.tsx — hover, focus or tap) reading "Counted in ODI,
+  not in Career".
+
+## Recently completed (uncommitted, 2026-10-27, performance — second pass)
+
+- Cold renders were bound by `/mapping`: a miss is ~0.9–1.2s upstream (a hit ~5ms), and its
+  edge cache is keyed by the whole key set, so one new key missed it for all of them — and the
+  frontend's per-process name cache makes key sets vary by process. The Worker now keeps every
+  name it has served in isolate memory (`worker/src/names.ts`, unknown keys for 5 min) and asks
+  the upstream only for keys it has never seen. Measured locally (old vs new Worker, cold Next,
+  warm Worker, 10 pages): 6.18s → 1.24s total; series 1.40 → 0.17s, player 1.25 → 0.09s, match
+  1.17 → 0.29s. **Needs `cd worker && npm run deploy`.**
+- `apiGet` shares a server render's identical reads (`lib/api/client.ts`): React and Next skip
+  their own render dedupe for any fetch with a signal, and every read carries the timeout. Match
+  pages read 3–5 fewer times per render (series squads/schedule per side, match info). Reads
+  with a caller's signal, and the browser, are unchanged.
+- Verified: Worker `tsc`; frontend `tsc`, lint, 161/161 tests; isolated production build against
+  local old/new Workers; `/mapping` cases (memory, partial, unknown keys, 200-key cap 400, CORS).
+
+## Recently completed (uncommitted, 2026-10-27, performance)
+
+- Measured first (isolated prod build + production site): bundles modest (90 kB shared, 174 kB match
+  page max), warm SSR 10–50ms, TBT ≤ 202ms, production updates ride the socket (near-zero polling).
+  The cost that scaled with traffic was link prefetch on sight. List links now prefetch on intent
+  (ARCHITECTURE › Caching / freshness, `ON_INTENT`). Quiz refactor the same day: server-only
+  `lib/quizGen.ts`, shared in-flight generation, no repeat source-match reads, fixture read without
+  forward pages, shared `matchOrdinal` / `plural`.
+
 ## Recently completed (uncommitted, 2026-10-26, match quiz)
 
 - AI match quiz: Quiz tab on finished match pages, questions from Gemini's free tier grounded in
   the scorecard (ARCHITECTURE › Match quiz). Same day, at the user's request: a warm-up quiz on
   upcoming matches from 6 hours before the start and through live play, 3 questions from each
   side's last finished match (tested on PAK v SL with the window widened in a scratch copy:
-  PAK v ENG + SL v ENG questions, ~25s first read, cached after). Files: `app/api/quiz/route.ts`, `lib/quiz.ts`,
+  PAK v ENG + SL v ENG questions, ~25s first read, cached after). Files: `app/api/quiz/route.ts`, `lib/quiz.ts` + `lib/quizGen.ts`,
   `lib/gemini.ts`, `lib/quizAnswers.ts`, `hooks/useMatchQuiz.ts`, `components/match/QuizPanel.*`;
   `quiz` added to `MATCH_TAB_KEYS`; `QuizQuestion`/`MatchQuiz` in `types/index.ts`.
 - Verified against the real Gemini API (key in `frontend/.env.local`) from an isolated build:

@@ -640,6 +640,8 @@ export interface PlayerBattingCareer {
    * runs are not the same achievement, and averaging them together says nothing.
    */
   international: boolean;
+  /** The format of the row this one is a slice of (WC ODI is inside ODI); kept out of career totals. */
+  partOf: string | null;
   matches: number;
   innings: number;
   runs: number;
@@ -661,6 +663,8 @@ export interface PlayerBowlingCareer {
   format: string;
   /** See PlayerBattingCareer.international. */
   international: boolean;
+  /** See PlayerBattingCareer.partOf. */
+  partOf: string | null;
   matches: number;
   innings: number;
   wickets: number;
@@ -1248,7 +1252,7 @@ export interface QuizQuestion {
   answer: number;
   /** Shown once the reader has answered. */
   explanation: string;
-  /** The match a warm-up question is about, e.g. "Pakistan v England". */
+  /** The match a warm-up question is about: "England v Pakistan · 4th ODI · 25 Oct". */
   about?: string;
 }
 
@@ -1257,7 +1261,8 @@ export type QuizKind = 'result' | 'warmup';
 
 export interface MatchQuiz {
   matchId: string;
-  kind: QuizKind;
+  /** The quizzed match as a warm-up names it ("England v Pakistan · 4th ODI · 25 Oct"). */
+  label: string;
   /** Stored answers belong to one generation; a regenerated quiz starts fresh. */
   generatedAt: string;
   questions: QuizQuestion[];

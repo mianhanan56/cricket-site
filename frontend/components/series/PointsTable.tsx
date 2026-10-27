@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { PointsTableGroup, PointsTableRow } from '@/types';
 import TeamBadge from '../ui/TeamBadge';
 import styles from './PointsTable.module.scss';
@@ -143,7 +144,7 @@ function Row({
           <TeamBadge name={row.team.name} shortName={row.team.shortName} logo={row.team.logo} size="sm" />
 
           <div className={styles.teamStack}>
-            <Link href={`/teams/${row.teamKey}`} className={styles.teamName}>
+            <Link {...ON_INTENT} href={`/teams/${row.teamKey}`} className={styles.teamName}>
               {row.team.name}
             </Link>
 

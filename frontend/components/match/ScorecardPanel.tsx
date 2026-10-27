@@ -40,12 +40,14 @@ export default function ScorecardPanel({
   innings,
   squads,
   pending,
+  strikerId,
   onShowSquads,
 }: {
   match: Match;
   innings: InningsScore[];
   squads: MatchSquads | null;
   pending?: boolean;
+  strikerId?: string | null;
   onShowSquads: () => void;
 }) {
   // Follows the innings in progress (the upstream lists the side still to bat as an empty innings) until
@@ -66,6 +68,8 @@ export default function ScorecardPanel({
   const extrasBreakdown = current?.extrasBreakdown ?? (isLatest ? match.scorecard?.extrasBreakdown : undefined);
   const yetToBat = current?.yetToBat ?? [];
   const inProgress = match.status === 'LIVE' && isLatest && !match.note?.betweenInnings;
+  // The side still to bat sits after the live innings as an empty one, so isLatest misses it here.
+  const striking = selected === lastBatted;
   const fallOfWickets = current?.fallOfWickets ?? [];
   const partnerships = current?.partnerships ?? [];
 
@@ -144,7 +148,7 @@ export default function ScorecardPanel({
                       <td className={`${mc.left} ${styles.batter}`}>
                         <span className={styles.nameRow}>
                           <PlayerLink id={b.playerId} name={b.name} className={styles.batterName}>
-                            {in_ && <span className={styles.notOut}>*</span>}
+                            {striking && b.playerId === strikerId && <span className={styles.notOut}>*</span>}
                           </PlayerLink>
                           {ballFeed && b.balls > 0 && (
                             <PlayerBallsButton

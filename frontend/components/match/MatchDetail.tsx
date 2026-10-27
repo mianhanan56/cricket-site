@@ -387,7 +387,14 @@ export default function MatchDetail({
           />
         )}
         {tab === 'scorecard' && (
-          <ScorecardPanel match={match} innings={innings} squads={squads} pending={extrasPending} onShowSquads={() => show('info')} />
+          <ScorecardPanel
+            match={match}
+            innings={innings}
+            squads={squads}
+            pending={extrasPending}
+            strikerId={crease?.batsmen.find((b) => b.onStrike)?.line.playerId ?? null}
+            onShowSquads={() => show('info')}
+          />
         )}
         {tab === 'commentary' && (
           <CommentaryFeed

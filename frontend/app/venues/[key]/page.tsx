@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { notFound } from 'next/navigation';
 import type { HeadToHeadMatch, VenueProfile } from '@/types';
 import { getApiFixtureRange } from '@/lib/api';
@@ -118,7 +119,7 @@ function ResultRow({ match }: { match: HeadToHeadMatch }) {
   );
 
   return match.id ? (
-    <Link href={`/matches/${match.id}`} className={styles.row}>
+    <Link href={`/matches/${match.id}`} {...ON_INTENT} className={styles.row}>
       {body}
     </Link>
   ) : (
@@ -163,7 +164,7 @@ export default async function VenuePage({ params }: { params: { key: string } })
             <ul className={styles.regulars}>
               {regulars.map(({ team, matches }) => (
                 <li key={team.id}>
-                  <Link href={`/teams/${team.id}`} className={styles.regular}>
+                  <Link {...ON_INTENT} href={`/teams/${team.id}`} className={styles.regular}>
                     <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="sm" />
                     <span className={styles.regularName}>
                       <span className={styles.regularCode}>{team.shortName}</span>

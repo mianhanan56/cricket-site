@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { Match, Team } from '@/types';
 import { formatTeamScore, inningsFor } from '@/lib/innings';
 import { attributeResult } from '@/lib/api';
@@ -31,7 +32,7 @@ export default function ResultList({ matches, inSeries = false }: { matches: Mat
         const state = matchStateOf(m);
         return (
           <li key={m.id}>
-            <Link href={`/matches/${m.id}`} className={styles.row}>
+            <Link href={`/matches/${m.id}`} {...ON_INTENT} className={styles.row}>
               <span className={styles.series}>
                 <span className={styles.format}>{matchFormat(m)}</span>
                 {!inSeries && <span className={styles.seriesName}>{m.series.name}</span>}

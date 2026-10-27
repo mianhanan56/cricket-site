@@ -1,11 +1,12 @@
 # TODO — PulseCrease
 
-Last updated: 2026-10-26
+Last updated: 2026-10-27
 
 UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before any fix.
 
 | Priority | Status | Task | Notes |
 | --- | --- | --- | --- |
+| High | Pending | Deploy the Worker for `/mapping` name memory (`cd worker && npm run deploy`) | 2026-10-27: names served from isolate memory, upstream asked only for unseen keys (`worker/src/names.ts`). Cold page renders ~5× faster in local tests. The frontend works with either Worker. |
 | High | Pending | Match quiz: add `GEMINI_API_KEY` in Vercel (Production + Preview) | Set locally in `frontend/.env.local` on 2026-10-26 and tested against real Gemini. Until Vercel has it, production `/api/quiz` 404s and no Quiz tab shows. The key was pasted into a chat on 2026-10-26 — user may rotate it in AI Studio (then update both places). Possible next: a "Quiz from the last match" card on home. |
 | High | Pending | Deploy the renamed Worker before pushing the frontend (`cd worker && npm run deploy`) | 2026-10-23: the Worker is now `pulsecrease-api` and the frontend defaults to `https://pulsecrease-api.pulse-cricket.workers.dev`, which 404s until deployed. Afterwards: delete the old Worker in the Cloudflare dashboard, and if Vercel sets the Worker URL env var, rename it to `NEXT_PUBLIC_WORKER_URL` (or drop it — the default is right). |
 | High | Pending | Redesign: layout pass per page after home (2026-10-21) | Colours/type already apply everywhere. Next: match centre (its `ScoreHeader` could take `on-pitch`), then series, fixtures, rankings, teams, players, news. Check each page's `[data-theme='light']` overrides still make sense. |
@@ -73,5 +74,5 @@ UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before 
 | Medium | Pending | Stats Corner (cross-series records) | the upstream filters records by series/team/venue/format/year. `/oc/getTopRecords` is in their bundle, payload not worked out. |
 | Low | Pending | Fixtures corpus decoded on every match/team/venue render | 58 pages + mapping + ~1,000 decodes per render (reads are cached, decoding isn't). Option: `unstable_cache` the decoded corpus (keep it out of client-reachable modules; Next caps an entry at 2 MB). Measured 2026-10-26 (prod build, warm data cache): `/venues/4R` 60 ms, `/teams/Q` 80 ms total, decode included — lowered to Low. Cold first visit is 2–4.5 s, all upstream fetches, and blocks TTFB because `generateMetadata` awaits the same read. |
 | Low | Pending | `/fixtures` HTML is 433 KB (34 KB gz), 4× any other page | 461 rows × full `Match` in the RSC prop. Dropping derivable fields (team `country` = name, `logo` from id, null `scorecard`/`result`/`ballsLimit`, default `ballsPerOver`, `matchKey` = id) takes the prop 273 → 165 KB raw, 18 → 13 KB gz. Needs a pack/unpack step around `FixturesFilter`. (Perf survey 2026-10-26) |
-| Low | Pending | Duplicate reads left after the refactor | `getApiMatchSeriesSquads` reads `/series/squads` and the schedule once per side; series page leaders wait on the full match list just to test liveness. |
+| Low | Pending | Series page leaders wait on the full match list just to test liveness | The squads/schedule per-side duplicate reads are gone since `apiGet` shares a render's reads (2026-10-27). |
 | Low | Pending | ResizeObserver width effect written three times | `PulseTrace`, `MomentumGraph` and `BallTimeline` each measure their own width; a shared `useWidth` hook would do. Left out of the 2026-10-23 refactor (three chart components, each needs a visual check). |

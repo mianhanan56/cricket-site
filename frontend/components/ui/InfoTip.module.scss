@@ -1,0 +1,70 @@
+@use 'component' as *;
+
+.wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: $r-pill;
+  background: transparent;
+  color: $text-3;
+  cursor: pointer;
+  @include focus-ring;
+
+  &:hover,
+  .wrap[data-open] & {
+    color: $text;
+    background: $surface-3;
+  }
+}
+
+// Opens to the right: inside a scrolling table there is no room above or below that
+// isn't clipped by the scroll container.
+.tip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + #{$space-2});
+  z-index: $z-popover;
+  width: max-content;
+  max-width: 240px;
+  padding: $space-1-5 $space-2-5;
+  border-radius: $r-sm;
+  background: $text;
+  box-shadow: $shadow-pop;
+  font-family: $font-sans;
+  font-size: $fs-sm;
+  font-weight: 500;
+  font-stretch: normal;
+  line-height: $leading-snug;
+  color: $bg;
+  white-space: normal;
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-4px, -50%);
+
+  @include motion {
+    transition:
+      opacity $dur-1 $ease-out,
+      transform $dur-1 $ease-out,
+      visibility $dur-1;
+  }
+
+  .wrap:hover &,
+  .trigger:focus-visible + &,
+  .wrap[data-open] & {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(0, -50%);
+  }
+}

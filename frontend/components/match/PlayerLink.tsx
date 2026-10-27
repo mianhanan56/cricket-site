@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import styles from './matchCenter.module.scss';
 
 /**
@@ -25,7 +26,7 @@ export default function PlayerLink({
     );
   }
   return (
-    <Link href={`/players/${id}`} className={`${styles.playerLink} ${className ?? ''}`}>
+    <Link {...ON_INTENT} href={`/players/${id}`} className={`${styles.playerLink} ${className ?? ''}`}>
       {name}
       {children}
     </Link>

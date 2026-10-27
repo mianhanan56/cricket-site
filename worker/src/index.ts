@@ -15,6 +15,7 @@
 
 import { UPSTREAMS } from './upstreams';
 import { fetchUpstream, UPSTREAM_TIMEOUT_MS } from './upstream';
+import { merge, remember, splitKnown, type Mapping } from './names';
 import {
   matchRoute,
   ParamError,
@@ -124,59 +125,102 @@ export default {
       throw err;
     }
 
-    // Cache key is derived from the upstream call, not the caller's URL, so
-    // every origin shares one entry and client-side noise cannot fragment it.
-    // The Cache API only stores GET, so a POST upstream is keyed by a synthetic
-    // GET URL carrying the canonical params.
-    const { path, query } = upstreamTarget(route, params);
-    const cacheKey = new Request(
-      `${UPSTREAMS[route.base]}${path}${query ? `?${query}` : ''}`,
-      { method: 'GET' }
-    );
-    const cache = caches.default;
-
-    const cached = await cache.match(cacheKey);
-    if (cached) {
-      const basis = Number(cached.headers.get('x-worker-age-basis') ?? 0);
-      const ageSeconds = (Date.now() - basis) / 1000;
-
-      if (ageSeconds < route.ttl) {
-        return withHeaders(cached, cors, 'HIT', route.ttl);
-      }
-
-      // Past TTL: serve it now, refresh behind the request, so a cache expiry
-      // never makes a user wait on the upstream round-trip. Single-flighted, so
-      // the whole readership arriving inside one expired window costs one
-      // upstream call rather than one each.
-      ctx.waitUntil(fetchAndStore(cacheKey, route, params, cache, ctx));
-      return withHeaders(cached, cors, 'STALE', route.ttl);
-    }
-
-    // A cold miss is single-flighted too, and for the same reason: without it,
-    // every reader arriving before the first body lands goes upstream
-    // separately. Joining callers get the same outcome — including the same
-    // upstream error, so a failure still reports what actually went wrong
-    // rather than a generic 502.
-    const outcome = await fetchAndStore(cacheKey, route, params, cache, ctx);
-
-    if (!outcome.ok) {
-      return outcome.status === 0
-        ? json({ error: 'Upstream unreachable', detail: outcome.detail }, 502, cors)
-        : json(
-            {
-              error: 'Upstream error',
-              status: outcome.status,
-              upstream: `${route.method} ${UPSTREAMS[route.base]}${path}`,
-              detail: outcome.detail,
-            },
-            outcome.status === 429 ? 429 : 502,
-            cors
-          );
-    }
-
-    return withHeaders(responseFrom(outcome.stored), cors, 'MISS', route.ttl);
+    return route.match === '/mapping'
+      ? serveMapping(route, params, cors, ctx)
+      : serve(route, params, cors, ctx);
   },
 } satisfies ExportedHandler<Env>;
+
+/** One upstream call through the edge cache: fresh hit, stale-while-refresh, or a single-flighted miss. */
+async function serve(
+  route: RouteDef,
+  params: Record<string, ParamValue>,
+  cors: Headers,
+  ctx: ExecutionContext
+): Promise<Response> {
+  // Cache key is derived from the upstream call, not the caller's URL, so
+  // every origin shares one entry and client-side noise cannot fragment it.
+  // The Cache API only stores GET, so a POST upstream is keyed by a synthetic
+  // GET URL carrying the canonical params.
+  const { path, query } = upstreamTarget(route, params);
+  const cacheKey = new Request(
+    `${UPSTREAMS[route.base]}${path}${query ? `?${query}` : ''}`,
+    { method: 'GET' }
+  );
+  const cache = caches.default;
+
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const basis = Number(cached.headers.get('x-worker-age-basis') ?? 0);
+    const ageSeconds = (Date.now() - basis) / 1000;
+
+    if (ageSeconds < route.ttl) {
+      return withHeaders(cached, cors, 'HIT', route.ttl);
+    }
+
+    // Past TTL: serve it now, refresh behind the request, so a cache expiry
+    // never makes a user wait on the upstream round-trip. Single-flighted, so
+    // the whole readership arriving inside one expired window costs one
+    // upstream call rather than one each.
+    ctx.waitUntil(fetchAndStore(cacheKey, route, params, cache, ctx));
+    return withHeaders(cached, cors, 'STALE', route.ttl);
+  }
+
+  // A cold miss is single-flighted too, and for the same reason: without it,
+  // every reader arriving before the first body lands goes upstream
+  // separately. Joining callers get the same outcome — including the same
+  // upstream error, so a failure still reports what actually went wrong
+  // rather than a generic 502.
+  const outcome = await fetchAndStore(cacheKey, route, params, cache, ctx);
+
+  if (!outcome.ok) {
+    return outcome.status === 0
+      ? json({ error: 'Upstream unreachable', detail: outcome.detail }, 502, cors)
+      : json(
+          {
+            error: 'Upstream error',
+            status: outcome.status,
+            upstream: `${route.method} ${UPSTREAMS[route.base]}${path}`,
+            detail: outcome.detail,
+          },
+          outcome.status === 429 ? 429 : 502,
+          cors
+        );
+  }
+
+  return withHeaders(responseFrom(outcome.stored), cors, 'MISS', route.ttl);
+}
+
+/** /mapping with the names this isolate already holds answered from memory (see names.ts). */
+async function serveMapping(
+  route: RouteDef,
+  params: Record<string, ParamValue>,
+  cors: Headers,
+  ctx: ExecutionContext
+): Promise<Response> {
+  const { held, rest } = splitKnown(params);
+  if (!rest) {
+    const body = JSON.stringify(held);
+    return withHeaders(new Response(body, { headers: { 'Content-Type': 'application/json' } }), cors, 'MEMORY', route.ttl);
+  }
+
+  const res = await serve(route, rest, cors, ctx);
+  if (!res.ok) return res;
+
+  const text = await res.text();
+  const headers = new Headers(res.headers);
+  headers.delete('Content-Length');
+  let fetched: Partial<Mapping>;
+  try {
+    fetched = JSON.parse(text) as Partial<Mapping>;
+  } catch {
+    // Not the shape we know: hand it on as the upstream sent it.
+    return new Response(text, { status: res.status, headers });
+  }
+
+  remember(rest, fetched);
+  return new Response(JSON.stringify(merge(held, fetched)), { status: 200, headers });
+}
 
 /** A caller's own Response over a shared, already-read body. */
 function responseFrom(stored: StoredBody): Response {

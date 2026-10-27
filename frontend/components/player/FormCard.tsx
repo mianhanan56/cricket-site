@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { ReactNode } from 'react';
 import Skeleton, { stagger } from '../ui/Skeleton';
 import Icon from '../ui/Icon';
@@ -87,7 +88,7 @@ export function FormBars({
             return (
               <li key={c.key} className={styles.col} data-pair={c.bars.length > 1 || undefined}>
                 {c.href ? (
-                  <Link href={c.href} className={styles.bar} aria-label={c.title} title={c.title}>
+                  <Link {...ON_INTENT} href={c.href} className={styles.bar} aria-label={c.title} title={c.title}>
                     {body}
                   </Link>
                 ) : (
@@ -141,7 +142,7 @@ export function FormRow({
   return (
     <li>
       {href ? (
-        <Link href={href} className={styles.row}>
+        <Link {...ON_INTENT} href={href} className={styles.row}>
           {body}
         </Link>
       ) : (

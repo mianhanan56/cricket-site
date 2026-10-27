@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { MatchStatus, SeriesSummary } from '@/types';
 import type { MatchStateView } from '@/lib/matchState';
 import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
@@ -67,7 +68,7 @@ export default function SeriesCard({ series }: { series: SeriesSummary }) {
   const known = played !== null && series.matchCount > 0;
 
   return (
-    <Link href={`/series/${series.id}`} className={styles.row} data-status={series.status}>
+    <Link {...ON_INTENT} href={`/series/${series.id}`} className={styles.row} data-status={series.status}>
       <span className={styles.format}>{seriesFormatChip(series)}</span>
 
       <span className={styles.main}>

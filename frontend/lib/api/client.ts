@@ -1,4 +1,5 @@
 // Transport to the Cloudflare Worker that fronts the upstream (see /worker).
+import { cache } from 'react';
 import { withTimeout } from '../timeout';
 
 // Falls back to the deployed Worker, not '': with no other data source an unset
@@ -17,7 +18,29 @@ export interface FetchOpts {
 // server render waits on it indefinitely and a client poll never retries.
 const API_TIMEOUT_MS = 15_000;
 
+// React and Next share a render's identical fetches but skip any that carry a signal, and
+// every read here carries the timeout, so the render's reads are shared here instead.
+// Outside a server render `cache` hands back a fresh map each call, so nothing is shared;
+// the stable React the tests run on has no `cache` at all.
+const newReads = () => new Map<string, Promise<string>>();
+const renderReads = typeof cache === 'function' ? cache(newReads) : newReads;
+
 export async function apiGet<T>(path: string, opts: FetchOpts = {}): Promise<T> {
+  // A caller's own signal can abort its read, so only reads without one are shared.
+  if (opts.signal) return JSON.parse(await readText(path, opts)) as T;
+
+  const reads = renderReads();
+  const key = `${opts.revalidate}|${path}`;
+  let read = reads.get(key);
+  if (!read) {
+    read = readText(path, opts);
+    reads.set(key, read);
+  }
+  // Parsed per caller, so no two callers hold the same object.
+  return JSON.parse(await read) as T;
+}
+
+async function readText(path: string, opts: FetchOpts): Promise<string> {
   const res = await fetch(`${WORKER_URL.replace(/\/$/, '')}${path}`, {
     headers: { Accept: 'application/json' },
     signal: withTimeout(API_TIMEOUT_MS, opts.signal),
@@ -40,7 +63,7 @@ export async function apiGet<T>(path: string, opts: FetchOpts = {}): Promise<T> 
     });
   }
 
-  return (await res.json()) as T;
+  return res.text();
 }
 
 /**

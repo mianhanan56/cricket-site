@@ -1,11 +1,16 @@
 import type { HeadToHeadMatch, MatchFormat } from '@/types';
 import { isUnofficialTest } from './matchType';
+import { ordinal } from './text';
 
 export const MATCH_FORMAT_LABEL: Record<MatchFormat, string> = { TEST: 'Test', ODI: 'ODI', T20: 'T20', T10: 'T10' };
 
 /** The format chip: a match's code ("T20", "TEST"), or "Multi-day" for a multi-day match that is no Test. */
 export const matchFormat = (m: Parameters<typeof isUnofficialTest>[0]): string =>
   isUnofficialTest(m) ? 'Multi-day' : m.format;
+
+/** "4th ODI" — "2nd Match" on a multi-day game that is no Test; the format chip when unnumbered. */
+export const matchOrdinal = (m: Parameters<typeof isUnofficialTest>[0] & { matchNumber?: number | null }): string =>
+  m.matchNumber ? `${ordinal(m.matchNumber)} ${isUnofficialTest(m) ? 'Match' : MATCH_FORMAT_LABEL[m.format]}` : matchFormat(m);
 
 /** The same for a schedule-derived meeting, which names its sides in `sides`. */
 export const meetingFormat = (m: Pick<HeadToHeadMatch, 'format' | 'sides'>): string =>

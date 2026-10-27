@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { Team } from '@/types';
 import { attributeResult, type SeriesScheduleMatch } from '@/lib/api';
 import { matchFormat } from '@/lib/seriesFormat';
@@ -99,7 +100,7 @@ export default function SeriesMatchStrip({
 
         return (
           <li key={m.key} data-current={m.key === currentKey || undefined} data-run={newRun || undefined}>
-            <Link href={`/matches/${m.id}`} className={styles.chip} data-state={state} title={title} aria-label={title}>
+            <Link href={`/matches/${m.id}`} {...ON_INTENT} className={styles.chip} data-state={state} title={title} aria-label={title}>
               <span className={styles.label}>{label}</span>
               <Side team={m.homeTeam} outcome={outcome(m.homeTeam)} />
               <Side team={m.awayTeam} outcome={outcome(m.awayTeam)} />

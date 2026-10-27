@@ -7,6 +7,8 @@ import Icon from '../ui/Icon';
 import mc from './matchCenter.module.scss';
 import styles from './QuizPanel.module.scss';
 
+// Each piece's place and timing comes from an nth-of-type rule — keep in step with
+// $confetti / $balloons in QuizPanel.module.scss.
 const CONFETTI = 32;
 const BALLOONS = 7;
 // From this share of right answers up, the end screen celebrates.
@@ -23,10 +25,10 @@ function Celebration() {
   return (
     <div className={styles.party} aria-hidden="true">
       {Array.from({ length: CONFETTI }, (_, i) => (
-        <i key={`c${i}`} className={styles.confetti} />
+        <i key={i} className={styles.confetti} />
       ))}
       {Array.from({ length: BALLOONS }, (_, i) => (
-        <b key={`b${i}`} className={styles.balloon} />
+        <b key={i} className={styles.balloon} />
       ))}
     </div>
   );
@@ -50,8 +52,12 @@ export default function QuizPanel({ quiz }: { quiz: MatchQuiz }) {
   const save = (next: number[]) =>
     quizAnswersStore.set((all) => ({ ...all, [quiz.matchId]: { version: quiz.generatedAt, picks: next } }));
 
+  const q = done ? null : quiz.questions[step];
+  const pick = picks[step];
+  const answered = pick !== undefined;
+
   const choose = (option: number) => {
-    if (revealed !== null || picks.length !== step) return;
+    if (answered) return;
     save([...picks, option]);
     setRevealed(step);
   };
@@ -67,32 +73,25 @@ export default function QuizPanel({ quiz }: { quiz: MatchQuiz }) {
     setJustFinished(false);
   };
 
-  const q = done ? null : quiz.questions[step];
-  const pick = picks[step];
-  const answered = pick !== undefined;
-  const wrong = picks.length - correct;
-
-  // A–D or 1–4 answers, Enter moves on. Read through a ref so the listener is bound once.
-  const keys = useRef({ q, answered, choose, advance });
-  keys.current = { q, answered, choose, advance };
+  // A–D or 1–4 answers, Enter moves on. The handler is refreshed each render and bound once.
+  const onKey = useRef<(e: KeyboardEvent) => void>();
+  onKey.current = (e) => {
+    const target = e.target as HTMLElement | null;
+    if (!q || e.metaKey || e.ctrlKey || e.altKey || target?.closest('input, textarea, select, [contenteditable]')) return;
+    const key = e.key.toLowerCase();
+    const index = /^[1-4]$/.test(key) ? Number(key) - 1 : KEYS.indexOf(key);
+    if (!answered && index >= 0 && index < q.options.length) {
+      e.preventDefault();
+      choose(index);
+    } else if (answered && key === 'enter' && target?.tagName !== 'BUTTON') {
+      e.preventDefault();
+      advance();
+    }
+  };
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (e.metaKey || e.ctrlKey || e.altKey || target?.closest('input, textarea, select, [contenteditable]')) return;
-      const { q: current, answered: done, choose: pickOption, advance: next } = keys.current;
-      if (!current) return;
-      const key = e.key.toLowerCase();
-      const index = KEYS.indexOf(key) >= 0 ? KEYS.indexOf(key) : Number(key) - 1;
-      if (!done && index >= 0 && index < current.options.length) {
-        e.preventDefault();
-        pickOption(index);
-      } else if (done && key === 'enter' && target?.tagName !== 'BUTTON') {
-        e.preventDefault();
-        next();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    const listener = (e: KeyboardEvent) => onKey.current?.(e);
+    window.addEventListener('keydown', listener);
+    return () => window.removeEventListener('keydown', listener);
   }, []);
 
   return (
@@ -116,14 +115,14 @@ export default function QuizPanel({ quiz }: { quiz: MatchQuiz }) {
                 const state =
                   picks[i] === undefined ? (i === step ? 'current' : 'ahead') : picks[i] === question.answer ? 'right' : 'wrong';
                 return (
-                  <li key={i} className={`${styles.ball} ${styles[state]}`}>
+                  <li key={i} className={`${styles.ball} ${styles[state] ?? ''}`}>
                     {i + 1}
                   </li>
                 );
               })}
             </ol>
             <p className={styles.tally}>
-              {correct} right · {wrong} wrong
+              {correct} right · {picks.length - correct} wrong
             </p>
           </div>
         </aside>

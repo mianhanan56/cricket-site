@@ -1,5 +1,6 @@
 import { cache } from 'react';
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { notFound } from 'next/navigation';
 import type { SeriesStatKind, SeriesStatRow, SeriesStatTable } from '@/types';
 import {
@@ -219,7 +220,7 @@ export default async function SeriesStatPage({ params }: { params: { id: string;
                     <tr key={row.playerKey} data-lead={row.rank === 1 || undefined}>
                       <td className={styles.rankCol}>{row.rank}</td>
                       <td className={styles.playerCol}>
-                        <Link href={`/players/${row.playerKey}`} className={styles.player}>
+                        <Link {...ON_INTENT} href={`/players/${row.playerKey}`} className={styles.player}>
                           <TeamBadge name={row.team.name} shortName={row.team.shortName} logo={row.team.logo} size="xs" />
                           <span className={styles.playerName}>{row.playerName}</span>
                           <span className={styles.playerTeam}>{row.team.shortName}</span>

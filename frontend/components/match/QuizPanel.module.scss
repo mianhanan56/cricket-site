@@ -1,5 +1,40 @@
 @use 'component' as *;
 
+// Celebration piece counts — keep in step with CONFETTI / BALLOONS in QuizPanel.tsx.
+$confetti: 32;
+$balloons: 7;
+
+// A chosen option once revealed: right in green, wrong in red.
+@mixin marked($colour, $soft) {
+  border-color: $colour;
+  background: $soft;
+
+  .ring {
+    border-color: $colour;
+    background: $colour;
+    color: $bg;
+  }
+}
+
+// The four party colours, cycled per piece.
+@mixin party-colours {
+  &:nth-of-type(4n + 1) {
+    --c: #{$signal-mark};
+  }
+
+  &:nth-of-type(4n + 2) {
+    --c: #{$data};
+  }
+
+  &:nth-of-type(4n + 3) {
+    --c: #{$warn};
+  }
+
+  &:nth-of-type(4n) {
+    --c: #{$wicket};
+  }
+}
+
 // The quiz reads as a scoreboard: a mown-pitch board (title, count, one ball per question)
 // beside the question. Phones stack the board as a band above it.
 .quiz {
@@ -7,10 +42,8 @@
   isolation: isolate;
   display: grid;
   overflow: hidden;
-  border: 1px solid $line;
+  @include panel;
   border-radius: $r-lg;
-  background: $surface;
-  box-shadow: $shadow-1;
 
   @include tablet {
     grid-template-columns: 240px minmax(0, 1fr);
@@ -285,25 +318,11 @@
 }
 
 .isAnswer {
-  border-color: $signal-mark;
-  background: $signal-soft;
-
-  .ring {
-    border-color: $signal-mark;
-    background: $signal-mark;
-    color: $bg;
-  }
+  @include marked($signal-mark, $signal-soft);
 }
 
 .isMiss {
-  border-color: $wicket;
-  background: $wicket-soft;
-
-  .ring {
-    border-color: $wicket;
-    background: $wicket;
-    color: $bg;
-  }
+  @include marked($wicket, $wicket-soft);
 }
 
 .isOther {
@@ -377,13 +396,14 @@
 
 .primary {
   @include button-primary;
-  flex-shrink: 0;
-  min-height: 46px;
-  padding-inline: $space-6;
 }
 
 .secondary {
   @include button-secondary;
+}
+
+.primary,
+.secondary {
   flex-shrink: 0;
   min-height: 46px;
   padding-inline: $space-6;
@@ -496,7 +516,7 @@
   opacity: 0;
   animation: confetti-fall var(--t) var(--d) cubic-bezier(0.25, 0.6, 0.45, 1) forwards;
 
-  @for $i from 1 through 32 {
+  @for $i from 1 through $confetti {
     &:nth-of-type(#{$i}) {
       --x: #{($i * 37) % 100}%;
       --d: #{($i % 8) * 70}ms;
@@ -506,21 +526,7 @@
     }
   }
 
-  &:nth-of-type(4n + 1) {
-    --c: #{$signal-mark};
-  }
-
-  &:nth-of-type(4n + 2) {
-    --c: #{$data};
-  }
-
-  &:nth-of-type(4n + 3) {
-    --c: #{$warn};
-  }
-
-  &:nth-of-type(4n) {
-    --c: #{$wicket};
-  }
+  @include party-colours;
 
   &:nth-of-type(3n) {
     width: 9px;
@@ -578,7 +584,7 @@
     background: $line-3;
   }
 
-  @for $i from 1 through 7 {
+  @for $i from 1 through $balloons {
     &:nth-of-type(#{$i}) {
       --x: #{4 + ($i - 1) * 14}%;
       --d: #{($i % 4) * 180}ms;
@@ -587,21 +593,7 @@
     }
   }
 
-  &:nth-of-type(4n + 1) {
-    --c: #{$signal-mark};
-  }
-
-  &:nth-of-type(4n + 2) {
-    --c: #{$data};
-  }
-
-  &:nth-of-type(4n + 3) {
-    --c: #{$warn};
-  }
-
-  &:nth-of-type(4n) {
-    --c: #{$wicket};
-  }
+  @include party-colours;
 }
 
 @keyframes balloon-rise {

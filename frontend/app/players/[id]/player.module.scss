@@ -254,6 +254,11 @@
     }
   }
 
+  tbody th.slice {
+    font-weight: 600;
+    color: $text-2;
+  }
+
   tfoot tr {
     border-top: 1px solid $line-2;
   }
@@ -280,6 +285,12 @@
   .table & {
     color: $text;
   }
+}
+
+.sliceLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
 }
 
 .cellLink {

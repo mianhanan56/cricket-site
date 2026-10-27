@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { useMemo, useState } from 'react';
 import type { DirectoryTeam } from '@/lib/directory';
 import { FORMAT_ORDER, RANKING_FORMAT_LABEL } from '@/lib/playersDirectory';
@@ -15,7 +16,7 @@ import styles from './teams.module.scss';
 function TeamTile({ team }: { team: DirectoryTeam }) {
   return (
     <li className={styles.tile}>
-      <Link href={`/teams/${team.id}`} className={styles.tileLink}>
+      <Link {...ON_INTENT} href={`/teams/${team.id}`} className={styles.tileLink}>
         <TeamBadge name={team.name} shortName={team.shortName} logo={team.logo} size="md" />
         <span className={styles.tileText}>
           <span className={styles.name}>{team.name}</span>

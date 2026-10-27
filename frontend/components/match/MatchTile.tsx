@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { InningsScore, Match, Team } from '@/types';
 import { battedInnings, formatInnings, inningsFor, isClosed } from '@/lib/innings';
 import { formatProgressShort } from '@/lib/overs';
@@ -89,7 +90,7 @@ export default function MatchTile({ match, showSeries = true }: { match: Match; 
   return (
     <article className={`${styles.tile} ${styles[state.family] ?? ''}`}>
       {/* Cover link instead of wrapping the tile, so the series link can sit inside without nesting anchors. */}
-      <Link
+      <Link {...ON_INTENT}
         href={`/matches/${match.id}`}
         className={styles.cover}
         aria-label={`${match.homeTeam.name} v ${match.awayTeam.name}`}
@@ -99,7 +100,7 @@ export default function MatchTile({ match, showSeries = true }: { match: Match; 
           <span className={styles.format}>{matchFormat(match)}</span>
           {showSeries &&
             (match.series.id ? (
-              <Link href={`/series/${match.series.id}`} className={`${styles.series} ${styles.seriesLink}`}>
+              <Link {...ON_INTENT} href={`/series/${match.series.id}`} className={`${styles.series} ${styles.seriesLink}`}>
                 {match.series.name}
               </Link>
             ) : (

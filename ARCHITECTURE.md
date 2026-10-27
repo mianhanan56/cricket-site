@@ -57,6 +57,10 @@ commands inside `frontend/` or `worker/`.
 - Sends the upstream site as `Origin`/`Referer` (their hosts 400 with "Invalid Host header" otherwise).
   Policy: no bot-protection circumvention — if the upstream adds a challenge, stop.
 - No secrets, no KV. The allowlist is what keeps it from being an open relay.
+- `/mapping` (`src/names.ts`): the isolate keeps every name it has served and asks the upstream
+  only for unseen keys (unknown ones are remembered 5 min); the rest goes through the edge
+  cache as usual. `X-Worker-Cache: MEMORY` when nothing went upstream. Needed because the edge
+  cache keys the whole key set — one new key missed it for all (~1s upstream each).
 - Upstream hosts: `oc` (oc.crickapi.com), `stats`, `content` (commentary), `news`,
   `php` (api.goscorer.com — live match list). Wrong host ⇒ "Invalid Host header".
 - Routes (TTL): `/matches/live` 2s · `/rankings` 1h · `/rankings/players` 1h · `/mapping` 6h ·
@@ -282,6 +286,22 @@ series page while live. Stat tables read a live match's card at 15s (finished ca
 Player recent form re-reads the last six days' matches off their scorecards (`withFreshForm`),
 since the profile is cached for an hour.
 
+Link prefetch: Next prefetches every `<Link>` in view, and each prefetch of a dynamic route is a
+server render (a Vercel invocation). List links — match tiles/rows, scorecard player names, rankings,
+squads, directories, leader boards, points table — spread `ON_INTENT` (`lib/intentPrefetch.ts`):
+`prefetch={false}` plus `data-prefetch="intent"`. In Next 14.2 `prefetch={false}` also disables
+Link's own hover/touch prefetch, so `components/layout/IntentPrefetch` (root layout, one delegated
+listener) calls `router.prefetch` on hover (80ms intent delay), touchstart and focus. That is a full
+prefetch, reused by the click within `staleTimes.static` (30s). Nav links and single prominent links
+(score header teams/venue, hero "open match") keep default prefetch. Measured 2026-10-27: the team page
+14 → 7 prefetches on load, home 11 → 8; the scorecard's 37 player names no longer prefetch on sight;
+hovered links warm and clicks land in 60–150ms. New list links should use `ON_INTENT`.
+
+Render dedupe: React and Next skip their per-render fetch dedupe for any fetch with a signal, and
+`apiGet` always sends the timeout, so `apiGet` shares a server render's identical reads itself
+(React `cache` map keyed by `revalidate|path`; each caller parses its own copy). Reads with a
+caller's signal are never shared.
+
 ## Fixtures
 
 `/fixtures` (ISR 300s) calls `getApiFixtureSchedule`: Worker `/fixtures?wise=1&page=N` (edge TTL 300s, 20 rows a page), batches of 8 pages until the schedule reaches 30 days ahead (max 40 pages; stops early when the upstream runs out). All rows go to the client in one payload; `FixturesFilter` filters by format/type client-side and reveals 4 days at a time on scroll. The last, partly-read day is held back via `coveredUntil`. Team/venue/head-to-head pages use the separate `getApiFixtureRange` corpus (45 back / 12 forward, 30-minute cache).
@@ -318,14 +338,17 @@ permission (`askOnFollow`, the click is the gesture). Still tab-open only: no pu
 ## Match quiz
 
 Match pages get a **Quiz** tab (2026-10-26), written by Google Gemini (free tier) from scorecards.
-`quizKind` (`lib/quiz.ts`) decides which quiz a match has, on both server and client:
+`quizKind` (`lib/quiz.ts`, the only client-safe piece) decides which quiz a match has, on both
+server and client. Everything else — sheet, prompt, schema, checks, warm-up — is `lib/quizGen.ts`,
+imported only by the route, so none of it ships to the browser:
 
 - **result** — the match is COMPLETED with a result line: five questions about this match.
 - **warmup** — from 6 hours before the start (`WARMUP_WINDOW_MS`), through live play, until the
   result line arrives: each side's last finished match before this one (`lastMatches`, read from the
-  45-day `getApiFixtureRange` corpus), 3 questions from each (5 if both sides' last match was the
-  same game), each question labelled by `matchLabel`: "England v Pakistan · 4th ODI · 25 Oct" (the route
-  reads the full match record for the number — corpus rows carry none). Each source match's quiz is the
+  45-day `getApiFixtureRange` corpus, back pages only — `forward: 0`), 3 questions from each (5 if
+  both sides' last match was the same game), each question labelled with its source quiz's `label`
+  ("Pakistan v England · 4th ODI · 25 Oct", built by `toQuiz` from the full match record — corpus
+  rows carry no match number — via the shared `matchOrdinal` in `lib/seriesFormat.ts`). Each source match's quiz is the
   same cached result quiz, so a game is generated once however many fixtures warm up from it. No
   finished match in the corpus for either side = no tab. When the result arrives the hook refetches
   and the result quiz replaces the warm-up (the warm-up stays up meanwhile).
@@ -334,11 +357,13 @@ Match pages get a **Quiz** tab (2026-10-26), written by Google Gemini (free tier
 - `app/api/quiz/route.ts` — `GET /api/quiz?match=<id>`. 404 when `quizKind` is none, when no warm-up
   source exists, or when `GEMINI_API_KEY` is unset; 503 when a result quiz fails. The kind check runs
   outside the cache so a match that isn't ready never stores a miss.
-- `unstable_cache` keeps one result quiz per match for 30 days (key `match-quiz-v3`; bump it to
-  regenerate every quiz), so each match costs one model call. A failed generation throws and caches
+- `unstable_cache` keeps one result quiz per match for 30 days (key `match-quiz-v4`; bump it to
+  regenerate every quiz, and on any change to the cached shape), so each match costs one model call.
+  An in-flight map in the route makes concurrent misses on one instance share a single generation
+  (every open page asks at once when a result lands). A failed generation throws and caches
   nothing. CDN `s-maxage`: 1 day for a result quiz, 5 minutes for a warm-up (it must give way to the
   result quiz). A warm-up with one source failing serves the other's questions.
-- `lib/quiz.ts` — `matchSheet` turns the card into plain lines (result, player of the match, each
+- `lib/quizGen.ts` — `matchSheet` turns the card into plain lines (result, player of the match, each
   innings' batting/bowling/fall of wickets, plus precomputed leaders, because the model is told not
   to do arithmetic). The model must return, per question, an `evidence` line copied from the sheet;
   `checkQuiz` drops any question whose evidence isn't in the sheet or doesn't contain the correct

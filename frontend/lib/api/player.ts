@@ -159,6 +159,9 @@ interface ApiPlayerOverview {
  */
 export const INTERNATIONAL_COMPETITIONS = new Set([1, 100]);
 
+/** Competitions whose matches the upstream also counts in another row: 100 is a slice of ODI (1). */
+const SUBSET_COMPETITIONS = new Set([100]);
+
 /** The upstream's competition labels, from their profile chunk. 1 reads T20I and 18 is The Hundred, as theirs do. */
 const PLAYER_COMPETITIONS: Record<number, string> = {
   1: 'T20I',
@@ -402,6 +405,7 @@ export async function getApiPlayerProfile(
         return {
           format,
           international: INTERNATIONAL_COMPETITIONS.has(row.st),
+          partOf: SUBSET_COMPETITIONS.has(row.st) ? playerFormatLabel(1, row.ft) : null,
           matches: s.m ?? 0,
           innings: s.i ?? 0,
           runs: s.r ?? 0,
@@ -425,6 +429,7 @@ export async function getApiPlayerProfile(
         return {
           format,
           international: INTERNATIONAL_COMPETITIONS.has(row.st),
+          partOf: SUBSET_COMPETITIONS.has(row.st) ? playerFormatLabel(1, row.ft) : null,
           matches: s.m ?? 0,
           innings: s.i ?? 0,
           wickets: s.w ?? 0,

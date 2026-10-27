@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Match } from '@/types';
 import { useApiMatchExtras, useApiMatchSquads } from '@/hooks/useApiMatches';
@@ -75,7 +76,7 @@ export default function InsightCard({ match }: { match: Match }) {
         <StateChip state={state} />
       </header>
 
-      <Link href={`/matches/${match.id}`} className={styles.main}>
+      <Link href={`/matches/${match.id}`} {...ON_INTENT} className={styles.main}>
         <span className={styles.teams}>
           {started ? (
             <>

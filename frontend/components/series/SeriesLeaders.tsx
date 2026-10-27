@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { SeriesLeader, SeriesLeaders as Leaders, SeriesStatKind } from '@/types';
 import PlayerPortrait from '../player/PlayerPortrait';
 import TeamBadge from '../ui/TeamBadge';
@@ -40,7 +41,7 @@ function hrefFor(seriesId: string, kind: SeriesLeader['kind']): string {
 /** One honour as a compact figure — the control center's side column. */
 export function LeaderFigure({ leader, seriesId }: { leader: SeriesLeader; seriesId: string }) {
   return (
-    <Link href={hrefFor(seriesId, leader.kind)} className={styles.figure}>
+    <Link {...ON_INTENT} href={hrefFor(seriesId, leader.kind)} className={styles.figure}>
       <span className={styles.figureHead}>
         <span className={styles.figureLabel}>{leader.label}</span>
         <ViewAllCue />
@@ -116,7 +117,7 @@ export function SeriesLeadersBoard({
     <div className={styles.board}>
       <div className={styles.grid}>
         {shown.map((leader) => (
-          <Link
+          <Link {...ON_INTENT}
             href={hrefFor(seriesId, leader.kind)}
             className={styles.card}
             data-featured={leader.kind === 'RUNS' || leader.kind === 'WICKETS' ? '' : undefined}

@@ -3,19 +3,8 @@ import { unstable_cache } from 'next/cache';
 import type { Match, MatchQuiz } from '@/types';
 import { getApiFixtureRange, getApiMatch, getApiScorecard } from '@/lib/api';
 import { geminiConfigured, geminiJson } from '@/lib/gemini';
-import {
-  QUIZ_SCHEMA,
-  QUIZ_SYSTEM,
-  checkQuiz,
-  lastMatches,
-  matchSheet,
-  quizCast,
-  quizKind,
-  quizPrompt,
-  quizzable,
-  toQuiz,
-  warmupQuiz,
-} from '@/lib/quiz';
+import { quizKind } from '@/lib/quiz';
+import { QUIZ_SCHEMA, QUIZ_SYSTEM, checkQuiz, lastMatches, matchSheet, quizCast, quizPrompt, quizzable, toQuiz, warmupQuiz } from '@/lib/quizGen';
 
 export const maxDuration = 60;
 
@@ -24,38 +13,41 @@ export const maxDuration = 60;
 // unstable_cache keeps nothing — the next reader tries again.
 const QUIZ_TTL = 60 * 60 * 24 * 30;
 
-const quizFor = unstable_cache(
-  async (id: string) => {
+const cachedQuiz = unstable_cache(
+  async (id: string): Promise<MatchQuiz> => {
     const match = await getApiMatch(id, { revalidate: 300 });
     if (!match) throw new Error('match not found');
     const innings = await getApiScorecard(id, { status: match.status, ballsPerOver: match.ballsPerOver, revalidate: 300 });
     if (!quizzable(match, innings)) throw new Error('match not quizzable');
     const sheet = matchSheet(match, innings);
     const raw = await geminiJson({ system: QUIZ_SYSTEM, prompt: quizPrompt(sheet), schema: QUIZ_SCHEMA });
-    return toQuiz(id, checkQuiz(raw, sheet, quizCast(match, innings)));
+    return toQuiz(match, checkQuiz(raw, sheet, quizCast(match, innings)));
   },
-  // v3: options fitted to the question (2–4) — earlier quizzes could offer grounds as teams.
-  ['match-quiz-v3'],
+  // v4: quizzes carry their match label. v3: options fitted to the question (2–4).
+  ['match-quiz-v4'],
   { revalidate: QUIZ_TTL }
 );
 
+// unstable_cache doesn't merge concurrent misses: when a result lands, every open page asks at
+// once. One generation per match per instance.
+const inFlight = new Map<string, Promise<MatchQuiz>>();
+function quizFor(id: string): Promise<MatchQuiz> {
+  let pending = inFlight.get(id);
+  if (!pending) {
+    pending = cachedQuiz(id).finally(() => inFlight.delete(id));
+    inFlight.set(id, pending);
+  }
+  return pending;
+}
+
+const warn = (id: string, err: unknown) => console.warn('quiz', id, err instanceof Error ? err.message : err);
+
 async function warmupFor(match: Match): Promise<MatchQuiz | null> {
-  const corpus = await getApiFixtureRange();
-  const sources = lastMatches(match, corpus);
-  // The full record, not the corpus row: only it carries the match number for the label.
-  const settled = await Promise.allSettled(
-    sources.map(async (s) => {
-      const key = s.matchKey as string;
-      const [quiz, full] = await Promise.all([quizFor(key), getApiMatch(key, { revalidate: 3600 }).catch(() => null)]);
-      return { source: full ?? s, quiz };
-    })
-  );
-  const parts = sources.flatMap((source, i) => {
-    const r = settled[i];
-    if (r.status === 'rejected') console.warn('quiz', source.matchKey, r.reason instanceof Error ? r.reason.message : r.reason);
-    return r.status === 'fulfilled' ? [r.value] : [];
-  });
-  return parts.length ? warmupQuiz(match, parts) : null;
+  // Only finished games before this one count, so the corpus's forward pages are never needed.
+  const sources = lastMatches(match, await getApiFixtureRange({ forward: 0 }));
+  const quizzes = await Promise.all(sources.map((s) => quizFor(s.matchKey).catch((err) => (warn(s.matchKey, err), null))));
+  const found = quizzes.filter((q): q is MatchQuiz => Boolean(q));
+  return found.length ? warmupQuiz(match.id, found) : null;
 }
 
 const nothing = (status: number) =>
@@ -78,7 +70,7 @@ export async function GET(req: NextRequest) {
     const maxAge = kind === 'result' ? 'public, s-maxage=86400, stale-while-revalidate=604800' : 'public, s-maxage=300';
     return NextResponse.json(quiz, { headers: { 'cache-control': maxAge } });
   } catch (err) {
-    console.warn('quiz', id, err instanceof Error ? err.message : err);
+    warn(id, err);
     return nothing(503);
   }
 }

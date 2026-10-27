@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { RankingEntry, TeamRankingEntry } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import type {
@@ -125,7 +126,7 @@ function RatingBar({ value, max, className }: { value: number; max: number; clas
 
 function Name({ row, className }: { row: Row; className: string }) {
   return row.href ? (
-    <Link href={row.href} className={`${className} ${styles.stretch}`}>
+    <Link {...ON_INTENT} href={row.href} className={`${className} ${styles.stretch}`}>
       {row.title}
     </Link>
   ) : (

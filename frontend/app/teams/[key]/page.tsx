@@ -1,5 +1,6 @@
 import { Suspense, cache } from 'react';
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { notFound } from 'next/navigation';
 import type { HeadToHeadMatch, PlayerRole, SquadPlayer, TeamProfile, TeamRankingPosition } from '@/types';
 import { getApiTeamProfile } from '../../../lib/api';
@@ -131,7 +132,7 @@ function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string
   return (
     <li data-outcome={outcome}>
       {match.id ? (
-        <Link href={`/matches/${match.id}`} className={styles.resultRow}>
+        <Link href={`/matches/${match.id}`} {...ON_INTENT} className={styles.resultRow}>
           {body}
         </Link>
       ) : (
@@ -255,7 +256,7 @@ export default async function TeamPage({ params }: { params: { key: string } }) 
                 <ul className={styles.players}>
                   {g.players.map((p) => (
                     <li key={p.id}>
-                      <Link href={`/players/${p.id}`} className={styles.player}>
+                      <Link {...ON_INTENT} href={`/players/${p.id}`} className={styles.player}>
                         <span className={styles.playerName}>{p.name}</span>
                         {p.isCaptain && (
                           <span className={styles.tag} title="Captain">

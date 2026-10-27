@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { useEffect, useMemo, useState } from 'react';
 import type { Match } from '@/types';
 import { formatInZone, readerZone, SERVER_ZONE } from '@/lib/datetime';
@@ -82,7 +83,7 @@ export default function UpcomingRail({
               const state = matchStateOf(m);
               return (
                 <li key={m.id} className={styles.item}>
-                  <Link href={`/matches/${m.id}`} className={styles.link}>
+                  <Link href={`/matches/${m.id}`} {...ON_INTENT} className={styles.link}>
                     <span className={styles.time}>
                       <time dateTime={m.startTime} suppressHydrationWarning>
                         {formatInZone(m.startTime, 'time', zone)}

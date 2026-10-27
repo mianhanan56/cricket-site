@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { useEffect, useMemo, useState } from 'react';
 import type { TeamCrest } from '@/types';
 import { useApiMatches } from '@/hooks/useApiMatches';
@@ -42,7 +43,7 @@ function FollowingPanel({ follows }: { follows: Follows }) {
         <Group title="Teams">
           {follows.teams.map((t) => (
             <li key={t.id} className={styles.row}>
-              <Link href={`/teams/${t.id}`} className={styles.rowLink}>
+              <Link {...ON_INTENT} href={`/teams/${t.id}`} className={styles.rowLink}>
                 <TeamBadge name={t.name} shortName={t.shortName} logo={t.logo} size="sm" />
                 <span className={styles.rowName}>{t.name}</span>
               </Link>
@@ -70,7 +71,7 @@ function FollowingPanel({ follows }: { follows: Follows }) {
         <Group title="Players">
           {follows.players.map((p) => (
             <li key={p.id} className={styles.row}>
-              <Link href={`/players/${p.id}`} className={styles.rowLink}>
+              <Link {...ON_INTENT} href={`/players/${p.id}`} className={styles.rowLink}>
                 <span className={styles.mark} aria-hidden="true">
                   {p.name.slice(0, 1)}
                 </span>

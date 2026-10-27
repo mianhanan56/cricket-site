@@ -5,5 +5,5 @@ export function ordinal(n: number): string {
   return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
 }
 
-/** "1 run", "4 runs". */
-export const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
+/** "1 run", "4 runs"; `many` for an irregular plural ("sixes"). */
+export const plural = (n: number, word: string, many = `${word}s`): string => `${n} ${n === 1 ? word : many}`;

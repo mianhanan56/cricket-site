@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { ON_INTENT } from '@/lib/intentPrefetch';
 import { useMemo } from 'react';
 import type { Match } from '@/types';
 import { followCount, followedMatches, useFollows } from '@/lib/follows';
@@ -48,7 +49,7 @@ export default function MyCricketBand({ matches }: { matches: Match[] }) {
         <ul className={styles.chips}>
           {follows.teams.slice(0, 6).map((t) => (
             <li key={t.id}>
-              <Link href={`/teams/${t.id}`} className={styles.chip}>
+              <Link {...ON_INTENT} href={`/teams/${t.id}`} className={styles.chip}>
                 <TeamBadge name={t.name} shortName={t.shortName} logo={t.logo} size="xs" />
                 {t.shortName}
               </Link>
