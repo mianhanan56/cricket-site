@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-10-26. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-10-27. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -36,6 +36,15 @@ link to the rights holder per match, official embeds where they exist, a second-
 
 2026-10-26: AI match quiz built (ARCHITECTURE › Match quiz) on Gemini's free tier — the user
 asked for a free model. Needs `GEMINI_API_KEY` before it shows anywhere (TODO).
+
+2026-10-27: home `LiveHero` fixture layout (shown when the current innings hasn't started, e.g.
+an innings break) now prints each side's score and overs beside its name.
+Same day: live list (`rankLive`, so the home ticker and the default stage) puts matches with the
+top-ten nations first (`topSides` in `lib/matchType.ts`, both sides > one > none), after followed
+sides and before the old state/tight-chase score. Both uncommitted.
+
+2026-10-27: Alerts creator — "What I follow" now lists what is followed, and a new "Live match"
+scope picks one live match (ARCHITECTURE › Automations). Uncommitted.
 
 2026-10-15: full code review (bugs) and an upstream feature-gap survey, no code changed. Findings are
 new TODO.md rows dated 2026-10-15; the user picks what to fix.

@@ -1,0 +1,61 @@
+@use 'component' as *;
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  max-width: 100%;
+  min-height: 36px;
+  padding-inline: $space-1-5 $space-3;
+  border-radius: $r-pill;
+  border: 1px solid $line-2;
+  background: $surface;
+  font-size: $fs-sm;
+  font-weight: 600;
+  color: $text;
+}
+
+.name {
+  @include truncate;
+}
+
+.mark {
+  @include flex-center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: $signal-soft;
+  color: $signal-text;
+}
+
+.none {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  padding: $space-3;
+  border-radius: $r-sm;
+  border: 1px dashed $line-2;
+  font-size: $fs-md;
+  color: $text-2;
+}
+
+.find {
+  @include button-secondary;
+  gap: $space-1-5;
+  min-height: 40px;
+  padding-inline: $space-3;
+  font-size: $fs-sm;
+
+  svg {
+    color: $signal-text;
+  }
+}

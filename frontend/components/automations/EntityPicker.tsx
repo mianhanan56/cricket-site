@@ -14,7 +14,7 @@ export interface PickedEntity {
   name: string;
 }
 
-type Kind = Exclude<ScopeKind, 'ANY' | 'FOLLOWED'>;
+type Kind = Exclude<ScopeKind, 'ANY' | 'FOLLOWED' | 'MATCH'>;
 
 const SUGGESTED = { TEAM: 8, SERIES: 6 };
 

@@ -1,0 +1,105 @@
+@use 'component' as *;
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: $space-2;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-width: 0;
+  padding: $space-3;
+  border-radius: $r-sm;
+  border: 1px solid $line-2;
+  background: $surface;
+  color: $text-2;
+  text-align: left;
+  transition: border-color $dur-2 $ease-out, color $dur-2 $ease-out, background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+    border-color: $line-3;
+  }
+}
+
+.on {
+  color: $text;
+  border-color: color-mix(in oklab, var(--signal) 55%, transparent);
+  background: color-mix(in oklab, var(--signal) 8%, var(--surface));
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 0;
+  min-height: 20px;
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+.format {
+  @include chip;
+  flex-shrink: 0;
+  height: 20px;
+  padding-inline: $space-1-5;
+  font-size: 10px;
+  color: $text-2;
+}
+
+.series {
+  @include truncate;
+}
+
+.tick {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: $signal-text;
+}
+
+.side {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: $space-2;
+}
+
+.name {
+  font-size: $fs-md;
+  font-weight: 600;
+  color: $text;
+  @include truncate;
+}
+
+.score {
+  @include data-num;
+  font-size: $fs-md;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.placeholder {
+  height: 96px;
+  border-radius: $r-sm;
+}
+
+.none {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-height: 44px;
+  padding: $space-2 $space-3;
+  border-radius: $r-sm;
+  border: 1px dashed $line-2;
+  font-size: $fs-md;
+  color: $text-2;
+
+  svg {
+    flex-shrink: 0;
+    color: $text-3;
+  }
+}

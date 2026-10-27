@@ -98,6 +98,18 @@
   min-height: 40px;
 }
 
+.liveDot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: $signal-mark;
+
+  @include motion {
+    animation: live-pulse $dur-pulse ease-out infinite;
+  }
+}
+
 .on {
   color: $text;
   border-color: color-mix(in oklab, var(--signal) 55%, transparent);

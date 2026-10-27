@@ -96,6 +96,20 @@ export function isUnofficialTest(match: { format: Match['format']; homeTeam: Sid
   return match.format === 'TEST' && !(isTestSide(match.homeTeam) && isTestSide(match.awayTeam));
 }
 
+/** The ten sides the reader wants on top of the live list. */
+const TOP_NATIONS = new Set([
+  'india', 'new zealand', 'pakistan', 'england', 'sri lanka', 'west indies',
+  'bangladesh', 'afghanistan', 'australia', 'south africa',
+]);
+
+const isTopSide = (team: Side) =>
+  [team.name, team.shortName].some((n) => Boolean(n) && TOP_NATIONS.has(baseName(n, ['women', 'w'])));
+
+/** How many of the match's two sides are top-ten senior XIs: 0, 1 or 2. */
+export function topSides(match: { homeTeam: Side; awayTeam: Side }): number {
+  return Number(isTopSide(match.homeTeam)) + Number(isTopSide(match.awayTeam));
+}
+
 const isNationalTeam = (name: string | undefined) =>
   Boolean(name) && NATIONS.has(baseName(name as string));
 

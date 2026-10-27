@@ -364,6 +364,22 @@
   min-width: 0;
 }
 
+.matchScore {
+  @include data-num;
+  display: inline-flex;
+  align-items: baseline;
+  gap: $space-2;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: $text;
+}
+
+.matchOvers {
+  font-size: $fs-base;
+  font-weight: 600;
+  color: $text-2;
+}
+
 .matchV {
   margin-right: $space-1;
   font-size: 0.5em;

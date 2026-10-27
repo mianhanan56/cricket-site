@@ -17,9 +17,10 @@ export const TRIGGER_ICON: Record<TriggerKind, IconName> = {
 export const SCOPE_LABEL: Record<ScopeKind, string> = {
   ANY: 'Any match',
   FOLLOWED: 'What I follow',
-  TEAM: 'A team',
-  SERIES: 'A series',
-  PLAYER: 'A player',
+  TEAM: 'Team',
+  SERIES: 'Series',
+  MATCH: 'Live match',
+  PLAYER: 'Player',
 };
 
 const PRESET_LABELS: Array<[TriggerKind, string]> = [

@@ -22,7 +22,7 @@ export type TriggerKind =
   | 'RESULT'
   | 'TOURNAMENT_MILESTONE';
 
-export type ScopeKind = 'ANY' | 'FOLLOWED' | 'TEAM' | 'SERIES' | 'PLAYER';
+export type ScopeKind = 'ANY' | 'FOLLOWED' | 'TEAM' | 'SERIES' | 'MATCH' | 'PLAYER';
 
 export interface AutomationScope {
   kind: ScopeKind;
@@ -61,15 +61,15 @@ export interface TriggerSpec {
   available: boolean;
 }
 
-const MATCH_SCOPES: ScopeKind[] = ['ANY', 'FOLLOWED', 'TEAM', 'SERIES'];
+const MATCH_SCOPES: ScopeKind[] = ['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'MATCH'];
 
 export const TRIGGERS: TriggerSpec[] = [
-  { kind: 'MATCH_START', label: 'Match starts', short: 'Match start', phrase: 'a match starts', feed: false, scopes: MATCH_SCOPES, notification: 'live', available: true },
+  { kind: 'MATCH_START', label: 'Match starts', short: 'Match start', phrase: 'a match starts', feed: false, scopes: ['ANY', 'FOLLOWED', 'TEAM', 'SERIES'], notification: 'live', available: true },
   { kind: 'WICKET', label: 'Wicket falls', short: 'Wicket', phrase: 'a wicket falls', feed: false, scopes: MATCH_SCOPES, notification: 'moment', available: true },
   { kind: 'SIX', label: 'Six is hit', short: 'Six', phrase: 'a six is hit', feed: true, scopes: MATCH_SCOPES, notification: 'moment', available: true },
   { kind: 'FOUR', label: 'Four is hit', short: 'Four', phrase: 'a four is hit', feed: true, scopes: MATCH_SCOPES, notification: 'moment', available: true },
-  { kind: 'FIFTY', label: 'Fifty reached', short: 'Fifty', phrase: 'a batter reaches 50', feed: true, scopes: ['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'PLAYER'], notification: 'moment', available: true },
-  { kind: 'HUNDRED', label: 'Century reached', short: 'Century', phrase: 'a batter reaches 100', feed: true, scopes: ['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'PLAYER'], notification: 'moment', available: true },
+  { kind: 'FIFTY', label: 'Fifty reached', short: 'Fifty', phrase: 'a batter reaches 50', feed: true, scopes: [...MATCH_SCOPES, 'PLAYER'], notification: 'moment', available: true },
+  { kind: 'HUNDRED', label: 'Century reached', short: 'Century', phrase: 'a batter reaches 100', feed: true, scopes: [...MATCH_SCOPES, 'PLAYER'], notification: 'moment', available: true },
   { kind: 'CLOSE_CHASE', label: 'Chase gets tight', short: 'Close chase', phrase: 'the required rate passes the current rate', feed: false, scopes: MATCH_SCOPES, notification: 'alert', available: true },
   { kind: 'STOPPAGE', label: 'Play stops', short: 'Play stops', phrase: 'play stops for rain, bad light or a break', feed: false, scopes: MATCH_SCOPES, notification: 'alert', available: true },
   { kind: 'RESULT', label: 'Match finishes', short: 'Result', phrase: 'a match finishes', feed: false, scopes: MATCH_SCOPES, notification: 'result', available: true },
@@ -89,6 +89,8 @@ export function scopePhrase(scope: AutomationScope): string {
       return `in ${scope.name ?? 'this team'}’s matches`;
     case 'SERIES':
       return `in ${scope.name ?? 'this series'}`;
+    case 'MATCH':
+      return `in ${scope.name ?? 'this match'}`;
     case 'PLAYER':
       return `for ${scope.name ?? 'this player'}`;
   }
@@ -134,7 +136,7 @@ export function scopeLabel(scope: AutomationScope): string {
 export const sameScope = (a: AutomationScope, b: AutomationScope) => a.kind === b.kind && (a.id ?? '') === (b.id ?? '');
 
 const VALID_TRIGGERS = new Set(TRIGGERS.map((t) => t.kind));
-const SCOPE_KINDS = new Set<ScopeKind>(['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'PLAYER']);
+const SCOPE_KINDS = new Set<ScopeKind>(['ANY', 'FOLLOWED', 'TEAM', 'SERIES', 'MATCH', 'PLAYER']);
 
 function parseScope(raw: unknown): AutomationScope | null {
   if (!isRecord(raw) || !SCOPE_KINDS.has(raw.kind as ScopeKind)) return null;
@@ -222,6 +224,8 @@ export function matchInScope(scope: AutomationScope, m: Match, ctx: ScopeContext
       return m.homeTeam.id === scope.id || m.awayTeam.id === scope.id;
     case 'SERIES':
       return m.series.id === scope.id;
+    case 'MATCH':
+      return m.id === scope.id;
   }
 }
 

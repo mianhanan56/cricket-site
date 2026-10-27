@@ -26,7 +26,7 @@ import {
   type StoppageWatch,
 } from '../lib/api';
 import { isAtStumps, isLiveNow } from '../lib/matchState';
-import { isUnofficialTest, isInternationalMatch } from '../lib/matchType';
+import { isUnofficialTest, isInternationalMatch, topSides } from '../lib/matchType';
 import type { InningsScore, Match, MatchNote, Team } from '../types';
 
 // --- fixtures ---------------------------------------------------------------
@@ -457,5 +457,18 @@ describe('competition and format labels', () => {
     assert.equal(isUnofficialTest(m(side('Australia A', 'AUS-A'), side('India A', 'IND-A'))), true);
     assert.equal(isUnofficialTest(m(side('Rest of India', 'ROI'), side('Vidarbha', 'VID'))), true);
     assert.equal(isUnofficialTest(m(side('Rest of India', 'ROI'), side('Vidarbha', 'VID'), 'ODI')), false);
+  });
+});
+
+describe('topSides', () => {
+  const side = (name: string, shortName: string) => ({ name, shortName });
+  it('counts senior top-ten XIs, men or women', () => {
+    assert.equal(topSides({ homeTeam: side('Pakistan', 'PAK'), awayTeam: side('Sri Lanka', 'SL') }), 2);
+    assert.equal(topSides({ homeTeam: side('India Women', 'IND-W'), awayTeam: side('Ireland Women', 'IRE-W') }), 1);
+    assert.equal(topSides({ homeTeam: side('Papua New Guinea', 'PNG'), awayTeam: side('Qatar', 'QAT') }), 0);
+  });
+  it('leaves out A sides and domestic namesakes', () => {
+    assert.equal(topSides({ homeTeam: side('Australia A', 'AUS-A'), awayTeam: side('India A', 'IND-A') }), 0);
+    assert.equal(topSides({ homeTeam: side('South Australia', 'SA'), awayTeam: side('Queensland', 'QLD') }), 0);
   });
 });

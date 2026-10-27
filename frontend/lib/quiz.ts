@@ -1,5 +1,8 @@
 import type { InningsScore, Match, MatchQuiz, QuizKind, QuizQuestion } from '@/types';
 import { attributeResult } from './api';
+import { MATCH_FORMAT_LABEL, matchFormat } from './seriesFormat';
+import { isUnofficialTest } from './matchType';
+import { ordinal } from './text';
 
 const QUIZ_LENGTH = 5;
 const MIN_QUESTIONS = 3;
@@ -31,6 +34,17 @@ export function lastMatches<T extends Match & { matchKey: string | null }>(match
   return found.filter((f, i) => found.findIndex((g) => g.matchKey === f.matchKey) === i);
 }
 
+/** "Pakistan v England · 4th ODI · 25 Oct" — which game a warm-up question is about. */
+export function matchLabel(match: Match): string {
+  const which =
+    match.stage ??
+    (match.matchNumber
+      ? `${ordinal(match.matchNumber)} ${isUnofficialTest(match) ? 'Match' : MATCH_FORMAT_LABEL[match.format]}`
+      : matchFormat(match));
+  const day = new Date(match.startTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return `${match.homeTeam.name} v ${match.awayTeam.name} · ${which} · ${day}`;
+}
+
 /** The warm-up: each source match's own quiz, trimmed when there are two, each question labelled with its match. */
 export function warmupQuiz(match: Match, parts: Array<{ source: Match; quiz: MatchQuiz }>): MatchQuiz {
   const per = parts.length > 1 ? WARMUP_PER_MATCH : QUIZ_LENGTH;
@@ -39,7 +53,7 @@ export function warmupQuiz(match: Match, parts: Array<{ source: Match; quiz: Mat
     kind: 'warmup',
     generatedAt: parts.map((p) => p.quiz.generatedAt).join('|'),
     questions: parts.flatMap(({ source, quiz }) =>
-      quiz.questions.slice(0, per).map((q) => ({ ...q, about: `${source.homeTeam.name} v ${source.awayTeam.name}` }))
+      quiz.questions.slice(0, per).map((q) => ({ ...q, about: matchLabel(source) }))
     ),
   };
 }

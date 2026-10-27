@@ -293,7 +293,12 @@ one scope and one delivery; alerts saved with the old single `trigger` are read 
 (`parseAutomations`). The Alerts page (simple creator only; the advanced builder was removed) creates one alert per submit (Select all included), edits in
 place (`updateAutomation`) and deletes behind a confirm dialog (`components/ui/ConfirmDialog`, a
 native `<dialog>`). The team/series picker offers current names from the live list
-(`lib/alertSuggestions.ts`). Rules are evaluated by `components/automations/AutomationEngine.tsx` against
+(`lib/alertSuggestions.ts`). "What I follow" lists the followed teams and series under the
+scope row (`FollowedList`; nothing followed blocks Create and links to My Cricket's team picker).
+Scope `MATCH` (2026-10-27, "Live match"): one match by id, picked from `isLiveNow` matches
+(`LiveMatchPicker`, a second click clears the pick), stored name "Home vs Away". Match start doesn't apply to it, so the creator
+disables that moment under `MATCH` instead of hiding the tab and saves only the moments that fit.
+Rules are evaluated by `components/automations/AutomationEngine.tsx` against
 consecutive live snapshots (match start, wicket, tight chase, stoppage, result from the list;
 sixes/fours/50/100 from ball feeds). Nothing fires on the first snapshot; a shared ledger dedupes
 across tabs, keyed per event (`event:<firing key>`), so overlapping rules send one notification.
@@ -319,7 +324,8 @@ Match pages get a **Quiz** tab (2026-10-26), written by Google Gemini (free tier
 - **warmup** — from 6 hours before the start (`WARMUP_WINDOW_MS`), through live play, until the
   result line arrives: each side's last finished match before this one (`lastMatches`, read from the
   45-day `getApiFixtureRange` corpus), 3 questions from each (5 if both sides' last match was the
-  same game), each question labelled `about: "Pakistan v England"`. Each source match's quiz is the
+  same game), each question labelled by `matchLabel`: "England v Pakistan · 4th ODI · 25 Oct" (the route
+  reads the full match record for the number — corpus rows carry none). Each source match's quiz is the
   same cached result quiz, so a game is generated once however many fixtures warm up from it. No
   finished match in the corpus for either side = no tab. When the result arrives the hook refetches
   and the result quiz replaces the warm-up (the warm-up stays up meanwhile).

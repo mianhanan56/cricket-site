@@ -42,11 +42,18 @@ const quizFor = unstable_cache(
 async function warmupFor(match: Match): Promise<MatchQuiz | null> {
   const corpus = await getApiFixtureRange();
   const sources = lastMatches(match, corpus);
-  const settled = await Promise.allSettled(sources.map((s) => quizFor(s.matchKey as string)));
+  // The full record, not the corpus row: only it carries the match number for the label.
+  const settled = await Promise.allSettled(
+    sources.map(async (s) => {
+      const key = s.matchKey as string;
+      const [quiz, full] = await Promise.all([quizFor(key), getApiMatch(key, { revalidate: 3600 }).catch(() => null)]);
+      return { source: full ?? s, quiz };
+    })
+  );
   const parts = sources.flatMap((source, i) => {
     const r = settled[i];
     if (r.status === 'rejected') console.warn('quiz', source.matchKey, r.reason instanceof Error ? r.reason.message : r.reason);
-    return r.status === 'fulfilled' ? [{ source, quiz: r.value }] : [];
+    return r.status === 'fulfilled' ? [r.value] : [];
   });
   return parts.length ? warmupQuiz(match, parts) : null;
 }

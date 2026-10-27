@@ -31,6 +31,12 @@ function opponentLine(match: Match, team: Team): string | null {
   return s || null;
 }
 
+function fixtureScore(match: Match, team: Team, perOver: number): { score: string; overs: string } | null {
+  const score = opponentLine(match, team);
+  const last = battedInnings(inningsFor(match, team)).at(-1);
+  return score && last ? { score, overs: formatProgressShort(last.overs, perOver) } : null;
+}
+
 
 export default function LiveHero({ match, switcher }: { match: Match; switcher?: ReactNode }) {
   const extras = useApiMatchExtras(match.id, {
@@ -138,13 +144,22 @@ export default function LiveHero({ match, switcher }: { match: Match; switcher?:
         ) : (
           <div className={styles.fixture}>
             <h2 id="hero-title" className={styles.matchup}>
-              {[match.homeTeam, match.awayTeam].map((t, i) => (
-                <span key={t.id} className={styles.matchSide}>
-                  {i > 0 && <span className={styles.matchV}>v</span>}
-                  <TeamBadge name={t.name} shortName={t.shortName} logo={t.logo} size="md" />
-                  <span className={styles.matchName}>{t.name}</span>
-                </span>
-              ))}
+              {[match.homeTeam, match.awayTeam].map((t, i) => {
+                const scored = fixtureScore(read, t, perOver);
+                return (
+                  <span key={t.id} className={styles.matchSide}>
+                    {i > 0 && <span className={styles.matchV}>v</span>}
+                    <TeamBadge name={t.name} shortName={t.shortName} logo={t.logo} size="md" />
+                    <span className={styles.matchName}>{t.name}</span>
+                    {scored && (
+                      <span className={styles.matchScore}>
+                        {scored.score}
+                        <span className={styles.matchOvers}>{scored.overs}</span>
+                      </span>
+                    )}
+                  </span>
+                );
+              })}
             </h2>
             <p className={styles.where}>
               <LocalTime iso={match.startTime} format="dayTime" />

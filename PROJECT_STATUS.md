@@ -20,6 +20,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - 2026-10-26: search finds any player named in a recent series squad (~14,000, not just ICC-ranked + live cards) via `/api/search-players`. Verified "shad" → Shadab Khan, Shadman Islam, Shadley van Schalkwyk (CREX order); non-ranked profiles (Shadab Jakati, Shadhin Islam) open; production build from a scratch copy prerenders the route with 14,166 players; tsc clean, 159/159 tests.
 - 2026-10-26: player rows in search (overlay and /search) show the upstream portrait via `PlayerPortrait size="xs"` (32px; initials when the PNG 404s). Checked in headless Chrome at 1280 and 390 against a scratch production build: all portraits load.
   (background/system-tray support, event-key dedup); dark/light theme; PWA.
+- 2026-10-27: Alerts creator shows the followed teams and series under "What I follow" and gains a "Live match" scope (`MATCH`) picked from the matches live now. Checked in headless Chrome against the dev server at 1440/1100/390, light and dark, with and without follows; tsc clean, lint clean, 159/159 tests.
 
 ## Recently completed (uncommitted, 2026-10-26, match quiz)
 
