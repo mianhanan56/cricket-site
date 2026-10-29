@@ -70,7 +70,10 @@ every kept field was traced to a screen or a logic use and the dead ones dropped
 excerpt/caption, fixture scores, team-schedule venue/number/result, team dark colour, leader dots/fantasy
 and inactive format blocks, scorecard wagon-wheel and dot-ball suffixes, empty `/mapping` buckets, dead
 commentary fields). With the live socket healthy the HTTP safety-net polls run every 5 min (was 30s/60s)
-and page entry no longer refetches the list. `SHAPE_VERSION` is 2. Uncommitted.
+and page entry no longer refetches the list. `SHAPE_VERSION` is 2. The PWA service worker no longer
+handles the ball-by-ball routes at all (they were NetworkOnly, so it was a pass-through hop and a
+duplicate ⚙ row per call in DevTools); `/mapping` stays — hot payloads carry keys, names are read
+once and cached. `npm run local` needs `cd worker && npm run dev` on :8788. Uncommitted.
 
 2026-10-15: full code review (bugs) and an upstream feature-gap survey, no code changed. Findings are
 new TODO.md rows dated 2026-10-15; the user picks what to fix.

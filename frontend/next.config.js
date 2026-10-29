@@ -17,9 +17,10 @@ const WORKER_URL =
  * service worker down with it. A RegExp serialises as a literal, value included.
  */
 const WORKER_ORIGIN = new URL(WORKER_URL).origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const WORKER_ORIGIN_PATTERN = new RegExp(`^${WORKER_ORIGIN}/`, 'i');
-// Ball-by-ball routes. A saved copy of these is a score going backwards.
-const WORKER_LIVE_PATTERN = new RegExp(`^${WORKER_ORIGIN}/(matches/live|match/(scorecard|commentary)|live)(\\?|$)`, 'i');
+// Ball-by-ball routes are left out: a saved copy is a score going backwards, and
+// routing them through the service worker only adds a hop to every poll.
+const WORKER_LIVE_PATHS = '(matches/live|match/(scorecard|commentary)|live)(\\?|$)';
+const WORKER_ORIGIN_PATTERN = new RegExp(`^${WORKER_ORIGIN}/(?!${WORKER_LIVE_PATHS})`, 'i');
 
 // `NEXT_PUBLIC_*` is inlined into the client bundle at build time, so a local
 // override does not just affect the machine doing the building — it ships. A
@@ -47,19 +48,15 @@ const withPWA = withPWAInit({
     // Precaching of build assets is automatic; these handle runtime requests.
     runtimeCaching: [
       {
-        // Live scores are never answered from a cache: the client keeps its last good copy
-        // in memory, and an older one from disk would roll the score back.
-        urlPattern: WORKER_LIVE_PATTERN,
-        handler: 'NetworkOnly',
-      },
-      {
-        // The rest of the Worker, matched by origin from the same env var the client is
-        // built with. The cache only answers when the network fails, never because it is slow.
+        // The Worker apart from live scores, matched by origin from the same env var the client is
+        // built with. On a slow link the last copy answers after the timeout instead of a spinner;
+        // the network reply still lands in the cache for next time.
         urlPattern: WORKER_ORIGIN_PATTERN,
         handler: 'NetworkFirst',
         options: {
           cacheName: 'worker-api',
-          expiration: { maxEntries: 64, maxAgeSeconds: 300 },
+          networkTimeoutSeconds: 4,
+          expiration: { maxEntries: 128, maxAgeSeconds: 60 * 60 * 24 },
           cacheableResponse: { statuses: [0, 200] },
         },
       },
@@ -83,10 +80,12 @@ const withPWA = withPWAInit({
       },
       {
         // App shell / pages.
+        // A cached page's scores are only a first paint: the live poll replaces them.
         urlPattern: ({ request }) => request.mode === 'navigate',
         handler: 'NetworkFirst',
         options: {
           cacheName: 'pages',
+          networkTimeoutSeconds: 5,
           expiration: { maxEntries: 32, maxAgeSeconds: 60 * 60 * 24 },
         },
       },

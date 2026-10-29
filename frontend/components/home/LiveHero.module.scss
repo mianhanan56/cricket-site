@@ -1,4 +1,5 @@
 @use 'component' as *;
+@use 'keyframes';
 
 .hero {
   @include on-pitch;

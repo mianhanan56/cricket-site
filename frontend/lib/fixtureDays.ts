@@ -58,10 +58,6 @@ export function formatDayLabel(key: string, todayKey: string): string {
   });
 }
 
-/** True when `formatDayLabel` will say "Today" or "Tomorrow" rather than a date. */
-export const isRelativeDay = (key: string, todayKey: string): boolean =>
-  Boolean(todayKey) && (key === todayKey || key === addDays(todayKey, 1));
-
 /** "Monday 17 August" — the long form, for the heading of a single chosen day. */
 export const formatDayLong = (key: string): string =>
   dayDate(key).toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });

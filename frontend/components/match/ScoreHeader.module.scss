@@ -1,4 +1,5 @@
 @use 'component' as *;
+@use 'keyframes';
 
 .header {
   --glow: var(--signal);

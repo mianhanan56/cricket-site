@@ -1,0 +1,10 @@
+// Only for modules that animate with it: anything emitted here is copied into each one.
+@keyframes live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--signal) 70%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 7px color-mix(in oklab, var(--signal) 0%, transparent);
+  }
+}

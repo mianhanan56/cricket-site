@@ -295,7 +295,8 @@ dynamic routes fetch on every link navigation; static ISR routes (`/teams`) may 
 made within 30s. Back/forward replays the router copy, so `NavigationTracker` calls
 `router.refresh()` after a traversal.
 PWA service worker: the ball-by-ball Worker routes (`/matches/live`, `/match/scorecard`,
-`/match/commentary`, `/live`) are **NetworkOnly** — a saved copy rolled scores back. The rest of the
+`/match/commentary`, `/live`) are left out of the service worker entirely — a saved copy rolled
+scores back, and a NetworkOnly route was just an extra hop on every poll. The rest of the
 Worker origin is NetworkFirst with no network timeout (the cache answers only on a network
 failure). Patterns must be RegExps — Workbox serialises matchers with `toString()`.
 Series leaders (`/series/overview`, Worker TTL 30s) use a 15s revalidate while the series has a

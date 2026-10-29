@@ -1,4 +1,5 @@
 @use 'component' as *;
+@use 'keyframes';
 
 .page {
   @include container;

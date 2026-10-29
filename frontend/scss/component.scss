@@ -1,4 +1,4 @@
-// Design tokens, mixins and shared keyframes. Emits no CSS except @keyframes.
+// Design tokens and mixins. Emits no CSS: it is @used by every module.
 // Color tokens resolve to custom properties declared in global.scss, so one
 // data-theme attribute reskins every module.
 
@@ -600,27 +600,5 @@ $gutter-wide: $space-8;
     background: $signal-mark;
     margin-right: $space-1-5;
     animation: live-pulse $dur-pulse ease-out infinite;
-  }
-}
-
-// ---------------------------------------------------------------- Keyframes
-
-@keyframes live-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in oklab, var(--signal) 70%, transparent);
-  }
-  70%,
-  100% {
-    box-shadow: 0 0 0 7px color-mix(in oklab, var(--signal) 0%, transparent);
-  }
-}
-
-@keyframes float-slow {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0);
-  }
-  50% {
-    transform: translate3d(0, -6px, 0);
   }
 }

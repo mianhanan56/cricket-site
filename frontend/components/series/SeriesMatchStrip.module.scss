@@ -1,4 +1,5 @@
 @use 'component' as *;
+@use 'keyframes';
 
 .strip {
   @include scroll-x;

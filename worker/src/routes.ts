@@ -568,7 +568,7 @@ export function readParams(route: RouteDef, search: URLSearchParams): Record<str
  * query string and for the cache key. Sorting is what makes `?a=1&b=2` and
  * `?b=2&a=1` a single cache entry instead of two.
  */
-export function canonicalQuery(params: Record<string, ParamValue>): string {
+function canonicalQuery(params: Record<string, ParamValue>): string {
   const qs = new URLSearchParams();
   for (const key of Object.keys(params).sort()) {
     const value = params[key];
