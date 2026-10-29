@@ -55,7 +55,7 @@ cacheable and the frontend stays simple.
 | `/mapping` | `POST oc /mapping/getHomeMapData` | 6h | `t` teams, `v` venues, `s` series, `p` players, `u` umpires — comma-separated keys |
 | `/fixtures` | `POST stats /fixture/getFixture` | 5m | `wise` 1=date 2=series 3=team, `page` (negative = past), `gender`, `format`, `level` — see below |
 | `/news/topics` | `GET news /api/articlesOC/topics` | 15m | `page`, `limit` (default 5, max 20) — latest articles with full body, keyed tags |
-| `/news/article` | `GET news /api/articlesoc/{id}` | 15m | `id` (24 hex) — one article (headline, summary, cover, tags) plus `more_news` and `moreFromAuthor` |
+| `/news/article` | `GET news /api/articlesoc/{id}` | 15m | `id` (24 hex) — one article (headline, cover, tags) plus `moreNews` and `moreFromAuthor` |
 | `/news/tagged` | `GET news /api/articles/filter/{type}_{key}` | 15m | `type` s/t/p, `key` f_key, `page`, `limit` (default 12) — headline cards for one series/team/player |
 | `/rankings/players` | `POST oc /ranking/getRanking` | 1h | `category`, `play`, `type`, `gender`, `page` — **strings**, see below |
 | `/match/info` | `GET php /getIV4` | 5m | `key` — match f_key. Pre-match squads, captain/keeper, broadcast, weather |
@@ -75,6 +75,34 @@ entry. Bad values get a 400 with the permitted set:
 curl 'localhost:8788/rankings?category=9'
 # {"error":"Param 'category' must be one of 0, 1, 2, got '9'","path":"/rankings"}
 ```
+
+## Response shapes
+
+The upstream answers in single-letter keys (`c1`, `t1f`, `j`). Every route renames them
+to plain camelCase before the body is cached or pushed over `/live`, and drops the
+fields the frontend never reads. Values are passed on exactly as sent — packed
+strings like `"282/6(50.0"`, `^`-prefixed keys and numeric codes are still decoded
+in [`frontend/lib/api`](../frontend/lib/api).
+
+```
+upstream  {"b":"4","o":"6.5","c1":"Simelane to Hamza","pf":"HJ","fv":16,"tsl":"…"}
+Worker    {"outcome":"4","over":"6.5","headline":"Simelane to Hamza","strikerKey":"HJ"}
+```
+
+The rename tables are [`src/shapes/`](src/shapes), one file per group of routes,
+built with the helpers in [`src/shape.ts`](src/shape.ts) (`fields` keeps only the
+listed keys, `keyed` keeps an id-keyed object's keys). They are the reference for
+what each name means. The sections below describe the **upstream's** keys, which is
+what the shapes read.
+
+- Entity keys end in `Key` (`team1Key`, `seriesKey`, `playerKey`), epoch-ms times in
+  `Time` (`startTime`).
+- `/matches/live` stays an object keyed by match id — the live hub diffs it per match.
+- `/match/commentary` reuses letters per row `type` (`s` is a score on a ball, a
+  milestone on `pm`, sixes on a wicket card), so it has one table per row type.
+- Changing a shape changes what is cached: bump `SHAPE_VERSION` in `src/shape.ts`
+  so the edge cache never serves a body in the old shape. The frontend must ship
+  in step — deploy the Worker first, then the site.
 
 ## Fixtures and pagination
 
@@ -192,8 +220,7 @@ T20 Blast. `playerFormatLabel` in
 `seriesFormatDecision`, which is the only place that mapping is written down.
 
 The bio in `a.bsi.p` is Google-Docs HTML — inline styles, `<span>` soup and all.
-The frontend strips it to an allowlist of tags and drops every attribute, so it
-inherits our own typography rather than arriving with the upstream's.
+The site doesn't show it, so the shape drops it.
 
 ```bash
 curl 'localhost:8788/player/overview?key=1IG'
@@ -264,8 +291,9 @@ arrays**.
 `/team/matches` is narrower than its name: it returns a team's *scheduled*
 matches grouped by series key, so a side between tournaments can answer with
 almost nothing, and a side mid-league answers with only that league. Past results
-come from `/fixtures`' negative pages instead, which carry `result`, `s1`/`s2`
-and `o1`/`o2` — enough to reconstruct who batted first from the result wording.
+come from `/fixtures`' negative pages instead, which carry `result` (enough to
+reconstruct who batted first from the wording). They also carry scores (`s1`/`s2`,
+`o1`/`o2`), which nothing reads, so the shape drops them.
 
 ```bash
 curl 'localhost:8788/series/table?key=2E2'
@@ -361,7 +389,8 @@ assuming otherwise is what kept it unwired for so long. If a field-name or
 payload-type guess stops making progress, stop guessing and read the call site in
 The upstream's bundle; see [Player rankings](#player-rankings) for how.
 
-Once it responds, add a row to `src/routes.ts` and redeploy.
+Once it responds, add a row to `src/routes.ts`, a rename table for it in
+`src/shapes/` (an unshaped route is passed through raw), and redeploy.
 
 ### Endpoints found but not yet wired up
 
@@ -396,7 +425,7 @@ Worker does not do it. The live hub's socket is ours: it polls the same REST
 endpoints every 2s and pushes the changes, so it is only as fresh as they are.
 
 **`/mapping` is a lookup, not a dump.** Nothing from `/matches/live` renders
-without it — `"b":"11"` is a team, `"v":"BK"` a venue, `"q":"^1JK"` a series.
+without it — `"team1Key":"11"` is a team, `"venueKey":"BK"` a venue, `"seriesKey":"^1JK"` a series.
 You send the keys you saw and get back only those, so an empty request returns
 empty arrays (which is what made it look broken at first). Strip the leading
 `^` before looking a key up; the upstream prefixes it on the match object but not in the
@@ -413,12 +442,12 @@ instead of a page — one innings in one request (~125 KB T20, ~375 KB for 100 o
 `inning` that is the whole match (~1 MB for four innings). A per-over filter (`inning`+`overNumber`)
 exists in the upstream's bundle but is ignored by the API.
 
-**`/news/topics` carries every article's full HTML body** — ~10 KB an article (120 KB at
-`limit=12`), ~2.5s cold. The frontend only reads it server-side, behind the 15-minute TTL.
+**`/news/topics` upstream carries every article's full HTML body** — ~10 KB an article (120 KB at
+`limit=12`), ~2.5s cold. Nothing reads it, so the shape drops it; the call is still slow cold, and
+the frontend only makes it server-side, behind the 15-minute TTL.
 `/news/tagged` is headline cards only (~13 KB for 12). The upstream also has `/api/articlesoc/matchId/{id}`
 (numeric match id, ~1.3 MB) and `/api/home/{section}` (section 0 = news); neither is wired.
 
-**The response format is obfuscated.** The upstream ships single-letter keys — `t1Sname`,
-`wp`, `flb`, `dt_id`. `/matches/live` is passed through unchanged rather than
-normalized, so decoding is the caller's job — `frontend/lib/api` is that
-adapter, and the upstream's vocabulary stays inside it.
+**The upstream's format is obfuscated.** It ships single-letter keys — `t1Sname`,
+`wp`, `flb`, `dt_id`. The Worker renames the keys (see [Response shapes](#response-shapes));
+decoding the values is still the caller's job — `frontend/lib/api` is that adapter.

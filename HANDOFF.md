@@ -55,6 +55,23 @@ whole, and `MatchDetail` merges them with the live ones (`feedEvents`) for the L
 get the innings in play (earlier innings' milestones aren't read); limited-overs matches walk back to
 the first innings. Uncommitted.
 
+2026-10-28: fewer requests on home (a reviewer flagged the burst): the live socket no longer calls
+`/health` first; `useFixturesAhead` reads `/fixtures` only when the board shows it (Upcoming/All tab or
+nothing live), one page at a time with infinite scroll on Upcoming, cached so remounts share a read.
+Duplicate rows in dev Network are React Strict Mode's double effects — not in production. The live
+card's commentary poll no longer re-walks three overs each tick: `getApiMatchFeed`'s `since` stops at
+the newest row already held, so after the first load it is one request per poll.
+Same day, the user asked for readable API keys (their reviewer couldn't read `c1`/`fv`): every Worker
+route now renames the upstream's keys to camelCase and drops unused fields (ARCHITECTURE › Worker ›
+Response shapes); all `frontend/lib/api` readers and test fixtures follow. **Deploy the Worker before
+the site** — the deployed site reads the old keys, the new site reads the new ones.
+2026-10-29: speed pass, at the user's request ("optimize the apis because I want the project fast"):
+every kept field was traced to a screen or a logic use and the dead ones dropped (player bio, news-card
+excerpt/caption, fixture scores, team-schedule venue/number/result, team dark colour, leader dots/fantasy
+and inactive format blocks, scorecard wagon-wheel and dot-ball suffixes, empty `/mapping` buckets, dead
+commentary fields). With the live socket healthy the HTTP safety-net polls run every 5 min (was 30s/60s)
+and page entry no longer refetches the list. `SHAPE_VERSION` is 2. Uncommitted.
+
 2026-10-15: full code review (bugs) and an upstream feature-gap survey, no code changed. Findings are
 new TODO.md rows dated 2026-10-15; the user picks what to fix.
 
@@ -231,8 +248,10 @@ cd worker && npm run typecheck
   into a scratch dir, symlink `node_modules`, build/start there on another port. Headless checks on
   other ports need CORS disabled in the browser.
 - Dev server runs on port 3005 (3000 is used by an unrelated app on this machine).
-- The upstream wire format is single-letter keys and changes without notice; if something breaks, probe
-  the Worker route first (`worker/scripts/probe.sh`). "Invalid Host header" = wrong upstream host.
+- The upstream wire format is single-letter keys and changes without notice; the Worker renames them
+  (`worker/src/shapes/`), so a new upstream field needs a line there before the frontend can read it.
+  If something breaks, probe the upstream first (`worker/scripts/probe.sh`). "Invalid Host header" =
+  wrong upstream host.
 - Derived data (H2H, venues, team form) comes from the shared schedule window in
   `getApiFixtureRange`; keep callers on the same window so they share cache entries.
 - Never guess result attribution; unattributable results are counted separately.

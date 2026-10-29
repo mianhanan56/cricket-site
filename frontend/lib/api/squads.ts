@@ -7,22 +7,13 @@ import { getApiMatchInfo } from './matchInfo';
 import { cleanKey, resolveKeys } from './names';
 import { getApiSeriesSchedule } from './series';
 
-/** One side's squad for one series. Players are keys. */
+/** One side's squad for one series. */
 interface ApiSeriesSquad {
-  /** Team key. */
-  tf?: string;
-  /** Format id, the same vocabulary as `ft` elsewhere. */
-  ft?: number;
-  /** The squad. */
-  pf?: string[];
-  /** Captain — an array, though it holds one key. */
-  c?: string[];
-  /** Vice captain. */
-  vc?: string[];
-  /** Overseas players. */
-  f?: string[];
-  /** Wicket-keeper. */
-  iw?: string[];
+  teamKey?: string;
+  playerKeys?: string[];
+  /** An array, though it holds one key. */
+  captainKeys?: string[];
+  wicketKeeperKeys?: string[];
 }
 
 /** Every side's squad for a series. */
@@ -53,18 +44,18 @@ export async function getApiTeamSquad(
 
   // A side can be listed once per format; the longest list (a Test squad) is the one to show.
   const mine = (Array.isArray(all) ? all : [])
-    .filter((sq) => cleanKey(sq.tf) === want && sq.pf?.length)
-    .sort((a, b) => (b.pf?.length ?? 0) - (a.pf?.length ?? 0))[0];
-  if (!mine?.pf?.length) return [];
+    .filter((sq) => cleanKey(sq.teamKey) === want && sq.playerKeys?.length)
+    .sort((a, b) => (b.playerKeys?.length ?? 0) - (a.playerKeys?.length ?? 0))[0];
+  if (!mine?.playerKeys?.length) return [];
 
-  const captains = new Set((mine.c ?? []).map(cleanKey));
-  const keepers = new Set((mine.iw ?? []).map(cleanKey));
-  const names = await resolveKeys({ p: mine.pf }, opts);
+  const captains = new Set((mine.captainKeys ?? []).map(cleanKey));
+  const keepers = new Set((mine.wicketKeeperKeys ?? []).map(cleanKey));
+  const names = await resolveKeys({ p: mine.playerKeys }, opts);
 
-  const named = mine.pf
+  const named = mine.playerKeys
     .map((raw) => {
       const id = cleanKey(raw);
-      const name = names.p.get(id)?.n;
+      const name = names.p.get(id)?.name;
       // A key the mapping cannot name is dropped: "5YW" in a squad list tells the reader nothing.
       if (!id || !name) return null;
       const player: SquadPlayer = {
@@ -152,19 +143,19 @@ export async function getApiPlayerCatalogue(opts: FetchOpts = {}): Promise<Playe
   // Series come nearest to today first, so the first team seen is the current one.
   for (const list of squads) {
     for (const squad of Array.isArray(list) ? list : []) {
-      for (const raw of squad.pf ?? []) {
+      for (const raw of squad.playerKeys ?? []) {
         const id = cleanKey(raw);
         if (!id) continue;
         const seen = players.get(id);
         if (seen) seen.count++;
-        else players.set(id, { team: cleanKey(squad.tf), count: 1 });
+        else players.set(id, { team: cleanKey(squad.teamKey), count: 1 });
       }
     }
   }
 
   const names = await resolveKeys({ p: players.keys(), t: [...players.values()].map((p) => p.team) }, opts);
   return [...players].flatMap(([id, { team, count }]): PlayerCatalogueRow[] => {
-    const name = names.p.get(id)?.n;
-    return name ? [[id, name, names.t.get(team)?.sn ?? '', count]] : [];
+    const name = names.p.get(id)?.name;
+    return name ? [[id, name, names.t.get(team)?.shortName ?? '', count]] : [];
   });
 }

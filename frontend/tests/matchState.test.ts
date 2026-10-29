@@ -336,17 +336,17 @@ describe('a stoppage the score plays through', () => {
 describe('the raw feed', () => {
   // The exact fields the two Tests at stumps carried.
   const atStumps: ApiRawMatch = {
-    a: '$l',
-    b: 'W',
-    c: 'Q',
-    q: '^2BG',
-    v: 'GY',
-    ti: 1787459400000,
-    res: 'Stumps',
-    n: 30,
-    j: '!503/9(138.0',
-    k: '265/8(83.4',
-    fo: 'Test',
+    statusCode: '$l',
+    team1Key: 'W',
+    team2Key: 'Q',
+    seriesKey: '^2BG',
+    venueKey: 'GY',
+    startTime: 1787459400000,
+    statusText: 'Stumps',
+    packedState: 30,
+    firstInningsScore: '!503/9(138.0',
+    secondInningsScore: '265/8(83.4',
+    format: 'Test',
   };
 
   it('decodes "$l" as stumps, paused, and not between innings', () => {
@@ -364,22 +364,22 @@ describe('the raw feed', () => {
   });
 
   it('decodes "$a" as an innings break, flagged as between innings', () => {
-    const note = decodeMatchNote({ ...atStumps, a: '$a' }, { first: 'IND', second: 'SL' });
+    const note = decodeMatchNote({ ...atStumps, statusCode: '$a' }, { first: 'IND', second: 'SL' });
 
     assert.equal(note?.kind, 'BREAK');
     assert.equal(note?.betweenInnings, true);
   });
 
   it('flags "$s" as a toss that has not been made', () => {
-    const note = decodeMatchNote({ ...atStumps, a: '$s' }, { first: 'IND', second: 'SL' });
+    const note = decodeMatchNote({ ...atStumps, statusCode: '$s' }, { first: 'IND', second: 'SL' });
 
     assert.equal(note?.kind, 'DELAY');
     assert.equal(note?.preToss, true);
   });
 
   it('drops a qualifier the status label already states', () => {
-    const repeated = decodeMatchNote({ ...atStumps, a: '$w', ac: '(wet outfield)' });
-    const extra = decodeMatchNote({ ...atStumps, a: '$f', ac: '(wet outfield)' });
+    const repeated = decodeMatchNote({ ...atStumps, statusCode: '$w', statusDetail: '(wet outfield)' });
+    const extra = decodeMatchNote({ ...atStumps, statusCode: '$f', statusDetail: '(wet outfield)' });
 
     assert.equal(repeated?.detail, null);
     assert.equal(extra?.detail, '(wet outfield)');
@@ -389,7 +389,7 @@ describe('the raw feed', () => {
   // that started all this was "Toss Delayed", with no "$s" beside it.
   it('flags the same status sent as text', () => {
     const note = decodeMatchNote(
-      { ...atStumps, a: '', res: 'Toss Delayed' },
+      { ...atStumps, statusCode: '', statusText: 'Toss Delayed' },
       { first: 'IND', second: 'SL' }
     );
 
@@ -399,7 +399,7 @@ describe('the raw feed', () => {
 
   // The toss having happened is the opposite claim, and contradicts nothing.
   it('does not flag the toss result', () => {
-    const note = decodeMatchNote({ ...atStumps, a: '^1' }, { first: 'IND', second: 'SL' });
+    const note = decodeMatchNote({ ...atStumps, statusCode: '^1' }, { first: 'IND', second: 'SL' });
 
     assert.equal(note?.kind, 'TOSS');
     assert.notEqual(note?.preToss, true);
@@ -407,11 +407,11 @@ describe('the raw feed', () => {
 });
 
 describe('format', () => {
-  it('reads a bare T10 off the format slot in n, and The Hundred off hb', () => {
-    assert.equal(toMatchFormat({ n: 7 } as ApiRawMatch), 'T10');
-    assert.equal(toMatchFormat({ n: 7, hb: 5 } as ApiRawMatch), 'T20');
-    assert.equal(toMatchFormat({ fo: 'T10', n: 4 } as ApiRawMatch), 'T10');
-    assert.equal(toMatchFormat({ fo: 'T20', n: 4 } as ApiRawMatch), 'T20');
+  it('reads a bare T10 off the format slot in the packed state, and The Hundred off its balls per over', () => {
+    assert.equal(toMatchFormat({ packedState: 7 } as ApiRawMatch), 'T10');
+    assert.equal(toMatchFormat({ packedState: 7, ballsPerOver: 5 } as ApiRawMatch), 'T20');
+    assert.equal(toMatchFormat({ format: 'T10', packedState: 4 } as ApiRawMatch), 'T10');
+    assert.equal(toMatchFormat({ format: 'T20', packedState: 4 } as ApiRawMatch), 'T20');
   });
 });
 

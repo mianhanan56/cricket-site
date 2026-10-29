@@ -70,7 +70,14 @@ commands inside `frontend/` or `worker/`.
   and `worker/src/routes.ts`.
 - A route `path` may hold `{param}` placeholders (`/news/tagged` → `/api/articles/filter/{type}_{key}`);
   `upstreamTarget` fills them and leaves the rest as the query. A param filled into a path needs a `pattern`.
-- Responses use single-letter keys; team/series/venue/player f_keys resolve through `/mapping`.
+- **Response shapes** (`src/shape.ts`, `src/shapes/*.ts`, 2026-10-28): the upstream's single-letter
+  keys are renamed to camelCase (`c1` → `headline`, `t1f` → `team1Key`) and unread fields dropped,
+  before a body is cached (`store`) or pushed by the hub (`refresh`). Values are untouched — packed
+  strings and codes are still decoded in `frontend/lib/api`, whose `Api*` interfaces mirror the shapes.
+  `/mapping` is shaped after its merge with the isolate's names. The edge cache key carries
+  `shape=<SHAPE_VERSION>`; bump it whenever a shape changes. Worker and frontend must ship together
+  (Worker first). Team/series/venue/player keys still resolve through `/mapping`
+  (`{ teams, venues, series, players, umpires }`, entries `{ key, name, shortName, … }`).
 - **Live hub** (`src/live.ts`, Durable Object `LiveHub`, one instance): `/live` upgrades to a
   WebSocket. Topics `matches` (snapshot, then per-match diffs), `card:<key>`, `feed:<key>` (whole
   scorecard / newest commentary page when changed). One upstream poll per topic for all sockets:
@@ -97,7 +104,7 @@ commands inside `frontend/` or `worker/`.
 | `search.ts`, `searchIndex.ts` | Client-side search over matches + `/api/search-index` (ranked players/teams, plus every series in `/fixtures?wise=2` pages −60…6 (the Worker floor, ≈ March 2022) via `getApiSeriesCatalogue`, nearest pages first, so series outside the live feed are findable) + `/api/search-players` (every player in a squad for series in `/fixtures?wise=2` pages −20…6, ≈14k, as `[id, name, team, squads]` tuples; prerendered, ISR 6h, ~470 KB raw). `loadSearchIndex(cb)` calls back twice — ranked + live first, then with the squad list — and player ties rank by squad count. |
 | `tabs.ts`, `queryParams.ts`, `uiState.ts`, `navigationDepth.ts` | URL tab vocabularies/validation, overlay state, back-button depth. |
 | `matchType.ts`, `featured.ts`, `fixtureDays.ts`, `datetime.ts`, `relativeTime.ts` | Classification, featured match choice, calendar keys, time formatting. |
-| `timeout.ts` | `withTimeout(ms, signal?)` — every client fetch's deadline (Worker 15s, search index 15s, `/health` probe 10s); links signals by hand where `AbortSignal.any` is missing. |
+| `timeout.ts` | `withTimeout(ms, signal?)` — every client fetch's deadline (Worker 15s, search index 15s); links signals by hand where `AbortSignal.any` is missing. |
 | `news.ts` | the upstream news decode: `/news/topics` (latest, keyed team/series/player tags, excerpt) and `/news/tagged` (one team/series/player; headline cards, no excerpt or keyed tags). Images rewritten to the upstream's resizing CDN (`?type=mq` lead, `lq` thumbs). Articles link out to the upstream — the article body is not republished. `getTaggedNews` never throws. |
 | `text.ts`, `site.ts`, `seriesFormat.ts` | `ordinal`/`plural`; `SITE_URL` (env → Vercel production domain → localhost); `MATCH_FORMAT_LABEL` + series format phrases. |
 
@@ -117,8 +124,11 @@ Formats: `MatchFormat` is `TEST | ODI | T20 | T10`. T10 comes from `fo`, the `n 
 (unless `hb` marks The Hundred, which stays T20) or `ft` 4 on schedule rows.
 
 Home reads two extra sources besides the feed, so its figures match the pages they summarise:
-`hooks/useFixturesAhead` (`/fixtures` pages 0–1, every 5 min) adds fixtures the feed window
-omits to Upcoming/All, up to the last row read; `hooks/useSeriesTotals` swaps "Series in
+`hooks/useFixturesAhead` (`/fixtures`, one page per call via `getApiFixturesPage`) adds fixtures
+the feed window omits to Upcoming/All, up to the last row read. It reads nothing while a match is
+live on the Live tab — only for the Upcoming/All tabs or the next-up stage — starts with page 0,
+and the Upcoming tab reads the next page as its end scrolls near (infinite scroll). Pages are
+cached module-level for 5 min so remounts and React's dev double-effect share one request; `hooks/useSeriesTotals` swaps "Series in
 progress" onto each series' own schedule (`withSeriesSchedules`) and renders nothing until it
 answers. Home's tabs (user rule, 2026-10-07): Live = play on or resuming today (`isLiveNow`);
 a multi-day match at stumps is in **All only** until the next day's play starts, then Live again;
@@ -206,7 +216,8 @@ clock must read `lastUpdated`, not object identity; `isRefreshing` toggles only 
 
 `lib/live/socket.ts` is **one shared WebSocket** to the hub per page (module level, outside React;
 refcounted topics, heartbeat, 1→30s backoff, resync listeners after a reconnect, closes 20s after
-the last topic goes). It asks `/health` once and never dials a Worker without `live`. Pure frame
+the last topic goes). It dials straight away (the `/health` probe was removed 2026-10-28); a Worker
+without the hub is written off after 5 failed handshakes and retried every 2 min. Pure frame
 rules (ordering, gap detection, list diffs, feed merging) are in `lib/live/frames.ts` and tested.
 The list store and `useApiMatchExtras` apply frames through the same parsers as HTTP
 (`matchListFromRaw`, `scorecardFromRaw`, `feedFromRows`), guarded by `keepNewest` / card progress.
@@ -273,10 +284,12 @@ before `reset()`. `generateMetadata` still swallows failures so the page itself 
 ## Caching / freshness
 
 Worker edge TTL (per route) → Next.js per-fetch `revalidate` (ISR) → client data: live socket
-first, polling underneath. With a healthy topic the list and match-extras polls slow to a 30s
-reconcile (alert feed watcher 60s); without the socket they poll as before (2s list, 2s extras).
-Entry: a page that shows the list revalidates it on mount (components mounting together share one
-request); `useApiMatchExtras` fetches on mount. Visibility return and socket reconnect both
+first, polling underneath. With a healthy topic the list, match-extras and alert-feed polls drop to a
+5-minute safety net (2026-10-28, was 30s/60s: missed list frames already trigger a re-read via `gap`,
+and a reconnect resyncs); without the socket they poll as before (2s list, 2s extras), and losing the
+socket reschedules at once. Entry: a page that shows the list revalidates it on mount unless the
+`matches` topic is live (components mounting together share one request); `useApiMatchExtras`
+fetches on mount. Visibility return and socket reconnect both
 revalidate over HTTP. `next.config.js` sets `experimental.staleTimes { dynamic: 0, static: 30 }`:
 dynamic routes fetch on every link navigation; static ISR routes (`/teams`) may reuse a prefetch
 made within 30s. Back/forward replays the router copy, so `NavigationTracker` calls

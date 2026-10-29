@@ -22,10 +22,10 @@ import type { InningsScore, Match, Team } from '../types';
 // of the full innings intact.
 
 const IND_INNINGS = {
-  c: 'O',
-  d: '503/9(828',
-  e: '8.3.7.3.0',
-  b: [
+  teamKey: 'O',
+  total: '503/9(828',
+  extras: '8.3.7.3.0',
+  batting: [
     '15K.45.53.9.0.102.66.1.1JR/47.54-66.26/',
     'AK.18.33.2.1.64.37.2.J4.FH/36.81-52.09/',
     'EI.117.193.12.0.458.281.1.O22/60.20-59.96/',
@@ -33,18 +33,18 @@ const IND_INNINGS = {
     'RJ.31.40.3.0',
     'KY.12.15.1.0',
   ],
-  a: ['1JR.106.174.5.4', 'J4.68.120.4.1'],
-  p: ['15K.19.31.AK.18.33.37.64', '15K.26.22.EI.3.16.29.38', 'RJ.31.40.KY.12.15.44.55'],
+  bowling: ['1JR.106.174.5.4', 'J4.68.120.4.1'],
+  partnerships: ['15K.19.31.AK.18.33.37.64', '15K.26.22.EI.3.16.29.38', 'RJ.31.40.KY.12.15.44.55'],
 };
 
 // Trimmed to four dismissed batters and one still to come, so the total is set to
 // the four wickets the lines actually account for — a fixture whose ledger and
 // wicket count disagree would be testing an impossible innings.
 const SL_INNINGS = {
-  c: 'T',
-  d: '205/4(360',
-  e: '0.3.1.5.0',
-  b: [
+  teamKey: 'T',
+  total: '205/4(360',
+  extras: '0.3.1.5.0',
+  batting: [
     '4XE.1.6.0.0.8.1.2.EF.15K/44.14-66.31/',
     '17B.19.25.3.0.57.35.2.EF.16J/-/',
     'NX.2.7.0.0.18.8.5.7OY/8.26-34.12/',
@@ -52,8 +52,8 @@ const SL_INNINGS = {
     '17H.12.19.1.0',
     'Q9.15.20.2.0',
   ],
-  a: ['E1.33.66.0.1', 'EF.46.78.1.3'],
-  p: ['4XE.1.6.17B.0.2.1.8', '17B.5.3.NX.2.7.7.10', '17B.14.20.BTZ.12.19.27.39', '17H.12.19.Q9.15.20.27.39'],
+  bowling: ['E1.33.66.0.1', 'EF.46.78.1.3'],
+  partnerships: ['4XE.1.6.17B.0.2.1.8', '17B.5.3.NX.2.7.7.10', '17B.14.20.BTZ.12.19.27.39', '17H.12.19.Q9.15.20.27.39'],
 };
 
 /**
@@ -141,8 +141,8 @@ describe('fall of wickets', () => {
     stubFetch([
       {
         ...IND_INNINGS,
-        d: '120/1(200',
-        b: ['15K.45.53.9.0.102.66.11.1JR/-/', 'AK.18.33.2.1.64.37.2.J4.FH/-/'],
+        total: '120/1(200',
+        batting: ['15K.45.53.9.0.102.66.11.1JR/-/', 'AK.18.33.2.1.64.37.2.J4.FH/-/'],
       },
     ]);
 
@@ -186,7 +186,7 @@ describe('partnerships', () => {
   // The upstream lists the new pair's stand a ball after the wicket; until then the last stand is a broken one.
   it('does not call a stand unbroken once one of its batters is out', async (t) => {
     t.after(() => mock.restoreAll());
-    stubFetch([{ ...SL_INNINGS, p: SL_INNINGS.p.slice(0, -1) }]);
+    stubFetch([{ ...SL_INNINGS, partnerships: SL_INNINGS.partnerships.slice(0, -1) }]);
 
     const [inn] = await getApiScorecard('12WY');
 
@@ -196,7 +196,7 @@ describe('partnerships', () => {
 
   it('marks nothing unbroken in an all-out innings', async (t) => {
     t.after(() => mock.restoreAll());
-    stubFetch([{ ...IND_INNINGS, d: '503/10(828' }]);
+    stubFetch([{ ...IND_INNINGS, total: '503/10(828' }]);
 
     const [inn] = await getApiScorecard('12WY');
 
@@ -224,7 +224,7 @@ describe('the crease context', () => {
   // wicket labelled "Last wicket", beside a stand it had already broken.
   it('says nothing while the card is a wicket behind the score', async (t) => {
     t.after(() => mock.restoreAll());
-    stubFetch([IND_INNINGS, { ...SL_INNINGS, d: '205/5(360' }]);
+    stubFetch([IND_INNINGS, { ...SL_INNINGS, total: '205/5(360' }]);
 
     const innings = await getApiScorecard('12WY');
     const { partnership, lastWicket } = creaseContext(innings);
@@ -324,33 +324,31 @@ describe('over summaries', () => {
     {
       type: 'o',
       id: 1787650687864,
-      on: 59,
-      o: 60,
+      overIndex: 59,
       inning: 1,
       runs: 1,
-      rb: '1.0.0.0.0.0',
-      s: '205/7',
-      team: 'Sri Lanka',
-      p1: 'Keshara Nuwantha',
-      s1: '13(52)',
-      pf1: 'O22',
-      p2: 'Sonal Dinusha',
-      s2: '41(67)',
-      pf2: '17H',
-      bowler: 'Manav Suthar',
-      bd: '2-61(14.0)',
-      bf: '7OY',
+      outcomes: '1.0.0.0.0.0',
+      score: '205/7',
+      battingTeamName: 'Sri Lanka',
+      batter1Name: 'Keshara Nuwantha',
+      batter1Score: '13(52)',
+      batter1Key: 'O22',
+      batter2Name: 'Sonal Dinusha',
+      batter2Score: '41(67)',
+      batter2Key: '17H',
+      bowlerName: 'Manav Suthar',
+      bowlerFigures: '2-61(14.0)',
+      bowlerKey: '7OY',
     },
     {
       type: 'b',
       id: 1787650674733,
-      o: '59.6',
-      on: 59,
+      over: '59.6',
       inning: 1,
-      b: '0',
-      c1: 'Manav Suthar to Keshara Nuwantha',
-      c2: 'Full and tossed up down the leg.',
-      s: '205/7',
+      outcome: '0',
+      headline: 'Manav Suthar to Keshara Nuwantha',
+      text: 'Full and tossed up down the leg.',
+      score: '205/7',
     },
   ];
 
@@ -396,12 +394,12 @@ describe('over summaries', () => {
 
 // --- follow-ons in the match list ---------------------------------------------
 //
-// The list's j/k/l/m are innings in batting order. Rows as /matches/live served
+// The list's four innings scores are in batting order. Rows as /matches/live served
 // them on 2026-10-21, trimmed to the fields the innings are read from.
 
 const feedNames = (teams: Record<string, string>) =>
   ({
-    t: new Map(Object.entries(teams).map(([k, sn]) => [k, { f_key: k, n: sn, sn }])),
+    t: new Map(Object.entries(teams).map(([k, sn]) => [k, { key: k, name: sn, shortName: sn }])),
     v: new Map(),
     s: new Map(),
     p: new Map(),
@@ -417,12 +415,23 @@ const sides = (m: Match) =>
   );
 
 describe('follow-ons in the match list', () => {
-  const row = { a: '', ti: 1792310400000, v: 'V', q: 'S', fo: 'Test' };
+  const row = { statusCode: '', startTime: 1792310400000, venueKey: 'V', seriesKey: 'S', format: 'Test' };
 
   it('puts a live follow-on innings on the side that followed on', () => {
     const m = toMatch(
       '10MR',
-      { ...row, n: 42, a: '$d', b: 'P', c: 'Q', d: 4, j: '!425/9(127.1', k: '99/10(42.3', l: '50/1(17.0', res: 'Tea Break' } as never,
+      {
+        ...row,
+        packedState: 42,
+        statusCode: '$d',
+        team1Key: 'P',
+        team2Key: 'Q',
+        currentInnings: 4,
+        firstInningsScore: '!425/9(127.1',
+        secondInningsScore: '99/10(42.3',
+        thirdInningsScore: '50/1(17.0',
+        statusText: 'Tea Break',
+      },
       feedNames({ P: 'SA', Q: 'AUS' })
     );
     assert.deepEqual(sides(m), ['425/9', '99/10 & 50/1*']);
@@ -431,7 +440,19 @@ describe('follow-ons in the match list', () => {
   it('leaves a normal fourth innings where it is', () => {
     const m = toMatch(
       '133Z',
-      { ...row, n: 30, a: '$l', b: '3L', c: '3K', d: 6, j: '!440/6(110.0', k: '339/10(105.1', l: '!262/5(51.3', m: '30/3(15.0', res: 'Stumps' } as never,
+      {
+        ...row,
+        packedState: 30,
+        statusCode: '$l',
+        team1Key: '3L',
+        team2Key: '3K',
+        currentInnings: 6,
+        firstInningsScore: '!440/6(110.0',
+        secondInningsScore: '339/10(105.1',
+        thirdInningsScore: '!262/5(51.3',
+        fourthInningsScore: '30/3(15.0',
+        statusText: 'Stumps',
+      },
       feedNames({ '3L': 'A', '3K': 'B' })
     );
     assert.deepEqual(sides(m), ['440/6 & 262/5', '339/10 & 30/3*']);
@@ -440,7 +461,18 @@ describe('follow-ons in the match list', () => {
   it('reads an innings win and drops the 0/0 nobody batted', () => {
     const m = toMatch(
       '146W',
-      { ...row, n: 46, b: 'GJ', c: 'H3', d: 4, j: '404/10(129.3', k: '225/10(84.1', l: '143/10(58.3', m: '0/0(0.0', res: 'KER won by an innings and 36 runs' } as never,
+      {
+        ...row,
+        packedState: 46,
+        team1Key: 'GJ',
+        team2Key: 'H3',
+        currentInnings: 4,
+        firstInningsScore: '404/10(129.3',
+        secondInningsScore: '225/10(84.1',
+        thirdInningsScore: '143/10(58.3',
+        fourthInningsScore: '0/0(0.0',
+        statusText: 'KER won by an innings and 36 runs',
+      },
       feedNames({ GJ: 'KER', H3: 'ODSA' })
     );
     assert.deepEqual(sides(m), ['404/10', '225/10 & 143/10']);
@@ -449,7 +481,18 @@ describe('follow-ons in the match list', () => {
   it('reads a chase after a follow-on from the result', () => {
     const m = toMatch(
       '1471',
-      { ...row, n: 46, b: 'HC', c: 'H0', d: 5, j: '456/10(152.5', k: '206/10(64.5', l: '335/10(116.2', m: '86/3(16.5', res: 'PUN won by 7 wickets' } as never,
+      {
+        ...row,
+        packedState: 46,
+        team1Key: 'HC',
+        team2Key: 'H0',
+        currentInnings: 5,
+        firstInningsScore: '456/10(152.5',
+        secondInningsScore: '206/10(64.5',
+        thirdInningsScore: '335/10(116.2',
+        fourthInningsScore: '86/3(16.5',
+        statusText: 'PUN won by 7 wickets',
+      },
       feedNames({ HC: 'PUN', H0: 'CHG' })
     );
     assert.deepEqual(sides(m), ['456/10 & 86/3', '206/10 & 335/10']);
@@ -458,7 +501,18 @@ describe('follow-ons in the match list', () => {
   it('keeps the sides alternating on a win by runs', () => {
     const m = toMatch(
       '14R1',
-      { ...row, n: 46, b: '1CJ', c: '1CN', d: 6, j: '201/10(71.0', k: '250/10(63.0', l: '323/10(79.2', m: '264/10(72.5', res: 'KHU won by 10 runs' } as never,
+      {
+        ...row,
+        packedState: 46,
+        team1Key: '1CJ',
+        team2Key: '1CN',
+        currentInnings: 6,
+        firstInningsScore: '201/10(71.0',
+        secondInningsScore: '250/10(63.0',
+        thirdInningsScore: '323/10(79.2',
+        fourthInningsScore: '264/10(72.5',
+        statusText: 'KHU won by 10 runs',
+      },
       feedNames({ '1CJ': 'KHU', '1CN': 'CHT' })
     );
     assert.deepEqual(sides(m), ['201/10 & 323/10', '250/10 & 264/10']);

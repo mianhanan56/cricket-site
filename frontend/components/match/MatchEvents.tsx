@@ -2,7 +2,7 @@ import type { MatchEvent, MatchEventKind } from '@/types';
 import Skeleton, { staggerRows } from '../ui/Skeleton';
 import styles from './MatchEvents.module.scss';
 
-// Over summaries live in the commentary; here they would drown the moments.
+// Writers' notes live in the commentary; here they would drown the moments.
 const LISTED: ReadonlyArray<MatchEventKind> = ['WICKET', 'INNINGS_END', 'TARGET', 'TOSS', 'MILESTONE', 'REVIEW'];
 
 const KIND_CLASS: Partial<Record<MatchEventKind, string>> = {

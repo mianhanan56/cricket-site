@@ -8,65 +8,61 @@ import { cleanKey, resolveKeys, seriesRef, toTeam, venueOf, type NameCache } fro
 import { decodeMatchNote, inningsBreakNote, pickNote } from './notes';
 import { getApiArchivedMatch } from './schedule';
 
-/** One match as the upstream sends it. Only the fields we read; meanings checked against live data. */
+/** One match from /matches/live. Only the fields we read; meanings checked against live data. */
 export interface ApiRawMatch {
   /**
-   * Status code, decoded by `decodeMatchNote`: "$a".."$x" from the upstream's status table
-   * (older payloads send the bare letter), "^0".."^3" the toss, "&…" compressed
-   * result text (not decoded; `res` says the same in plain English).
+   * Decoded by `decodeMatchNote`: "$a".."$x" from the upstream's status table (older
+   * payloads send the bare letter), "^0".."^3" the toss, "&…" compressed result text
+   * (not decoded; `statusText` says the same in plain English).
    */
-  a?: string;
+  statusCode?: string;
   /** Qualifier on the status, e.g. "(wet outfield)". */
-  ac?: string;
-  /** Team 1 key. */
-  b: string;
-  /** Team 2 key. */
-  c: string;
-  /** Match number within the series, as a string; "0" or absent when unnumbered. */
-  e?: string;
-  /** Format label: "ODI" | "Test" | "T20" | "List A" | "One Day". Absent on The Hundred and some T10s. */
-  fo?: string;
-  /** Balls per over on The Hundred (5); absent elsewhere. */
-  hb?: number;
-  /**
-   * Innings slots in batting order: j and k the first innings of team 1 and 2, l and m
-   * the second (Tests). "282/6(50.0" — the paren is never closed; a leading "!" is a declaration.
-   */
-  j?: string;
-  k?: string;
-  l?: string;
-  m?: string;
-  /** Innings in progress: 1–2 the first innings, 3–6 the second; odd means team 1 is batting. */
-  d?: number;
-  /** Series key, usually "^"-prefixed. */
-  q: string;
+  statusDetail?: string;
   /** Status or result in words: "Innings Break", "UAE won by 97 runs". */
-  res?: string;
+  statusText?: string;
+  team1Key: string;
+  team2Key: string;
+  /** Usually "^"-prefixed. */
+  seriesKey: string;
+  venueKey: string;
+  /** Number within the series ("0" or absent when unnumbered), or a "^" code read by `knockoutStage`. */
+  matchNumber?: string;
+  /** "ODI" | "Test" | "T20" | "List A" | "One Day". Absent on The Hundred and some T10s. */
+  format?: string;
+  /** The Hundred only (5). */
+  ballsPerOver?: number;
+  /** Format, state and day in one number — read it through `decodeMatchState`, never as a threshold. */
+  packedState?: number;
+  /** 1–2 the first innings, 3–6 the second; odd means team 1 is batting. */
+  currentInnings?: number;
   /** Multi-day only, "2/1/135": the first figure is the session in play. */
-  s?: string;
-  /** Start time, epoch ms. Occasionally a countdown string ("02h : 23m"). */
-  ti: number | string;
-  /** Venue key. */
-  v: string;
-  /** Set once the match is over. Only read when `n` is missing. */
-  finishTime?: number;
-  /** Packed format/state/day — read it through `decodeMatchState`, never as a threshold. */
-  n?: number;
+  session?: string;
   /**
-   * Player of the match, finished matches only: "CO.1GK.65(36).3/30" is player key,
-   * team key, batting, bowling. A missing figure is the literal "-^-".
+   * Innings in batting order: team 1's first, team 2's first, then the two second innings
+   * (Tests), team 2's first after a follow-on. "282/6(50.0" — the paren is never closed; a
+   * leading "!" is a declaration.
    */
-  mm?: string;
-  /** Set on over half the list, live Tests included. Not "don't show": use `isRenderableMatch`. */
-  hide?: number;
+  firstInningsScore?: string;
+  secondInningsScore?: string;
+  thirdInningsScore?: string;
+  fourthInningsScore?: string;
+  /** Epoch ms. Occasionally a countdown string ("02h : 23m"). */
+  startTime: number | string;
+  /** Only read when `packedState` is missing. */
+  finishTime?: number;
+  /**
+   * Finished matches only: "CO.1GK.65(36).3/30" is player key, team key, batting,
+   * bowling. A missing figure is the literal "-^-".
+   */
+  playerOfMatch?: string;
 }
 
 /**
- * The upstream mixes stubs into the list (`wp` and nothing else) that would decode into a
- * blank card dated today. A real fixture always names both sides.
+ * The upstream mixes stubs into the list (no teams, nothing else we read) that would decode
+ * into a blank card dated today. A real fixture always names both sides.
  */
 export function isRenderableMatch(m: ApiRawMatch): boolean {
-  return Boolean(cleanKey(m.b) && cleanKey(m.c));
+  return Boolean(cleanKey(m.team1Key) && cleanKey(m.team2Key));
 }
 
 /** Keyed by match id, not an array. */
@@ -84,16 +80,16 @@ export function resolveNames(
 ): Promise<NameCache> {
   return resolveKeys(
     {
-      t: matches.flatMap((m) => [m.b, m.c]),
-      v: matches.map((m) => m.v),
-      s: matches.map((m) => m.q),
-      p: matches.map((m) => (m.mm ?? '').split('.')[0]).filter(Boolean),
+      t: matches.flatMap((m) => [m.team1Key, m.team2Key]),
+      v: matches.map((m) => m.venueKey),
+      s: matches.map((m) => m.seriesKey),
+      p: matches.map((m) => (m.playerOfMatch ?? '').split('.')[0]).filter(Boolean),
     },
     opts
   );
 }
 
-// `n` packs three fields (the upstream's `liveHomeParsingMethod`):
+// `packedState` packs three fields (the upstream's `liveHomeParsingMethod`):
 //   format = n % 4            0 T20, 1 ODI, 2 Test, 3 T10/The Hundred
 //   state  = ⌊(n % 12) / 4⌋   0 upcoming, 1 live, 2 finished
 //   day    = ⌊n / 12⌋ + 1
@@ -107,7 +103,7 @@ const STATE_STATUS: Record<number, MatchStatus> = {
   2: 'COMPLETED',
 };
 
-/** Slot 3 is T10 or The Hundred; `toMatchFormat` tells them apart by `hb`. */
+/** Slot 3 is T10 or The Hundred; `toMatchFormat` tells them apart by `ballsPerOver`. */
 const SLOT_FORMAT: Record<number, MatchFormat> = {
   0: 'T20',
   1: 'ODI',
@@ -122,7 +118,7 @@ export interface ApiMatchState {
   day: number;
 }
 
-/** Unpack the upstream's `n`. Returns null for a value that cannot be one. */
+/** Unpack `packedState`. Returns null for a value that cannot be one. */
 export function decodeMatchState(n: number | undefined): ApiMatchState | null {
   if (n === undefined || !Number.isFinite(n) || n < 0) return null;
 
@@ -138,37 +134,39 @@ export function decodeMatchState(n: number | undefined): ApiMatchState | null {
 }
 
 /**
- * Live / Upcoming / Finished. `n` is believed first — it is what the upstream's own site
- * switches on and it holds through stumps, rest days and breaks; `finishTime` and
- * the scores are the fallback for fixtures sent without it.
+ * Live / Upcoming / Finished. `packedState` is believed first — it is what the upstream's
+ * own site switches on and it holds through stumps, rest days and breaks; `finishTime`
+ * and the scores are the fallback for fixtures sent without it.
  */
 export function toMatchStatus(m: ApiRawMatch): MatchStatus {
-  const state = decodeMatchState(m.n);
+  const state = decodeMatchState(m.packedState);
+  const scored = Boolean(m.firstInningsScore || m.secondInningsScore);
 
   if (state) {
     // A stale "upcoming" over a match with an earlier day or a score is live.
-    if (state.status === 'UPCOMING' && (state.day > 1 || m.j || m.k)) return 'LIVE';
+    if (state.status === 'UPCOMING' && (state.day > 1 || scored)) return 'LIVE';
     return state.status;
   }
 
   if (m.finishTime) return 'COMPLETED';
-  return m.j || m.k ? 'LIVE' : 'UPCOMING';
+  return scored ? 'LIVE' : 'UPCOMING';
 }
 
 /**
- * Our format from the upstream's label. The Hundred is checked by `hb` (it has no `fo`) and
- * folds into T20; List A / One Day fold into ODI; `n` covers the rest sent bare.
+ * Our format from the upstream's label. The Hundred is checked by `ballsPerOver` (it has
+ * no label) and folds into T20; List A / One Day fold into ODI; `packedState` covers the
+ * rest sent bare.
  */
 export function toMatchFormat(m: ApiRawMatch): MatchFormat {
-  if (m.hb) return 'T20';
+  if (m.ballsPerOver) return 'T20';
 
-  const f = (m.fo ?? '').toUpperCase();
+  const f = (m.format ?? '').toUpperCase();
   if (f.includes('TEST')) return 'TEST';
   if (f.includes('T10')) return 'T10';
   if (f.includes('T20') || f.includes('HUN')) return 'T20';
   if (f.includes('ODI') || f.includes('ONE DAY') || f.includes('LIST')) return 'ODI';
 
-  return decodeMatchState(m.n)?.format ?? 'ODI';
+  return decodeMatchState(m.packedState)?.format ?? 'ODI';
 }
 
 /** "282/6(50.0" -> 282 for 6 in 50 overs. A "!" marks a declaration, kept as a flag. */
@@ -191,8 +189,8 @@ export function parseScore(score: string | undefined, teamShortName: string): In
 
 /**
  * Every innings in the four slots, tagged with its side and number. The one in
- * progress comes from `d`, not from wickets: a declaration or an over limit can
- * close an innings at any wicket count.
+ * progress comes from `currentInnings`, not from wickets: a declaration or an over
+ * limit can close an innings at any wicket count.
  */
 function feedInnings(
   m: ApiRawMatch,
@@ -201,19 +199,19 @@ function feedInnings(
   status: MatchStatus,
   format: MatchFormat
 ): InningsScore[] {
-  const pair = (m.d ?? 1) <= 2 ? 1 : 2;
-  const battingSide = (m.d ?? 1) % 2 === 1 ? 1 : 2;
+  const pair = (m.currentInnings ?? 1) <= 2 ? 1 : 2;
+  const battingSide = (m.currentInnings ?? 1) % 2 === 1 ? 1 : 2;
   const swap = format === 'TEST' && followedOn(m, home, away, status);
 
   const slots: Array<{ raw?: string; team: Team; side: 1 | 2; inningsNumber: number }> = [
-    { raw: m.j, team: home, side: 1, inningsNumber: 1 },
-    { raw: m.k, team: away, side: 2, inningsNumber: 1 },
+    { raw: m.firstInningsScore, team: home, side: 1, inningsNumber: 1 },
+    { raw: m.secondInningsScore, team: away, side: 2, inningsNumber: 1 },
     swap
-      ? { raw: m.l, team: away, side: 2, inningsNumber: 2 }
-      : { raw: m.l, team: home, side: 1, inningsNumber: 2 },
+      ? { raw: m.thirdInningsScore, team: away, side: 2, inningsNumber: 2 }
+      : { raw: m.thirdInningsScore, team: home, side: 1, inningsNumber: 2 },
     swap
-      ? { raw: m.m, team: home, side: 1, inningsNumber: 2 }
-      : { raw: m.m, team: away, side: 2, inningsNumber: 2 },
+      ? { raw: m.fourthInningsScore, team: home, side: 1, inningsNumber: 2 }
+      : { raw: m.fourthInningsScore, team: away, side: 2, inningsNumber: 2 },
   ];
 
   const out: InningsScore[] = [];
@@ -248,29 +246,31 @@ const isUnplayed = (inn: InningsScore): boolean => inn.runs === 0 && inn.wickets
 /**
  * Did the side batting second go straight back in? The slots assume the sides
  * alternate, so a follow-on swaps the last two. Decided only where the feed proves
- * it: live from `d` (3 = team 1's second innings, 4 = team 2's) pointing at the other
- * slot; finished from who the result says batted last, or once (an innings win).
- * A draw says neither and stays as sent.
+ * it: live from `currentInnings` (3 = team 1's second innings, 4 = team 2's) pointing
+ * at the other slot; finished from who the result says batted last, or once (an
+ * innings win). A draw says neither and stays as sent.
  */
 function followedOn(m: ApiRawMatch, home: Team, away: Team, status: MatchStatus): boolean {
-  if (!m.l) return false;
-  const fourth = parseScore(m.m, '');
+  if (!m.thirdInningsScore) return false;
+  const fourth = parseScore(m.fourthInningsScore, '');
   const playedFourth = fourth !== null && !isUnplayed(fourth);
 
-  if (status === 'LIVE') return (m.d === 4 && !playedFourth) || (m.d === 3 && playedFourth);
+  if (status === 'LIVE') {
+    return (m.currentInnings === 4 && !playedFourth) || (m.currentInnings === 3 && playedFourth);
+  }
   if (status !== 'COMPLETED') return false;
 
-  const { winnerKey, method } = attributeResult(m.res, home, away);
+  const { winnerKey, method } = attributeResult(m.statusText, home, away);
   if (!winnerKey) return false;
-  if (/innings/i.test(m.res ?? '')) return winnerKey === home.id;
+  if (/innings/i.test(m.statusText ?? '')) return winnerKey === home.id;
   if (!playedFourth || !method) return false;
   const batLast = method === 'CHASED' ? winnerKey : winnerKey === home.id ? away.id : home.id;
   return batLast === home.id;
 }
 
 /** The upstream sends epoch ms, but substitutes a countdown string on some fixtures. */
-function toStartTime(ti: number | string): string {
-  const ms = typeof ti === 'number' ? ti : Number(ti);
+function toStartTime(raw: number | string): string {
+  const ms = typeof raw === 'number' ? raw : Number(raw);
   return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : new Date().toISOString();
 }
 
@@ -280,12 +280,12 @@ const NO_FIGURES = '-^-';
 const figures = (raw: string | undefined): string | null =>
   raw && raw !== NO_FIGURES ? raw : null;
 
-/** The match award from `mm`, or null until the upstream names one (and on washouts). */
+/** The match award, or null until the upstream names one (and on washouts). */
 function decodePlayerOfMatch(
   m: ApiRawMatch,
   names: NameCache
 ): PlayerOfMatch | null {
-  const [playerKey, teamKey, batting, bowling] = (m.mm ?? '').split('.');
+  const [playerKey, teamKey, batting, bowling] = (m.playerOfMatch ?? '').split('.');
   const player = cleanKey(playerKey);
   if (!player) return null;
 
@@ -294,9 +294,9 @@ function decodePlayerOfMatch(
   return {
     id: player,
     // An unresolved key prints as the key: the upstream names the award once, and dropping it is worse.
-    name: names.p.get(player)?.n ?? player,
+    name: names.p.get(player)?.name ?? player,
     teamId: team,
-    teamShortName: names.t.get(team)?.sn ?? team,
+    teamShortName: names.t.get(team)?.shortName ?? team,
     batting: figures(batting),
     bowling: figures(bowling),
   };
@@ -304,46 +304,47 @@ function decodePlayerOfMatch(
 
 /** One of our matches from an upstream match plus the resolved names. */
 export function toMatch(id: string, m: ApiRawMatch, names: NameCache): Match {
-  const homeTeam = toTeam(m.b, names);
-  const awayTeam = toTeam(m.c, names);
+  const homeTeam = toTeam(m.team1Key, names);
+  const awayTeam = toTeam(m.team2Key, names);
 
   const status = toMatchStatus(m);
-  const state = decodeMatchState(m.n);
+  const state = decodeMatchState(m.packedState);
   const format = toMatchFormat(m);
   const innings = feedInnings(m, homeTeam, awayTeam, status, format);
   const perOver =
-    m.hb === HUNDRED_BALLS_PER_OVER ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER;
+    m.ballsPerOver === HUNDRED_BALLS_PER_OVER ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER;
 
   return {
     id,
     homeTeam,
     awayTeam,
-    series: seriesRef(cleanKey(m.q), names),
+    series: seriesRef(cleanKey(m.seriesKey), names),
     format,
     status,
-    ...venueOf(m.v, names),
-    startTime: toStartTime(m.ti),
+    ...venueOf(m.venueKey, names),
+    startTime: toStartTime(m.startTime),
     ballsPerOver: perOver,
-    // Any `hb` marks a 100-ball game; the format alone (T20) would give a chase 20 balls too many.
-    ballsLimit: m.hb ? HUNDRED_BALLS : null,
-    // `res` carries mid-match states too, so it is only a result once the match is over.
-    result: status === 'COMPLETED' ? resultText(m.res ?? m.a) : null,
+    // Any `ballsPerOver` marks a 100-ball game; the format (T20) would give a chase 20 balls too many.
+    ballsLimit: m.ballsPerOver ? HUNDRED_BALLS : null,
+    // `statusText` carries mid-match states too, so it is only a result once the match is over.
+    result: status === 'COMPLETED' ? resultText(m.statusText ?? m.statusCode) : null,
     // Independent of `status`: a Test at stumps is LIVE with a STUMPS note.
     note: pickNote(
       decodeMatchNote(m, { first: homeTeam.shortName, second: awayTeam.shortName }),
       inningsBreakNote(innings, status, format, perOver),
       { innings, format, perOver }
     ),
-    matchNumber: Number(m.e) > 0 ? Number(m.e) : null,
-    stage: knockoutStage(m.e),
+    matchNumber: Number(m.matchNumber) > 0 ? Number(m.matchNumber) : null,
+    stage: knockoutStage(m.matchNumber),
     day: state && state.format === 'TEST' ? state.day : null,
-    session: status === 'LIVE' && format === 'TEST' ? sessionOf(m.s) : null,
+    session: status === 'LIVE' && format === 'TEST' ? sessionOf(m.session) : null,
     playerOfMatch: status === 'COMPLETED' ? decodePlayerOfMatch(m, names) : null,
     scorecard: innings.length ? { innings } : null,
   };
 }
 
-// For a while after the finish the upstream can leave the last stoppage in `res` ("Tea Break" on a won Test).
+// For a while after the finish the upstream can leave the last stoppage in `statusText`
+// ("Tea Break" on a won Test).
 const STOPPAGE_TEXT = /\b(break|lunch|tea|drinks|stumps|timeout|delay(ed)?|rain|bad light|wet outfield)\b/i;
 const RESULT_TEXT = /\b(won|wins?|draw|drawn|tied?|no result|abandon|cancel|super over|forfeit|conceded|awarded)/i;
 

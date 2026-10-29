@@ -125,39 +125,39 @@ export async function getApiSeriesSchedule(
   const id = cleanKey(seriesKey);
   const raw = await getApiSeriesMatches(id, opts);
 
-  // Rows need only a start time: unallocated fixtures have no `mf`, and requiring
+  // Rows need only a start time: unallocated fixtures have no match key, and requiring
   // one undercounts a league by its whole playoff stage.
   const rows = scheduleRows(raw)
-    .filter((m): m is ApiSeriesMatch & { t: number } => Boolean(m?.t))
-    .sort((a, b) => a.t - b.t);
+    .filter((m): m is ApiSeriesMatch & { startTime: number } => Boolean(m?.startTime))
+    .sort((a, b) => a.startTime - b.startTime);
   if (!rows.length) return null;
 
   const names = await resolveKeys(
     {
-      t: rows.flatMap((m) => [m.t1f ?? '', m.t2f ?? '']),
-      v: rows.map((m) => m.vf ?? ''),
+      t: rows.flatMap((m) => [m.team1Key ?? '', m.team2Key ?? '']),
+      v: rows.map((m) => m.venueKey ?? ''),
       s: [id],
     },
     opts
   );
 
   const matches: SeriesScheduleMatch[] = rows.map((m, i) => ({
-    id: m.mf || scheduledMatchId(id, m.id),
-    matchKey: m.mf || null,
-    key: m.mf || `${id}-${i}`,
-    matchNo: m.mn?.startsWith('^') ? knockoutStage(m.mn) : m.mn || null,
-    format: scheduleFormat(m.ft, opts.fallback?.format),
-    status: scheduleStatus(m.s),
-    startTime: new Date(m.t).toISOString(),
-    ...venueOf(m.vf, names),
-    result: m.r || null,
-    homeTeam: toTeam(m.t1f ?? '', names),
-    awayTeam: toTeam(m.t2f ?? '', names),
+    id: m.matchKey || scheduledMatchId(id, m.id),
+    matchKey: m.matchKey || null,
+    key: m.matchKey || `${id}-${i}`,
+    matchNo: m.matchNumber?.startsWith('^') ? knockoutStage(m.matchNumber) : m.matchNumber || null,
+    format: scheduleFormat(m.format, opts.fallback?.format),
+    status: scheduleStatus(m.status),
+    startTime: new Date(m.startTime).toISOString(),
+    ...venueOf(m.venueKey, names),
+    result: m.result || null,
+    homeTeam: toTeam(m.team1Key ?? '', names),
+    awayTeam: toTeam(m.team2Key ?? '', names),
   }));
 
   return {
     id,
-    name: names.s.get(id)?.n ?? opts.fallback?.name ?? 'Cricket',
+    name: names.s.get(id)?.name ?? opts.fallback?.name ?? 'Cricket',
     format: dominantFormat(matches),
     formats: formatsIn(matches),
     unofficialTests: unofficialTestsIn(matches),

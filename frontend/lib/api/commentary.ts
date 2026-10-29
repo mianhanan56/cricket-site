@@ -1,71 +1,116 @@
 // The ball-by-ball feed (/match/commentary): deliveries, the events between them,
 // end-of-over cards and the upstream's own notes, all interleaved in one stream of rows.
 import type { BallExtra, CommentaryBall, FeedNote, MatchEvent, MatchEventKind, OverSummary, WicketRef } from '@/types';
-import { plural } from '../text';
 import { apiGet, type FetchOpts } from './client';
 import { plainText, toFeedNote } from './feedNotes';
 import { cleanKey } from './names';
 
+/**
+ * One feed row as the Worker shapes it. Which fields a row carries depends on its `type`, and a
+ * name means the same thing on every row that has it. Stat-card numbers can arrive as strings ("").
+ */
 export interface ApiBallFeed {
   /**
-   * The outcome in the upstream's shorthand: "0", "4", "W", "WD"/"NB", "4wd", "1lb", "0+1".
-   * Read it through `parseBallOutcome` — `Number(b)` is NaN on all but the first form.
-   */
-  b?: string | number;
-  /** Over.ball, e.g. "48.2". */
-  o?: string | number;
-  /** Player key of the batter on strike. */
-  pf?: string;
-  /** Headline, "Bowler to Batsman". */
-  c1?: string;
-  /** Descriptive text. Often empty on minor events. */
-  c2?: string;
-  /**
    * Row kind: "b" a delivery, "o" over summary, "w" wicket card, "ic2" innings end,
-   * "tc" target, "to" toss, "pm"/"tm" milestone, "rc"/"ac" review, "t" a written
-   * note, "ps"/"pbc"/"pvtc"/"pl" stat cards and polls.
+   * "tc" target, "to" toss, "pm"/"tm" player/team milestone, "ac" review called, "rc" review
+   * decision, "t" a written note, "ps"/"pbc"/"pvtc" stat cards. Other kinds (polls, tweets)
+   * carry only `type`, `id` and `inning`.
    */
   type?: string;
   /** Epoch ms — also the paging cursor. */
   id?: number;
-  /** The marker's sentence, on the event rows that carry one. */
-  c?: string;
-  /** 0-based over number on an over summary; -1 where the upstream ties the row to none. */
-  on?: number;
-  /** Runs off the over. */
-  runs?: number;
-  /** Wickets in the over. */
-  ow?: number;
-  /** Player or team name on a milestone or wicket card. */
-  n?: string;
-  /** Batter's name on a wicket card. */
-  player_fullname?: string;
-  /** Batter's f_key on a wicket card. */
-  player_fkey?: string;
-  /** Wicket number on a wicket card, 1-based. */
-  wn?: number;
-  /** Runs on a wicket card. */
-  r?: number;
   /** Innings index, 0-based. */
   inning?: number;
-  /** Team score at this point, "205/7" — on deliveries and over summaries. */
-  s?: string;
+  /** 0-based over number on wicket, milestone, innings-end and review rows and over summaries; -1 where the upstream ties the row to none. */
+  overIndex?: number;
+  /** The row's prose: a delivery's description, an event's sentence, a note's markup. Often empty. */
+  text?: string;
+
   /**
-   * Over summaries only: `rb` the over's balls ("1.0.0.0.0.0"), `p1`/`p2` + `pf1`/`pf2`
-   * + `s1`/`s2` the two batters ("13(52)"), `bowler` + `bf` + `bd` the bowler's spell
-   * ("2-61(14.0)"), `team` the batting side. `bf` is also the bowler on a delivery.
+   * Delivery. The outcome in the upstream's shorthand: "0", "4", "W", "WD"/"NB", "4wd", "1lb", "0+1".
+   * Read it through `parseBallOutcome` — `Number(outcome)` is NaN on all but the first form.
    */
-  rb?: string;
-  p1?: string;
-  p2?: string;
-  s1?: string;
-  s2?: string;
-  pf1?: string;
-  pf2?: string;
-  bd?: string;
-  bowler?: string;
-  bf?: string;
-  team?: string;
+  outcome?: string | number;
+  /** Delivery: over.ball, "48.2". */
+  over?: string | number;
+  /** Delivery: "Bowler to Batter". */
+  headline?: string;
+  strikerKey?: string;
+  /** Delivery and over summary. */
+  bowlerKey?: string;
+  /** Team score, "205/7": after a delivery, at the end of an over, at the end of an innings. */
+  score?: string;
+
+  /** Over summary: the over's own; wicket card: the batter's; milestone: the one reached; head-to-heads: the record's. */
+  runs?: number;
+  /** Over summary: wickets in the over. */
+  wickets?: number;
+  /** Over summary: the over's outcomes, "1.0.0.0.0.0". */
+  outcomes?: string;
+  battingTeamName?: string;
+  batter1Name?: string;
+  batter1Key?: string;
+  /** "13(52)". */
+  batter1Score?: string;
+  batter2Name?: string;
+  batter2Key?: string;
+  batter2Score?: string;
+  bowlerName?: string;
+  /** "2-61(14.0)". */
+  bowlerFigures?: string;
+
+  /** The player or team the row is about: wicket card, milestones, innings end, player card. */
+  name?: string;
+  playerKey?: string;
+  /** Wicket card, 1-based. */
+  wicketNumber?: number;
+  /** Faced on a wicket card or to a milestone; in the record on batter v bowler. */
+  balls?: number | string;
+  fours?: number;
+  sixes?: number;
+  strikeRate?: number | string;
+  /** Wicket card: "c Dhir b Krishna". */
+  howOut?: string;
+  /** Innings end: "19.4". */
+  overs?: string;
+  /** Target: "7.30". */
+  requiredRunRate?: string;
+  /** Note: "f" a featured note. */
+  subType?: string | number;
+
+  /** Review rows: reviews each side has left, by team key. */
+  reviewsLeft?: Record<string, number>;
+  /** Review decision: 0 the batting side's review, 1 the fielding side's. */
+  reviewedBy?: number;
+  /** Review decision: "1" out. */
+  result?: string | number;
+  /** Review decision: "1" an edge, "0" none, -1 not used. */
+  ultraEdge?: string | number;
+  battingTeamKey?: string;
+  bowlingTeamKey?: string;
+
+  /** Player card: "1" a batter's, "0" a bowler's. */
+  discipline?: string;
+  /** Player card: -1 unranked. */
+  rank?: number | string;
+  age?: number | string;
+  battingPosition?: number | string;
+  /** Player card (career) and head-to-heads. */
+  innings?: number | string;
+  /** Player card: career runs for a batter, wickets for a bowler. */
+  total?: number | string;
+  average?: number | string;
+  /** Player card: strike rate for a batter, economy for a bowler. */
+  rate?: number | string;
+
+  batterKey?: string;
+  /** Head-to-heads: "ODI". */
+  format?: string;
+  /** Batter v bowler: the year the record starts. */
+  since?: number | string;
+  dismissals?: number | string;
+  /** Player v team: the opposing team. */
+  opponentKey?: string;
 }
 
 // Three overs, which the header's recent-balls strip is sized to. This walk runs
@@ -77,10 +122,10 @@ const MAX_COMMENTARY_PAGES = 5;
 
 /** A real delivery. Partnership and milestone rows can also be `type: "w"`; they are not wickets. */
 function isDelivery(f: ApiBallFeed): boolean {
-  return f.type === 'b' && String(f.o ?? '').includes('.');
+  return f.type === 'b' && String(f.over ?? '').includes('.');
 }
 
-/** What a delivery cost, decoded from the upstream's `b` shorthand. */
+/** What a delivery cost, decoded from the upstream's `outcome` shorthand. */
 export interface BallOutcome {
   /** Bat runs + extras, penalty included — what the total went up by. */
   runs: number;
@@ -101,7 +146,7 @@ const EXTRA_CODES: Record<string, BallExtra> = {
 const PENALTY: Partial<Record<BallExtra, number>> = { wide: 1, noball: 1 };
 
 /**
- * Decode one `b` value, every form checked against the running total: "4" off the
+ * Decode one `outcome` value, every form checked against the running total: "4" off the
  * bat; "W" (runs can ride along: "W+1", "1W"); "WD"/"NB" the penalty alone; "4wd"
  * five to the total; "1lb"/"4b" legal byes; "0+1" bat runs plus extras. Anything
  * unrecognised is a dot, so one odd token costs one ball, not the strip.
@@ -164,10 +209,9 @@ export function parseBallOutcome(raw: unknown): BallOutcome {
 }
 
 // Rows the upstream's app renders as cards (career stats, head-to-heads, polls) are not
-// match events and have no entry here.
+// match events and have no entry here; over summaries are read whole by `toOverSummary`.
 const EVENT_LABELS: Partial<Record<string, { label: string; kind: MatchEventKind }>> = {
   w: { label: 'Wicket', kind: 'WICKET' },
-  o: { label: 'Over complete', kind: 'OVER' },
   ic2: { label: 'Innings end', kind: 'INNINGS_END' },
   tc: { label: 'Target set', kind: 'TARGET' },
   to: { label: 'Toss', kind: 'TOSS' },
@@ -179,9 +223,6 @@ const EVENT_LABELS: Partial<Record<string, { label: string; kind: MatchEventKind
   t: { label: 'Update', kind: 'NOTE' },
 };
 
-/** Events that happen between overs; the `on` the upstream gives them is not an over number. */
-const OVERLESS: ReadonlySet<MatchEventKind> = new Set(['TOSS', 'TARGET']);
-
 /** One non-delivery row as an event, in the upstream's own words and numbers. Null for deliveries and cards. */
 function toMatchEvent(f: ApiBallFeed): MatchEvent | null {
   if (isDelivery(f)) return null;
@@ -189,38 +230,31 @@ function toMatchEvent(f: ApiBallFeed): MatchEvent | null {
   const spec = EVENT_LABELS[f.type ?? ''];
   if (!spec) return null;
 
-  const over =
-    f.on !== undefined && f.on >= 0 && !OVERLESS.has(spec.kind) ? f.on + 1 : null;
-  let label = spec.label;
-  let text = plainText(f.c);
+  const over = f.overIndex !== undefined && f.overIndex >= 0 ? f.overIndex + 1 : null;
+  let text = plainText(f.text);
   let wicket: WicketRef | undefined;
 
-  if (spec.kind === 'OVER') {
-    label = over ? `End of over ${over}` : 'Over complete';
-    const runs = f.runs ?? 0;
-    const wickets = f.ow ?? 0;
-    text = plural(runs, 'run') + (wickets ? `, ${plural(wickets, 'wicket')}` : '');
-  } else if (spec.kind === 'WICKET' && (f.player_fullname ?? f.n)) {
+  if (spec.kind === 'WICKET' && f.name) {
     // One short line per wicket; the team score is added from the scorecard by `keyMoments`.
-    const who = f.player_fullname ?? f.n ?? '';
-    const faced = typeof f.b === 'number' ? ` (${f.b})` : '';
-    text = `${who} out${f.r !== undefined ? ` for ${f.r}${faced}` : ''}`;
+    const who = f.name;
+    const faced = typeof f.balls === 'number' ? ` (${f.balls})` : '';
+    text = `${who} out${f.runs !== undefined ? ` for ${f.runs}${faced}` : ''}`;
     wicket = {
-      playerId: cleanKey(f.player_fkey) || null,
+      playerId: cleanKey(f.playerKey) || null,
       name: who,
       inning: f.inning ?? null,
-      number: f.wn ?? null,
+      number: f.wicketNumber ?? null,
     };
-  } else if (spec.kind === 'MILESTONE' && f.n) {
-    text = `${f.n} — ${text}`;
+  } else if (spec.kind === 'MILESTONE' && f.name) {
+    text = `${f.name} — ${text}`;
   }
 
   if (!text) return null;
 
   return {
-    id: String(f.id ?? `${f.type}-${f.on ?? ''}`),
+    id: String(f.id ?? `${f.type}-${f.overIndex ?? ''}`),
     kind: spec.kind,
-    label,
+    label: spec.label,
     text,
     over,
     timestamp: f.id ? new Date(f.id).toISOString() : undefined,
@@ -240,6 +274,8 @@ export interface ApiMatchFeed {
   oldest: string | null;
   /** No unseen rows came back, so there is nothing older to offer. */
   exhausted: boolean;
+  /** The newest feed id read — pass it back as `since` on the next poll. Null when nothing was found. */
+  newest: number | null;
 }
 
 export interface FeedWalkOpts extends FetchOpts {
@@ -249,6 +285,8 @@ export interface FeedWalkOpts extends FetchOpts {
   maxPages?: number;
   /** Continue from an earlier walk's `oldest` instead of the live tail. */
   before?: string;
+  /** An earlier walk's `newest`: once a page reaches it, the caller already holds the rest. */
+  since?: number | null;
 }
 
 /** The upstream writes runs off a wide or no ball first ("1nb"); the ball strip writes them after ("nb+1"). */
@@ -256,27 +294,26 @@ const overToken = (t: string): string => t.replace(/^(\d+)(nb|wd)$/i, (_, runs: 
 
 /** An over-summary row as a whole card: the balls, the score, who was in and who bowled. */
 function toOverSummary(f: ApiBallFeed): OverSummary | null {
-  if (f.type !== 'o' || f.on === undefined || f.on < 0) return null;
+  if (f.type !== 'o' || f.overIndex === undefined || f.overIndex < 0) return null;
 
   const batsmen = [
-    { playerId: cleanKey(f.pf1) || null, name: f.p1 ?? '', figures: f.s1 ?? null },
-    { playerId: cleanKey(f.pf2) || null, name: f.p2 ?? '', figures: f.s2 ?? null },
+    { playerId: cleanKey(f.batter1Key) || null, name: f.batter1Name ?? '', figures: f.batter1Score ?? null },
+    { playerId: cleanKey(f.batter2Key) || null, name: f.batter2Name ?? '', figures: f.batter2Score ?? null },
   ].filter((b) => b.name);
 
   return {
-    id: String(f.id ?? `o-${f.on}`),
-    over: f.on + 1,
+    id: String(f.id ?? `o-${f.overIndex}`),
+    over: f.overIndex + 1,
     inning: f.inning ?? 0,
     runs: f.runs ?? 0,
-    wickets: f.ow ?? 0,
-    balls: (f.rb ?? '').split('.').filter((b) => b !== '').map(overToken),
-    score: f.s ?? null,
-    battingTeam: f.team ?? null,
+    wickets: f.wickets ?? 0,
+    balls: (f.outcomes ?? '').split('.').filter((b) => b !== '').map(overToken),
+    score: f.score ?? null,
+    battingTeam: f.battingTeamName ?? null,
     batsmen,
-    bowler: f.bowler
-      ? { playerId: cleanKey(f.bf) || null, name: f.bowler, figures: f.bd ?? null }
+    bowler: f.bowlerName
+      ? { playerId: cleanKey(f.bowlerKey) || null, name: f.bowlerName, figures: f.bowlerFigures ?? null }
       : null,
-    timestamp: f.id ? new Date(f.id).toISOString() : undefined,
   };
 }
 
@@ -307,13 +344,14 @@ export async function getApiMatchFeed(
   matchKey: string,
   opts: FeedWalkOpts = {}
 ): Promise<ApiMatchFeed> {
-  const { minBalls = MIN_BALLS, maxPages = MAX_COMMENTARY_PAGES, before } = opts;
+  const { minBalls = MIN_BALLS, maxPages = MAX_COMMENTARY_PAGES, before, since } = opts;
 
   const feed: ApiBallFeed[] = [];
   const seen = new Set<number>();
   let cursor = before ?? '';
   let exhausted = false;
   let oldest: number | null = null;
+  let newest: number | null = null;
   let balls = 0;
 
   for (let page = 0; page < maxPages; page++) {
@@ -341,10 +379,11 @@ export async function getApiMatchFeed(
       seen.add(id);
       feed.push(f);
       if (oldest === null || id < oldest) oldest = id;
+      if (newest === null || id > newest) newest = id;
       if (isDelivery(f)) balls += 1;
     }
 
-    if (balls >= minBalls) break;
+    if (balls >= minBalls || (since && oldest !== null && oldest <= since)) break;
 
     cursor = String(batch[batch.length - 1].id ?? '');
     if (!cursor) {
@@ -353,7 +392,7 @@ export async function getApiMatchFeed(
     }
   }
 
-  return { ...feedFromRows(feed), oldest: oldest === null ? null : String(oldest), exhausted };
+  return { ...feedFromRows(feed), oldest: oldest === null ? null : String(oldest), exhausted, newest };
 }
 
 export type ApiFeedRow = ApiBallFeed;
@@ -363,9 +402,9 @@ export function feedFromRows(feed: ApiBallFeed[]): Pick<ApiMatchFeed, 'balls' | 
   const balls = feed
     .filter(isDelivery)
     .map((f) => {
-      const [over, ball] = String(f.o ?? '').split('.');
-      const outcome = parseBallOutcome(f.b);
-      const text = [plainText(f.c1), plainText(f.c2)].filter(Boolean).join(' — ');
+      const [over, ball] = String(f.over ?? '').split('.');
+      const outcome = parseBallOutcome(f.outcome);
+      const text = [plainText(f.headline), plainText(f.text)].filter(Boolean).join(' — ');
 
       return {
         id: String(f.id ?? `${over}.${ball}`),
@@ -377,13 +416,12 @@ export function feedFromRows(feed: ApiBallFeed[]): Pick<ApiMatchFeed, 'balls' | 
         extraRuns: outcome.extraRuns,
         extra: outcome.extra,
         isWicket: outcome.isWicket,
-        isBoundary: outcome.batRuns === 4 || outcome.batRuns === 6,
         text,
-        scoreAfter: f.s ?? null,
+        scoreAfter: f.score ?? null,
         inning: f.inning,
         timestamp: f.id ? new Date(f.id).toISOString() : undefined,
-        batterId: f.pf || undefined,
-        bowlerId: f.bf || undefined,
+        batterId: f.strikerKey || undefined,
+        bowlerId: f.bowlerKey || undefined,
       } satisfies CommentaryBall;
     })
     .filter((b) => Boolean(b.text));

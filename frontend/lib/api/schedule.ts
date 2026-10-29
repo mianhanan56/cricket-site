@@ -9,25 +9,22 @@ import { scorecardFromRaw, type ApiScorecardBody } from './scorecard';
 
 /** One match as /series/matches sends it, grouped under a date key ("2026/7/21"). */
 export interface ApiSeriesMatch {
-  /** Match key — empty until the upstream allocates one, a day or two before the match. */
-  mf: string;
+  /** Empty until the upstream allocates one, a day or two before the match. */
+  matchKey: string;
   /** The upstream's row id, on every row; addresses an unallocated fixture (see `scheduledMatchId`). */
   id?: number;
-  /** Team 1 / team 2 keys. */
-  t1f?: string;
-  t2f?: string;
-  /** Venue key. */
-  vf?: string;
-  /** Match number within the series, "1" or "Final". */
-  mn?: string;
-  /** Start time, epoch ms. */
-  t?: number;
+  team1Key?: string;
+  team2Key?: string;
+  venueKey?: string;
+  /** Match number within the series: "1", "Final", or a knockout code ("^0"). */
+  matchNumber?: string;
+  startTime?: number;
   /** 0 upcoming, 1 live, 2 finished. */
-  s?: number;
-  /** Result text, once there is one. */
-  r?: string;
-  /** Format id: 1 ODI, 2 T20, 3 Test, 4 T10, 5 The Hundred. */
-  ft?: number;
+  status?: number;
+  /** Once there is one. */
+  result?: string;
+  /** 1 ODI, 2 T20, 3 Test, 4 T10, 5 The Hundred. */
+  format?: number;
 }
 
 export type ApiSeriesMatchesResponse = Record<string, ApiSeriesMatch[]>;
@@ -71,21 +68,21 @@ export async function getApiArchivedMatch(id: string, opts: FetchOpts = {}): Pro
     }).catch(() => null),
   ]);
 
-  const seriesKey = cleanKey(info?.s);
+  const seriesKey = cleanKey(info?.seriesKey);
   if (!seriesKey) return null;
 
   const schedule = await getApiSeriesMatches(seriesKey, archived).catch(() => null);
-  const row = scheduleRows(schedule).find((m) => m?.mf === key);
+  const row = scheduleRows(schedule).find((m) => m?.matchKey === key);
   if (!row) return null;
 
-  const status = scheduleStatus(row.s);
-  const balls = scheduleBalls(row.ft);
+  const status = scheduleStatus(row.status);
+  const balls = scheduleBalls(row.format);
 
   const [names, innings] = await Promise.all([
     resolveKeys(
       {
-        t: [row.t1f ?? '', row.t2f ?? ''],
-        v: [row.vf ?? '', info?.v ?? ''],
+        t: [row.team1Key ?? '', row.team2Key ?? ''],
+        v: [row.venueKey ?? '', info?.venueKey ?? ''],
         s: [seriesKey],
       },
       archived
@@ -98,22 +95,22 @@ export async function getApiArchivedMatch(id: string, opts: FetchOpts = {}): Pro
         ),
   ]);
 
-  const startedAt = row.t ?? (info?.dt ? Date.parse(info.dt) : NaN);
+  const startedAt = row.startTime ?? (info?.scheduledStart ? Date.parse(info.scheduledStart) : NaN);
 
   return {
     id: key,
-    homeTeam: toTeam(row.t1f ?? '', names),
-    awayTeam: toTeam(row.t2f ?? '', names),
+    homeTeam: toTeam(row.team1Key ?? '', names),
+    awayTeam: toTeam(row.team2Key ?? '', names),
     series: seriesRef(seriesKey, names),
-    format: scheduleFormat(row.ft),
+    format: scheduleFormat(row.format),
     status,
-    ...venueOf(row.vf || info?.v, names),
+    ...venueOf(row.venueKey || info?.venueKey, names),
     startTime: new Date(Number.isFinite(startedAt) ? startedAt : Date.now()).toISOString(),
     ...balls,
-    result: row.r || null,
+    result: row.result || null,
     note: null,
-    matchNumber: Number(row.mn) > 0 ? Number(row.mn) : null,
-    stage: knockoutStage(row.mn),
+    matchNumber: Number(row.matchNumber) > 0 ? Number(row.matchNumber) : null,
+    stage: knockoutStage(row.matchNumber),
     day: null,
     playerOfMatch: null,
     scorecard: innings.length ? { innings } : null,
@@ -161,27 +158,27 @@ export async function getApiScheduledMatch(
 
   const schedule = await getApiSeriesMatches(seriesKey, scheduled).catch(() => null);
   const row = scheduleRows(schedule).find((m) => m && String(m.id ?? '') === rowId);
-  if (!row?.t) return null;
+  if (!row?.startTime) return null;
 
   const names = await resolveKeys(
-    { t: [row.t1f ?? '', row.t2f ?? ''], v: [row.vf ?? ''], s: [seriesKey] },
+    { t: [row.team1Key ?? '', row.team2Key ?? ''], v: [row.venueKey ?? ''], s: [seriesKey] },
     scheduled
   );
 
   return {
-    id: cleanKey(row.mf) || id,
-    homeTeam: toTeam(row.t1f ?? '', names),
-    awayTeam: toTeam(row.t2f ?? '', names),
+    id: cleanKey(row.matchKey) || id,
+    homeTeam: toTeam(row.team1Key ?? '', names),
+    awayTeam: toTeam(row.team2Key ?? '', names),
     series: seriesRef(seriesKey, names),
-    format: scheduleFormat(row.ft),
-    status: scheduleStatus(row.s),
-    ...venueOf(row.vf, names),
-    startTime: new Date(row.t).toISOString(),
-    ...scheduleBalls(row.ft),
-    result: row.r || null,
+    format: scheduleFormat(row.format),
+    status: scheduleStatus(row.status),
+    ...venueOf(row.venueKey, names),
+    startTime: new Date(row.startTime).toISOString(),
+    ...scheduleBalls(row.format),
+    result: row.result || null,
     note: null,
-    matchNumber: Number(row.mn) > 0 ? Number(row.mn) : null,
-    stage: knockoutStage(row.mn),
+    matchNumber: Number(row.matchNumber) > 0 ? Number(row.matchNumber) : null,
+    stage: knockoutStage(row.matchNumber),
     day: null,
     playerOfMatch: null,
     scorecard: null,

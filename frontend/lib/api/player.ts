@@ -1,6 +1,5 @@
 // /player/overview: a whole career in one call. A format is always a pair of
-// codes (`st` competition + `ft`/`mt` format, see `playerFormatLabel`), and the
-// bio is pasted Google Docs HTML (see `sanitizeBio`).
+// codes (competition + format, see `playerFormatLabel`).
 import type {
   PlayerBattingCareer,
   PlayerBowlingCareer,
@@ -14,143 +13,126 @@ import { apiGet, type FetchOpts } from './client';
 import { cleanKey, playerImageUrl, resolveKeys, type NameCache } from './names';
 import { getApiScorecard } from './scorecard';
 
-/** Basic info — the upstream's `a.bsi`. Only the fields the profile page reads. */
-interface ApiPlayerBasic {
-  /** Full name. */
-  fn?: string;
-  /** Date of birth, epoch ms. */
-  dob?: number | null;
-  /** Date of death. */
-  dod?: number | null;
-  /** Place of birth, free text. */
-  pob?: string;
-  /** Height, the upstream's wording: "5 ft 10 in". */
-  h?: string;
-  /** Nationality as an adjective — "Pakistani". */
-  n?: string;
-  /** Bio, as HTML. */
-  p?: string;
+/** Basic info. Only the fields the profile page reads. */
+interface ApiPlayerInfo {
+  fullName?: string;
+  /** Epoch ms. */
+  birthDate?: number | null;
+  /** Free text. */
+  birthPlace?: string;
+  /** The upstream's wording: "5 ft 10 in". */
+  height?: string;
+  /** As an adjective — "Pakistani". */
+  nationality?: string;
   /** Every team they have played for, comma-separated. */
-  tm?: string;
+  teams?: string;
   /** Instagram handle. */
-  iu?: string;
+  instagram?: string;
   /** Twitter handle, sometimes with the leading @. */
-  tu?: string;
-  /** Role: 0 keeper, 1 batter, 3 bowler, anything else all-rounder. */
-  rl?: number;
-  /** Batting hand, lowercase: "right handed". */
-  bts?: string;
-  /** Batting position: "opener", "middle order". */
-  bp?: string;
-  /** Bowling type: "right-arm offbreak". Literally "na" for a non-bowler. */
-  bwl?: string;
-  /** Bowling style: 1 pace, 2 spin, -1 unknown. */
-  bs?: number;
-  /** Popular shot. Almost always empty. */
-  ps?: string;
-  /** Gender: 0 men, 1 women. */
-  g?: number;
+  twitter?: string;
+  /** 0 keeper, 1 batter, 3 bowler, anything else all-rounder. */
+  role?: number;
+  /** Lowercase: "right handed". */
+  battingHand?: string;
+  /** "opener", "middle order". */
+  battingPosition?: string;
+  /** "right-arm offbreak". Literally "na" for a non-bowler. */
+  bowlingType?: string;
+  /** 1 pace, 2 spin, -1 unknown. */
+  bowlingStyle?: number;
+  /** Almost always empty. */
+  popularShot?: string;
+  /** 0 men, 1 women. */
+  gender?: number;
 }
 
 /** One career row — batting or bowling, for one competition and format. */
 interface ApiCareerRow<S> {
   /** Competition code. 1 is international; the rest are leagues. */
-  st: number;
-  /** Format code, read together with `st`. */
-  ft: number;
-  s: S;
+  competition: number;
+  /** Format code, read together with `competition`. */
+  format: number;
+  stats: S;
 }
 
-/** A match referenced from a career row. Only the key is read. */
 interface ApiCareerMatchRef {
-  mf?: string;
+  matchKey?: string;
 }
 
 interface ApiBattingStats {
-  m?: number;
-  i?: number;
-  r?: number;
-  /** Hundreds. */
-  hd?: number;
-  /** Fifties. */
-  ff?: number;
-  /** Highest score. */
-  hs?: number;
-  sr?: number;
-  av?: number;
-  /** Fours. */
-  fr?: number;
-  /** Sixes. */
-  sx?: number;
-  /** Ducks. The wire field is `du`; the upstream's own page reads `dk` and prints "--". Both are read. */
-  du?: number;
-  dk?: number;
+  matches?: number;
+  innings?: number;
+  runs?: number;
+  hundreds?: number;
+  fifties?: number;
+  highScore?: number;
+  strikeRate?: number;
+  average?: number;
+  fours?: number;
+  sixes?: number;
+  ducks?: number;
   /** The innings the highest score was made in. */
-  hsm?: ApiCareerMatchRef | null;
-  /** Batting debut, as prose. */
-  btd?: string;
-  /** The debut match. Null on the leagues the upstream has not keyed. */
-  btdm?: ApiCareerMatchRef | null;
+  highScoreMatch?: ApiCareerMatchRef | null;
+  /** As prose. */
+  debut?: string;
+  /** Null on the leagues the upstream has not keyed. */
+  debutMatch?: ApiCareerMatchRef | null;
 }
 
 interface ApiBowlingStats {
-  m?: number;
-  i?: number;
-  w?: number;
+  matches?: number;
+  innings?: number;
+  wickets?: number;
   /** Best innings figures, "5/23"; "" when none. */
-  bf?: string;
-  /** Economy. */
-  ec?: number;
-  w3?: number;
-  w5?: number;
-  /** Bowling average. */
-  bav?: number;
-  /** Bowling strike rate. */
-  bsr?: number;
-  /** Bowling debut, as prose. */
-  bod?: string;
-  /** The debut match. */
-  bodm?: ApiCareerMatchRef | null;
+  bestFigures?: string;
+  economy?: number;
+  threeWickets?: number;
+  fiveWickets?: number;
+  average?: number;
+  strikeRate?: number;
+  /** As prose. */
+  debut?: string;
+  debutMatch?: ApiCareerMatchRef | null;
 }
 
-/** One of the last ten innings — the upstream's `c.btf` / `c.bof`. */
+/** One of the last ten innings, batting or bowling. */
 interface ApiFormRow {
   /** Batting: runs scored. Bowling: runs conceded. */
-  r?: number;
-  /** Batting: balls faced. Bowling: wickets taken. */
-  b?: number;
+  runs?: number;
+  /** Batting only: balls faced. */
+  balls?: number;
+  /** Bowling only. */
+  wickets?: number;
   /** Batting only: 1 dismissed, 0 not out. */
-  di?: number;
-  /** Match key. */
-  mf?: string;
+  dismissed?: number;
+  matchKey?: string;
   /** Competition code. */
-  st?: number;
+  competition?: string | number;
   /** Match-type code — the format half of the label on a form row. */
-  mt?: number;
-  /** Start time, epoch ms. */
-  dt?: number;
+  format?: number;
+  /** Epoch ms. */
+  startTime?: number;
   /** The opposition's team key. */
-  vs?: string;
-  t1f?: string;
-  t2f?: string;
+  opponentKey?: string;
+  team1Key?: string;
+  team2Key?: string;
 }
 
-/** The whole profile payload. `t` (social embeds) is deliberately not typed. */
 interface ApiPlayerOverview {
-  a?: {
-    bsi?: ApiPlayerBasic;
-    sts?: {
-      bt?: ApiCareerRow<ApiBattingStats>[];
-      bl?: ApiCareerRow<ApiBowlingStats>[];
+  profile?: {
+    info?: ApiPlayerInfo;
+    career?: {
+      batting?: ApiCareerRow<ApiBattingStats>[];
+      bowling?: ApiCareerRow<ApiBowlingStats>[];
     };
   };
-  /** ICC ranking positions. `type` is the discipline, `ft` the format. */
-  b?: Array<{ ft: number; pos: number; type: number }>;
-  c?: { btf?: ApiFormRow[]; bof?: ApiFormRow[] };
-  /** Teams under contract. `st` arrives as a string here, unlike everywhere else. */
-  d?: Array<{ tf?: string; st?: string | number; ft?: number }>;
-  /** Competitions × formats the player has figures in. */
-  h?: Array<{ st?: number; ft?: number }>;
+  /** ICC ranking positions. `discipline` is the ranking list's code, not a player role code. */
+  rankings?: Array<{ format: number; position: number; discipline: number }>;
+  recentForm?: { batting?: ApiFormRow[]; bowling?: ApiFormRow[] };
+  /** Teams under contract. `competition` arrives as a string here. */
+  contracts?: Array<{ teamKey?: string; competition?: string | number }>;
+  /** One entry per competition × format the player has figures in. */
+  formatsPlayed?: Array<{ format?: number }>;
 }
 
 /**
@@ -216,45 +198,6 @@ function rankingDiscipline(code: number): PlayerRanking['discipline'] {
   return 'All Rounder';
 }
 
-/** Structure only. No links — the upstream's bios link back into their own site. */
-const BIO_TAGS = new Set([
-  'p',
-  'br',
-  'h2',
-  'h3',
-  'h4',
-  'strong',
-  'b',
-  'em',
-  'i',
-  'ul',
-  'ol',
-  'li',
-  'blockquote',
-]);
-
-/**
- * The upstream's bio HTML reduced to text and `BIO_TAGS`, every attribute dropped: it is
- * Google Docs paste, with inline fonts and hard-coded black.
- */
-export function sanitizeBio(html: string | undefined): string | null {
-  if (!html) return null;
-
-  const clean = html
-    // Script and style bodies go with their tags, or their contents would print as text.
-    .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<(\/?)([a-z0-9]+)\b[^>]*>/gi, (_match, slash: string, name: string) => {
-      const tag = name.toLowerCase();
-      return BIO_TAGS.has(tag) ? `<${slash}${tag}>` : '';
-    })
-    // The upstream leaves empty paragraphs behind between sections.
-    .replace(/<p>(\s|&nbsp;)*<\/p>/gi, '')
-    .trim();
-
-  return clean.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim() ? clean : null;
-}
-
 /** Whole years since a date of birth. */
 function ageFrom(dob: number | null | undefined): number | null {
   if (!dob) return null;
@@ -281,32 +224,31 @@ function bowlingStyle(code: number | undefined): string | undefined {
   return undefined;
 }
 
-/** One form entry: batting is runs off balls; bowling is wickets (the upstream's `b`) for runs. */
+/** One form entry: batting is runs off balls; bowling is wickets for runs. */
 function toFormEntry(
   row: ApiFormRow,
   discipline: 'batting' | 'bowling',
   names: NameCache
 ): PlayerFormEntry {
-  const runs = row.r ?? 0;
-  const balls = row.b ?? 0;
-  // `vs` is the opposition, so the player's own side is the other team key.
-  const opponent = cleanKey(row.vs);
-  const own = cleanKey(row.t1f) === opponent ? cleanKey(row.t2f) : cleanKey(row.t1f);
-  const label = (key: string) => names.t.get(key)?.sn ?? names.t.get(key)?.n ?? key;
+  const runs = row.runs ?? 0;
+  // The player's own side is whichever team is not the opponent.
+  const opponent = cleanKey(row.opponentKey);
+  const own = cleanKey(row.team1Key) === opponent ? cleanKey(row.team2Key) : cleanKey(row.team1Key);
+  const label = (key: string) => names.t.get(key)?.shortName ?? names.t.get(key)?.name ?? key;
 
   return {
-    figures: discipline === 'batting' ? `${runs} (${balls})` : `${balls}-${runs}`,
-    notOut: discipline === 'batting' && row.di === 0,
+    figures: discipline === 'batting' ? `${runs} (${row.balls ?? 0})` : `${row.wickets ?? 0}-${runs}`,
+    notOut: discipline === 'batting' && row.dismissed === 0,
     fixture: `${label(own)} vs ${label(opponent)}`,
-    format: playerFormatLabel(Number(row.st), Number(row.mt)),
-    matchId: cleanKey(row.mf) || null,
-    date: row.dt ? new Date(row.dt).toISOString() : null,
+    format: playerFormatLabel(Number(row.competition), Number(row.format)),
+    matchId: cleanKey(row.matchKey) || null,
+    date: row.startTime ? new Date(row.startTime).toISOString() : null,
   };
 }
 
 /**
  * Everything the upstream knows about one player, or null for a key it does not know (the
- * route 404s on that). `a.bsi.fn` beats the mapping's name: it is the fuller spelling.
+ * route 404s on that). `fullName` beats the mapping's name: it is the fuller spelling.
  */
 export async function getApiPlayerProfile(
   key: string,
@@ -320,21 +262,25 @@ export async function getApiPlayerProfile(
     ...opts,
   });
 
-  const basic = raw.a?.bsi;
+  const basic = raw.profile?.info;
   // The upstream answers an unknown key with a well-formed envelope and nothing in it.
-  if (!basic?.fn) return null;
+  if (!basic?.fullName) return null;
 
-  const batting = raw.a?.sts?.bt ?? [];
-  const bowling = raw.a?.sts?.bl ?? [];
-  const recentBatting = raw.c?.btf ?? [];
-  const recentBowling = raw.c?.bof ?? [];
-  const contracts = raw.d ?? [];
+  const batting = raw.profile?.career?.batting ?? [];
+  const bowling = raw.profile?.career?.bowling ?? [];
+  const recentBatting = raw.recentForm?.batting ?? [];
+  const recentBowling = raw.recentForm?.bowling ?? [];
+  const contracts = raw.contracts ?? [];
 
   const names = await resolveKeys(
     {
       t: [
-        ...[...recentBatting, ...recentBowling].flatMap((r) => [r.t1f ?? '', r.t2f ?? '', r.vs ?? '']),
-        ...contracts.map((c) => c.tf ?? ''),
+        ...[...recentBatting, ...recentBowling].flatMap((r) => [
+          r.team1Key ?? '',
+          r.team2Key ?? '',
+          r.opponentKey ?? '',
+        ]),
+        ...contracts.map((c) => c.teamKey ?? ''),
       ].filter(Boolean),
       p: [id],
     },
@@ -342,41 +288,40 @@ export async function getApiPlayerProfile(
   );
 
   // The national side, for the crest: a player has one contract row per format under st=1.
-  const national = contracts.find((c) => Number(c.st) === 1)?.tf;
+  const national = contracts.find((c) => Number(c.competition) === 1)?.teamKey;
   const countryKey = cleanKey(national) || null;
 
   // One debut per format; both disciplines' rows carry it, and batting's wording comes first.
   const debuts: PlayerDebut[] = [];
   for (const row of [...batting, ...bowling]) {
-    const format = playerFormatLabel(row.st, row.ft);
-    const stats = row.s as ApiBattingStats & ApiBowlingStats;
-    const fixture = (stats.btd ?? stats.bod ?? '').trim();
+    const format = playerFormatLabel(row.competition, row.format);
+    const fixture = (row.stats.debut ?? '').trim();
     if (!format || !fixture || debuts.some((d) => d.format === format)) continue;
     debuts.push({
       format,
       fixture,
-      matchId: cleanKey(stats.btdm?.mf ?? stats.bodm?.mf) || null,
+      matchId: cleanKey(row.stats.debutMatch?.matchKey) || null,
     });
   }
 
   return {
     id,
-    name: basic.fn.trim() || names.p.get(id)?.n || id,
+    name: basic.fullName.trim() || names.p.get(id)?.name || id,
     image: playerImageUrl(id),
-    role: playerRole(basic.rl),
-    gender: basic.g === 1 ? 'Female' : 'Male',
-    dateOfBirth: basic.dob ? new Date(basic.dob).toISOString() : null,
-    age: ageFrom(basic.dob),
-    birthPlace: basic.pob?.trim() || null,
-    height: basic.h?.trim() || null,
-    nationality: basic.n?.trim() || null,
-    bats: joinTrait(basic.bts, basic.bp),
-    bowls: joinTrait(basic.bwl, bowlingStyle(basic.bs)),
-    popularShot: basic.ps?.trim() || null,
+    role: playerRole(basic.role),
+    gender: basic.gender === 1 ? 'Female' : 'Male',
+    dateOfBirth: basic.birthDate ? new Date(basic.birthDate).toISOString() : null,
+    age: ageFrom(basic.birthDate),
+    birthPlace: basic.birthPlace?.trim() || null,
+    height: basic.height?.trim() || null,
+    nationality: basic.nationality?.trim() || null,
+    bats: joinTrait(basic.battingHand, basic.battingPosition),
+    bowls: joinTrait(basic.bowlingType, bowlingStyle(basic.bowlingStyle)),
+    popularShot: basic.popularShot?.trim() || null,
     // The upstream repeats a franchise it signed the player to more than once.
     teams: [
       ...new Set(
-        (basic.tm ?? '')
+        (basic.teams ?? '')
           .split(',')
           .map((t) => t.trim())
           .filter(Boolean)
@@ -384,69 +329,68 @@ export async function getApiPlayerProfile(
     ],
     countryKey,
     countryShortName: countryKey
-      ? names.t.get(countryKey)?.sn ?? names.t.get(countryKey)?.n ?? null
+      ? names.t.get(countryKey)?.shortName ?? names.t.get(countryKey)?.name ?? null
       : null,
-    bio: sanitizeBio(basic.p),
-    instagram: basic.iu?.trim() || null,
-    twitter: basic.tu?.replace(/^@/, '').trim() || null,
+    instagram: basic.instagram?.trim() || null,
+    twitter: basic.twitter?.replace(/^@/, '').trim() || null,
     // A ranking's format is labelled with the international code, not the row's own.
-    rankings: (raw.b ?? [])
+    rankings: (raw.rankings ?? [])
       .map((r) => ({
-        format: playerFormatLabel(1, r.ft) ?? '',
-        position: r.pos,
-        discipline: rankingDiscipline(r.type),
+        format: playerFormatLabel(1, r.format) ?? '',
+        position: r.position,
+        discipline: rankingDiscipline(r.discipline),
       }))
       .filter((r) => r.format && r.position > 0),
     batting: batting
       .map((row) => {
-        const format = playerFormatLabel(row.st, row.ft);
+        const format = playerFormatLabel(row.competition, row.format);
         if (!format) return null;
-        const s = row.s ?? {};
+        const s = row.stats ?? {};
         return {
           format,
-          international: INTERNATIONAL_COMPETITIONS.has(row.st),
-          partOf: SUBSET_COMPETITIONS.has(row.st) ? playerFormatLabel(1, row.ft) : null,
-          matches: s.m ?? 0,
-          innings: s.i ?? 0,
-          runs: s.r ?? 0,
-          hundreds: s.hd ?? 0,
-          fifties: s.ff ?? 0,
-          highScore: s.hs ?? 0,
-          strikeRate: s.sr ?? 0,
-          average: s.av ?? 0,
-          fours: s.fr ?? 0,
-          sixes: s.sx ?? 0,
-          ducks: s.du ?? s.dk ?? null,
-          highScoreMatchId: cleanKey(s.hsm?.mf) || null,
+          international: INTERNATIONAL_COMPETITIONS.has(row.competition),
+          partOf: SUBSET_COMPETITIONS.has(row.competition) ? playerFormatLabel(1, row.format) : null,
+          matches: s.matches ?? 0,
+          innings: s.innings ?? 0,
+          runs: s.runs ?? 0,
+          hundreds: s.hundreds ?? 0,
+          fifties: s.fifties ?? 0,
+          highScore: s.highScore ?? 0,
+          strikeRate: s.strikeRate ?? 0,
+          average: s.average ?? 0,
+          fours: s.fours ?? 0,
+          sixes: s.sixes ?? 0,
+          ducks: s.ducks ?? null,
+          highScoreMatchId: cleanKey(s.highScoreMatch?.matchKey) || null,
         } satisfies PlayerBattingCareer;
       })
       .filter((r): r is PlayerBattingCareer => r !== null),
     bowling: bowling
       .map((row) => {
-        const format = playerFormatLabel(row.st, row.ft);
+        const format = playerFormatLabel(row.competition, row.format);
         if (!format) return null;
-        const s = row.s ?? {};
+        const s = row.stats ?? {};
         return {
           format,
-          international: INTERNATIONAL_COMPETITIONS.has(row.st),
-          partOf: SUBSET_COMPETITIONS.has(row.st) ? playerFormatLabel(1, row.ft) : null,
-          matches: s.m ?? 0,
-          innings: s.i ?? 0,
-          wickets: s.w ?? 0,
-          economy: s.ec ?? 0,
-          average: s.bav ?? 0,
+          international: INTERNATIONAL_COMPETITIONS.has(row.competition),
+          partOf: SUBSET_COMPETITIONS.has(row.competition) ? playerFormatLabel(1, row.format) : null,
+          matches: s.matches ?? 0,
+          innings: s.innings ?? 0,
+          wickets: s.wickets ?? 0,
+          economy: s.economy ?? 0,
+          average: s.average ?? 0,
           // "0-0" is the upstream's placeholder for a bowler with no figures at all.
-          best: s.bf && s.bf !== '0-0' && s.bf !== '0/0' ? s.bf : null,
-          threeWickets: s.w3 ?? 0,
-          fiveWickets: s.w5 ?? 0,
-          strikeRate: s.bsr ?? 0,
+          best: s.bestFigures && s.bestFigures !== '0-0' && s.bestFigures !== '0/0' ? s.bestFigures : null,
+          threeWickets: s.threeWickets ?? 0,
+          fiveWickets: s.fiveWickets ?? 0,
+          strikeRate: s.strikeRate ?? 0,
         } satisfies PlayerBowlingCareer;
       })
       .filter((r): r is PlayerBowlingCareer => r !== null),
     recentBatting: recentBatting.map((r) => toFormEntry(r, 'batting', names)),
     recentBowling: recentBowling.map((r) => toFormEntry(r, 'bowling', names)),
     debuts,
-    formatCodes: [...new Set((raw.h ?? []).map((c) => Number(c.ft)).filter((ft) => ft > 0))],
+    formatCodes: [...new Set((raw.formatsPlayed ?? []).map((c) => Number(c.format)).filter((ft) => ft > 0))],
   };
 }
 

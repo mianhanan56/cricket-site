@@ -2,42 +2,44 @@
 import { apiGet, type FetchOpts } from './client';
 
 export interface ApiNewsTag {
-  f_key?: string;
-  tag_name?: string;
+  key?: string;
+  name?: string;
   /** t team, s series, p player. */
-  tag_type?: string;
+  type?: string;
 }
 
-export interface ApiNewsArticle {
-  _id?: string;
+/** A headline card: the tagged list and an article's related stories. */
+export interface ApiNewsCard {
   id?: string;
-  header?: string;
-  excerpt?: string;
-  cover_image_url?: string;
+  title?: string;
+  imageUrl?: string;
   /** Path on the upstream. */
-  newsUrl?: string;
+  path?: string;
   /** Epoch ms, as a string. On the tagged list this is the only timestamp. */
-  closed_on?: string;
-  assigned_to_name?: string;
-  tags_array?: ApiNewsTag[];
-  metaData?: { subCategory?: string };
-  cover_image_caption?: string;
+  publishedTime?: string;
+  author?: string;
+  tags?: ApiNewsTag[];
+}
+
+/** The article itself, and every item on the latest list. */
+export interface ApiNewsArticle extends ApiNewsCard {
+  excerpt?: string;
+  imageCaption?: string;
 }
 
 export interface ApiNewsArticleBody {
-  articleData?: ApiNewsArticle;
-  more_news?: ApiNewsArticle[];
-  moreFromAuthor?: ApiNewsArticle[];
+  article?: ApiNewsArticle;
+  moreNews?: ApiNewsCard[];
+  moreFromAuthor?: ApiNewsCard[];
 }
 
 export interface ApiNewsTopics {
-  next?: boolean;
-  topics?: Array<{ published_on?: string; articles?: ApiNewsArticle[] }>;
+  hasNext?: boolean;
+  topics?: Array<{ publishedTime?: string; articles?: ApiNewsArticle[] }>;
 }
 
 export interface ApiTaggedNews {
-  next?: boolean;
-  articles?: ApiNewsArticle[];
+  articles?: ApiNewsCard[];
 }
 
 export function getApiNewsTopics(page: number, limit: number, opts: FetchOpts = {}): Promise<ApiNewsTopics> {

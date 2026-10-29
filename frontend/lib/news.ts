@@ -49,15 +49,15 @@ function isoFromEpoch(ms: string | undefined): string | null {
   return Number.isFinite(n) && n > 0 ? new Date(n).toISOString() : null;
 }
 
-function decodeTags(raw: ApiNewsArticle['tags_array']): NewsTag[] {
+function decodeTags(raw: ApiNewsArticle['tags']): NewsTag[] {
   const seen = new Set<string>();
   const tags: NewsTag[] = [];
   for (const t of raw ?? []) {
-    const kind = TAG_KIND[t.tag_type ?? ''];
-    const name = t.tag_name?.trim();
-    if (!kind || !t.f_key || !name || seen.has(`${kind}:${t.f_key}`)) continue;
-    seen.add(`${kind}:${t.f_key}`);
-    tags.push({ kind, id: t.f_key, name });
+    const kind = TAG_KIND[t.type ?? ''];
+    const name = t.name?.trim();
+    if (!kind || !t.key || !name || seen.has(`${kind}:${t.key}`)) continue;
+    seen.add(`${kind}:${t.key}`);
+    tags.push({ kind, id: t.key, name });
   }
   return tags;
 }
@@ -70,10 +70,10 @@ export function idFromSlug(slug: string): string | null {
 }
 
 export function decodeArticle(raw: ApiNewsArticle, fallbackTime?: string): NewsArticle | null {
-  const id = raw._id ?? raw.id;
-  const title = raw.header?.trim();
-  const path = raw.newsUrl;
-  const publishedAt = isoFromEpoch(raw.closed_on) ?? isoFromEpoch(fallbackTime);
+  const id = raw.id;
+  const title = raw.title?.trim();
+  const path = raw.path;
+  const publishedAt = isoFromEpoch(raw.publishedTime) ?? isoFromEpoch(fallbackTime);
   if (!id || !title || !path?.startsWith('/') || !publishedAt) return null;
   const tail = path.split('/').pop() ?? '';
 
@@ -82,12 +82,12 @@ export function decodeArticle(raw: ApiNewsArticle, fallbackTime?: string): NewsA
     slug: idFromSlug(tail) === id ? tail : id,
     title,
     excerpt: raw.excerpt?.trim() || null,
-    image: newsImage(raw.cover_image_url, 'mq'),
-    imageCaption: raw.cover_image_caption?.trim() || null,
+    image: newsImage(raw.imageUrl, 'mq'),
+    imageCaption: raw.imageCaption?.trim() || null,
     publishedAt,
-    author: raw.assigned_to_name?.trim() || null,
+    author: raw.author?.trim() || null,
     category: newsCategory(path),
-    tags: decodeTags(raw.tags_array),
+    tags: decodeTags(raw.tags),
   };
 }
 
@@ -98,8 +98,8 @@ function uniqueNewestFirst(articles: Array<NewsArticle | null>): NewsArticle[] {
 }
 
 export function newsFromTopics(raw: ApiNewsTopics, page: number): NewsPage {
-  const articles = (raw.topics ?? []).flatMap((t) => (t.articles ?? []).map((a) => decodeArticle(a, t.published_on)));
-  return { articles: uniqueNewestFirst(articles), page, hasNext: !!raw.next && page < NEWS_MAX_PAGE };
+  const articles = (raw.topics ?? []).flatMap((t) => (t.articles ?? []).map((a) => decodeArticle(a, t.publishedTime)));
+  return { articles: uniqueNewestFirst(articles), page, hasNext: !!raw.hasNext && page < NEWS_MAX_PAGE };
 }
 
 export function newsFromTagged(raw: ApiTaggedNews): NewsArticle[] {
@@ -143,10 +143,10 @@ export async function getNewsStory(slug: string): Promise<NewsStory | null> {
   if (!id) return null;
   try {
     const body = await getApiNewsArticle(id);
-    const article = body.articleData ? decodeArticle(body.articleData) : null;
+    const article = body.article ? decodeArticle(body.article) : null;
     if (article) {
       const related = uniqueNewestFirst(
-        [...(body.more_news ?? []), ...(body.moreFromAuthor ?? [])].map((a) => decodeArticle(a))
+        [...(body.moreNews ?? []), ...(body.moreFromAuthor ?? [])].map((a) => decodeArticle(a))
       ).filter((a) => a.id !== id);
       return { article, related: related.slice(0, RELATED_SHOWN) };
     }

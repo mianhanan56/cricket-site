@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { feedFromRows, richText, type ApiFeedRow } from '../lib/api';
 
-// Rows as the upstream sent them on ENG v SL, 3rd ODI 2026 (13ND).
-const row = (r: Record<string, unknown>) => ({ mfkey: '13ND', sh: 1, fv: 1, ...r }) as unknown as ApiFeedRow;
-const notesOf = (...rows: Array<Record<string, unknown>>) => feedFromRows(rows.map(row)).notes;
+// Rows from ENG v SL, 3rd ODI 2026 (13ND), as the Worker serves them.
+const notesOf = (...rows: ApiFeedRow[]) => feedFromRows(rows).notes;
 
 describe('commentary markup', () => {
   it('keeps headings, bold lines and paragraphs as runs', () => {
@@ -28,26 +27,26 @@ describe('commentary markup', () => {
 });
 
 describe('notes between the balls', () => {
-  it('reads a bowler card: innings, wickets, economy, best', () => {
-    const [n] = notesOf({ type: 'ps', id: 1792671986492, inning: 1, cat: '0', n: 'Gus Atkinson', pf: '46Y', tf: 'S', age: '28', r: 65, match: 17, runs: 23, sr: 6.057, avg: 32.3, c: '3/50' });
+  it('reads a bowler card: innings, wickets, economy', () => {
+    const [n] = notesOf({ type: 'ps', id: 1792671986492, inning: 1, discipline: '0', name: 'Gus Atkinson', playerKey: '46Y', age: '28', rank: 65, innings: 17, total: 23, rate: 6.057, average: 32.3 });
     assert.equal(n.kind, 'player');
     assert.ok(n.kind === 'player');
     assert.equal(n.role, 'bowler');
     assert.equal(n.rank, 65);
-    assert.deepEqual(n.career, { innings: 17, total: 23, average: 32.3, rate: 6.057, best: '3/50' });
+    assert.equal(n.age, 28);
+    assert.deepEqual(n.career, { innings: 17, total: 23, average: 32.3, rate: 6.057 });
   });
 
   it('reads an opener and leaves an unranked player unranked', () => {
-    const [n] = notesOf({ type: 'ps', id: 1, inning: 1, cat: '1', bp: 2, n: 'Avishka Fernando', pf: 'YL', r: -1, match: 51, runs: 1594, avg: 31.25, sr: 88.75, c: 127 });
+    const [n] = notesOf({ type: 'ps', id: 1, inning: 1, discipline: '1', battingPosition: 2, name: 'Avishka Fernando', playerKey: 'YL', rank: -1, innings: 51, total: 1594, average: 31.25, rate: 88.75 });
     assert.ok(n.kind === 'player');
     assert.equal(n.role, 'batter');
     assert.equal(n.position, 2);
     assert.equal(n.rank, null);
-    assert.equal(n.career.best, '127');
   });
 
   it('reads a review decision from its codes', () => {
-    const [n] = notesOf({ type: 'rc', id: 2, inning: 1, review_type: 0, result: '0', ultraedge: '1', tbf: 'T', tbwf: 'S', review_left: { S: 2, T: 2 } });
+    const [n] = notesOf({ type: 'rc', id: 2, inning: 1, reviewedBy: 0, result: '0', ultraEdge: '1', battingTeamKey: 'T', bowlingTeamKey: 'S', reviewsLeft: { S: 2, T: 2 } });
     assert.deepEqual(
       { kind: n.kind, ...(n.kind === 'decision' ? { by: n.by, out: n.out, edge: n.ultraEdge, left: n.reviewsLeft } : {}) },
       { kind: 'decision', by: 'batting', out: false, edge: true, left: { S: 2, T: 2 } }
@@ -56,9 +55,9 @@ describe('notes between the balls', () => {
 
   it('skips polls, empty review notices and deliveries', () => {
     const notes = notesOf(
-      { type: 'pl', id: 3, inning: 0, c: { q: 'Will Harry Brook complete his double century?' } },
-      { type: 'ac', id: 4, inning: 1, c: '', review_left: { S: 2, T: 2 } },
-      { type: 'b', id: 5, inning: 1, o: '0.1', b: '4', c1: 'Gus Atkinson to Kamindu Mendis' }
+      { type: 'pl', id: 3, inning: 0 },
+      { type: 'ac', id: 4, inning: 1, text: '', reviewsLeft: { S: 2, T: 2 } },
+      { type: 'b', id: 5, inning: 1, over: '0.1', outcome: '4', headline: 'Gus Atkinson to Kamindu Mendis' }
     );
     assert.deepEqual(notes, []);
   });

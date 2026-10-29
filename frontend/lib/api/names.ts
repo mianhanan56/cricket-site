@@ -6,26 +6,34 @@ import { cleanVenueName } from '../venue';
 import { apiGet, type FetchOpts } from './client';
 
 export interface ApiMapEntry {
-  f_key: string;
-  /** Full name. */
-  n: string;
-  /** Short name — teams only. */
-  sn?: string;
-  /** Club colours, teams only. `cc` is "0-#8F65E6" (a mode flag, then the hex); `uc`/`dc` are plain hex. */
-  cc?: string;
-  uc?: string;
-  dc?: string;
+  key: string;
+  name: string;
+  /** Teams and series only. */
+  shortName?: string;
+  /** Club colours, teams only. `primaryColor` is "0-#8F65E6" (a mode flag, then the hex); `secondaryColor` is plain hex. */
+  primaryColor?: string;
+  secondaryColor?: string;
 }
 
 export interface ApiMapping {
-  t?: ApiMapEntry[]; // teams
-  v?: ApiMapEntry[]; // venues
-  s?: ApiMapEntry[]; // series
-  p?: ApiMapEntry[]; // players
-  u?: ApiMapEntry[]; // umpires
+  teams?: ApiMapEntry[];
+  venues?: ApiMapEntry[];
+  series?: ApiMapEntry[];
+  players?: ApiMapEntry[];
+  umpires?: ApiMapEntry[];
 }
 
+/** The request's bucket params: teams, venues, series, players, umpires. */
 export type ApiMapKind = 't' | 'v' | 's' | 'p' | 'u';
+
+/** Which response bucket answers each request bucket. */
+export const MAP_BUCKET: Record<ApiMapKind, keyof ApiMapping> = {
+  t: 'teams',
+  v: 'venues',
+  s: 'series',
+  p: 'players',
+  u: 'umpires',
+};
 
 /** Resolve keys to names. Empty buckets are left out to keep the Worker's cache key small. */
 export function getApiMapping(
@@ -64,10 +72,10 @@ const CACHE_LIMIT: Record<ApiMapKind, number> = {
 
 /** Write a name, evicting the oldest *written* entries once the bucket is full. */
 function remember(kind: ApiMapKind, entry: ApiMapEntry): void {
-  if (kind === 'v') entry = { ...entry, n: cleanVenueName(entry.n) };
+  if (kind === 'v') entry = { ...entry, name: cleanVenueName(entry.name) };
   const bucket = nameCache[kind];
-  bucket.delete(entry.f_key);
-  bucket.set(entry.f_key, entry);
+  bucket.delete(entry.key);
+  bucket.set(entry.key, entry);
 
   const excess = bucket.size - CACHE_LIMIT[kind];
   if (excess <= 0) return;
@@ -139,7 +147,7 @@ export async function resolveKeys(
 
     const request = getApiMapping(slice, opts).then((mapping) => {
       for (const kind of ['t', 'v', 's', 'p', 'u'] as const) {
-        for (const entry of mapping[kind] ?? []) remember(kind, entry);
+        for (const entry of mapping[MAP_BUCKET[kind]] ?? []) remember(kind, entry);
       }
     });
 
@@ -181,12 +189,12 @@ export const playerImageUrl = (key: string) => `${PLAYER_IMAGE_BASE}/${key}.png`
 export function toTeam(key: string, names: NameCache): Team {
   const clean = cleanKey(key);
   const entry = names.t.get(clean);
-  const name = entry?.n ?? clean;
+  const name = entry?.name ?? clean;
 
   return {
     id: clean,
     name,
-    shortName: entry?.sn ?? clean,
+    shortName: entry?.shortName ?? clean,
     country: name,
     logo: teamLogoUrl(clean),
   };
@@ -194,19 +202,19 @@ export function toTeam(key: string, names: NameCache): Team {
 
 /** A series as `{ id, name }`; "Cricket" when the mapping has no name for it. */
 export function seriesRef(key: string, names: NameCache): { id: string; name: string } {
-  return { id: key, name: names.s.get(key)?.n ?? 'Cricket' };
+  return { id: key, name: names.s.get(key)?.name ?? 'Cricket' };
 }
 
 /** The ground's name ("TBD" when unknown) and its key (null when there is none). */
 export function venueOf(key: string | undefined, names: NameCache): { venue: string; venueId: string | null } {
   const id = cleanKey(key);
-  return { venue: names.v.get(id)?.n ?? 'TBD', venueId: id || null };
+  return { venue: names.v.get(id)?.name ?? 'TBD', venueId: id || null };
 }
 
 /** A player's name as the upstream prints it on a card: the third name token, or the last if shorter. */
 export function shortName(key: string | undefined, names: NameCache): string {
   if (!key) return '';
-  const full = names.p.get(key)?.n;
+  const full = names.p.get(key)?.name;
   if (!full) return key;
 
   const parts = full.trim().split(/\s+/);

@@ -1,35 +1,34 @@
-// /series/table: points tables. Not obfuscated — the upstream sends its own column
-// headings (`P`, `W`, `Pts`, `NRR`), every count as a string.
+// /series/table: points tables. Every count arrives as a string.
 import type { PointsTableGroup, PointsTableRow } from '@/types';
 import { apiGet, type FetchOpts } from './client';
 import { cleanKey, resolveKeys, toTeam } from './names';
 
 interface ApiPointsRow {
-  team_fkey?: string;
-  team_name?: string;
-  P?: string;
-  W?: string;
-  L?: string;
-  /** Limited-overs tables only. A Test table sends `Draw` instead. */
-  NR?: string;
+  teamKey?: string;
+  teamName?: string;
+  played?: string;
+  won?: string;
+  lost?: string;
+  /** Limited-overs tables only. A Test table sends `drawn` instead. */
+  noResult?: string;
   /** Test tables only. */
-  Draw?: string;
-  Pts?: string;
+  drawn?: string;
+  points?: string;
   /** "0" on a Test table, where the figure does not exist. */
-  NRR?: string;
-  /** The upstream's position — goes stale against the array order, which is the one to trust. */
-  rank?: number;
+  netRunRate?: string;
   /** Last five, oldest first: ["W","L","W","W","W"]. */
-  rf?: string[];
+  form?: string[];
+  /** 1 when through to the knockouts. */
   qualified?: number;
   eliminated?: number;
-  is_winner?: number;
+  /** 1 when the side lifted the trophy. */
+  champion?: number;
 }
 
 /** One group. A league sends a single entry; a group stage sends one per group. */
 interface ApiPointsGroup {
-  g_name?: string;
-  pt_info?: ApiPointsRow[];
+  name?: string;
+  rows?: ApiPointsRow[];
 }
 
 function getApiPointsTable(
@@ -42,14 +41,14 @@ function getApiPointsTable(
   );
 }
 
-/** The upstream's `rf` letters. Anything else — an abandoned game — reads as a no-result. */
+/** The upstream's form letters. Anything else — an abandoned game — reads as a no-result. */
 function formLetter(raw: string): 'W' | 'L' | 'N' {
   const c = (raw ?? '').trim().toUpperCase();
   return c === 'W' ? 'W' : c === 'L' ? 'L' : 'N';
 }
 
 /**
- * `rf` can carry the side's results from other series and formats too (an ODI table at
+ * `form` can carry the side's results from other series and formats too (an ODI table at
  * Played 0 sent five), so only form this row's own counts can account for is shown.
  */
 function tableForm(form: Array<'W' | 'L' | 'N'>, played: number, won: number, lost: number): Array<'W' | 'L' | 'N'> {
@@ -69,7 +68,7 @@ const asOptionalCount = (raw: string | undefined): number | null =>
 
 /**
  * Sides a group needs to be a tournament. Two is a bilateral tour, where the upstream still
- * sends `Pts` but fills it with zeros; three (a tri-series) is the smallest that awards points.
+ * sends `points` but fills it with zeros; three (a tri-series) is the smallest that awards points.
  */
 const MIN_TABLE_ROWS = 3;
 
@@ -91,45 +90,45 @@ export async function getApiSeriesTable(
 ): Promise<PointsTableGroup[]> {
   const raw = await getApiPointsTable(seriesKey, opts);
   // A table of zeros still names the sides; only an empty group is dropped.
-  const groups = (Array.isArray(raw) ? raw : []).filter((g) => g?.pt_info?.length);
+  const groups = (Array.isArray(raw) ? raw : []).filter((g) => g?.rows?.length);
   if (!groups.length) return [];
 
   const names = await resolveKeys(
-    { t: groups.flatMap((g) => (g.pt_info ?? []).map((r) => r.team_fkey ?? '')) },
+    { t: groups.flatMap((g) => (g.rows ?? []).map((r) => r.teamKey ?? '')) },
     opts
   );
 
-  // Above a single table `g_name` is just the competition's name again.
+  // Above a single table the group's name is just the competition's name again.
   const named = groups.length > 1;
 
   return groups.map((g) => ({
-    name: named ? g.g_name?.trim() || null : null,
-    tournament: (g.pt_info?.length ?? 0) >= MIN_TABLE_ROWS,
-    // Rows arrive in standings order; position is the row's place in the list, not `rank`.
-    rows: (g.pt_info ?? [])
+    name: named ? g.name?.trim() || null : null,
+    tournament: (g.rows?.length ?? 0) >= MIN_TABLE_ROWS,
+    // Rows arrive in standings order. The upstream's own `rank` goes stale against it, so isn't forwarded.
+    rows: (g.rows ?? [])
       .map((r, i) => {
-        const teamKey = cleanKey(r.team_fkey);
+        const teamKey = cleanKey(r.teamKey);
         const team = toTeam(teamKey, names);
-        const played = asCount(r.P);
-        const won = asCount(r.W);
-        const lost = asCount(r.L);
+        const played = asCount(r.played);
+        const won = asCount(r.won);
+        const lost = asCount(r.lost);
 
         return {
           teamKey,
           // The row's own name is used only where the mapping has none, so the app names a side one way.
-          team: team.name === teamKey && r.team_name ? { ...team, name: r.team_name } : team,
+          team: team.name === teamKey && r.teamName ? { ...team, name: r.teamName } : team,
           rank: i + 1,
           played,
           won,
           lost,
-          noResult: asOptionalCount(r.NR),
-          drawn: asOptionalCount(r.Draw),
-          points: asCount(r.Pts),
-          netRunRate: nullableRate(r.NRR),
-          form: tableForm((r.rf ?? []).map(formLetter), played, won, lost),
+          noResult: asOptionalCount(r.noResult),
+          drawn: asOptionalCount(r.drawn),
+          points: asCount(r.points),
+          netRunRate: nullableRate(r.netRunRate),
+          form: tableForm((r.form ?? []).map(formLetter), played, won, lost),
           qualified: r.qualified === 1,
           eliminated: r.eliminated === 1,
-          champion: r.is_winner === 1,
+          champion: r.champion === 1,
         } satisfies PointsTableRow;
       }),
   }));

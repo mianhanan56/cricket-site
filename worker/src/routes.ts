@@ -65,9 +65,8 @@ const INNING_FILTERS = ['firstInning', 'secondInning', 'thirdInning', 'fourthInn
 
 export const ROUTES: RouteDef[] = [
   {
-    // The whole live/upcoming/recent match list in one payload. Keys are
-    // single letters (see README) — this is the upstream's own wire format, passed
-    // through unchanged rather than normalized here.
+    // The whole live/upcoming/recent match list in one payload. The upstream's keys are
+    // single letters; src/shapes/matches.ts renames them (see README › Response shapes).
     match: '/matches/live',
     base: 'php',
     path: '/getLiveMatches',
@@ -77,7 +76,7 @@ export const ROUTES: RouteDef[] = [
     // client asks. Still collapses traffic hard: any number of viewers cost at
     // most 30 upstream calls a minute between them.
     ttl: 2,
-    note: 'All matches; obfuscated single-letter keys',
+    note: 'All matches, keyed by match id',
   },
   {
     // Team rankings for the homepage widget. Numeric enums, not strings:
@@ -129,7 +128,7 @@ export const ROUTES: RouteDef[] = [
     params: {
       key: { type: 'string', required: true },
     },
-    note: 'Batting (b) + bowling (a) + partnerships + extras, packed dot-delimited',
+    note: 'Batting + bowling + partnerships + extras per innings, packed dot-delimited',
   },
   {
     // Pre-match info, keyed by match: squads, who is captain and who keeps, the
@@ -151,7 +150,7 @@ export const ROUTES: RouteDef[] = [
     params: {
       key: { type: 'string', required: true },
     },
-    note: 'Pre-match info: squads (tb), captain/keeper (x), broadcast, weather',
+    note: 'Pre-match info: squads, captain/keeper, broadcast, weather',
   },
   {
     // Ball-by-ball. Unlike the rest of the upstream's live data this one is plain text
@@ -344,7 +343,7 @@ export const ROUTES: RouteDef[] = [
       key: { type: 'string', required: true },
     },
     buildBody: (p) => ({ sf: p.key }),
-    note: 'Series overview; i4 carries the tournament leaders: /series/overview?key=2AW',
+    note: 'Series overview, tournament leaders only: /series/overview?key=2AW',
   },
   {
     // Squads for every side in a series. Note the upstream path: it is spelt

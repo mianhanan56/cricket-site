@@ -6,32 +6,35 @@ import { apiGet, type FetchOpts } from './client';
 import { cleanKey, resolveKeys } from './names';
 import { INTERNATIONAL_COMPETITIONS, playerFormatLabel } from './player';
 
-/** One innings. Bowling rows put wickets in `w` and balls bowled in `b`. */
+/** One innings. */
 interface ApiPlayerInningsRow {
-  mf?: string;
+  matchKey?: string;
   /** Match number in the series, or a `^` knockout code. */
-  mn?: string;
+  matchNumber?: string;
   /** The player's 1st or 2nd innings of the match. */
-  i?: number;
-  r?: number;
-  b?: number;
-  w?: number;
+  inningsOfMatch?: number;
+  runs?: number;
+  /** Balls faced, or bowled on a bowling row. */
+  balls?: number;
+  wickets?: number;
   /** 1 dismissed, 0 not out. */
-  di?: number;
-  vs?: string;
-  d?: number;
+  dismissed?: number;
+  opponentKey?: string;
+  /** Epoch ms. */
+  startTime?: number;
   /** "Test", "ODI", "T20I"; "Match" in domestic cricket, absent in The Hundred. */
-  fo?: string | null;
+  formatName?: string | null;
 }
 
 interface ApiPlayerSeriesRow {
-  sf?: string;
-  st?: string | number;
+  seriesKey?: string;
+  competition?: string | number;
   /** The player's side. */
-  pft?: string;
-  sd?: number;
-  ed?: number;
-  d?: Array<{ f?: number; ir?: ApiPlayerInningsRow[] }>;
+  teamKey?: string;
+  /** Epoch ms. */
+  startDate?: number;
+  endDate?: number;
+  formats?: Array<{ format?: number; innings?: ApiPlayerInningsRow[] }>;
 }
 
 /** The upstream sends six series on the first page and three on every later one. */
@@ -74,44 +77,47 @@ export async function getApiPlayerSeriesPage(
 
   const names = await resolveKeys(
     {
-      s: rows.map((r) => r.sf ?? ''),
-      t: rows.flatMap((r) => [r.pft ?? '', ...(r.d ?? []).flatMap((g) => (g.ir ?? []).map((i) => i.vs ?? ''))]),
+      s: rows.map((r) => r.seriesKey ?? ''),
+      t: rows.flatMap((r) => [
+        r.teamKey ?? '',
+        ...(r.formats ?? []).flatMap((g) => (g.innings ?? []).map((i) => i.opponentKey ?? '')),
+      ]),
     },
     opts
   );
   const team = (k: string | undefined) => {
     const entry = names.t.get(cleanKey(k));
-    return entry?.sn ?? entry?.n ?? null;
+    return entry?.shortName ?? entry?.name ?? null;
   };
 
   const series: PlayerSeriesRecord[] = rows
-    .filter((r) => cleanKey(r.sf))
+    .filter((r) => cleanKey(r.seriesKey))
     .map((r) => {
-      const sid = cleanKey(r.sf);
+      const sid = cleanKey(r.seriesKey);
       const meta = names.s.get(sid);
-      const st = Number(r.st);
+      const st = Number(r.competition);
       return {
         id: sid,
-        name: meta?.n ?? meta?.sn ?? sid,
-        team: team(r.pft),
-        start: r.sd ? new Date(r.sd).toISOString() : null,
-        end: r.ed ? new Date(r.ed).toISOString() : null,
-        formats: (r.d ?? [])
-          .filter((g) => g.f && (query.format === 0 || g.f === query.format) && g.ir?.length)
+        name: meta?.name ?? meta?.shortName ?? sid,
+        team: team(r.teamKey),
+        start: r.startDate ? new Date(r.startDate).toISOString() : null,
+        end: r.endDate ? new Date(r.endDate).toISOString() : null,
+        formats: (r.formats ?? [])
+          .filter((g) => g.format && (query.format === 0 || g.format === query.format) && g.innings?.length)
           .map((g) => ({
-            code: g.f as number,
-            label: seriesFormatLabel(st, g.f as number),
-            innings: (g.ir ?? [])
+            code: g.format as number,
+            label: seriesFormatLabel(st, g.format as number),
+            innings: (g.innings ?? [])
               .map((i) => ({
-                matchId: cleanKey(i.mf) || null,
-                matchLabel: seriesMatchLabel(i.mn, i.fo),
-                inningsOfMatch: i.i ?? 1,
-                opponent: team(i.vs),
-                date: i.d ? new Date(i.d).toISOString() : null,
-                runs: i.r ?? 0,
-                balls: i.b ?? 0,
-                notOut: query.discipline === 'batting' && i.di === 0,
-                wickets: i.w ?? 0,
+                matchId: cleanKey(i.matchKey) || null,
+                matchLabel: seriesMatchLabel(i.matchNumber, i.formatName),
+                inningsOfMatch: i.inningsOfMatch ?? 1,
+                opponent: team(i.opponentKey),
+                date: i.startTime ? new Date(i.startTime).toISOString() : null,
+                runs: i.runs ?? 0,
+                balls: i.balls ?? 0,
+                notOut: query.discipline === 'batting' && i.dismissed === 0,
+                wickets: i.wickets ?? 0,
               }))
               // Oldest first, and a Test's first innings before its second.
               .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? '') || a.inningsOfMatch - b.inningsOfMatch),

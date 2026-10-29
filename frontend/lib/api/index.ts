@@ -18,9 +18,9 @@ export { getApiSeriesMatches, scheduledMatchId, parseScheduledMatchId, getApiSch
 export type { ApiSeriesMatch, ApiSeriesMatchesResponse } from './schedule';
 export { seriesFromMatches, getApiSeriesSchedule, seriesScheduleFromMatches, withFeedStatuses, withSeriesSchedules } from './series';
 export type { SeriesScheduleMatch, SeriesSchedule } from './series';
-export { getApiFixtures, getApiFixtureSchedule, getApiFixtureRange, getApiFixturesAhead, getApiSeriesCatalogue } from './fixtures';
+export { getApiFixtures, getApiFixtureSchedule, getApiFixtureRange, getApiFixturesPage, getApiSeriesCatalogue } from './fixtures';
 export type { ApiFixtureRow, Fixture, FixtureSchedule, SeriesCatalogueEntry } from './fixtures';
-export { playerFormatLabel, sanitizeBio, getApiPlayerProfile, withFreshForm } from './player';
+export { playerFormatLabel, getApiPlayerProfile, withFreshForm } from './player';
 export { seriesMatchLabel, getApiPlayerSeriesPage } from './playerMatches';
 export { getApiSeriesTable } from './standings';
 export { getApiSeriesOverview, getApiSeriesLeaders } from './leaders';

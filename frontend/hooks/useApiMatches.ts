@@ -38,11 +38,15 @@ import { isTopicLive, onLiveChange, onLiveResync, subscribeLive } from '@/lib/li
 
 // The Worker's live socket pushes changes when it is up (lib/live/socket). The
 // poll stays underneath it: every 2s without the socket — matched to the
-// Worker's edge TTL on /matches/live — and at a slow reconcile rate with it.
+// Worker's edge TTL on /matches/live — and only as a rare safety net with it.
 const DEFAULT_INTERVAL_MS = 2_000;
 
-/** Poll cadence while the socket is delivering — a check on it, not the feed. */
-const RECONCILE_MS = 30_000;
+/**
+ * Poll cadence while the socket is delivering. Missed list frames already trigger a
+ * re-read (`gap`), and a reconnect resyncs; this only catches a topic the hub has
+ * silently stopped refreshing.
+ */
+const RECONCILE_MS = 5 * 60_000;
 
 // Components mounting together on one page share a single entry revalidation.
 const ENTRY_DEDUPE_MS = 1_000;
@@ -277,15 +281,15 @@ function bindVisibility() {
 }
 
 /**
- * A page that shows the list asks the API when it opens, even with a live
- * socket and a recent list in hand: the cached list renders at once and the
- * answer replaces it. Everything mounting in the same pass shares one request.
+ * A page that shows the list asks the API when it opens, unless the socket is
+ * already delivering it: the cached list renders at once and the answer
+ * replaces it. Everything mounting in the same pass shares one request.
  */
 function revalidateOnEntry() {
   if (channel.entryTimer) return;
   channel.entryTimer = setTimeout(() => {
     channel.entryTimer = null;
-    if (!channel.subscribers.size || channel.inFlight) return;
+    if (!channel.subscribers.size || channel.inFlight || isTopicLive('matches')) return;
     if (Date.now() - channel.lastPollAt < ENTRY_DEDUPE_MS) return;
     refreshMatches();
   }, 0);
@@ -459,6 +463,8 @@ export function useApiMatchExtras(
   const active = enabled && Boolean(matchKey);
   const inningsRef = useRef<InningsScore[]>([]);
   const keyRef = useRef(matchKey);
+  // The newest feed row held: later polls read only the tail down to it, not three overs again.
+  const newestRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -466,6 +472,7 @@ export function useApiMatchExtras(
     if (keyRef.current !== matchKey) {
       keyRef.current = matchKey;
       inningsRef.current = [];
+      newestRef.current = null;
       setInnings([]);
       setCommentary([]);
       setEvents([]);
@@ -520,7 +527,7 @@ export function useApiMatchExtras(
         }).catch(() => null),
         // One walk of the ball feed for both halves, so the events strip and the
         // commentary can never show different moments of the same over.
-        getApiMatchFeed(matchKey, { signal: controller.signal }).catch(() => null),
+        getApiMatchFeed(matchKey, { signal: controller.signal, since: newestRef.current }).catch(() => null),
       ]);
 
       if (cancelled || controller.signal.aborted) return;
@@ -528,7 +535,10 @@ export function useApiMatchExtras(
       // Only overwrite on success — a failed poll keeps the last good card
       // rather than emptying the tab.
       if (card) takeCard(card);
-      if (feed) takeFeed(feed);
+      if (feed) {
+        takeFeed(feed);
+        if (feed.newest !== null) newestRef.current = Math.max(newestRef.current ?? 0, feed.newest);
+      }
       if (card || feed) setLoaded(true);
 
       // Both halves failing is the signal to slow down — the same exponential

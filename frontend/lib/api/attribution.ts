@@ -10,7 +10,7 @@ const WON_BY = /\s+won\s+by\s+/i;
 export type ResultMethod = 'CHASED' | 'DEFENDED' | null;
 
 export interface AttributedResult {
-  /** f_key of the winner, or null when the sentence names no side we know. */
+  /** The winner's team key, or null when the sentence names no side we know. */
   winnerKey: string | null;
   method: ResultMethod;
 }

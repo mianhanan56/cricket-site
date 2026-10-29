@@ -73,8 +73,7 @@ export function richText(raw: string | undefined): RichParagraph[] {
   return paragraphs;
 }
 
-// Stat cards carry fields the delivery rows don't, numbers sometimes sent as strings.
-type LooseRow = Record<string, unknown>;
+// Stat cards send numbers as strings too, or "" for none.
 const looseNum = (v: unknown): number | null => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
   return Number.isFinite(n) ? n : null;
@@ -91,138 +90,132 @@ const reviewsLeft = (v: unknown): Record<string, number> =>
 /** One non-delivery row as the commentary shows it; polls and rows it has no card for are null. */
 export function toFeedNote(f: ApiBallFeed): FeedNote | null {
   if (typeof f.id !== 'number') return null;
-  const r = f as unknown as LooseRow;
   const base = { id: String(f.id), inning: f.inning ?? 0, at: f.id };
   const key = (v: unknown) => cleanKey(looseStr(v) ?? undefined) || null;
 
   switch (f.type) {
     case 't': {
-      const paragraphs = richText(f.c);
-      return paragraphs.length ? { ...base, kind: 'text', paragraphs, featured: r.sub_type === 'f' } : null;
+      const paragraphs = richText(f.text);
+      return paragraphs.length ? { ...base, kind: 'text', paragraphs, featured: f.subType === 'f' } : null;
     }
     case 'ps': {
-      const playerId = key(r.pf);
-      const name = looseStr(r.n);
+      const playerId = key(f.playerKey);
+      const name = looseStr(f.name);
       if (!playerId || !name) return null;
-      const batter = looseStr(r.cat) === '1';
-      const rank = looseNum(r.r);
+      const batter = looseStr(f.discipline) === '1';
+      const rank = looseNum(f.rank);
       return {
         ...base,
         kind: 'player',
         role: batter ? 'batter' : 'bowler',
         playerId,
         name,
-        teamId: key(r.tf),
-        age: looseNum(r.age),
+        age: looseNum(f.age),
         rank: rank && rank > 0 ? rank : null,
-        position: batter ? looseNum(r.bp) : null,
-        // `match` is innings, `runs` the bowler's wickets and `sr` his economy.
+        position: batter ? looseNum(f.battingPosition) : null,
         career: {
-          innings: looseNum(r.match) ?? 0,
-          total: looseNum(r.runs) ?? 0,
-          average: looseNum(r.avg),
-          rate: looseNum(r.sr),
-          best: looseStr(r.c),
+          innings: looseNum(f.innings) ?? 0,
+          total: looseNum(f.total) ?? 0,
+          average: looseNum(f.average),
+          rate: looseNum(f.rate),
         },
       };
     }
     case 'pbc': {
-      const batterId = key(r.batsman_fkey);
-      const bowlerId = key(r.bowler_fkey);
-      const balls = looseNum(r.ball_faced) ?? 0;
+      const batterId = key(f.batterKey);
+      const bowlerId = key(f.bowlerKey);
+      const balls = looseNum(f.balls) ?? 0;
       if (!batterId || !bowlerId || !balls) return null;
       return {
         ...base,
         kind: 'battle',
         batterId,
         bowlerId,
-        format: looseStr(r.fd),
-        since: looseNum(r.since),
-        innings: looseNum(r.innings) ?? 0,
-        runs: looseNum(r.runs) ?? 0,
+        format: looseStr(f.format),
+        since: looseNum(f.since),
+        innings: looseNum(f.innings) ?? 0,
+        runs: looseNum(f.runs) ?? 0,
         balls,
-        outs: looseNum(r.out_count) ?? 0,
-        strikeRate: looseNum(r.strike_rate),
+        outs: looseNum(f.dismissals) ?? 0,
+        strikeRate: looseNum(f.strikeRate),
       };
     }
     case 'pvtc': {
-      const playerId = key(r.player_fkey);
-      const opponentId = key(r.oppn_team_fkey);
+      const playerId = key(f.playerKey);
+      const opponentId = key(f.opponentKey);
       if (!playerId || !opponentId) return null;
       return {
         ...base,
         kind: 'versus',
         playerId,
         opponentId,
-        format: looseStr(r.fd),
-        innings: looseNum(r.innings) ?? 0,
-        runs: looseNum(r.runs) ?? 0,
-        balls: looseNum(r.balls) ?? 0,
-        average: looseNum(r.batting_average),
-        strikeRate: looseNum(r.strike_rate),
+        format: looseStr(f.format),
+        innings: looseNum(f.innings) ?? 0,
+        runs: looseNum(f.runs) ?? 0,
+        average: looseNum(f.average),
+        strikeRate: looseNum(f.strikeRate),
       };
     }
     case 'ac': {
-      const text = plainText(f.c);
-      return text ? { ...base, kind: 'review', text, reviewsLeft: reviewsLeft(r.review_left) } : null;
+      const text = plainText(f.text);
+      return text ? { ...base, kind: 'review', text, reviewsLeft: reviewsLeft(f.reviewsLeft) } : null;
     }
     case 'rc': {
-      const edge = looseStr(r.ultraedge);
+      const edge = looseStr(f.ultraEdge);
       return {
         ...base,
         kind: 'decision',
-        // `review_type` 0 is the batter's review, 1 the fielding side's; `result` 1 is out.
-        by: looseNum(r.review_type) === 1 ? 'fielding' : 'batting',
-        out: looseStr(r.result) === '1',
+        by: looseNum(f.reviewedBy) === 1 ? 'fielding' : 'batting',
+        out: looseStr(f.result) === '1',
         ultraEdge: edge === '1' ? true : edge === '0' ? false : null,
-        battingId: key(r.tbf),
-        fieldingId: key(r.tbwf),
-        reviewsLeft: reviewsLeft(r.review_left),
+        battingId: key(f.battingTeamKey),
+        fieldingId: key(f.bowlingTeamKey),
+        reviewsLeft: reviewsLeft(f.reviewsLeft),
       };
     }
     case 'pm':
     case 'tm': {
-      const name = looseStr(r.n);
-      const score = looseNum(r.s);
+      const name = looseStr(f.name);
+      const score = looseNum(f.runs);
       if (!name || !score) return null;
       return {
         ...base,
         kind: 'milestone',
         name,
-        playerId: f.type === 'pm' ? key(r.pf) : null,
+        playerId: f.type === 'pm' ? key(f.playerKey) : null,
         score,
-        balls: f.type === 'pm' ? looseNum(r.b) : null,
-        text: plainText(f.c),
+        balls: f.type === 'pm' ? looseNum(f.balls) : null,
+        text: plainText(f.text),
       };
     }
     case 'tc': {
-      const text = plainText(f.c);
-      return text ? { ...base, kind: 'target', text, rrr: looseStr(r.rrr) } : null;
+      const text = plainText(f.text);
+      return text ? { ...base, kind: 'target', text, rrr: looseStr(f.requiredRunRate) } : null;
     }
     case 'w': {
-      const name = looseStr(r.player_fullname) ?? looseStr(r.n);
+      const name = looseStr(f.name);
       if (!name) return null;
       return {
         ...base,
         kind: 'wicket',
-        playerId: key(r.player_fkey),
+        playerId: key(f.playerKey),
         name,
-        how: looseStr(r.wicketDesc) ?? '',
-        runs: looseNum(r.r) ?? 0,
-        balls: looseNum(r.b) ?? 0,
-        fours: looseNum(r.f) ?? 0,
-        sixes: looseNum(r.s) ?? 0,
-        strikeRate: looseStr(r.sr),
+        how: looseStr(f.howOut) ?? '',
+        runs: looseNum(f.runs) ?? 0,
+        balls: looseNum(f.balls) ?? 0,
+        fours: looseNum(f.fours) ?? 0,
+        sixes: looseNum(f.sixes) ?? 0,
+        strikeRate: looseStr(f.strikeRate),
       };
     }
     case 'to': {
-      const text = plainText(f.c);
+      const text = plainText(f.text);
       return text ? { ...base, kind: 'toss', text } : null;
     }
     case 'ic2': {
-      const teamName = looseStr(r.n);
-      const score = looseStr(r.score);
-      return teamName && score ? { ...base, kind: 'inningsEnd', teamName, score, overs: looseStr(r.o) } : null;
+      const teamName = looseStr(f.name);
+      const score = looseStr(f.score);
+      return teamName && score ? { ...base, kind: 'inningsEnd', teamName, score, overs: looseStr(f.overs) } : null;
     }
     default:
       return null;

@@ -1,41 +1,26 @@
 // /fixtures: the upstream's date-wise schedule, 20 rows a page, page 0 starting today
 // (negative pages run back in time). The live feed only reaches a day or two ahead.
-import type { InningsScore, Match } from '@/types';
+import type { Match } from '@/types';
 import { apiGet, inWidth, type FetchOpts } from './client';
-import { scheduleBalls, scheduleFormat, scheduleStatus } from './codes';
-import { parseScore } from './matches';
+import { scheduleFormat, scheduleStatus } from './codes';
 import { cleanKey, resolveKeys, seriesRef, toTeam, venueOf, type NameCache } from './names';
 import { scheduledMatchId } from './schedule';
 
 /** One scheduled match as /fixtures (wise=1) sends it. */
 export interface ApiFixtureRow {
-  /** Match key; absent on fixtures more than a few days out (linked by `scheduledMatchId` instead). */
-  mf?: string;
+  /** Absent on fixtures more than a few days out (linked by `scheduledMatchId` instead). */
+  matchKey?: string;
   /** The upstream's own row id. Always present. */
   id?: number;
-  /** Team 1 / team 2 keys. */
-  t1f?: string;
-  t2f?: string;
-  /** Series key. */
-  sf?: string;
-  /** Venue key. */
-  vf?: string;
-  /** Match number within the series; sometimes encoded ("^0"). */
-  mn?: string;
-  /** Start time, epoch ms. */
-  t?: number;
+  team1Key?: string;
+  team2Key?: string;
+  seriesKey?: string;
+  venueKey?: string;
+  startTime?: number;
   /** 0 upcoming, 1 live, 2 finished. */
   status?: number;
-  /** Format id: 1 ODI, 2 T20, 3 Test, 4 T10, 5 The Hundred. */
-  ft?: number;
-  /** Format label ("T20I", "One Day"). `ft` is the reliable one. */
-  fo?: string;
-  /** Team 1 / team 2 score, "170/9". Only on live and finished rows. */
-  s1?: string;
-  s2?: string;
-  /** Overs faced, "20.0". */
-  o1?: string;
-  o2?: string;
+  /** 1 ODI, 2 T20, 3 Test, 4 T10, 5 The Hundred. */
+  format?: number;
   result?: string;
 }
 
@@ -67,30 +52,21 @@ export function getApiFixtures(page = 0, opts: FetchOpts = {}): Promise<ApiFixtu
 }
 
 function toFixture(row: ApiFixtureRow, names: NameCache): Fixture {
-  const homeTeam = toTeam(row.t1f ?? '', names);
-  const awayTeam = toTeam(row.t2f ?? '', names);
-  const seriesKey = cleanKey(row.sf);
-  const matchKey = cleanKey(row.mf) || null;
+  const seriesKey = cleanKey(row.seriesKey);
+  const matchKey = cleanKey(row.matchKey) || null;
   const status = scheduleStatus(row.status);
-
-  const innings = [
-    parseScore(row.s1 && row.o1 ? `${row.s1}(${row.o1}` : row.s1, homeTeam.shortName),
-    parseScore(row.s2 && row.o2 ? `${row.s2}(${row.o2}` : row.s2, awayTeam.shortName),
-  ].filter((i): i is InningsScore => i !== null);
 
   return {
     id: matchKey ?? scheduledMatchId(seriesKey, row.id),
     matchKey,
-    homeTeam,
-    awayTeam,
+    homeTeam: toTeam(row.team1Key ?? '', names),
+    awayTeam: toTeam(row.team2Key ?? '', names),
     series: seriesRef(seriesKey, names),
-    format: scheduleFormat(row.ft),
+    format: scheduleFormat(row.format),
     status,
-    ...venueOf(row.vf, names),
-    startTime: new Date(row.t ?? Date.now()).toISOString(),
-    ...scheduleBalls(row.ft),
+    ...venueOf(row.venueKey, names),
+    startTime: new Date(row.startTime ?? Date.now()).toISOString(),
     result: status === 'COMPLETED' ? row.result ?? null : null,
-    scorecard: innings.length ? { innings } : null,
   };
 }
 
@@ -119,7 +95,7 @@ export async function getApiFixtureSchedule(opts: FetchOpts = {}): Promise<Fixtu
     const settled = await Promise.all(batch.map((page) => getApiFixtures(page, opts).catch(() => null)));
     for (const rows of settled) {
       if (rows === null) continue;
-      const times = rows.map((r) => r.t ?? 0).filter(Boolean);
+      const times = rows.map((r) => r.startTime ?? 0).filter(Boolean);
       // An empty page, or one that jumps back in time, is the upstream past the end of its schedule.
       if (!times.length || (latest && Math.min(...times) < latest - 86_400_000)) {
         ended = true;
@@ -151,19 +127,16 @@ export function getApiFixtureRange(
   return fixturesFromPages(pages, { revalidate: CORPUS_REVALIDATE, ...opts });
 }
 
-/** The first `pages` schedule pages from today — the next day or two, without the full read. */
-export function getApiFixturesAhead(pages = 2, opts: FetchOpts = {}): Promise<Fixture[]> {
-  return fixturesFromPages(
-    Array.from({ length: pages }, (_, i) => i),
-    opts
-  );
+/** One schedule page from today (page 0), names resolved — for lists that read on as they scroll. */
+export async function getApiFixturesPage(page: number, opts: FetchOpts = {}): Promise<Fixture[]> {
+  return fixturesFromRows(await getApiFixtures(page, opts), opts);
 }
 
 /** One series as /fixtures (wise=2) sends it, grouped under its month. */
 interface ApiFixtureSeriesRow {
-  sf?: string;
+  seriesKey?: string;
   /** "17 September - 22 September". */
-  tp?: string;
+  dateRange?: string;
 }
 
 export interface SeriesCatalogueEntry {
@@ -195,15 +168,15 @@ export async function getApiSeriesCatalogue(
   for (const months of settled) {
     for (const rows of Object.values(months ?? {})) {
       for (const row of Array.isArray(rows) ? rows : []) {
-        const key = cleanKey(row.sf);
-        if (key && !spans.has(key)) spans.set(key, row.tp ?? '');
+        const key = cleanKey(row.seriesKey);
+        if (key && !spans.has(key)) spans.set(key, row.dateRange ?? '');
       }
     }
   }
 
   const names = await resolveKeys({ s: spans.keys() }, opts);
   return [...spans].flatMap(([key, span]) => {
-    const name = names.s.get(key)?.n;
+    const name = names.s.get(key)?.name;
     return name ? [{ id: key, name, span }] : [];
   });
 }
@@ -219,8 +192,8 @@ async function fixturesFromRows(all: ApiFixtureRow[], opts: FetchOpts = {}): Pro
   const seen = new Set<string>();
   const rows: ApiFixtureRow[] = [];
   for (const row of all) {
-    if (!row?.t || !cleanKey(row.t1f) || !cleanKey(row.t2f)) continue;
-    const key = cleanKey(row.mf) || `id-${row.id}`;
+    if (!row?.startTime || !cleanKey(row.team1Key) || !cleanKey(row.team2Key)) continue;
+    const key = cleanKey(row.matchKey) || `id-${row.id}`;
     if (seen.has(key)) continue;
     seen.add(key);
     rows.push(row);
@@ -228,9 +201,9 @@ async function fixturesFromRows(all: ApiFixtureRow[], opts: FetchOpts = {}): Pro
 
   const names = await resolveKeys(
     {
-      t: rows.flatMap((r) => [r.t1f ?? '', r.t2f ?? '']),
-      v: rows.map((r) => r.vf ?? ''),
-      s: rows.map((r) => r.sf ?? ''),
+      t: rows.flatMap((r) => [r.team1Key ?? '', r.team2Key ?? '']),
+      v: rows.map((r) => r.venueKey ?? ''),
+      s: rows.map((r) => r.seriesKey ?? ''),
     },
     opts
   );

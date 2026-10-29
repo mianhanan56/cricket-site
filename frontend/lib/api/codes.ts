@@ -5,7 +5,7 @@ import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER } from '../overs';
 /** An innings of The Hundred, in balls. */
 export const HUNDRED_BALLS = 100;
 
-/** `ft` for The Hundred — the only signal a schedule row gives for it. */
+/** `format` for The Hundred — the only signal a schedule row gives for it. */
 const HUNDRED_FORMAT = 5;
 
 // Not the feed's `n` vocabulary.
@@ -29,14 +29,14 @@ export const scheduleStatus = (s: number | undefined): MatchStatus => SERIES_MAT
 export const scheduleFormat = (ft: number | undefined, fallback: MatchFormat = 'T20'): MatchFormat =>
   SERIES_MATCH_FORMAT[ft ?? 0] ?? fallback;
 
-/** Balls per over and the innings' ball limit for a row's `ft`: The Hundred is 100 balls in fives. */
+/** Balls per over and the innings' ball limit for a row's `format`: The Hundred is 100 balls in fives. */
 export function scheduleBalls(ft: number | undefined): { ballsPerOver: number; ballsLimit: number | null } {
   return ft === HUNDRED_FORMAT
     ? { ballsPerOver: HUNDRED_BALLS_PER_OVER, ballsLimit: HUNDRED_BALLS }
     : { ballsPerOver: DEFAULT_BALLS_PER_OVER, ballsLimit: null };
 }
 
-/** The upstream's knockout codes for a match number (`mn`, the feed's `e`), from their own match-number helper. */
+/** The upstream's knockout codes for a `matchNumber`, from their own match-number helper. */
 const KNOCKOUT_MATCHES: Record<string, string> = {
   '^0': 'Final',
   '^1': '1st Semi-final',

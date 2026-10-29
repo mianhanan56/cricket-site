@@ -222,19 +222,17 @@ export type InningsPhase = 'COMPLETED' | 'CURRENT' | 'UPCOMING';
 /** A discrete thing that happened, as the ball feed reported it. */
 export type MatchEventKind =
   | 'WICKET'
-  | 'OVER'
   | 'INNINGS_END'
   | 'TARGET'
   | 'TOSS'
   | 'MILESTONE'
   | 'REVIEW'
-  | 'PLAYER'
   | 'NOTE';
 
 export interface MatchEvent {
   id: string;
   kind: MatchEventKind;
-  /** Short heading — "Wicket", "End of over 22". */
+  /** Short heading — "Wicket", "Milestone". */
   label: string;
   /** The upstream's own sentence about it, when it sent one. Never synthesised. */
   text?: string | null;
@@ -264,8 +262,6 @@ export interface CareerCard {
   average: number | null;
   /** Strike rate batting, economy bowling. */
   rate: number | null;
-  /** Highest score batting ("126"), best figures bowling ("3/50"). */
-  best: string | null;
 }
 
 /**
@@ -279,7 +275,6 @@ export type FeedNote = { id: string; inning: number; at: number } & (
       role: 'batter' | 'bowler';
       playerId: string;
       name: string;
-      teamId: string | null;
       age: number | null;
       rank: number | null;
       /** Batting position; 1 and 2 open at the striker's and non-striker's end. */
@@ -305,7 +300,6 @@ export type FeedNote = { id: string; inning: number; at: number } & (
       format: string | null;
       innings: number;
       runs: number;
-      balls: number;
       average: number | null;
       strikeRate: number | null;
     }
@@ -519,7 +513,6 @@ export interface OverSummary {
   /** The two batters at the end of the over, with their figures. */
   batsmen: Array<{ playerId: string | null; name: string; figures: string | null }>;
   bowler: { playerId: string | null; name: string; figures: string | null } | null;
-  timestamp?: string;
 }
 
 export interface CommentaryBall {
@@ -534,7 +527,6 @@ export interface CommentaryBall {
   extraRuns: number;
   extra: BallExtra | null;
   isWicket: boolean;
-  isBoundary?: boolean;
   text: string;
   /** Team score after the delivery, "205/7". Absent where the feed omits it. */
   scoreAfter?: string | null;
@@ -563,7 +555,6 @@ export interface RankingEntry {
   format: RankingFormat;
   role: RankingRole;
   gender: RankingGender;
-  points: number;
   rating: number;
   position: number;
   /**
@@ -735,11 +726,6 @@ export interface PlayerProfile {
   /** National side's f_key, for the crest beside the name. */
   countryKey: string | null;
   countryShortName: string | null;
-  /**
-   * Editorial bio, sanitised to a handful of tags with every attribute dropped
-   * — the upstream sends Google-Docs HTML, inline styles and all. Null when unwritten.
-   */
-  bio: string | null;
   instagram: string | null;
   twitter: string | null;
   rankings: PlayerRanking[];
@@ -959,9 +945,7 @@ export type SeriesLeaderKind =
   | 'SIXES'
   | 'FOURS'
   | 'STRIKE_RATE'
-  | 'ECONOMY'
-  | 'DOTS'
-  | 'FANTASY';
+  | 'ECONOMY';
 
 /** One player at the top of one category. */
 export interface SeriesLeader {
@@ -973,8 +957,6 @@ export interface SeriesLeader {
    * "169.79" for a rate, and both are printed as given rather than re-derived.
    */
   value: string;
-  /** The upstream player f_key — the link to the profile and the key the portrait uses. */
-  playerKey: string;
   playerName: string;
   /** The upstream's illustrated portrait, or null where the player has none. */
   playerImage: string | null;
@@ -1190,7 +1172,6 @@ export interface VenueProfile {
 export interface TeamColors {
   primary: string | null;
   secondary: string | null;
-  dark: string | null;
 }
 
 export interface TeamRankingPosition {

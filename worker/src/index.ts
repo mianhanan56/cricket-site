@@ -16,6 +16,8 @@
 import { UPSTREAMS } from './upstreams';
 import { fetchUpstream, UPSTREAM_TIMEOUT_MS } from './upstream';
 import { merge, remember, splitKnown, type Mapping } from './names';
+import { SHAPE_VERSION } from './shape';
+import { SHAPES } from './shapes';
 import {
   matchRoute,
   ParamError,
@@ -143,10 +145,10 @@ async function serve(
   // The Cache API only stores GET, so a POST upstream is keyed by a synthetic
   // GET URL carrying the canonical params.
   const { path, query } = upstreamTarget(route, params);
-  const cacheKey = new Request(
-    `${UPSTREAMS[route.base]}${path}${query ? `?${query}` : ''}`,
-    { method: 'GET' }
-  );
+  const shaped = `shape=${SHAPE_VERSION}`;
+  const cacheKey = new Request(`${UPSTREAMS[route.base]}${path}?${query ? `${query}&` : ''}${shaped}`, {
+    method: 'GET',
+  });
   const cache = caches.default;
 
   const cached = await cache.match(cacheKey);
@@ -199,8 +201,9 @@ async function serveMapping(
   ctx: ExecutionContext
 ): Promise<Response> {
   const { held, rest } = splitKnown(params);
+  const shape = SHAPES[route.match] ?? ((v: unknown) => v);
   if (!rest) {
-    const body = JSON.stringify(held);
+    const body = JSON.stringify(shape(held));
     return withHeaders(new Response(body, { headers: { 'Content-Type': 'application/json' } }), cors, 'MEMORY', route.ttl);
   }
 
@@ -219,7 +222,7 @@ async function serveMapping(
   }
 
   remember(rest, fetched);
-  return new Response(JSON.stringify(merge(held, fetched)), { status: 200, headers });
+  return new Response(JSON.stringify(shape(merge(held, fetched))), { status: 200, headers });
 }
 
 /** A caller's own Response over a shared, already-read body. */
@@ -262,7 +265,7 @@ function fetchAndStore(
         return { ok: false, status: fresh.status, detail: detail.slice(0, 500) };
       }
 
-      return { ok: true, stored: await store(cacheKey, fresh, route.ttl, cache, ctx) };
+      return { ok: true, stored: await store(cacheKey, fresh, route, cache, ctx) };
     } catch (err) {
       // status 0 is "never got a reply", which is a 502 rather than a passthrough.
       const timedOut = err instanceof Error && err.name === 'TimeoutError';
@@ -293,17 +296,21 @@ function fetchAndStore(
 
 /**
  * Store a body under `cacheKey`, stamping the time it was fetched so TTL is
- * computed from our own clock rather than upstream's Cache-Control.
+ * computed from our own clock rather than upstream's Cache-Control. The route's
+ * shape is applied first, so the cache holds what callers are sent.
  */
 async function store(
   cacheKey: Request,
   response: Response,
-  ttl: number,
+  route: RouteDef,
   cache: Cache,
   ctx: ExecutionContext
 ): Promise<StoredBody> {
-  const body = await response.arrayBuffer();
+  const raw = await response.arrayBuffer();
   const contentType = response.headers.get('Content-Type') ?? 'application/json';
+  const ttl = route.ttl;
+  // /mapping is shaped after its merge with the names held in memory (serveMapping).
+  const body = route.match === '/mapping' ? raw : shapeBody(raw, SHAPES[route.match]);
 
   const headers = new Headers({
     'Content-Type': contentType,
@@ -316,6 +323,17 @@ async function store(
   ctx.waitUntil(cache.put(cacheKey, new Response(body, { status: 200, headers })));
 
   return { body, contentType };
+}
+
+/** The body with its route's shape applied; one that isn't JSON is passed on as sent. */
+function shapeBody(raw: ArrayBuffer, shape: ((value: unknown) => unknown) | undefined): ArrayBuffer {
+  if (!shape) return raw;
+  try {
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(raw));
+    return new TextEncoder().encode(JSON.stringify(shape(parsed))).buffer as ArrayBuffer;
+  } catch {
+    return raw;
+  }
 }
 
 function withHeaders(response: Response, cors: Headers, status: string, ttl: number): Response {

@@ -6,21 +6,16 @@ import { attributeResult } from './attribution';
 import { apiGet, type FetchOpts } from './client';
 import { scheduleFormat, scheduleStatus } from './codes';
 import { getApiFixtureRange, type Fixture } from './fixtures';
-import { cleanKey, resolveKeys, seriesRef, toTeam, venueOf, type ApiMapEntry } from './names';
+import { cleanKey, resolveKeys, seriesRef, toTeam, type ApiMapEntry } from './names';
 import { getApiTeamRankings, type ApiTeamRankingsResponse } from './rankings';
 import { parseScheduledMatchId, scheduledMatchId, type ApiSeriesMatch } from './schedule';
 import { getApiTeamSquad } from './squads';
 
-/** One row of /team/matches: the /series/matches shape plus a printed date. */
-interface ApiTeamMatchRow extends ApiSeriesMatch {
-  /** The upstream's own row id, the fallback list key on a fixture with no match key. */
-  id?: number;
-  /** "2026/8/23". Redundant with `t`, and not read. */
-  dt?: string;
-}
+/** A /series/matches row without the ground, match number and result. */
+type ApiTeamMatch = Pick<ApiSeriesMatch, 'matchKey' | 'id' | 'team1Key' | 'team2Key' | 'startTime' | 'status' | 'format'>;
 
 /** Grouped by series key. */
-type ApiTeamMatchesResponse = Record<string, ApiTeamMatchRow[]>;
+type ApiTeamMatchesResponse = Record<string, ApiTeamMatch[]>;
 
 /** A team's scheduled matches, grouped by series. */
 export function getApiTeamMatches(
@@ -41,9 +36,8 @@ function parseTeamColor(raw: string | undefined): string | null {
 
 function teamColors(entry: ApiMapEntry | undefined): TeamColors {
   return {
-    primary: parseTeamColor(entry?.cc),
-    secondary: parseTeamColor(entry?.uc),
-    dark: parseTeamColor(entry?.dc),
+    primary: parseTeamColor(entry?.primaryColor),
+    secondary: parseTeamColor(entry?.secondaryColor),
   };
 }
 
@@ -68,10 +62,10 @@ async function teamRankingPositions(
   lists.forEach((byFormat, i) => {
     for (const [wire, format] of RANKING_FORMATS) {
       const rows = byFormat[wire] ?? [];
-      // Rows arrive ordered by rating with no `pos` field, so position is the index.
-      const at = rows.findIndex((r) => cleanKey(r.tf) === teamKey);
+      // Rows arrive ordered by rating with no `position` field, so position is the index.
+      const at = rows.findIndex((r) => cleanKey(r.teamKey) === teamKey);
       if (at < 0) continue;
-      out.push({ format, gender: genders[i], position: at + 1, rating: rows[at].r ?? 0 });
+      out.push({ format, gender: genders[i], position: at + 1, rating: rows[at].rating ?? 0 });
     }
   });
 
@@ -133,28 +127,29 @@ export async function getApiTeamProfile(
 
   const scheduledRows = Object.entries(scheduled ?? {}).flatMap(([seriesKey, rows]) =>
     (rows ?? [])
-      .filter((r) => r?.t && (r.s ?? 0) !== 2)
+      .filter((r) => r?.startTime && (r.status ?? 0) !== 2)
       .map((r) => ({ seriesKey: cleanKey(seriesKey), row: r }))
   );
 
   const rowNames = await resolveKeys(
     {
-      t: scheduledRows.flatMap(({ row }) => [row.t1f ?? '', row.t2f ?? '']),
-      v: scheduledRows.map(({ row }) => row.vf ?? ''),
+      t: scheduledRows.flatMap(({ row }) => [row.team1Key ?? '', row.team2Key ?? '']),
       s: scheduledRows.map(({ seriesKey }) => seriesKey),
     },
     opts
   );
 
   const fromEndpoint: Match[] = scheduledRows.map(({ seriesKey, row }) => ({
-    id: cleanKey(row.mf) || scheduledMatchId(seriesKey, row.id),
-    homeTeam: toTeam(row.t1f ?? '', rowNames),
-    awayTeam: toTeam(row.t2f ?? '', rowNames),
+    id: cleanKey(row.matchKey) || scheduledMatchId(seriesKey, row.id),
+    homeTeam: toTeam(row.team1Key ?? '', rowNames),
+    awayTeam: toTeam(row.team2Key ?? '', rowNames),
     series: seriesRef(seriesKey, rowNames),
-    format: scheduleFormat(row.ft),
-    status: scheduleStatus(row.s),
-    ...venueOf(row.vf, rowNames),
-    startTime: new Date(row.t as number).toISOString(),
+    format: scheduleFormat(row.format),
+    status: scheduleStatus(row.status),
+    // The upcoming rail shows no ground, so /team/matches doesn't send one.
+    venue: '',
+    venueId: null,
+    startTime: new Date(row.startTime as number).toISOString(),
     result: null,
   }));
 

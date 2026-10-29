@@ -14,9 +14,9 @@
 //      publishes no Women's Test rankings). They are edge-cached for an hour by
 //      the Worker and wrapped in the page's 1h ISR, so this costs one burst an
 //      hour, server-side, however many visitors there are.
-//   2. **Rows are keyed, not named.** `pf` is a player f_key and `tf` a team's.
-//      Both resolve through /mapping, in one call for every key across all
-//      fifteen lists rather than one call per list.
+//   2. **Rows carry keys, not names.** `playerKey` and `teamKey` resolve through
+//      /mapping, in one call for every key across all fifteen lists rather than
+//      one call per list.
 //
 // A failure at any point falls back to the bundled snapshot. That path used to
 // render eighteen empty tables — `.catch(() => [])` per combination — which is
@@ -85,12 +85,7 @@ function emptyData(): RankingsData {
   return data;
 }
 
-/**
- * Flatten the bundled snapshot into the view's shape.
- *
- * `position` is the 1-based index within its list and `points` mirrors `rating`
- * — both were columns in the old Ranking table, and both were always derived.
- */
+/** Flatten the bundled snapshot into the view's shape. `position` is the 1-based index within its list. */
 function toRankingsData(payload: RankingsPayload): RankingsData {
   const data = emptyData();
 
@@ -114,7 +109,6 @@ function toRankingsData(payload: RankingsPayload): RankingsData {
             format: rawFormat as RankingFormat,
             role: rawRole as RankingRole,
             gender: rawGender as RankingGender,
-            points: row.rating,
             rating: row.rating,
             position: i + 1,
           })
@@ -264,14 +258,14 @@ export async function getRankings(): Promise<Rankings> {
     const teamKeys = new Set<string>();
     for (const list of lists) {
       for (const row of (list ?? []).slice(0, TOP_N)) {
-        if (row.pf) playerKeys.add(row.pf);
-        if (row.tf) teamKeys.add(row.tf);
+        if (row.playerKey) playerKeys.add(row.playerKey);
+        if (row.teamKey) teamKeys.add(row.teamKey);
       }
     }
     for (const [, byFormat] of teamLists) {
       for (const [apiFormat, rows] of Object.entries(byFormat ?? {})) {
         for (const row of teamRowsShown(apiFormat, rows ?? [])) {
-          if (row.tf) teamKeys.add(row.tf);
+          if (row.teamKey) teamKeys.add(row.teamKey);
         }
       }
     }
@@ -281,10 +275,10 @@ export async function getRankings(): Promise<Rankings> {
       t: [...teamKeys],
     }).catch(() => ({}) as ApiMapping);
 
-    const players = new Map((mapping.p ?? []).map((e) => [e.f_key, e.n]));
+    const players = new Map((mapping.players ?? []).map((e) => [e.key, e.name]));
     // Whole entry, not just the name: a team row renders the short name on the
-    // crest fallback, so `sn` has to survive the lookup too.
-    const teamEntries = new Map((mapping.t ?? []).map((e) => [e.f_key, e]));
+    // crest fallback, so `shortName` has to survive the lookup too.
+    const teamEntries = new Map((mapping.teams ?? []).map((e) => [e.key, e]));
 
     const data = emptyData();
     let filled = 0;
@@ -294,20 +288,19 @@ export async function getRankings(): Promise<Rankings> {
       if (!rows.length) return;
 
       data[c.format][c.gender][c.category] = rows.map((row: ApiRankingRow, idx) => ({
-        id: `${c.format}-${c.gender}-${c.category}-${row.pf || idx}`,
-        playerKey: row.pf || undefined,
+        id: `${c.format}-${c.gender}-${c.category}-${row.playerKey || idx}`,
+        playerKey: row.playerKey || undefined,
         // An unresolved key is better shown as itself than as a blank row —
         // it makes a /mapping gap visible instead of silently truncating.
-        playerName: players.get(row.pf) ?? row.pf,
-        country: teamEntries.get(row.tf)?.n ?? '',
+        playerName: players.get(row.playerKey) ?? row.playerKey,
+        country: teamEntries.get(row.teamKey)?.name ?? '',
         format: RAW_FORMAT[c.format],
         role: RAW_ROLE[c.category],
         gender: RAW_GENDER[c.gender],
-        points: row.r,
-        rating: row.r,
-        // The upstream sends `pos`, already 1-based; fall back to array order.
-        position: row.pos ?? idx + 1,
-        previousPosition: row.pr,
+        rating: row.rating,
+        // Already 1-based; fall back to array order.
+        position: row.position ?? idx + 1,
+        previousPosition: row.previousPosition,
       }));
       filled++;
     });
@@ -327,20 +320,20 @@ export async function getRankings(): Promise<Rankings> {
 
         teamData[format][gender] = teamRowsShown(apiFormat, rows)
           .map((row: ApiTeamRankingRow, idx): TeamRankingEntry => {
-            const entry = teamEntries.get(row.tf);
+            const entry = teamEntries.get(row.teamKey);
             return {
-              id: `${format}-${gender}-${row.tf || idx}`,
-              teamKey: row.tf,
+              id: `${format}-${gender}-${row.teamKey || idx}`,
+              teamKey: row.teamKey,
               // An unresolved key shows as itself, same as the player lists —
               // it makes a /mapping gap visible instead of blanking the row.
-              teamName: entry?.n ?? row.tf,
-              shortName: entry?.sn ?? row.tf,
-              logo: teamLogoUrl(row.tf),
+              teamName: entry?.name ?? row.teamKey,
+              shortName: entry?.shortName ?? row.teamKey,
+              logo: teamLogoUrl(row.teamKey),
               format: RAW_FORMAT[format],
               gender: RAW_GENDER[gender],
-              points: row.p,
-              rating: row.r,
-              matches: row.m,
+              points: row.points,
+              rating: row.rating,
+              matches: row.matches,
               // rankingFront sends no position — the list is already ordered.
               position: idx + 1,
             };

@@ -6,7 +6,7 @@
 //   batting  key.runs.balls.4s.6s.teamBalls.teamRuns.dismissal.bowler.fielder/wagon-wheel/
 //            (team balls come before team runs; read the other way a 66-run stand reads 102)
 //            A batter in stops after the sixes; a bare key is yet to bat (the XI before play).
-//   bowling  key.runs.balls.maidens.wickets[.dots]
+//   bowling  key.runs.balls.maidens.wickets
 import type {
   BatsmanLine,
   BowlerLine,
@@ -23,22 +23,22 @@ import { apiGet, type FetchOpts } from './client';
 import { cleanKey, resolveKeys, shortName, type NameCache } from './names';
 
 interface ApiScorecardInnings {
-  /** Bowling lines, one per bowler used. */
-  a?: string[];
-  /** Batting lines, one per player in the XI. */
-  b?: string[];
-  /** Batting team key. */
-  c?: string;
-  /** Innings total, "185/10(202" — runs/wickets(balls). */
-  d?: string;
-  /** Extras, "byes.legByes.wides.noBalls.penalty". */
-  e?: string;
+  /** The batting side. */
+  teamKey?: string;
+  /** "185/10(202" — runs/wickets(balls). */
+  total?: string;
+  /** "byes.legByes.wides.noBalls.penalty". */
+  extras?: string;
+  /** One line per player in the XI. */
+  batting?: string[];
+  /** One line per bowler used. */
+  bowling?: string[];
   /**
-   * Partnerships in order: "15K.19.31.AK.18.33.37.64" is batter A key/runs/balls,
-   * batter B key/runs/balls, then the stand's runs and balls — which include extras,
-   * so they are not the sum of the two batters'.
+   * In order: "15K.19.31.AK.18.33.37.64" is batter A key/runs/balls, batter B
+   * key/runs/balls, then the stand's runs and balls — which include extras, so they
+   * are not the sum of the two batters'.
    */
-  p?: string[];
+  partnerships?: string[];
 }
 
 /** "byes.legByes.wides.noBalls.penalty" → the five lines and their sum; blanks read as 0. */
@@ -132,7 +132,7 @@ function decodeBatsman(line: string, names: NameCache): BatsmanLine | null {
 
   return {
     playerId: key,
-    name: names.p.get(key)?.n ?? key,
+    name: names.p.get(key)?.name ?? key,
     runs: r,
     balls: b,
     fours: Number(fours) || 0,
@@ -160,13 +160,13 @@ function decodePartnerships(
       return {
         a: {
           playerId: aKey,
-          name: names.p.get(aKey)?.n ?? aKey,
+          name: names.p.get(aKey)?.name ?? aKey,
           runs: Number(aRuns) || 0,
           balls: Number(aBalls) || 0,
         },
         b: {
           playerId: bKey,
-          name: names.p.get(bKey)?.n ?? bKey,
+          name: names.p.get(bKey)?.name ?? bKey,
           runs: Number(bRuns) || 0,
           balls: Number(bBalls) || 0,
         },
@@ -196,7 +196,7 @@ function decodeFallOfWickets(
       runs: Number(head[TEAM_RUNS_INDEX]) || 0,
       balls: Number(head[TEAM_BALLS_INDEX]) || 0,
       playerId: head[0],
-      name: names.p.get(head[0])?.n ?? head[0],
+      name: names.p.get(head[0])?.name ?? head[0],
       playerRuns: Number(head[1]) || 0,
       playerBalls: Number(head[2]) || 0,
     }))
@@ -225,7 +225,7 @@ function decodeBowler(
 
   return {
     playerId: key,
-    name: names.p.get(key)?.n ?? key,
+    name: names.p.get(key)?.name ?? key,
     overs: oversFrom(b, perOver),
     maidens: Number(maidens) || 0,
     runs: r,
@@ -262,23 +262,23 @@ export async function scorecardFromRaw(
 
   // Batters, bowlers and every fielder credited in a dismissal — a miss prints "c 6QP b BGT".
   const playerKeys = innings.flatMap((i) => [
-    ...(i.b ?? []).flatMap((line) => {
+    ...(i.batting ?? []).flatMap((line) => {
       const head = lineHead(line);
       return [head[0], head[BOWLER_INDEX], head[FIELDER_INDEX]];
     }),
-    ...(i.a ?? []).map((line) => line.split('.')[0]),
+    ...(i.bowling ?? []).map((line) => line.split('.')[0]),
   ]);
-  const teamKeys = innings.map((i) => cleanKey(i.c)).filter(Boolean);
+  const teamKeys = innings.map((i) => cleanKey(i.teamKey)).filter(Boolean);
 
   const names = await resolveKeys({ p: playerKeys.filter(Boolean), t: teamKeys }, opts);
 
   // The card lists innings in slot order, so a side's second entry is its second innings.
   const seenPerTeam = new Map<string, number>();
   const cards = innings.flatMap((inn) => {
-    const total = /^(\d+)\/(\d+)\((\d+)/.exec(inn.d ?? '');
-    const teamKey = cleanKey(inn.c);
+    const total = /^(\d+)\/(\d+)\((\d+)/.exec(inn.total ?? '');
+    const teamKey = cleanKey(inn.teamKey);
     const balls = total ? Number(total[3]) : 0;
-    const lines = inn.b ?? [];
+    const lines = inn.batting ?? [];
 
     // No total and no XI is a slot the upstream is holding; emitting it would print a phantom "0/0".
     if (!total && !lines.length) return [];
@@ -286,12 +286,12 @@ export async function scorecardFromRaw(
     const inningsNumber = (seenPerTeam.get(teamKey) ?? 0) + 1;
     seenPerTeam.set(teamKey, inningsNumber);
 
-    const extras = decodeExtras(inn.e);
+    const extras = decodeExtras(inn.extras);
 
     return {
       teamId: teamKey,
       inningsNumber,
-      teamShortName: names.t.get(teamKey)?.sn ?? teamKey,
+      teamShortName: names.t.get(teamKey)?.shortName ?? teamKey,
       runs: total ? Number(total[1]) : 0,
       wickets: total ? Number(total[2]) : 0,
       overs: oversFrom(balls, perOver),
@@ -306,12 +306,12 @@ export async function scorecardFromRaw(
         .filter((line) => !line.split('/')[0].includes('.'))
         .map((line) => {
           const key = line.split('/')[0];
-          return { playerId: key, name: names.p.get(key)?.n ?? key };
+          return { playerId: key, name: names.p.get(key)?.name ?? key };
         }),
-      bowling: (inn.a ?? [])
+      bowling: (inn.bowling ?? [])
         .map((line) => decodeBowler(line, names, perOver))
         .filter((x): x is BowlerLine => x !== null),
-      partnerships: decodePartnerships(inn.p, names),
+      partnerships: decodePartnerships(inn.partnerships, names),
       fallOfWickets: decodeFallOfWickets(lines, names, perOver),
     };
   });

@@ -1,7 +1,7 @@
 // What has stopped play: breaks, delays, stumps, the toss. The upstream's status table
-// (`a`) is the only structured source; anything not in it or in `res` is not
-// reported. The upstream also leaves these latched long after play resumes, so most of
-// this module is about telling a current stoppage from a stale one.
+// (`statusCode`) is the only structured source; anything not in it or in `statusText`
+// is not reported. The upstream also leaves these latched long after play resumes, so
+// most of this module is about telling a current stoppage from a stale one.
 import type { InningsScore, Match, MatchFormat, MatchNote, MatchNoteKind, MatchStatus } from '@/types';
 import { DEFAULT_BALLS_PER_OVER, SCHEDULED_OVERS, ballsFrom, inningsBallLimit } from '../overs';
 import type { ApiRawMatch } from './matches';
@@ -45,7 +45,7 @@ const NOTE_CODES: Record<string, NoteSpec> = {
   x: { label: 'No Result', kind: 'RESULT', paused: false },
 };
 
-/** `a` = "^0".."^3": which side won the toss and what they chose. */
+/** `statusCode` "^0".."^3": which side won the toss and what they chose. */
 const TOSS_CODES: Record<string, { side: 1 | 2; choice: 'bat' | 'bowl' }> = {
   '0': { side: 1, choice: 'bat' },
   '1': { side: 1, choice: 'bowl' },
@@ -73,16 +73,16 @@ function looksLikeResult(text: string): boolean {
 
 /**
  * The match's own account of what is happening now, or null when it is just
- * cricket. The `a` code wins over `res`; `res` carries the statuses the upstream has no
- * code for ("Start Delayed"), minus result text.
+ * cricket. `statusCode` wins over `statusText`, which carries the statuses the upstream
+ * has no code for ("Start Delayed"), minus result text.
  */
 export function decodeMatchNote(
   m: ApiRawMatch,
   teams: { first?: string; second?: string } = {}
 ): MatchNote | null {
-  const detail = m.ac?.trim() || null;
+  const detail = m.statusDetail?.trim() || null;
   // A "!" is a display marker in the upstream's own renderer, not part of the code.
-  const raw = (m.a ?? '').replace('!', '').trim();
+  const raw = (m.statusCode ?? '').replace('!', '').trim();
 
   if (raw.startsWith('^')) {
     const toss = TOSS_CODES[raw.slice(1)];
@@ -97,7 +97,7 @@ export function decodeMatchNote(
     }
   }
 
-  // "$l" or a bare "l" is a code; anything longer is a word and goes to the `res` path.
+  // "$l" or a bare "l" is a code; anything longer is a word and goes to the `statusText` path.
   if (raw && !raw.startsWith('&')) {
     const letter = raw.startsWith('$') ? raw.slice(1) : raw;
     const spec = letter.length === 1 ? NOTE_CODES[letter.toLowerCase()] : undefined;
@@ -115,7 +115,7 @@ export function decodeMatchNote(
     }
   }
 
-  const text = m.res?.trim();
+  const text = m.statusText?.trim();
   if (!text || looksLikeResult(text)) return null;
 
   const kind = NOTE_TEXT_KINDS.find(([pattern]) => pattern.test(text))?.[1] ?? 'INFO';
@@ -329,7 +329,7 @@ export function clearResumedStoppages(
 /**
  * Which account of the match state to show. A reported stoppage wins unless play
  * has overtaken it; otherwise a derived innings break beats a non-stoppage note
- * (the upstream leaves the toss in `a` for the whole first innings).
+ * (the upstream leaves the toss in `statusCode` for the whole first innings).
  */
 export function pickNote(
   reported: MatchNote | null,

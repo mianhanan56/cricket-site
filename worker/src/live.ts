@@ -8,6 +8,7 @@
 
 import { DurableObject } from 'cloudflare:workers';
 import { matchRoute, readParams, type RouteDef } from './routes';
+import { SHAPES } from './shapes';
 import { fetchUpstream } from './upstream';
 
 const PROTOCOL = 1;
@@ -177,7 +178,8 @@ export class LiveHub extends DurableObject<unknown> {
     try {
       const res = await fetchUpstream(route, readParams(route, search));
       if (!res.ok) throw new Error(`upstream ${res.status}`);
-      body = await res.json();
+      const raw: unknown = await res.json();
+      body = SHAPES[route.match]?.(raw) ?? raw;
     } catch (err) {
       // Subscribers keep what they have; their own HTTP poll is the fallback.
       if (!state.failures) console.warn('live: topic refresh failing', { topic, error: String(err) });

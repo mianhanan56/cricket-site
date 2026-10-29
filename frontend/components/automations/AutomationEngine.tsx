@@ -25,8 +25,8 @@ import { useNotificationPermission } from './useNotificationPermission';
 
 const LIST_INTERVAL_MS = 15_000;
 const FEED_INTERVAL_MS = 20_000;
-// With the socket delivering each ball, the poll only has to catch a missed frame.
-const SOCKET_FEED_INTERVAL_MS = 60_000;
+// With the socket delivering each ball, the poll is only a safety net.
+const SOCKET_FEED_INTERVAL_MS = 5 * 60_000;
 const MAX_FEED_MATCHES = 6;
 // A tab frozen, asleep or parked longer than this saw nothing happen live; what
 // changed meanwhile is history, not an alert.

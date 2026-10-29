@@ -2,16 +2,12 @@
 import { apiGet, type FetchOpts } from './client';
 
 export interface ApiRankingRow {
-  /** Rating. */
-  r: number;
-  /** Team f_key. */
-  tf: string;
-  /** Player f_key. */
-  pf: string;
-  /** Previous position — the upstream draws its up/down arrow from this. */
-  pr: number;
-  /** Current position. */
-  pos: number;
+  rating: number;
+  teamKey: string;
+  playerKey: string;
+  /** The upstream draws its up/down arrow from this. */
+  previousPosition: number;
+  position: number;
 }
 
 /**
@@ -27,14 +23,13 @@ export function getApiRankingList(
 }
 
 export interface ApiTeamRankingRow {
-  /** Rating — points / matches, rounded the way the ICC publishes it. */
-  r: number;
+  /** Points / matches, rounded the way the ICC publishes it. */
+  rating: number;
   /** Total rating points. */
-  p: number;
+  points: number;
   /** Matches counted in the rating period. */
-  m: number;
-  /** Team f_key. */
-  tf: string;
+  matches: number;
+  teamKey: string;
 }
 
 /** Keyed by the upstream's format names — t20, not t20i. */

@@ -20,7 +20,6 @@ export const STAT_SLUG: Record<SeriesStatKind, string> = {
   ECONOMY: 'best-economy',
 };
 
-// Dot balls and fantasy points have no ranking page behind them, so they are left off.
 const ORDER = ['RUNS', 'WICKETS', 'HIGHEST_SCORE', 'BEST_FIGURES', 'SIXES', 'FOURS', 'STRIKE_RATE', 'ECONOMY'] as const;
 
 const UNIT: Partial<Record<SeriesLeader['kind'], string>> = {
@@ -35,7 +34,7 @@ export function rankedLeaders(leaders: Leaders): SeriesLeader[] {
 }
 
 function hrefFor(seriesId: string, kind: SeriesLeader['kind']): string {
-  return `/series/${seriesId}/stats/${STAT_SLUG[kind as SeriesStatKind]}`;
+  return `/series/${seriesId}/stats/${STAT_SLUG[kind]}`;
 }
 
 /** One honour as a compact figure — the control center's side column. */

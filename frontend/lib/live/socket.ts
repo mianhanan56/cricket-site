@@ -6,7 +6,6 @@
 
 import { useSyncExternalStore } from 'react';
 import { WORKER_URL } from '../api';
-import { withTimeout } from '../timeout';
 import { acceptFrame, isLiveFrame, type FrameVerdict, type LiveFrame, type SeqBook } from './frames';
 
 export type LiveStatus = 'idle' | 'connecting' | 'open' | 'reconnecting' | 'unavailable' | 'disabled';
@@ -26,8 +25,6 @@ const UNAVAILABLE_AFTER = 5;
 const UNAVAILABLE_RETRY_MS = 120_000;
 // Navigating between pages drops and re-adds topics; don't hang up in between.
 const IDLE_CLOSE_MS = 20_000;
-// A hung probe would hold `probing` and keep the socket shut for the whole page.
-const PROBE_TIMEOUT_MS = 10_000;
 
 const live = {
   ws: null as WebSocket | null,
@@ -45,9 +42,6 @@ const live = {
   statusListeners: new Set<() => void>(),
   resyncListeners: new Set<() => void>(),
   bound: false,
-  /** Whether the Worker serves /live: null until asked, and skipped for an explicit socket URL. */
-  capable: (process.env.NEXT_PUBLIC_LIVE_WS_URL ? true : null) as boolean | null,
-  probing: false,
 };
 
 function notify() {
@@ -124,36 +118,12 @@ function onFrame(raw: string) {
   handlers.forEach((h) => h(parsed as LiveFrame, verdict));
 }
 
-/**
- * Ask /health once whether this Worker has the hub. A deployment from before it
- * would fail every handshake, and each failure is a console error in every tab.
- */
-function probe() {
-  live.probing = true;
-  setStatus('connecting');
-  fetch(`${WORKER}/health`, { cache: 'no-store', signal: withTimeout(PROBE_TIMEOUT_MS) })
-    .then((res) => res.json())
-    .then((health: { live?: unknown }) => {
-      live.capable = Boolean(health?.live);
-    })
-    // Unreachable says nothing about the hub; let the socket's own retries handle it.
-    .catch(() => {
-      live.capable = true;
-    })
-    .finally(() => {
-      live.probing = false;
-      if (live.capable) connect();
-      else setStatus('unavailable');
-    });
-}
-
 function connect() {
   if (!ENABLED || typeof window === 'undefined' || !live.topics.size) return;
   const current = live.ws;
   if (current && (current.readyState === WebSocket.CONNECTING || current.readyState === WebSocket.OPEN)) return;
-  if (live.retryTimer || live.probing || live.capable === false) return;
+  if (live.retryTimer) return;
   bindLifecycle();
-  if (live.capable === null) return probe();
 
   setStatus(live.everOpened || live.failures ? 'reconnecting' : 'connecting');
   let socket: WebSocket;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Match } from '@/types';
 import { useApiMatches } from '@/hooks/useApiMatches';
 import { useFixturesAhead } from '@/hooks/useFixturesAhead';
@@ -60,7 +60,6 @@ export default function HomeMatches({ initialTab, initialType, news }: HomeMatch
   const [featuredId, setFeaturedId] = useState<string | null>(null);
 
   const scoped = useMemo(() => filterByMatchType(matches, type), [matches, type]);
-  const ahead = useFixturesAhead();
 
   // Play that is on, or resumes today. A multi-day match at stumps is in All only until the next day starts.
   const liveList = useMemo(
@@ -72,6 +71,10 @@ export default function HomeMatches({ initialTab, initialType, news }: HomeMatch
     [scoped, follows.teams]
   );
   const stumpsList = useMemo(() => scoped.filter(isAtStumps), [scoped]);
+
+  // The schedule is only read for what shows it: the Upcoming and All tabs, or the next-up stage with nothing live.
+  const needsSchedule = matches.length > 0 && (!liveList.length || picked === 'upcoming' || picked === 'all');
+  const { fixtures: ahead, loadMore, hasMore } = useFixturesAhead(needsSchedule);
 
   // Schedule rows the feed has no copy of, up to the last one read — that day is only partly read.
   const missing = useMemo(() => {
@@ -130,6 +133,17 @@ export default function HomeMatches({ initialTab, initialType, news }: HomeMatch
   if (!landing && matches.length) setLanding(liveList.length ? 'live' : upcomingList.length ? 'upcoming' : 'all');
   const tab: HomeTab = picked || landing || 'live';
   const setTab = (next: HomeTab) => setQuery({ tab: next });
+
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || tab !== 'upcoming' || !hasMore) return;
+    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && loadMore(), {
+      rootMargin: '600px 0px',
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [tab, hasMore, loadMore]);
 
   const typeNote = type === 'ALL' ? '' : `${type.toLowerCase()} `;
   const hasData = matches.length > 0;
@@ -215,7 +229,10 @@ export default function HomeMatches({ initialTab, initialType, news }: HomeMatch
           )
         ) : tab === 'upcoming' ? (
           upcomingList.length ? (
-            <UpcomingRail matches={upcomingList} timeline />
+            <>
+              <UpcomingRail matches={upcomingList} timeline />
+              {hasMore && <div ref={sentinelRef} aria-hidden="true" />}
+            </>
           ) : (
             <EmptyState icon="calendar" title={`No ${typeNote}upcoming matches in the feed`} action={{ label: 'Open fixtures', href: '/fixtures' }} />
           )
