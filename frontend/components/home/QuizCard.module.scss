@@ -1,0 +1,90 @@
+@use 'component' as *;
+
+.card {
+  display: grid;
+  gap: $space-4;
+  margin-top: $space-10;
+  padding: $space-5;
+  @include panel;
+  background-image: radial-gradient(70% 120% at 0% 0%, var(--data-soft), transparent 70%);
+
+  @include tablet {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: $space-8;
+    padding: $space-6;
+  }
+}
+
+.body {
+  display: grid;
+  gap: $space-1;
+  min-width: 0;
+}
+
+.eyebrow {
+  @include eyebrow;
+  color: $data;
+}
+
+.title {
+  font-size: $fs-xl;
+  font-weight: 800;
+  font-stretch: $stretch-display;
+  line-height: $leading-snug;
+}
+
+.meta {
+  font-size: $fs-sm;
+  color: $text-3;
+  @include truncate;
+}
+
+.side {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: $space-3 $space-4;
+}
+
+.dots {
+  display: flex;
+  gap: $space-1-5;
+  list-style: none;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid $line-3;
+}
+
+.right {
+  border-color: transparent;
+  background: $signal-mark;
+}
+
+.wrong {
+  border-color: transparent;
+  background: $wicket;
+}
+
+.score {
+  @include data-num;
+  font-size: $fs-md;
+  color: $text-2;
+
+  strong {
+    font-size: $fs-xl;
+    color: $text;
+  }
+}
+
+.cta {
+  @include button-primary;
+
+  @include phone-only {
+    width: 100%;
+  }
+}

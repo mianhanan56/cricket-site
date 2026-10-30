@@ -1,4 +1,22 @@
 import { fields, keyed, type Shaper } from '../shape';
+import { UPSTREAM_SITE } from '../upstream';
+
+// The upstream lists itself as a co-streamer ("<site> & FANCODE"); the site never names it.
+const SITE_NAME = new URL(UPSTREAM_SITE).hostname.split('.')[0].toLowerCase();
+const withoutSource: Shaper = (value) =>
+  typeof value === 'string'
+    ? value
+        .split(',')
+        .map((entry) =>
+          entry
+            .split('&')
+            .map((name) => name.trim())
+            .filter((name) => name && name.toLowerCase() !== SITE_NAME)
+            .join(' & ')
+        )
+        .filter(Boolean)
+        .join(', ')
+    : value;
 
 const seriesRow = fields({
   mf: 'matchKey',
@@ -35,7 +53,7 @@ export const shapes: Record<string, Shaper> = {
     v: 'venueKey',
     dt: 'scheduledStart',
     nt: 'nextPlayTime',
-    b: 'broadcasters',
+    b: ['broadcasters', withoutSource],
     wU: [
       'weather',
       fields({

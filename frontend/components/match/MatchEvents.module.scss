@@ -1,37 +1,76 @@
 @use 'component' as *;
 
 .list {
-  display: grid;
+  @include desktop {
+    column-count: 2;
+    column-gap: $space-10;
+  }
 }
 
 .item {
   --tone: var(--text-3);
-  padding-block: $space-2-5;
+  --dot: 11px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  break-inside: avoid;
 }
 
+.over {
+  padding-top: 1px;
+  @include data-num;
+  font-size: $fs-xs;
+  color: $text-3;
+  white-space: nowrap;
+}
 
 .body {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 3px;
   min-width: 0;
+  padding: 0 0 $space-5 $space-6;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 3px;
+    width: var(--dot);
+    height: var(--dot);
+    border-radius: 50%;
+    background: var(--tone);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--tone) 18%, transparent);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: calc(var(--dot) / 2 - 1px);
+    top: calc(var(--dot) + 8px);
+    bottom: 4px;
+    width: 2px;
+    border-radius: 1px;
+    background: $line;
+
+    // Two columns would cut the rail at the column break.
+    @include desktop {
+      content: none;
+    }
+  }
 }
 
-.head {
-  display: flex;
-  align-items: baseline;
-  gap: $space-3;
+.item:last-child .body {
+  padding-bottom: 0;
+
+  &::after {
+    content: none;
+  }
 }
 
 .kind {
   @include eyebrow;
   color: var(--tone);
-}
-
-.over {
-  @include data-num;
-  font-size: $fs-2xs;
-  color: $text-3;
 }
 
 .text {

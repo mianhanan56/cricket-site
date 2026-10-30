@@ -1,0 +1,50 @@
+@use 'component' as *;
+
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  list-style: none;
+}
+
+.link,
+.plain {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1-5;
+  min-height: 40px;
+  padding-inline: $space-4;
+  border-radius: $r-pill;
+  font-size: $fs-md;
+  font-weight: 600;
+}
+
+.link {
+  color: $text;
+  background: $surface;
+  border: 1px solid $line-2;
+  transition:
+    border-color $dur-2 $ease-out,
+    background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    border-color: $signal-mark;
+    background: $signal-soft;
+  }
+}
+
+.out {
+  transform: rotate(-45deg);
+  color: $text-3;
+  transition: transform $dur-2 $ease-out;
+
+  .link:hover & {
+    color: $signal-text;
+  }
+}
+
+.plain {
+  color: $text-2;
+  background: $surface-2;
+}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import styles from './PlayerPortrait.module.scss';
 
 /** First letter of the first and last name — "Abdullah Shafique" → "AS". */
@@ -24,7 +24,14 @@ export default function PlayerPortrait({
   size?: 'xs' | 'sm' | 'lg';
 }) {
   const [failed, setFailed] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
   const box = size === 'lg' ? '' : styles[size];
+
+  // A server-rendered image can fail before hydration attaches onError; it would sit as an empty well.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth === 0) setFailed(true);
+  }, [src]);
 
   if (!src || failed) {
     return (
@@ -38,6 +45,7 @@ export default function PlayerPortrait({
     <span className={`${styles.portrait} ${box}`}>
       {/* eslint-disable-next-line @next/next/no-img-element -- small PNGs already on a CDN */}
       <img
+        ref={imgRef}
         src={src}
         alt={name}
         width={148}

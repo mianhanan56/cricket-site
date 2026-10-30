@@ -79,7 +79,7 @@ export function seriesFromMatches(matches: Match[]): SeriesSummary[] {
 }
 
 /** Scheduled days per format: a series ends on its last match's start plus these, as the upstream's header says. */
-const FORMAT_DAYS: Record<MatchFormat, number> = { TEST: 5, ODI: 1, T20: 1, T10: 1 };
+const FORMAT_DAYS: Record<MatchFormat, number> = { TEST: 5, ODI: 1, T20: 1, T10: 1, HUNDRED: 1 };
 
 /** One row of a series' schedule, with keys resolved to names. */
 export interface SeriesScheduleMatch {

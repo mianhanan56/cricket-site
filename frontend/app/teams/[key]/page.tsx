@@ -2,7 +2,8 @@ import { Suspense, cache } from 'react';
 import Link from 'next/link';
 import { ON_INTENT } from '@/lib/intentPrefetch';
 import { notFound } from 'next/navigation';
-import type { HeadToHeadMatch, PlayerRole, SquadPlayer, TeamProfile, TeamRankingPosition } from '@/types';
+import type { HeadToHeadMatch, TeamProfile, TeamRankingPosition } from '@/types';
+import { squadGroups } from '@/lib/squadGroups';
 import { getApiTeamProfile } from '../../../lib/api';
 import TeamBadge from '../../../components/ui/TeamBadge';
 import LocalTime from '../../../components/ui/LocalTime';
@@ -140,25 +141,6 @@ function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string
       )}
     </li>
   );
-}
-
-const ROLE_ORDER: PlayerRole[] = ['BATSMAN', 'WK', 'ALL_ROUNDER', 'BOWLER'];
-const ROLE_LABEL: Record<PlayerRole, string> = {
-  BATSMAN: 'Batters',
-  WK: 'Wicket-keepers',
-  ALL_ROUNDER: 'All-rounders',
-  BOWLER: 'Bowlers',
-};
-
-// A player no source names a discipline for is listed, not filed under a guessed role.
-function squadGroups(squad: SquadPlayer[]) {
-  return [...ROLE_ORDER, null].map((role) => ({
-    role: role ?? 'OTHER',
-    label: role ? ROLE_LABEL[role] : 'Squad',
-    players: squad
-      .filter((p) => p.role === role)
-      .sort((a, b) => Number(!!b.isCaptain) - Number(!!a.isCaptain)),
-  })).filter((g) => g.players.length);
 }
 
 export default async function TeamPage({ params }: { params: { key: string } }) {

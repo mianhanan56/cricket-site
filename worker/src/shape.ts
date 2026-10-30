@@ -35,4 +35,4 @@ export const keyed =
     isPlainObject(value) ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, shape(v)])) : value;
 
 /** Bump when any shape changes, so the edge cache never serves a body in the old shape. */
-export const SHAPE_VERSION = 2;
+export const SHAPE_VERSION = 3;

@@ -479,6 +479,8 @@ imported only by the route, so none of it ships to the browser:
   (`lib/matchState.ts`). `isAtStumps` matches are in Home's All tab only (not Live) and get a
   "Stumps" tag/section in search. This has flip-flopped; the 2026-10-07 user rule is final. Don't filter on
   `status === 'LIVE'` for anything a reader sees as "live".
+- `MatchFormat` includes 'HUNDRED' (since 2026-10-30; was folded into T20): `toMatchFormat` by
+  `ballsPerOver`/label, schedule `ft` 5; chip and label "Hundred".
 - Format chips go through `matchFormat` / `meetingFormat` (`lib/seriesFormat.ts`): the upstream files every
   multi-day match as a Test, and `isUnofficialTest` (`lib/matchType.ts`) relabels one that is not
   between two senior full-member sides as "Multi-day" (series: `unofficialTests`). National

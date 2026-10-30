@@ -15,13 +15,12 @@ const SERIES_MATCH_STATUS: Record<number, MatchStatus> = {
   2: 'COMPLETED',
 };
 
-// The Hundred folds into T20, as in toMatchFormat.
 const SERIES_MATCH_FORMAT: Record<number, MatchFormat> = {
   1: 'ODI',
   2: 'T20',
   3: 'TEST',
   4: 'T10',
-  5: 'T20',
+  5: 'HUNDRED',
 };
 
 export const scheduleStatus = (s: number | undefined): MatchStatus => SERIES_MATCH_STATUS[s ?? 0] ?? 'UPCOMING';

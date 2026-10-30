@@ -244,7 +244,7 @@ export default function LiveHero({ match, switcher }: { match: Match; switcher?:
                   </li>
                 ))}
                 {crease.bowler && (
-                  <li className={`${styles.player} ${styles.bowler}`}>
+                  <li className={styles.player}>
                     <span className={styles.role}>Bowling</span>
                     <Link {...ON_INTENT} href={`/players/${crease.bowler.playerId}`} className={styles.playerName}>
                       {crease.bowler.name}

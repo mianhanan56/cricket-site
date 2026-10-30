@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-10-29. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-10-30. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -74,6 +74,17 @@ and page entry no longer refetches the list. `SHAPE_VERSION` is 2. The PWA servi
 handles the ball-by-ball routes at all (they were NetworkOnly, so it was a pass-through hop and a
 duplicate ⚙ row per call in DevTools); `/mapping` stays — hot payloads carry keys, names are read
 once and cached. `npm run local` needs `cd worker && npm run dev` on :8788. Uncommitted.
+
+2026-10-30: the Worker was already deployed and current (checked: `/mapping` serves camelCase,
+the only later Worker change is an un-export). Match centre (PROJECT_STATUS, 2026-10-30): pill tabs, rail
+alignment, Key moments rail kept; the green on-pitch header was rejected and reverted. Next per the user's order: "Watch live"
+(rights-holder link per match, official embeds, second-screen mode — TODO, Medium). Uncommitted.
+
+2026-10-30 (later): the six TODO bugs fixed and five features built — search initials, The
+Hundred format, series Squads tab, home quiz card, Watch live links (PROJECT_STATUS). Worker
+change: broadcasters drop the source's name — **needs a deploy**. Remaining features waiting on
+the user: real push (infra), Stats Corner, team comparison / pace-vs-spin, match news — each
+needs a new Worker route and payload research.
 
 2026-10-15: full code review (bugs) and an upstream feature-gap survey, no code changed. Findings are
 new TODO.md rows dated 2026-10-15; the user picks what to fix.

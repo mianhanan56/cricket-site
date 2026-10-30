@@ -20,7 +20,7 @@ import { isStaleStoppage, attributeResult } from '@/lib/api';
 import { matchStateOf } from '@/lib/matchState';
 import { quizKind } from '@/lib/quiz';
 import { breakFromFeed } from '@/lib/feedBreak';
-import { inningsProgress, liveEquation } from '@/lib/telemetry';
+import { inningsProgress, liveEquation, targetFromFeed } from '@/lib/telemetry';
 import { creaseFromCard } from '@/lib/crease';
 import { dedupeDeliveries, groupBalls, reachedByCard, toBallEntry, type BallEntry } from '@/lib/balls';
 import { mergeFeedItems } from '@/lib/live/frames';
@@ -87,8 +87,9 @@ export default function MatchDetail({
   const hasSummary = !preview && initial.status !== 'UPCOMING';
   const defaultTab: TabKey = hasSummary ? 'live' : 'info';
   const [picked, setPicked] = useState<TabKey>(initialTab || defaultTab);
+  // The polled status, not the first render's: a page opened before the start gains Live once play begins.
   const offered: Record<TabKey, boolean> = {
-    live: hasSummary || initial.status !== 'UPCOMING',
+    live: !preview && match.status !== 'UPCOMING',
     scorecard: true,
     commentary: true,
     info: true,
@@ -192,11 +193,6 @@ export default function MatchDetail({
   // Not while play is stopped: the newest delivery then belongs to an innings that has ended.
   const lastBall = isLive && state.alive ? cardDots[cardDots.length - 1] ?? null : null;
 
-  // Rates and crease read the fetched card — only it returns innings in innings order.
-  const eq = useMemo(
-    () => (isLive ? liveEquation(match, apiExtras.innings.length ? apiExtras.innings : undefined) : null),
-    [isLive, match, apiExtras.innings]
-  );
   const situation = useMemo(
     () => (isLive ? matchSituation(match, apiExtras.innings) : NO_SITUATION),
     [isLive, match, apiExtras.innings]
@@ -246,6 +242,13 @@ export default function MatchDetail({
 
   const feedEvents = useMemo(() => mergeFeedItems(history.events, apiExtras.events, Infinity), [apiExtras.events, history.events]);
 
+  // Rates and crease read the fetched card — only it returns innings in innings order.
+  const revised = useMemo(() => (isLive ? targetFromFeed(feedEvents) : null), [isLive, feedEvents]);
+  const eq = useMemo(
+    () => (isLive ? liveEquation(match, apiExtras.innings.length ? apiExtras.innings : undefined, revised) : null),
+    [isLive, match, apiExtras.innings, revised]
+  );
+
   // The Live tab's strip: the innings' last three overs, from the whole feed rather than its newest page.
   const recentBalls = useMemo(() => {
     const inning = feedBalls[0]?.inning;
@@ -267,7 +270,7 @@ export default function MatchDetail({
   const hasTable = offered.table;
   const hasStats = Boolean(leaders && rankedLeaders(leaders).length);
   const tabs: Array<{ key: TabKey; label: string }> = [
-    ...(offered.live || match.status !== 'UPCOMING' ? [{ key: 'live' as const, label: isLive ? 'Live' : 'Summary' }] : []),
+    ...(offered.live ? [{ key: 'live' as const, label: isLive ? 'Live' : 'Summary' }] : []),
     { key: 'scorecard', label: 'Scorecard' },
     { key: 'commentary', label: 'Commentary' },
     { key: 'info', label: match.status === 'UPCOMING' ? 'Preview' : 'Info' },
@@ -333,7 +336,7 @@ export default function MatchDetail({
           eq={eq}
           situation={situation}
           stand={stand}
-          progress={state.alive ? inningsProgress(match, apiExtras.innings.length ? apiExtras.innings : undefined) : null}
+          progress={state.alive ? inningsProgress(match, apiExtras.innings.length ? apiExtras.innings : undefined, revised) : null}
           connecting={isLive && !isConnected && !apiExtras.fetchedAt}
           interrupted={interrupted}
           perOver={perOver}

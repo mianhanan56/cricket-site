@@ -6,6 +6,9 @@ import { upstreamTarget, type ParamValue, type RouteDef } from './routes';
 // the frontend's own 15s so the caller gets this Worker's 502, not its own abort.
 export const UPSTREAM_TIMEOUT_MS = 10_000;
 
+/** The upstream's own site, which every call presents as. */
+export const UPSTREAM_SITE = 'https://crex.com';
+
 export function fetchUpstream(route: RouteDef, params: Record<string, ParamValue>): Promise<Response> {
   const base = UPSTREAMS[route.base];
   const { path, query } = upstreamTarget(route, params);
@@ -14,8 +17,8 @@ export function fetchUpstream(route: RouteDef, params: Record<string, ParamValue
   // one of their own pages. These are the headers their site already sends.
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    Origin: 'https://crex.com',
-    Referer: 'https://crex.com/',
+    Origin: UPSTREAM_SITE,
+    Referer: `${UPSTREAM_SITE}/`,
     'User-Agent': 'Mozilla/5.0 (compatible; PulseCrease-Worker/1.0)',
     ...route.headers,
   };

@@ -153,14 +153,18 @@ export async function getApiTeamProfile(
     result: null,
   }));
 
+  // The same fixture can come from both sources, keyed by its match key in one and a preview
+  // id in the other: a preview is dropped when a keyed match of the same shape exists, in
+  // either order, and the keyed one is kept since it opens the full match centre.
+  const pending = [...fromEndpoint, ...mine.filter((f) => f.status !== 'COMPLETED')].sort(bySoonest);
+  const shape = (m: Match) => `${[m.homeTeam.id, m.awayTeam.id].sort().join('-')}-${m.startTime.slice(0, 10)}`;
+  const keyedShapes = new Set(pending.filter((m) => !parseScheduledMatchId(m.id)).map(shape));
   const upcoming: Match[] = [];
   const seenUpcoming = new Set<string>();
-  for (const m of [...fromEndpoint, ...mine.filter((f) => f.status !== 'COMPLETED')].sort(bySoonest)) {
-    // The same fixture can come from both sources, keyed by its match key in one and a
-    // preview id in the other, so preview ids dedupe on the fixture's shape instead.
-    const dedupe = parseScheduledMatchId(m.id)
-      ? `${m.homeTeam.id}-${m.awayTeam.id}-${m.startTime.slice(0, 10)}`
-      : m.id;
+  for (const m of pending) {
+    const preview = Boolean(parseScheduledMatchId(m.id));
+    if (preview && keyedShapes.has(shape(m))) continue;
+    const dedupe = preview ? shape(m) : m.id;
     if (seenUpcoming.has(dedupe)) continue;
     seenUpcoming.add(dedupe);
     upcoming.push(m);

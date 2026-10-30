@@ -404,14 +404,26 @@ describe('the raw feed', () => {
     assert.equal(note?.kind, 'TOSS');
     assert.notEqual(note?.preToss, true);
   });
+
+  it('reads status words, not letters inside team names', () => {
+    const kind = (statusText: string) => decodeMatchNote({ ...atStumps, statusCode: '', statusText })?.kind;
+
+    assert.equal(kind('Bahrain opt to bat'), 'INFO');
+    assert.equal(kind('Ukraine need 40 runs'), 'INFO');
+    assert.equal(kind('Team India arrive at the ground'), 'INFO');
+    assert.equal(kind('Tea Break'), 'BREAK');
+    assert.equal(kind('Rain stops play'), 'DELAY');
+    assert.equal(kind('Start Delayed'), 'DELAY');
+  });
 });
 
 describe('format', () => {
   it('reads a bare T10 off the format slot in the packed state, and The Hundred off its balls per over', () => {
     assert.equal(toMatchFormat({ packedState: 7 } as ApiRawMatch), 'T10');
-    assert.equal(toMatchFormat({ packedState: 7, ballsPerOver: 5 } as ApiRawMatch), 'T20');
+    assert.equal(toMatchFormat({ packedState: 7, ballsPerOver: 5 } as ApiRawMatch), 'HUNDRED');
     assert.equal(toMatchFormat({ format: 'T10', packedState: 4 } as ApiRawMatch), 'T10');
     assert.equal(toMatchFormat({ format: 'T20', packedState: 4 } as ApiRawMatch), 'T20');
+    assert.equal(toMatchFormat({ format: 'The Hundred' } as ApiRawMatch), 'HUNDRED');
   });
 });
 

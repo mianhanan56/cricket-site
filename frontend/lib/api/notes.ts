@@ -55,13 +55,14 @@ const TOSS_CODES: Record<string, { side: 1 | 2; choice: 'bat' | 'bowl' }> = {
 
 // Tone only, for statuses the upstream sends as free text: the label shown is always
 // The upstream's own string, and an unrecognised one still shows, as INFO.
+// Word starts throughout: team names carry these letters ("Team", "Bahrain", "Ukraine").
 const NOTE_TEXT_KINDS: ReadonlyArray<[RegExp, MatchNoteKind]> = [
-  [/stumps|day'?s play/i, 'STUMPS'],
-  [/break|drinks|lunch|tea|timeout/i, 'BREAK'],
-  [/delay|rain|wet|light|weather|suspend/i, 'DELAY'],
-  [/abandon|cancel|no result/i, 'SUSPENDED'],
-  [/drawn|tied|super over/i, 'RESULT'],
-  [/toss/i, 'TOSS'],
+  [/\b(stumps|day'?s play)/i, 'STUMPS'],
+  [/\b(break|drinks|lunch|tea|timeout)\b/i, 'BREAK'],
+  [/\b(delay|rain|wet|light|weather|suspend)/i, 'DELAY'],
+  [/\b(abandon|cancel|no result)/i, 'SUSPENDED'],
+  [/\b(drawn|tied|super over)/i, 'RESULT'],
+  [/\btoss\b/i, 'TOSS'],
 ];
 
 /** Kinds that mean the match is over, so the note must not claim a pause. */
@@ -132,7 +133,7 @@ export function decodeMatchNote(
   };
 }
 
-const TOTAL_INNINGS: Record<MatchFormat, number> = { TEST: 4, ODI: 2, T20: 2, T10: 2 };
+const TOTAL_INNINGS: Record<MatchFormat, number> = { TEST: 4, ODI: 2, T20: 2, T10: 2, HUNDRED: 2 };
 
 /**
  * Ten down, declared, or the ball quota bowled. `ballsLimit` is a quota the caller

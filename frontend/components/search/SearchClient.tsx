@@ -66,8 +66,16 @@ export default function SearchClient() {
   const [searched, setSearched] = useState(false);
   const [index, setIndex] = useState<RemoteIndex | null>(null);
 
-  // Adopt ?q= whenever it changes underneath (Back/Forward, a navbar search while already here).
-  useEffect(() => setQ(urlQuery), [urlQuery]);
+  // Adopt ?q= whenever it changes underneath (Back/Forward, a navbar search while already here),
+  // but not the echo of our own debounced write: by then the box may hold newer typing.
+  const wrote = useRef<string | null>(null);
+  useEffect(() => {
+    if (urlQuery === wrote.current) {
+      wrote.current = null;
+      return;
+    }
+    setQ(urlQuery);
+  }, [urlQuery]);
 
   useEffect(() => {
     loadSearchIndex(setIndex);
@@ -80,7 +88,10 @@ export default function SearchClient() {
       setResults([]);
       setSearched(false);
       setLoading(false);
-      if (!term && urlQuery) router.replace('/search', { scroll: false });
+      if (!term && urlQuery) {
+        wrote.current = '';
+        router.replace('/search', { scroll: false });
+      }
       return;
     }
     setLoading(true);
@@ -90,7 +101,10 @@ export default function SearchClient() {
 
     const t = setTimeout(async () => {
       // replace, not push: Back should leave search, not walk through every keystroke.
-      if (term !== urlQuery) router.replace(`/search?q=${encodeURIComponent(term)}`, { scroll: false });
+      if (term !== urlQuery) {
+        wrote.current = term;
+        router.replace(`/search?q=${encodeURIComponent(term)}`, { scroll: false });
+      }
 
       let found: Match[] = [];
       try {

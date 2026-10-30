@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { InningsScore, Match, MatchNote, OverSummary, Team } from '../types';
-import { liveEquation, inningsProgress } from '../lib/telemetry';
+import { liveEquation, inningsProgress, targetFromFeed } from '../lib/telemetry';
 import { inningsUnderway, matchStateOf } from '../lib/matchState';
 import { matchPulse, pulseTrace, recentInningsBalls, type PulseBall } from '../lib/pulse';
 import { inningsWorms } from '../lib/momentum';
@@ -79,6 +79,28 @@ describe('liveEquation', () => {
   it('is null for a match that is not live', () => {
     assert.equal(liveEquation(match({ status: 'COMPLETED' })), null);
   });
+
+  it('chases a revised (DLS) target stated in the feed', () => {
+    const revised = targetFromFeed([
+      { kind: 'TARGET', text: 'PAK needs 170 runs in 102 balls' },
+      { kind: 'TARGET', text: 'PAK needs 198 runs in 120 balls' },
+    ]);
+    assert.deepEqual(revised, { target: 170, balls: 102 });
+
+    const eq = liveEquation(chase(142, 4, 15), undefined, revised);
+    assert.equal(eq?.target, 170);
+    assert.equal(eq?.need, 28);
+    assert.equal(eq?.ballsLeft, 12);
+    assert.equal(eq?.phase, null);
+    assert.equal(inningsProgress(chase(142, 4, 15), undefined, revised), 90 / 102);
+  });
+
+  it('ignores a target row that cannot be a whole-innings target', () => {
+    // Fewer runs than already scored: some other sentence, not the target.
+    const eq = liveEquation(chase(142, 4, 15), undefined, { target: 40, balls: 30 });
+    assert.equal(eq?.target, 198);
+    assert.equal(targetFromFeed([{ kind: 'TARGET', text: 'Target set' }]), null);
+  });
 });
 
 describe('matchStateOf', () => {
@@ -103,6 +125,13 @@ describe('matchStateOf', () => {
     assert.equal(matchStateOf(match({ status: 'COMPLETED', note: note('Abandoned', 'SUSPENDED', { paused: false }) })).family, 'void');
     assert.equal(matchStateOf(match({ status: 'COMPLETED', result: 'PAK won by 5 runs' })).key, 'FINISHED');
     assert.equal(matchStateOf(match({ status: 'UPCOMING', note: note('Toss delayed due to wet outfield', 'DELAY', { preToss: true }) })).key, 'RAIN');
+  });
+
+  it('reads a finished super over as a result, not the climax', () => {
+    const superOver = note('Super Over', 'RESULT', { paused: false });
+    assert.equal(matchStateOf(match({ note: superOver })).family, 'climax');
+    assert.equal(matchStateOf(match({ status: 'COMPLETED', note: superOver, result: 'Match tied (IND won the Super Over)' })).key, 'FINISHED');
+    assert.equal(matchStateOf(match({ status: 'COMPLETED', result: 'Match tied (Super Over also tied)' })).key, 'TIED');
   });
 });
 

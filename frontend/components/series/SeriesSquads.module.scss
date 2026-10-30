@@ -1,0 +1,167 @@
+@use 'component' as *;
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.picker {
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  gap: 2px;
+  padding: 3px;
+  border-radius: $r-pill;
+  background: var(--control-track);
+  @include scroll-x;
+  @include scroll-fade;
+}
+
+.side {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 $space-3 0 $space-1-5;
+  border-radius: $r-pill;
+  font-size: $fs-md;
+  font-weight: 600;
+  color: $text-2;
+  white-space: nowrap;
+  transition: color $dur-2 $ease-out, background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    color: $text;
+  }
+}
+
+.on {
+  color: $text;
+  background: var(--control-on);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%), 0 2px 8px -4px rgb(0 0 0 / 18%);
+}
+
+.sideName {
+  @include data-num;
+}
+
+.panel {
+  @include panel;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-4;
+  border-bottom: 1px solid $line;
+
+  @include tablet {
+    padding: $space-5 $space-6;
+  }
+}
+
+.teamName {
+  min-width: 0;
+  font-family: $font-display;
+  font-size: $fs-lg;
+  font-weight: 700;
+  @include truncate;
+  @include focus-ring;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.count {
+  margin-left: auto;
+  flex-shrink: 0;
+  font-size: $fs-sm;
+  color: $text-3;
+}
+
+.group {
+  padding: $space-4;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+
+  @include tablet {
+    padding: $space-5 $space-6;
+  }
+}
+
+.groupTitle {
+  @include eyebrow;
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+  margin-bottom: $space-2;
+}
+
+.groupCount {
+  @include data-num;
+  color: $text-2;
+}
+
+.players {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 $space-4;
+  list-style: none;
+
+  @include sm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include desktop {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @include wide {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.player {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-height: 44px;
+  margin-inline: -$space-2;
+  padding-inline: $space-2;
+  border-radius: $r-sm;
+  transition: background-color $dur-2 $ease-out;
+  @include focus-ring;
+
+  &:hover {
+    background: $surface-2;
+  }
+}
+
+.playerName {
+  font-size: $fs-base;
+  color: $text;
+  @include truncate;
+}
+
+.tag {
+  @include flex-center;
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 22px;
+  padding-inline: $space-1;
+  border-radius: $r-xs;
+  border: 1px solid $line-2;
+  font-family: $font-mono;
+  font-size: $fs-2xs;
+  font-weight: 700;
+  text-decoration: none;
+  color: $text-2;
+}

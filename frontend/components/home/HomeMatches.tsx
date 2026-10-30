@@ -27,6 +27,7 @@ import ScoreTicker from './ScoreTicker';
 import UpcomingRail from './UpcomingRail';
 import ResultList from './ResultList';
 import MyCricketBand, { FollowPrompt } from './MyCricketBand';
+import QuizCard from './QuizCard';
 import MatchGrid from './MatchGrid';
 import Segmented from '../ui/Segmented';
 import FilterSheet from '../ui/FilterSheet';
@@ -60,15 +61,16 @@ export default function HomeMatches({ initialTab, initialType, news }: HomeMatch
   const [featuredId, setFeaturedId] = useState<string | null>(null);
 
   const scoped = useMemo(() => filterByMatchType(matches, type), [matches, type]);
+  const followedTeams = useMemo(() => new Set(follows.teams.map((t) => t.id)), [follows.teams]);
 
   // Play that is on, or resumes today. A multi-day match at stumps is in All only until the next day starts.
   const liveList = useMemo(
     () =>
       rankLive(
         scoped.filter(isLiveNow),
-        new Set(follows.teams.map((t) => t.id))
+        followedTeams
       ),
-    [scoped, follows.teams]
+    [scoped, followedTeams]
   );
   const stumpsList = useMemo(() => scoped.filter(isAtStumps), [scoped]);
 
@@ -250,6 +252,8 @@ export default function HomeMatches({ initialTab, initialType, news }: HomeMatch
       </section>
 
       <FollowPrompt />
+
+      <QuizCard matches={matches} followed={followedTeams} />
 
       {news}
 

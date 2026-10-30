@@ -41,8 +41,9 @@ export function formatProgressShort(
 
 /** Scheduled overs per side. Test cricket has none, which is what null means. */
 export const SCHEDULED_OVERS: Record<MatchFormat, number | null> = {
-  T20: 20, // also The Hundred — 20 five-ball overs, via ballsPerOver
+  T20: 20,
   T10: 10,
+  HUNDRED: 20, // five-ball sets: 100 balls at ballsPerOver 5
   ODI: 50,
   TEST: null,
 };

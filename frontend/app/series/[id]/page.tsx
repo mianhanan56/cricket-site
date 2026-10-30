@@ -5,6 +5,7 @@ import {
   getApiMatchList,
   getApiSeriesLeaders,
   getApiSeriesSchedule,
+  getApiSeriesSquadTeams,
   getApiSeriesTable,
   seriesScheduleFromMatches,
   withFeedStatuses,
@@ -25,6 +26,7 @@ import StateChip from '../../../components/live/StateChip';
 import LiveSeriesTiles from '../../../components/series/LiveSeriesTiles';
 import SeriesMatchStrip from '../../../components/series/SeriesMatchStrip';
 import SeriesMilestones, { MilestonesSkeleton } from '../../../components/series/SeriesMilestones';
+import SeriesSquads, { SquadsSkeleton } from '../../../components/series/SeriesSquads';
 import FollowButton from '../../../components/follow/FollowButton';
 import { NewsGrid } from '../../../components/news/NewsList';
 import EmptyState from '../../../components/ui/EmptyState';
@@ -37,7 +39,7 @@ import styles from './seriesDetail.module.scss';
 const REVALIDATE = 300;
 const LIVE_REVALIDATE = 15;
 
-const TAB_KEYS = ['matches', 'table', 'stats', 'news'] as const;
+const TAB_KEYS = ['matches', 'table', 'stats', 'squads', 'news'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 const UPCOMING_FIRST = 10;
@@ -95,7 +97,7 @@ export default async function SeriesDetailPage({
 }) {
   const feedRead = getApiMatchList({ revalidate: LIVE_REVALIDATE }).catch(() => [] as Match[]);
   let scheduleError: unknown = null;
-  const [schedule, feed, table, leaders, news] = await Promise.all([
+  const [schedule, feed, table, leaders, news, squadTeams] = await Promise.all([
     readSchedule(params.id).catch((err) => {
       scheduleError = err;
       return null;
@@ -110,6 +112,7 @@ export default async function SeriesDetailPage({
       }).catch(() => null)
     ),
     getTaggedNews('series', params.id),
+    getApiSeriesSquadTeams(params.id, { revalidate: 3600 }),
   ]);
 
   // Schedule endpoint down: fall back to the feed's narrower view before 404-ing.
@@ -151,12 +154,15 @@ export default async function SeriesDetailPage({
     { key: 'matches', label: 'Matches', count: series.matchCount },
     ...(table.length > 0 ? [{ key: 'table', label: 'Points table', count: table.length > 1 ? table.length : null }] : []),
     ...(shownLeaders.length > 0 ? [{ key: 'stats', label: 'Top performers' }] : []),
+    ...(squadTeams.length > 0 ? [{ key: 'squads', label: 'Squads' }] : []),
     ...(news.length > 0 ? [{ key: 'news', label: 'News' }] : []),
   ];
 
   // A tab this series has no section for falls back rather than 404-ing.
   const requested = pickParam<TabKey>(searchParams?.tab, TAB_KEYS, 'matches');
   const tab = tabs.some((t) => t.key === requested) ? requested : 'matches';
+  const teamParam = typeof searchParams?.team === 'string' ? searchParams.team : '';
+  const pickedTeam = squadTeams.some((t) => t.id === teamParam) ? teamParam : squadTeams[0]?.id ?? '';
 
   return (
     <div className={styles.page}>
@@ -277,6 +283,15 @@ export default async function SeriesDetailPage({
               <SeriesMilestones seriesId={series.id} />
             </Suspense>
           </LiveLeadersBoard>
+        </section>
+      )}
+
+      {tab === 'squads' && (
+        <section>
+          <SectionHead title="Squads" count={squadTeams.length > 1 ? squadTeams.length : undefined} level={3} />
+          <Suspense key={pickedTeam} fallback={<SquadsSkeleton />}>
+            <SeriesSquads seriesId={series.id} teams={squadTeams} selected={pickedTeam} />
+          </Suspense>
         </section>
       )}
 

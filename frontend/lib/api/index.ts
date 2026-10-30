@@ -23,7 +23,7 @@ export { getApiPlayerSeriesPage } from './playerMatches';
 export { getApiSeriesTable } from './standings';
 export { getApiSeriesLeaders } from './leaders';
 export { seriesStatLabel, SERIES_STAT_KINDS, getApiSeriesStatTable, getApiSeriesStatTables } from './statTables';
-export { getApiMatchSeriesSquads, getApiPlayerCatalogue } from './squads';
+export { getApiMatchSeriesSquads, getApiPlayerCatalogue, getApiSeriesSquadTeams, getApiTeamSquad } from './squads';
 export type { PlayerCatalogueRow } from './squads';
 export { attributeResult } from './attribution';
 export { getApiTeamProfile } from './teams';

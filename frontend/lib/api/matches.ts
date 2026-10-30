@@ -154,16 +154,16 @@ export function toMatchStatus(m: ApiRawMatch): MatchStatus {
 
 /**
  * Our format from the upstream's label. The Hundred is checked by `ballsPerOver` (it has
- * no label) and folds into T20; List A / One Day fold into ODI; `packedState` covers the
- * rest sent bare.
+ * no label); List A / One Day fold into ODI; `packedState` covers the rest sent bare.
  */
 export function toMatchFormat(m: ApiRawMatch): MatchFormat {
-  if (m.ballsPerOver) return 'T20';
+  if (m.ballsPerOver) return 'HUNDRED';
 
   const f = (m.format ?? '').toUpperCase();
   if (f.includes('TEST')) return 'TEST';
   if (f.includes('T10')) return 'T10';
-  if (f.includes('T20') || f.includes('HUN')) return 'T20';
+  if (f.includes('HUN')) return 'HUNDRED';
+  if (f.includes('T20')) return 'T20';
   if (f.includes('ODI') || f.includes('ONE DAY') || f.includes('LIST')) return 'ODI';
 
   return decodeMatchState(m.packedState)?.format ?? 'ODI';
@@ -324,7 +324,7 @@ export function toMatch(id: string, m: ApiRawMatch, names: NameCache): Match {
     ...venueOf(m.venueKey, names),
     startTime: toStartTime(m.startTime),
     ballsPerOver: perOver,
-    // Any `ballsPerOver` marks a 100-ball game; the format (T20) would give a chase 20 balls too many.
+    // Any `ballsPerOver` marks a 100-ball game; 20 six-ball overs would give a chase 20 balls too many.
     ballsLimit: m.ballsPerOver ? HUNDRED_BALLS : null,
     // `statusText` carries mid-match states too, so it is only a result once the match is over.
     result: status === 'COMPLETED' ? resultText(m.statusText ?? m.statusCode) : null,

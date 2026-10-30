@@ -22,6 +22,7 @@ import Skeleton from '../ui/Skeleton';
 import { fmtOvers } from './ScorecardPanel';
 import mc from './matchCenter.module.scss';
 import styles from './LivePanel.module.scss';
+import { targetFromFeed } from '@/lib/telemetry';
 
 const GRAPH_WALK_BUDGET = 8;
 
@@ -91,6 +92,7 @@ export default function LivePanel({
   const live = match.status === 'LIVE';
   const window = useMemo(() => recentInningsBalls(balls), [balls]);
   const pulseOn = inningsUnderway(state);
+  const revised = useMemo(() => targetFromFeed(events), [events]);
   const started = innings.filter((i) => !i.notStarted);
   const current = started[started.length - 1];
   // Read whatever window is in hand (6 balls up) rather than wait on the older pages; the meters
@@ -256,7 +258,7 @@ export default function LivePanel({
         </div>
       )}
 
-      {showLive && <WinProbability match={match} innings={innings} />}
+      {showLive && <WinProbability match={match} innings={innings} revised={revised} />}
 
       {worms.length > 0 && (
         <section className={mc.block}>
@@ -273,8 +275,10 @@ export default function LivePanel({
         <div className={mc.blockHead}>
           <h2 className={mc.blockTitle}>Key moments</h2>
         </div>
-        <MatchEvents events={keyEvents} pending={pending} limit={10} />
-        <PlayerSituations innings={innings} />
+        <div className={mc.surface}>
+          <MatchEvents events={keyEvents} pending={pending} limit={10} />
+          <PlayerSituations innings={innings} />
+        </div>
       </section>
     </div>
   );

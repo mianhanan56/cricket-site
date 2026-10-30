@@ -121,7 +121,10 @@ function keyFor(match: Match, note: MatchNote | null | undefined): StateKey {
   const label = note?.label ?? '';
 
   if (match.status === 'COMPLETED') {
-    return terminalKey(label) ?? terminalKey(match.result ?? '') ?? 'FINISHED';
+    const key = terminalKey(label) ?? terminalKey(match.result ?? '') ?? 'FINISHED';
+    // A super over that has been played is a result ("Match tied (IND won the Super Over)"), not the climax.
+    if (key === 'SUPER_OVER') return /\bwon\b|\bwins?\b/i.test(match.result ?? '') ? 'FINISHED' : 'TIED';
+    return key;
   }
 
   if (note && !note.paused && (note.kind === 'SUSPENDED' || note.kind === 'RESULT')) {
@@ -143,7 +146,7 @@ function keyFor(match: Match, note: MatchNote | null | undefined): StateKey {
     case 'BREAK':
       if (note.betweenInnings) return 'INNINGS_BREAK';
       if (/lunch/i.test(label)) return 'LUNCH';
-      if (/tea/i.test(label)) return 'TEA';
+      if (/\btea\b/i.test(label)) return 'TEA';
       if (/drinks/i.test(label)) return 'DRINKS';
       if (/timeout/i.test(label)) return 'TIMEOUT';
       return 'BREAK';

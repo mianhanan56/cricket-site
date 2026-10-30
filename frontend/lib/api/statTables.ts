@@ -4,7 +4,7 @@
 // long revalidate and bounded concurrency. Figures can differ from the leaders
 // board (the upstream's) by a match awarded without a completed card.
 import type { InningsScore, SeriesBattingTotals, SeriesBowlingTotals, SeriesStatKind, SeriesStatRow, SeriesStatTable, Team } from '@/types';
-import { DEFAULT_BALLS_PER_OVER, ballsFrom, oversFrom } from '../overs';
+import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER, ballsFrom, oversFrom } from '../overs';
 import { inWidth, type FetchOpts } from './client';
 import { cleanKey, playerImageUrl } from './names';
 import { getApiScorecard } from './scorecard';
@@ -262,8 +262,9 @@ async function seriesStatRows(
         acc.matches.add(match.key);
         acc.bowl.innings += 1;
         // `overs` is the upstream's printed figure — 4.3 is four overs and three balls,
-        // not four and a half — so it is converted before it is summed.
-        acc.bowl.balls += ballsFrom(line.overs, DEFAULT_BALLS_PER_OVER);
+        // not four and a half (four five-ball sets and three in The Hundred) — so it is
+        // converted before it is summed.
+        acc.bowl.balls += ballsFrom(line.overs, match.format === 'HUNDRED' ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER);
         acc.bowl.runs += line.runs;
         acc.bowl.wickets += line.wickets;
         if (line.wickets >= 5) acc.bowl.fiveFors += 1;

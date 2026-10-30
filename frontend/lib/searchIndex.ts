@@ -22,6 +22,8 @@ export interface SearchEntity {
   logo?: string | null;
   /** Ties in score go to the higher weight: for players, how many squads name them. */
   weight?: number;
+  /** Whole words a query term must equal, not just contain: a series' initials ("ipl" is not in "iiploc"). */
+  tags?: string[];
 }
 
 const REMOTE_TIMEOUT_MS = 15_000;
@@ -31,6 +33,27 @@ export interface RemoteIndex {
   teams: TeamCrest[];
   series?: SeriesCatalogueEntry[];
 }
+
+// Left out of initials: "Indian Premier League 2026" is "ipl", "Asia Cup of Nations" not "acon".
+const INITIALS_SKIP = new Set(['of', 'the', 'and', '&', 'for', 'in']);
+
+/**
+ * The initials a series is known by — "IPL", "PSL", "WBBL" — or null. Format tokens stay whole
+ * ("International League T20" → "ilt20"); years and seasons are dropped.
+ */
+export function seriesInitials(name: string): string | null {
+  const words = name
+    .replace(/['’]/g, '')
+    .split(/[\s-]+/)
+    .filter((w) => w && !/^\d+(\/\d+)?$/.test(w) && !INITIALS_SKIP.has(w.toLowerCase()));
+  const initials = words.map((w) => (/^t\d+$/i.test(w) ? w : w[0])).join('').toLowerCase();
+  return initials.length >= 2 ? initials : null;
+}
+
+const seriesTags = (name: string): string[] | undefined => {
+  const initials = seriesInitials(name);
+  return initials ? [initials] : undefined;
+};
 
 let remote: RemoteIndex | null = null;
 let remoteInflight: Promise<RemoteIndex | null> | null = null;
@@ -171,6 +194,7 @@ export function buildIndex(matches: Match[], index: RemoteIndex | null): SearchE
       hay: [m.homeTeam.name, m.homeTeam.shortName, m.awayTeam.name, m.awayTeam.shortName, m.series.name, m.venue, m.format, isAtStumps(m) ? 'Stumps' : STATUS_WORD[m.status]]
         .join(' ')
         .toLowerCase(),
+      tags: seriesTags(m.series.name),
     });
 
     for (const t of [m.homeTeam, m.awayTeam]) {
@@ -194,6 +218,7 @@ export function buildIndex(matches: Match[], index: RemoteIndex | null): SearchE
         sub: m.format,
         href: `/series/${m.series.id}`,
         hay: m.series.name.toLowerCase(),
+        tags: seriesTags(m.series.name),
       });
     }
 
@@ -231,6 +256,7 @@ export function buildIndex(matches: Match[], index: RemoteIndex | null): SearchE
       sub: s.span,
       href: `/series/${s.id}`,
       hay: s.name.toLowerCase(),
+      tags: seriesTags(s.name),
     });
   }
 
@@ -254,11 +280,11 @@ export function querySearch(entities: SearchEntity[], query: string, perGroup = 
   if (!terms.length) return [];
 
   const scored = entities
-    .filter((e) => terms.every((t) => e.hay.includes(t)))
+    .filter((e) => terms.every((t) => e.hay.includes(t) || e.tags?.includes(t)))
     .map((e) => {
       const label = e.label.toLowerCase();
       let score = 0;
-      if (label === terms.join(' ')) score -= 4;
+      if (label === terms.join(' ') || e.tags?.includes(terms[0])) score -= 4;
       else if (label.startsWith(terms[0])) score -= 3;
       else if (label.split(/\s+/).some((w) => w.startsWith(terms[0]))) score -= 2;
       if (e.status) score += STATUS_RANK[e.status] * 0.5;

@@ -1,12 +1,8 @@
 'use client';
 
 import type { InningsScore, Match } from '@/types';
-import {
-  DEFAULT_BALLS_PER_OVER,
-  SCHEDULED_OVERS,
-  ballsFrom,
-  inningsBallLimit,
-} from '@/lib/overs';
+import { DEFAULT_BALLS_PER_OVER, SCHEDULED_OVERS, ballsFrom } from '@/lib/overs';
+import { chaseOf, type RevisedTarget } from '@/lib/telemetry';
 import styles from './WinProbability.module.scss';
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -22,16 +18,17 @@ const TEST_PROJECTION_OVERS = 90;
  * Known gap, and deliberately not guessed at: a rain-shortened *first* innings
  * still projects to the format's length, because nothing in the feed says it was
  * cut and there is no earlier innings to read the allocation off. It corrects
- * itself at the chase, which goes through `inningsBallLimit`.
+ * itself at the chase, which goes through `chaseOf`.
  */
 function inningsBalls(match: Match, perOver: number): number {
   if (match.ballsLimit) return match.ballsLimit;
   return (SCHEDULED_OVERS[match.format] ?? TEST_PROJECTION_OVERS) * perOver;
 }
 
-/** A par first-innings score, per ball: 120 off a T10, 170 off a T20, 280 off an ODI, 350 in a day. */
+/** A par first-innings score, per ball: 120 off a T10, 150 off a Hundred, 170 off a T20, 280 off an ODI, 350 in a day. */
 const PAR_PER_BALL: Record<Match['format'], number> = {
   T10: 120 / 60,
+  HUNDRED: 150 / 100,
   T20: 170 / 120,
   ODI: 280 / 300,
   TEST: 350 / 540,
@@ -138,7 +135,8 @@ function testSplit(
 
 function compute(
   match: Match,
-  innings: InningsScore[]
+  innings: InningsScore[],
+  revised: RevisedTarget | null
 ): { homePct: number; awayPct: number; drawPct: number } | null {
   const batted = innings.filter((i) => !i.notStarted);
   const inn = batted[batted.length - 1];
@@ -165,13 +163,13 @@ function compute(
 
   // A chase needs a completed innings to chase and a limit to do it in, so this
   // is the second innings of a limited-overs match and nothing else.
-  const chaseLimit = batted.length === 2 ? inningsBallLimit(batted[0], match, perOver) : null;
+  const chase = batted.length === 2 ? chaseOf(batted[0], inn, match, perOver, revised) : null;
 
   let battingPct: number;
 
-  if (chaseLimit !== null) {
-    const need = batted[0].runs + 1 - inn.runs;
-    const ballsLeft = chaseLimit - ballsBowled;
+  if (chase && chase.limit !== null) {
+    const need = chase.target - inn.runs;
+    const ballsLeft = chase.limit - ballsBowled;
     if (need <= 0) battingPct = 99;
     else if (ballsLeft <= 0) battingPct = 1;
     else {
@@ -209,12 +207,15 @@ function isHome(inn: InningsScore, match: Match): boolean {
 export default function WinProbability({
   match,
   innings,
+  revised = null,
 }: {
   match: Match;
   /** The fetched scorecard, in innings order. Nothing is drawn until it lands. */
   innings: InningsScore[];
+  /** The feed's stated target, which a DLS revision changes; null to chase first innings + 1. */
+  revised?: RevisedTarget | null;
 }) {
-  const wp = compute(match, innings);
+  const wp = compute(match, innings, revised);
   if (!wp) return null;
 
   return (

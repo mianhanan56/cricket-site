@@ -1,6 +1,6 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-10-27
+Last updated: 2026-10-30
 
 ## Current milestone
 
@@ -27,6 +27,43 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
   `strikerId` from `creaseFromCard` (last-ball headline); no `*` when the striker can't be matched
   or the innings shown isn't the latest started one (not `isLatest` — the side yet to bat is listed
   as an empty innings after the live one). Both at-crease rows keep their highlight.
+
+## Recently completed (uncommitted, 2026-10-30, bugs + features)
+- Bugs: Live tab offered from the polled status (page opened before the start); a finished super
+  over is FINISHED/TIED, not climax; status text matched on word starts ("Team", "Bahrain");
+  /search keeps typing through its own URL write; fixture dedupe on both keys (and team-page
+  previews vs keyed matches); DLS — the feed's target row overrides target/length (`chaseOf`).
+- Search: series initials as exact-match tags (`seriesInitials`): IPL, PSL, BBL, WBBL, CPL…
+- The Hundred is its own `MatchFormat` ('HUNDRED', chip "Hundred", Fixtures filter); stat tables
+  count its sets as five balls.
+- Series Squads tab (`components/series/SeriesSquads`): side picker by `?team=`, one squad at a
+  time, grouped by role (`lib/squadGroups`, shared with the team page).
+- Home quiz card (`components/home/QuizCard`): latest finished match (followed sides, then top
+  nations), only once its quiz exists; dots show answered right/wrong.
+- Watch live: `lib/broadcasters` tidies names and links known official sites (`WatchLinks`) in
+  Info's "Where to watch". A "Watch live" row on the Live tab was tried and removed at the user's ask. The Worker drops the
+  data source's own name from `broadcasters` (derived from `UPSTREAM_SITE`), `SHAPE_VERSION` 3.
+- LiveHero bowler card printed class "undefined" (no `.bowler` rule) — removed.
+- `PlayerPortrait`: an image that failed before hydration (onError not yet attached) left an empty
+  well (user report, match Stats tab); checked on mount like `TeamBadge`. Verified with portraits
+  blocked (initials) and normal (photos).
+- Verified: tsc, lint, 173/173 tests, worker typecheck; Chrome at 1280/390 on /, /fixtures,
+  /fixtures?format=hundred, /search?q=ipl, /series/2KG (+squads), /matches/10MS (+info),
+  /matches/12JE, /teams/4R, a stat page — no overflow, no errors, no "undefined" classes.
+- Not built: Player of the Series (no field in series overview, match info or schedule —
+  checked a domestic final, IPL 2026, T20 WC 2026); second-screen mode.
+
+## Recently completed (uncommitted, 2026-10-30, match centre redesign)
+- Match page header (`ScoreHeader`): tried as the on-pitch green scoreboard (twice — tiles, then a
+  dark foot band); the user rejected both and asked for a revert. It is back to the committed design.
+- Match tabs are pills on the `--control-track` track, like `Segmented`. The rail sits in line with
+  the content at rest; its frosted bar (full viewport width, like the navbar) shows only while
+  stuck (`railCompact`). It used to bleed by one gutter and line up with nothing.
+- Key moments sit in a card on a dotted rail with the over at the left; two columns from desktop
+  (dots only there — a column break would cut the rail).
+- Checked against the dev server at 1440/390, light and dark: live T20 (12X6), Test at lunch (10MS),
+  finished (12JE), upcoming (14ZY); no overflow, no page errors. tsc, lint, 163/163 tests.
+  Kept after the header revert: pill tabs, rail alignment, Key moments card.
 
 ## Recently completed (uncommitted, 2026-10-29, career row rates)
 - Player Career row now shows batting Avg/SR and bowling Best/Avg/Econ/SR instead of "—". The

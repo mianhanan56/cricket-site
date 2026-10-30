@@ -3,7 +3,7 @@
 // Owned by the frontend. Import from '@/types'.
 // ============================================================================
 
-export type MatchFormat = 'TEST' | 'ODI' | 'T20' | 'T10';
+export type MatchFormat = 'TEST' | 'ODI' | 'T20' | 'T10' | 'HUNDRED';
 export type MatchStatus = 'LIVE' | 'UPCOMING' | 'COMPLETED';
 export type PlayerRole = 'BATSMAN' | 'BOWLER' | 'ALL_ROUNDER' | 'WK';
 

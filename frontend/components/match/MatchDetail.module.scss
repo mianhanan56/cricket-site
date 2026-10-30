@@ -31,15 +31,33 @@
   display: flex;
   align-items: center;
   gap: $space-3;
-  margin: $space-4 calc(var(--gutter) * -1) 0;
-  padding: $space-2 var(--gutter);
-  background: var(--nav-bg);
-  backdrop-filter: blur(18px) saturate(1.4);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  border-bottom: 1px solid $line;
+  margin-top: $space-4;
+  padding-block: $space-2;
+
+  // At rest the tabs sit on the page in line with the content; once stuck, a full-width bar like
+  // the navbar's goes behind them.
+  &::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    bottom: 0;
+    left: calc(50% - 50vw);
+    width: 100vw;
+    background: var(--nav-bg);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    border-bottom: 1px solid $line;
+    opacity: 0;
+    transition: opacity $dur-2 $ease-out;
+  }
 }
 
 .railCompact {
+  &::before {
+    opacity: 1;
+  }
+
   flex-wrap: wrap;
   row-gap: $space-2;
 
@@ -102,8 +120,12 @@
 
 .tabs {
   display: flex;
-  gap: $space-1;
+  flex: 0 1 auto;
+  gap: 2px;
   min-width: 0;
+  padding: 3px;
+  border-radius: $r-pill;
+  background: var(--control-track);
   @include scroll-x;
   @include scroll-fade;
 }
@@ -114,9 +136,9 @@
   align-items: center;
   gap: $space-1-5;
   flex-shrink: 0;
-  height: 38px;
-  padding-inline: $space-3;
-  border-radius: $r-sm;
+  height: 36px;
+  padding-inline: $space-4;
+  border-radius: $r-pill;
   font-size: $fs-md;
   font-weight: 600;
   color: $text-2;
@@ -125,14 +147,13 @@
 
   &:hover {
     color: $text;
-    background: $surface-2;
   }
 }
 
 .active {
   color: $text;
-  background: $surface-3;
-  box-shadow: inset 0 0 0 1px $line-2;
+  background: var(--control-on);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%), 0 2px 8px -4px rgb(0 0 0 / 18%);
 }
 
 .liveDot {

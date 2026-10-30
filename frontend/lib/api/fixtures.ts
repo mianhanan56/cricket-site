@@ -193,9 +193,10 @@ async function fixturesFromRows(all: ApiFixtureRow[], opts: FetchOpts = {}): Pro
   const rows: ApiFixtureRow[] = [];
   for (const row of all) {
     if (!row?.startTime || !cleanKey(row.team1Key) || !cleanKey(row.team2Key)) continue;
-    const key = cleanKey(row.matchKey) || `id-${row.id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    // A fixture can come once with its match key and once with only its id.
+    const keys = [cleanKey(row.matchKey), row.id != null ? `id-${row.id}` : ''].filter(Boolean);
+    if (keys.some((k) => seen.has(k))) continue;
+    for (const k of keys) seen.add(k);
     rows.push(row);
   }
 

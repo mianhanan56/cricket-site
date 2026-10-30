@@ -28,7 +28,8 @@ const PULSE_WINDOW = 18;
 const MIN_BALLS = 6;
 
 // Runs per over treated as a full meter, per format.
-const MOMENTUM_CEILING: Record<MatchFormat, number> = { T10: 16, T20: 14, ODI: 10, TEST: 6 };
+// The Hundred's is per five-ball set.
+const MOMENTUM_CEILING: Record<MatchFormat, number> = { T10: 16, T20: 14, HUNDRED: 12, ODI: 10, TEST: 6 };
 
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 const isLegal = (b: PulseBall) => b.extra !== 'wide' && b.extra !== 'noball';

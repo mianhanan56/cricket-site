@@ -269,20 +269,3 @@
     fill: $data;
   }
 }
-
-.broadcast {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $space-2;
-
-  li {
-    display: inline-flex;
-    align-items: center;
-    height: 34px;
-    padding-inline: $space-3;
-    border-radius: $r-sm;
-    border: 1px solid $line-2;
-    font-size: $fs-sm;
-    font-weight: 600;
-  }
-}

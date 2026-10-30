@@ -16,6 +16,8 @@ import Skeleton, { staggerRows } from '../ui/Skeleton';
 import TeamBadge from '../ui/TeamBadge';
 import HeadToHeadBlock from './HeadToHead';
 import PlayerLink from './PlayerLink';
+import WatchLinks from './WatchLinks';
+import { broadcasters } from '@/lib/broadcasters';
 import { ordinal } from '@/lib/text';
 import mc from './matchCenter.module.scss';
 import styles from './InfoPanel.module.scss';
@@ -230,7 +232,7 @@ export default function InfoPanel({
   const officials = conditions?.officials;
   const weather = conditions?.weather;
   const venueStats = conditions?.venue;
-  const broadcast = conditions?.broadcast ?? [];
+  const broadcast = broadcasters(conditions?.broadcast ?? []);
 
   return (
     <div className={mc.panel}>
@@ -345,11 +347,7 @@ export default function InfoPanel({
         {broadcast.length > 0 && (
           <section className={mc.block}>
             <h2 className={mc.blockTitle}>Where to watch</h2>
-            <ul className={styles.broadcast}>
-              {broadcast.map((name) => (
-                <li key={name}>{name}</li>
-              ))}
-            </ul>
+            <WatchLinks list={broadcast} matchLabel={`${match.homeTeam.name} v ${match.awayTeam.name}`} />
           </section>
         )}
       </div>

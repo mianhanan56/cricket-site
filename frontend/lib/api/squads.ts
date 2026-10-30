@@ -1,10 +1,10 @@
 // /series/squads: each side's named squad for a series — announced weeks before
 // any match XI, so it is what a preview shows.
-import type { Match, MatchSquads, PlayerRole, SquadPlayer } from '@/types';
+import type { Match, MatchSquads, PlayerRole, SquadPlayer, Team } from '@/types';
 import { apiGet, inWidth, type FetchOpts } from './client';
 import { getApiSeriesCatalogue } from './fixtures';
 import { getApiMatchInfo } from './matchInfo';
-import { cleanKey, resolveKeys } from './names';
+import { cleanKey, resolveKeys, toTeam } from './names';
 import { getApiSeriesSchedule } from './series';
 
 /** One side's squad for one series. */
@@ -70,6 +70,23 @@ export async function getApiTeamSquad(
 
   const roles = await rolesRead;
   return named.map((p) => (p.role === null ? { ...p, role: roles.get(p.id) ?? null } : p));
+}
+
+/** Sides the series lists a squad for, named, in the upstream's order; [] when it lists none. */
+export async function getApiSeriesSquadTeams(seriesKey: string, opts: FetchOpts = {}): Promise<Team[]> {
+  const all = await getApiSeriesSquads(seriesKey, opts).catch(() => [] as ApiSeriesSquad[]);
+  const keys = [
+    ...new Set(
+      (Array.isArray(all) ? all : [])
+        .filter((sq) => sq.playerKeys?.length)
+        .map((sq) => cleanKey(sq.teamKey))
+        .filter(Boolean)
+    ),
+  ];
+  if (!keys.length) return [];
+  const names = await resolveKeys({ t: keys }, opts);
+  // A side the mapping can't name would show as its key.
+  return keys.filter((k) => names.t.has(k)).map((k) => toTeam(k, names));
 }
 
 // Two matches name nearly every player a tour uses; more is requests for little.

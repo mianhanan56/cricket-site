@@ -1,4 +1,4 @@
-import type { InningsScore, Match, Team } from '@/types';
+import type { InningsScore, Match, MatchEvent, Team } from '@/types';
 import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER, SCHEDULED_OVERS, ballsFrom, inningsBallLimit } from './overs';
 
 export type MatchPhase = 'POWERPLAY' | 'MIDDLE' | 'DEATH';
@@ -59,7 +59,39 @@ function phaseOf(match: Match, balls: number, limit: number | null, perOver: num
   return null;
 }
 
-export function liveEquation(match: Match, innings?: InningsScore[]): LiveEquation | null {
+export interface RevisedTarget {
+  target: number;
+  balls: number;
+}
+
+/**
+ * The target the feed's own target row states — "SYS-W needs 155 runs in 120 balls" — which is
+ * the only place a DLS revision reaches us; the card's scores always say first innings + 1.
+ */
+export function targetFromFeed(events: ReadonlyArray<Pick<MatchEvent, 'kind' | 'text'>>): RevisedTarget | null {
+  const text = events.find((e) => e.kind === 'TARGET' && e.text)?.text ?? '';
+  const m = /needs?\s+(\d+)\s+runs?\s+(?:in|from|off)\s+(\d+)\s+balls?/i.exec(text);
+  return m ? { target: Number(m[1]), balls: Number(m[2]) } : null;
+}
+
+/**
+ * What a second innings is chasing and over how many balls: the feed's stated target when it
+ * can be a whole-innings one (more runs than scored, more balls than bowled), else first innings + 1.
+ */
+export function chaseOf(
+  first: InningsScore,
+  current: InningsScore,
+  match: Match,
+  perOver: number,
+  revised?: RevisedTarget | null
+): { target: number; limit: number | null } {
+  if (revised && revised.target > current.runs && revised.balls > ballsFrom(current.overs ?? 0, perOver)) {
+    return { target: revised.target, limit: revised.balls };
+  }
+  return { target: first.runs + 1, limit: inningsBallLimit(first, match, perOver) };
+}
+
+export function liveEquation(match: Match, innings?: InningsScore[], revised?: RevisedTarget | null): LiveEquation | null {
   const current = currentInnings(match, innings);
   if (!current) return null;
 
@@ -87,12 +119,13 @@ export function liveEquation(match: Match, innings?: InningsScore[]): LiveEquati
 
   const batted = (innings ?? match.scorecard?.innings ?? []).filter((i) => !i.notStarted);
   const first = batted.find((i) => i !== current && i.teamId !== current.teamId);
-  const limit = first ? inningsBallLimit(first, match, perOver) : null;
+  const chase = first && batted.length === 2 ? chaseOf(first, current, match, perOver, revised) : null;
+  const limit = chase ? chase.limit : first ? inningsBallLimit(first, match, perOver) : null;
 
   base.phase = phaseOf(match, ballsBowled, limit, perOver);
-  if (!first || batted.length !== 2 || limit === null) return base;
+  if (!chase || limit === null) return base;
 
-  const target = first.runs + 1;
+  const target = chase.target;
   const need = target - current.runs;
   const ballsLeft = limit - ballsBowled;
   return {
@@ -115,13 +148,16 @@ export function equationSentence(eq: LiveEquation): string | null {
 }
 
 /** 0..1 of the innings in progress, where the format fixes a length. */
-export function inningsProgress(match: Match, innings?: InningsScore[]): number | null {
-  const eq = liveEquation(match, innings);
+export function inningsProgress(match: Match, innings?: InningsScore[], revised?: RevisedTarget | null): number | null {
+  const eq = liveEquation(match, innings, revised);
   if (!eq || match.format === 'TEST') return null;
   const batted = (innings ?? match.scorecard?.innings ?? []).filter((i) => !i.notStarted);
   const first = batted.find((i) => i !== eq.innings && i.teamId !== eq.innings.teamId);
-  const limit = first
-    ? inningsBallLimit(first, match, eq.perOver)
-    : match.ballsLimit ?? (SCHEDULED_OVERS[match.format] ?? 0) * eq.perOver;
+  const limit =
+    eq.ballsLeft !== null
+      ? eq.ballsBowled + eq.ballsLeft
+      : first
+        ? inningsBallLimit(first, match, eq.perOver)
+        : match.ballsLimit ?? (SCHEDULED_OVERS[match.format] ?? 0) * eq.perOver;
   return limit ? eq.ballsBowled / limit : null;
 }
