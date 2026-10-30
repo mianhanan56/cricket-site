@@ -69,6 +69,34 @@ const fmtCount = (value: number | null) => (value === null ? '—' : String(valu
 
 
 const total = <T,>(rows: T[], pick: (row: T) => number) => rows.reduce((sum, row) => sum + pick(row), 0);
+const ratio = (top: number, bottom: number, scale = 1) => (bottom > 0 ? (top / bottom) * scale : 0);
+
+// The upstream sends no balls, dismissals or runs conceded, so they are recovered from each format's rates.
+function battingTotals(rows: PlayerBattingCareer[]) {
+  const runs = total(rows, (r) => r.runs);
+  const outs = total(rows, (r) => (r.average > 0 ? Math.round(r.runs / r.average) : 0));
+  const balls = rows.every((r) => !r.runs || r.strikeRate > 0)
+    ? total(rows, (r) => (r.strikeRate > 0 ? Math.round((r.runs * 100) / r.strikeRate) : 0))
+    : 0;
+  return { average: ratio(runs, outs), strikeRate: ratio(runs, balls, 100) };
+}
+
+function bowlingTotals(rows: PlayerBowlingCareer[]) {
+  const taking = rows.filter((r) => r.wickets > 0 && r.average > 0 && r.strikeRate > 0);
+  const wickets = total(taking, (r) => r.wickets);
+  const runs = total(taking, (r) => Math.round(r.average * r.wickets));
+  const balls = total(taking, (r) => Math.round(r.strikeRate * r.wickets));
+  return { average: ratio(runs, wickets), economy: ratio(runs, balls, 6), strikeRate: ratio(balls, wickets) };
+}
+
+function bestFigures(rows: PlayerBowlingCareer[]) {
+  const parsed = rows.flatMap((r) => {
+    const [wickets, runs] = (r.best ?? '').split(/[/-]/).map(Number);
+    return Number.isFinite(wickets) && Number.isFinite(runs) ? [{ wickets, runs, label: r.best }] : [];
+  });
+  parsed.sort((a, b) => b.wickets - a.wickets || a.runs - b.runs);
+  return parsed[0]?.label ?? '—';
+}
 
 type CareerRow = { format: string; partOf: string | null };
 
@@ -107,6 +135,7 @@ function HighScore({ row }: { row: PlayerBattingCareer }) {
 
 function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: string }) {
   const counted = rows.filter((r) => !r.partOf);
+  const career = battingTotals(counted);
   return (
     <TableScroll className={styles.tableWrap} label={`${level} batting career by format`}>
       <table className={styles.table}>
@@ -146,7 +175,6 @@ function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: st
             </tr>
           ))}
         </tbody>
-        {/* Averages and strike rates need dismissals and balls faced, which the upstream does not send per format. */}
         {counted.length > 1 && (
           <tfoot>
             <tr>
@@ -155,8 +183,8 @@ function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: st
               <td>{total(counted, (r) => r.innings)}</td>
               <td className={styles.figure}>{total(counted, (r) => r.runs)}</td>
               <td>{Math.max(...rows.map((r) => r.highScore)) || '—'}</td>
-              <td>—</td>
-              <td>—</td>
+              <td>{fmtRate(career.average)}</td>
+              <td>{fmtRate(career.strikeRate)}</td>
               <td>{total(counted, (r) => r.hundreds)}</td>
               <td>{total(counted, (r) => r.fifties)}</td>
               <td>{total(counted, (r) => r.fours)}</td>
@@ -172,6 +200,7 @@ function BattingCareer({ rows, level }: { rows: PlayerBattingCareer[]; level: st
 
 function BowlingCareer({ rows, level }: { rows: PlayerBowlingCareer[]; level: string }) {
   const counted = rows.filter((r) => !r.partOf);
+  const career = bowlingTotals(counted);
   return (
     <TableScroll className={styles.tableWrap} label={`${level} bowling career by format`}>
       <table className={styles.table}>
@@ -212,10 +241,10 @@ function BowlingCareer({ rows, level }: { rows: PlayerBowlingCareer[]; level: st
               <td>{total(counted, (r) => r.matches)}</td>
               <td>{total(counted, (r) => r.innings)}</td>
               <td className={styles.figure}>{total(counted, (r) => r.wickets)}</td>
-              <td>—</td>
-              <td>—</td>
-              <td>—</td>
-              <td>—</td>
+              <td>{bestFigures(counted)}</td>
+              <td>{fmtRate(career.average)}</td>
+              <td>{fmtRate(career.economy)}</td>
+              <td>{fmtRate(career.strikeRate)}</td>
               <td>{total(counted, (r) => r.threeWickets)}</td>
               <td>{total(counted, (r) => r.fiveWickets)}</td>
             </tr>

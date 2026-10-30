@@ -14,6 +14,7 @@ import {
   toggleDay,
 } from '@/lib/fixtureDays';
 import { LOCALE } from '@/lib/datetime';
+import { unpackFixtures, type PackedFixtures } from '@/lib/fixturePack';
 import {
   MATCH_TYPE_KEY_OPTIONS,
   filterByMatchType,
@@ -42,7 +43,7 @@ export interface FixturesFilterProps {
   /** The page's heading, which carries the format and competition menus. */
   eyebrow: string;
   title: string;
-  fixtures: Fixture[];
+  fixtures: PackedFixtures;
   /** Where the schedule read stops mid-day (see `FixtureSchedule`); null when every day is whole. */
   coveredUntil: string | null;
   initialFormat: FixtureFormatKey;
@@ -196,9 +197,10 @@ export default function FixturesFilter({
   // Format and type narrow the list; the date only picks a day of it, so day counts describe the filtered list.
   // The read's last day is only partly listed, so it waits for the next read rather than showing short.
   const whole = useMemo(() => {
-    if (!coveredUntil) return fixtures;
+    const all = unpackFixtures(fixtures);
+    if (!coveredUntil) return all;
     const cut = dayKey(coveredUntil);
-    return fixtures.filter((f) => dayKey(f.startTime) < cut);
+    return all.filter((f) => dayKey(f.startTime) < cut);
   }, [fixtures, coveredUntil]);
 
   const filtered = useMemo(() => {

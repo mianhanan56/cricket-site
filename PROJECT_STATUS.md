@@ -28,6 +28,13 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
   or the innings shown isn't the latest started one (not `isLatest` — the side yet to bat is listed
   as an empty innings after the live one). Both at-crease rows keep their highlight.
 
+## Recently completed (uncommitted, 2026-10-29, career row rates)
+- Player Career row now shows batting Avg/SR and bowling Best/Avg/Econ/SR instead of "—". The
+  upstream sends no balls, dismissals or runs conceded, so `battingTotals` / `bowlingTotals`
+  (app/players/[id]/page.tsx) recover them per format (outs = runs/avg, balls = runs·100/SR;
+  runs conceded = avg·wkts, balls = SR·wkts), sum, and re-divide. Wicketless formats can't be
+  recovered and are left out of the bowling rates. Best = most wickets, then fewest runs.
+
 ## Recently completed (uncommitted, 2026-10-27, career totals)
 - Player Career row no longer double-counts WC ODI: the upstream's `st=100` row is a slice of
   ODI (`st=1`), so rows from `SUBSET_COMPETITIONS` (lib/api/player.ts) carry `partOf: 'ODI'` and

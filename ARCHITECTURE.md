@@ -177,7 +177,9 @@ declaration flag (the card has none) — used by `LiveHero` and `MatchDetail`. T
 the match header, a Session tile on the home scoreboard. Player career tables are one "Career"
 section (`components/player/CareerTabs`, client) with an International / Domestic switch on its
 heading; both levels' Batting and Bowling tables render on the server, the switch only swaps them,
-and a level with no rows is left out (no switch when only one remains). Loader beats have no line.
+and a level with no rows is left out (no switch when only one remains). The Career row's
+rates are derived: per-format balls / dismissals / runs conceded are recovered from the upstream's
+average and strike rate, summed, then re-divided (wicketless bowling formats can't be, so skipped). Loader beats have no line.
 Player Recent form (`components/player/RecentForm`, client, 2026-10-22): one card with a
 Batting/Bowling switch (opens on the player's role), four figures computed from the last innings
 (batting runs/average/SR/best; bowling wickets/average/best/3+ hauls), a bar chart oldest→latest

@@ -3,6 +3,7 @@ import { MATCH_TYPE_KEYS, type MatchTypeKey } from '@/lib/matchType';
 import { FIXTURE_FORMAT_KEYS, type FixtureFormatKey } from '@/lib/tabs';
 import { dayKeyOf, pickDayParam } from '@/lib/fixtureDays';
 import { getApiFixtureSchedule, type Fixture } from '@/lib/api';
+import { packFixtures } from '@/lib/fixturePack';
 import FixturesFilter from '@/components/fixtures/FixturesFilter';
 import EmptyState from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/Section';
@@ -56,7 +57,7 @@ export default async function FixturesPage({
         <FixturesFilter
           eyebrow={EYEBROW}
           title={TITLE}
-          fixtures={fixtures}
+          fixtures={packFixtures(fixtures)}
           coveredUntil={coveredUntil}
           initialFormat={format}
           initialType={type}
