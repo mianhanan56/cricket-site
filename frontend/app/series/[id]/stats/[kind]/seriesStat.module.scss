@@ -28,6 +28,7 @@
   background: $surface;
   border: 1px solid $line;
   @include scroll-x;
+  @include bleed-tabs;
 }
 
 .switch {

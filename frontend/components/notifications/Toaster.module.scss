@@ -21,6 +21,14 @@
 
 .toast {
   --tone: var(--text-2);
+
+  // A phone shows the newest only; three stacked would cover the page.
+  @include phone-only {
+    & + & {
+      display: none;
+    }
+  }
+
   position: relative;
   display: flex;
   align-items: flex-start;
@@ -81,6 +89,7 @@
 .title {
   font-weight: 600;
   line-height: $leading-snug;
+  @include truncate(2);
 }
 
 .text {

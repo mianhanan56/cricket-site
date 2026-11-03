@@ -49,6 +49,7 @@
   gap: $space-3;
   border-radius: $r-sm;
   @include focus-ring;
+  @include tap-area;
 
   &:hover .code {
     text-decoration: underline;

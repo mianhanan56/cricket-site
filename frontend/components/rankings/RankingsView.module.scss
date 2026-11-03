@@ -218,6 +218,10 @@
     }
   }
 
+  &:is(a) {
+    @include tap-area;
+  }
+
   &:is(a):hover {
     text-decoration: underline;
     text-underline-offset: 3px;
@@ -392,6 +396,10 @@
   font-weight: 600;
   color: $text;
   @include truncate;
+
+  &:is(a) {
+    @include tap-area;
+  }
 
   &:is(a):hover {
     text-decoration: underline;

@@ -100,7 +100,7 @@
 
   span {
     @include eyebrow;
-    font-size: 10px;
+    font-size: $fs-2xs;
     text-align: center;
   }
 }
@@ -159,7 +159,7 @@
 }
 
 .dayCount {
-  font-size: 9px;
+  font-size: $fs-2xs;
   font-weight: 500;
   color: $text-2;
 }

@@ -110,6 +110,7 @@
   color: $text-2;
   @include truncate;
   @include focus-ring;
+  @include tap-area;
 
   &:hover {
     color: $text;
@@ -122,13 +123,13 @@
 
 .faceoff {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
-    'bat bat'
-    'vs other'
-    'pitch pitch';
+    'bat'
+    'other'
+    'pitch';
   align-items: center;
-  gap: $space-4 $space-3;
+  gap: $space-4;
 
   @include tablet {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
@@ -179,7 +180,14 @@
   font-weight: 800;
   font-size: clamp(18px, 2.2vw, 24px);
   letter-spacing: -0.02em;
-  @include truncate;
+  line-height: $leading-snug;
+  @include truncate(2);
+
+  @include tablet {
+    display: block;
+    -webkit-line-clamp: unset;
+    @include truncate;
+  }
 }
 
 .score {
@@ -236,6 +244,7 @@
 
 .vs {
   grid-area: vs;
+  display: none;
   font-family: $font-display;
   font-size: $fs-xs;
   font-weight: 700;
@@ -264,10 +273,8 @@
   justify-content: space-between;
   gap: $space-3;
   min-width: 0;
-  padding: $space-2-5 $space-3;
-  border-radius: $r-md;
-  background: $surface;
-  border: 1px solid $line;
+  padding-top: $space-4;
+  border-top: 1px solid $line;
 
   @include tablet {
     flex-direction: column;
@@ -275,7 +282,6 @@
     gap: $space-3;
     padding: 0;
     border: 0;
-    background: none;
     text-align: right;
 
     .team {
@@ -288,12 +294,16 @@
   min-width: 0;
   font-size: $fs-base;
   font-weight: 700;
-  @include truncate;
+  line-height: $leading-snug;
+  @include truncate(2);
 
   @include tablet {
     font-family: $font-display;
     font-stretch: $stretch-wide;
     font-size: $fs-xl;
+    display: block;
+    -webkit-line-clamp: unset;
+    @include truncate;
   }
 }
 
@@ -510,21 +520,19 @@
 
 .crease,
 .creaseLoading {
-  display: flex;
-  gap: $space-2;
+  display: grid;
   min-width: 0;
-  margin-inline: calc(var(--pad) * -1);
-  padding-inline: var(--pad);
-  @include scroll-x;
-  scroll-snap-type: x mandatory;
-  scroll-padding-inline: var(--pad);
+  border: 1px solid $line;
+  border-radius: $r-md;
+  background: color-mix(in oklab, var(--pitch-deep) 55%, transparent);
+  overflow: hidden;
 
   @include tablet {
-    display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: $space-3;
-    margin-inline: 0;
-    padding-inline: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
     overflow: visible;
   }
 
@@ -535,16 +543,21 @@
 }
 
 .player {
-  flex: 0 0 min(76%, 260px);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-content: start;
   gap: 2px $space-3;
   padding: $space-3 $space-4;
-  border-radius: $r-md;
-  border: 1px solid $line;
-  background: color-mix(in oklab, var(--pitch-deep) 55%, transparent);
-  scroll-snap-align: start;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+
+  @include tablet {
+    border-radius: $r-md;
+    border: 1px solid $line;
+    background: color-mix(in oklab, var(--pitch-deep) 55%, transparent);
+  }
 
   .creaseLoading & {
     gap: $space-2;
@@ -553,7 +566,9 @@
 }
 
 .onStrike {
-  border-color: color-mix(in oklab, var(--signal-mark) 55%, transparent);
+  @include tablet {
+    border-color: color-mix(in oklab, var(--signal-mark) 55%, transparent);
+  }
 }
 
 .role {
@@ -570,6 +585,7 @@
   font-weight: 700;
   @include truncate;
   @include focus-ring;
+  @include tap-area;
 
   &:hover {
     text-decoration: underline;

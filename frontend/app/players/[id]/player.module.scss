@@ -299,6 +299,7 @@
   text-decoration-color: $line-3;
   text-underline-offset: 3px;
   @include focus-ring;
+  @include tap-area;
 
   &:hover {
     color: $text;
@@ -411,6 +412,7 @@
   &:is(a) {
     color: $text;
     @include focus-ring;
+    @include tap-area;
 
     &:hover {
       color: $data;

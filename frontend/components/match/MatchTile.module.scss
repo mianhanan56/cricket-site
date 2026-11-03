@@ -79,6 +79,7 @@
   z-index: 2;
   text-underline-offset: 3px;
   @include focus-ring;
+  @include tap-area;
 
   .tile &:hover {
     color: $text;

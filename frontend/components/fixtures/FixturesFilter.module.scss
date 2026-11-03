@@ -36,6 +36,25 @@
   align-items: center;
   flex-wrap: wrap;
   gap: $space-2 $space-3;
+
+  // A phone can't fit all three on one line: All days and the calendar share the top, the week gets its own.
+  @include phone-only {
+    display: grid;
+    grid-template-columns: 1fr auto;
+
+    .allDays {
+      justify-self: start;
+    }
+
+    .calendarSlot {
+      grid-area: 1 / 2;
+    }
+
+    .weekNav {
+      grid-area: 2 / 1 / 3 / -1;
+      justify-content: space-between;
+    }
+  }
 }
 
 .allDays {

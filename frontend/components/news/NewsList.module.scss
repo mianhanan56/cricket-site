@@ -57,11 +57,19 @@
   flex-wrap: wrap;
   gap: $space-1-5;
   margin-top: $space-1;
+
+  // One swipeable line on a phone, so a story's tags don't outgrow the story.
+  @include phone-only {
+    flex-wrap: nowrap;
+    @include scroll-x;
+  }
 }
 
 .tag {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
   min-height: 32px;
   padding-inline: $space-3;
   border-radius: $r-pill;

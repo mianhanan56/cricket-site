@@ -6,6 +6,14 @@
   flex-wrap: wrap;
   gap: $space-3 $space-4;
   margin-bottom: $space-4;
+
+  @include phone-only {
+    &:has(.action) .controls {
+      order: 1;
+      flex-basis: 100%;
+      @include scroll-x;
+    }
+  }
 }
 
 .title {

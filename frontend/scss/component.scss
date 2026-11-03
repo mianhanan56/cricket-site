@@ -299,6 +299,22 @@ $gutter-wide: $space-8;
   }
 }
 
+// Phones: a tab row that scrolls runs to the screen edges, like an app's tab bar, instead of a track
+// clipped inside the page margin. Only the active tab keeps a pill.
+@mixin bleed-tabs {
+  @include phone-only {
+    display: flex;
+    max-width: none;
+    width: auto;
+    margin-inline: calc(-1 * var(--gutter, #{$gutter}));
+    padding-inline: var(--gutter, #{$gutter});
+    scroll-padding-inline: var(--gutter, #{$gutter});
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+}
+
 @mixin fluid-text {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -342,6 +358,14 @@ $gutter-wide: $space-8;
   &:focus-visible {
     outline: 2px solid $signal-mark;
     outline-offset: 2px;
+  }
+}
+
+// A text link's hit area grown toward a fingertip on touch screens; the negative margin keeps the layout.
+@mixin tap-area($pad: $space-2) {
+  @media (pointer: coarse) {
+    padding-block: $pad;
+    margin-block: -$pad;
   }
 }
 

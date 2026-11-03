@@ -436,6 +436,19 @@ imported only by the route, so none of it ships to the browser:
   new derived token there too.
 - Note: `design-standards.md` describes a generic 4-file `src/styles/` layout; this repo's actual
   layout is `scss/{component,global,main}.scss` + per-component modules. Follow the repo.
+- Phones (2026-10-30 audit at 375px: no page scrolls sideways): `$fs-2xs` (11px) is the floor for
+  text people read, chips included; 9–10px stays only inside fixed-size badges (captain mark,
+  form dots, notification count, kbd hints) and the 27px player-form bars. Small text links get
+  `@include tap-area` (padding-block + equal negative margin under `pointer: coarse`), so the hit
+  area grows without moving the layout; keep its pad under half the gap to the next link.
+- Phone layout rules (2026-10-30, user: "professional mobile web app"): nothing important sits in a
+  sideways carousel that clips its last item (LiveHero's crease is a stacked list on phones, cards
+  from tablet); tab rows that can overflow (match, series, series-stat tabs) use `bleed-tabs` to
+  run edge to edge with only the active tab as a pill; `SectionHead` with an action puts title +
+  action on line one and its controls on line two (`:has(.action)`); the `FilterSheet` trigger is
+  a 34px pill on phones; the toaster shows one toast at a time on phones. Hiding a class passed to a
+  shared component (`className` on `Segmented`) needs a scoped selector — production CSS order can
+  let the shared module's `display` win (home's type filter showed on phones in prod only).
 - Banned patterns (CLAUDE.md): accent bars beside headings; tiny muted "View all"-style links;
   explanatory/provenance captions beside labels.
 - Filters on phones (< 768px): each page keeps its inline `Segmented` filters for tablet and up

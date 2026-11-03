@@ -106,6 +106,7 @@
 a.series,
 a.venue {
   color: $text-2;
+  @include tap-area($space-1-5);
 
   &:hover {
     color: $text;

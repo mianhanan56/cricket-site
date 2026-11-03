@@ -20,6 +20,26 @@
   svg {
     color: $text-2;
   }
+
+  // A compact pill on phones: it sits beside a heading, it doesn't headline the page.
+  @include phone-only {
+    gap: $space-1-5;
+    min-height: 34px;
+    padding-inline: $space-2-5 $space-3;
+    border-radius: $r-pill;
+    font-size: $fs-sm;
+
+    svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .count {
+      min-width: 18px;
+      height: 18px;
+      font-size: $fs-2xs;
+    }
+  }
 }
 
 .triggerOn {

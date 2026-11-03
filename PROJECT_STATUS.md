@@ -22,6 +22,26 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
   (background/system-tray support, event-key dedup); dark/light theme; PWA.
 - 2026-10-27: Alerts creator shows the followed teams and series under "What I follow" and gains a "Live match" scope (`MATCH`) picked from the matches live now. Checked in headless Chrome against the dev server at 1440/1100/390, light and dark, with and without follows; tsc clean, lint clean, 159/159 tests.
 
+## Recently completed (uncommitted, 2026-10-30, mobile pass 2 — from user screenshots)
+- Home hero on phones: opponent row is a plain line under a hairline (no "vs" column or boxed card),
+  team names wrap to two lines instead of truncating; the crease is one panel of stacked rows
+  instead of a clipped carousel. "Your cricket" and every `SectionHead` with an action: title +
+  action on one line, chips/controls below. Home "Matches" head: title + compact Filters pill, tabs
+  below (the desktop type switcher was leaking onto phones in prod builds — fixed with a scoped
+  selector). Filters trigger is a 34px pill on all pages. Match/series/stat tab rows run edge to
+  edge. Toasts: one at a time on phones, title clamped to 2 lines. News list tags: one swipeable
+  line. Checked with headless Chrome at 375px (dark + light), 820px and 1366px against a scratch
+  production build; no page scrolls sideways.
+
+## Recently completed (uncommitted, 2026-10-30, mobile pass)
+- Every route audited at 375px on production: none scrolls sideways. Fixed what didn't suit a
+  phone: format chips and the fixture calendar's text were 9–10px (now 11px, the chip default);
+  15–24px-tall text links (match XI and venue/series links, LiveHero, MatchTile series, rankings
+  names, player career cells, insight cards) get a touch-only `tap-area` (now 31–37px); the
+  fixtures week head was three items on a 319px line, so the calendar wrapped alone — phones now
+  put All days + calendar on top and the week arrows across the full width. Verified from a
+  scratch production build at 375px; SCSS only.
+
 ## Recently completed (uncommitted, 2026-10-27, scorecard striker)
 - Scorecard `*` now marks only the striker, not both unbeaten batters. MatchDetail passes
   `strikerId` from `creaseFromCard` (last-ball headline); no `*` when the striker can't be matched
