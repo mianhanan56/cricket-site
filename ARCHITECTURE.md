@@ -6,8 +6,8 @@ Last verified against source: 2026-10-26.
 ## System overview
 
 ```
-Browser ──(client polling)──┐
-                            ▼
+Browser ──(client polling via /api/worker/*)──┐   (live WebSocket goes straight to the Worker)
+                                              ▼
 Next.js 14 (Vercel) ──SSR/ISR fetch──▶ Cloudflare Worker `worker` ──▶ upstream internal APIs
                                         (allowlist + edge cache + CORS)     (5 upstream hosts)
 ```
@@ -16,6 +16,12 @@ Next.js 14 (Vercel) ──SSR/ISR fetch──▶ Cloudflare Worker `worker` ─�
   was retired and its directory deleted.
 - Every piece of data comes from the upstream's undocumented internal APIs, reached only through
   the Worker. The frontend never calls the upstream directly.
+- **Browser reads go through the site's own origin** (2026-11-04): `apiGet` in the browser calls
+  `/api/worker/<route>`, which `next.config.js` rewrites to the Worker (Vercel proxies it). Some
+  networks block `*.workers.dev` (seen from the user's own connection: TCP to the Worker's IPs
+  hangs), which left Home — the only page whose matches load client-side — empty. Server renders
+  still call the Worker directly. The `/live` WebSocket can't be proxied by Vercel, so it still
+  dials the Worker; where that's blocked the HTTP polls carry on at their no-socket rate.
 - User state (follows, alert rules, notifications, theme) lives in the browser (`localStorage`).
 
 ## Folder structure
@@ -298,8 +304,8 @@ made within 30s. Back/forward replays the router copy, so `NavigationTracker` ca
 `router.refresh()` after a traversal.
 PWA service worker: the ball-by-ball Worker routes (`/matches/live`, `/match/scorecard`,
 `/match/commentary`, `/live`) are left out of the service worker entirely — a saved copy rolled
-scores back, and a NetworkOnly route was just an extra hop on every poll. The rest of the
-Worker origin is NetworkFirst with no network timeout (the cache answers only on a network
+scores back, and a NetworkOnly route was just an extra hop on every poll. The rest of
+`/api/worker/*` (same-origin since 2026-11-04) is NetworkFirst with no network timeout (the cache answers only on a network
 failure). Patterns must be RegExps — Workbox serialises matchers with `toString()`.
 Series leaders (`/series/overview`, Worker TTL 30s) use a 15s revalidate while the series has a
 live match, and `hooks/useSeriesLeaders` re-reads them every 30s on the match Stats tab and the

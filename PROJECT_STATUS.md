@@ -1,12 +1,15 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-10-30
+Last updated: 2026-11-04
 
 ## Current milestone
 
 UI polish pass on navigation, series stats and page spacing (uncommitted working tree on `main`).
 
 ## Completed features
+
+- 2026-11-04: browser API reads proxied through `/api/worker/*` (Next rewrite) so networks that
+  block `*.workers.dev` still get Home's matches. Live WebSocket still direct. Uncommitted.
 
 - Worker-only architecture (backend + DB retired); `worker` with 15 allowlisted routes.
 - Home: live hero, next-up hero, score ticker, upcoming rail, results, My Cricket band.

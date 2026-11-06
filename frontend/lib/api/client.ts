@@ -8,6 +8,11 @@ const DEFAULT_WORKER_URL = 'https://pulsecrease-api.pulse-cricket.workers.dev';
 
 export const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL ?? DEFAULT_WORKER_URL;
 
+// Some networks block *.workers.dev outright, so the browser goes through the site's own
+// origin (rewrite in next.config.js). Server renders call the Worker directly.
+const apiBase = () =>
+  typeof window === 'undefined' ? WORKER_URL.replace(/\/$/, '') : '/api/worker';
+
 export interface FetchOpts {
   /** Next.js revalidate window, in seconds. Ignored in the browser. */
   revalidate?: number;
@@ -41,7 +46,7 @@ export async function apiGet<T>(path: string, opts: FetchOpts = {}): Promise<T> 
 }
 
 async function readText(path: string, opts: FetchOpts): Promise<string> {
-  const res = await fetch(`${WORKER_URL.replace(/\/$/, '')}${path}`, {
+  const res = await fetch(`${apiBase()}${path}`, {
     headers: { Accept: 'application/json' },
     signal: withTimeout(API_TIMEOUT_MS, opts.signal),
     next: opts.revalidate !== undefined ? { revalidate: opts.revalidate } : undefined,

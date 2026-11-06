@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-10-30. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-11-04. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -85,6 +85,13 @@ Hundred format, series Squads tab, home quiz card, Watch live links (PROJECT_STA
 change: broadcasters drop the source's name — **needs a deploy**. Remaining features waiting on
 the user: real push (infra), Stats Corner, team comparison / pace-vs-spin, match news — each
 needs a new Worker route and payload research.
+
+2026-11-04: Home showed "Live data interrupted" while other pages had data. Cause: the user's
+network can't reach `pulsecrease-api.pulse-cricket.workers.dev` (connections hang), and Home is the
+only page whose matches load in the browser. Fix: browser reads go through `/api/worker/*` on the
+site, rewritten to the Worker by `next.config.js` (ARCHITECTURE › System overview). The live socket
+still dials the Worker directly; blocked visitors poll instead, and those polls count as Vercel
+edge requests. Needs a Vercel deploy; no Worker change. Uncommitted.
 
 2026-10-15: full code review (bugs) and an upstream feature-gap survey, no code changed. Findings are
 new TODO.md rows dated 2026-10-15; the user picks what to fix.

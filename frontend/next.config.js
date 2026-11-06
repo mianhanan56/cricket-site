@@ -1,26 +1,21 @@
 const path = require('path');
 const withPWAInit = require('@ducanh2912/next-pwa').default;
 
-// The Worker host the client bundle will be built against. Everything the app
-// renders comes from here, so it is also the runtime-caching pattern below.
+// Everything the app renders comes from this Worker.
 const WORKER_URL =
   process.env.NEXT_PUBLIC_WORKER_URL ??
   'https://pulsecrease-api.pulse-cricket.workers.dev';
 
-/**
- * The Worker's origin as a pattern the service worker can actually evaluate.
- *
- * It has to be a RegExp rather than the obvious `({url}) => url.origin === …`
- * predicate: Workbox serialises a route matcher by calling `toString()` on it,
- * so a closure over `WORKER_URL` reaches sw.js as a free variable and throws a
- * ReferenceError on the first request it is asked about — taking the whole
- * service worker down with it. A RegExp serialises as a literal, value included.
- */
-const WORKER_ORIGIN = new URL(WORKER_URL).origin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+// The browser reaches the Worker through this same-origin path, rewritten below, because
+// some networks block *.workers.dev. lib/api/client.ts uses the same prefix.
+const WORKER_PROXY_PATH = '/api/worker';
+
+// A RegExp, not a `({url}) => …` predicate: Workbox serialises matchers with toString(),
+// so a closure's free variables reach sw.js undefined and take the service worker down.
 // Ball-by-ball routes are left out: a saved copy is a score going backwards, and
 // routing them through the service worker only adds a hop to every poll.
 const WORKER_LIVE_PATHS = '(matches/live|match/(scorecard|commentary)|live)(\\?|$)';
-const WORKER_ORIGIN_PATTERN = new RegExp(`^${WORKER_ORIGIN}/(?!${WORKER_LIVE_PATHS})`, 'i');
+const WORKER_PROXY_PATTERN = new RegExp(`^https?://[^/]+${WORKER_PROXY_PATH}/(?!${WORKER_LIVE_PATHS})`, 'i');
 
 // `NEXT_PUBLIC_*` is inlined into the client bundle at build time, so a local
 // override does not just affect the machine doing the building — it ships. A
@@ -51,7 +46,7 @@ const withPWA = withPWAInit({
         // The Worker apart from live scores, matched by origin from the same env var the client is
         // built with. On a slow link the last copy answers after the timeout instead of a spinner;
         // the network reply still lands in the cache for next time.
-        urlPattern: WORKER_ORIGIN_PATTERN,
+        urlPattern: WORKER_PROXY_PATTERN,
         handler: 'NetworkFirst',
         options: {
           cacheName: 'worker-api',
@@ -107,6 +102,9 @@ const nextConfig = {
     // and pages/ by default, which silently skipped these three. Listed so the
     // build checks everything the app actually ships.
     dirs: ['app', 'components', 'lib', 'hooks', 'data', 'types'],
+  },
+  async rewrites() {
+    return [{ source: `${WORKER_PROXY_PATH}/:path*`, destination: `${WORKER_URL.replace(/\/$/, '')}/:path*` }];
   },
   sassOptions: {
     includePaths: [path.join(__dirname, 'scss')],

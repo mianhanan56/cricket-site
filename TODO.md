@@ -1,11 +1,12 @@
 # TODO — PulseCrease
 
-Last updated: 2026-10-30
+Last updated: 2026-11-04
 
 UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before any fix.
 
 | Priority | Status | Task | Notes |
 | --- | --- | --- | --- |
+| High | Pending | Deploy the frontend for the `/api/worker` proxy, then check Home on the blocked network | 2026-11-04: Home was empty on networks that block `*.workers.dev`. After deploy, DevTools should show `/api/worker/matches/live` (200), not `workers.dev`. Watch Vercel edge-request usage: blocked visitors get no socket and poll every 2s through Vercel. Lasting fix if usage grows: a custom domain on the Worker. |
 | High | Pending | Deploy the Worker for broadcaster names (`cd worker && npm run deploy`) | 2026-10-30: `/match/info` `broadcasters` no longer carries the data source's own name (the site has been printing it in "Where to watch"); `SHAPE_VERSION` 3. Until deployed, production still shows it. |
 | High | Pending | Deploy the Worker for `/mapping` name memory (`cd worker && npm run deploy`) | 2026-10-27: names served from isolate memory, upstream asked only for unseen keys (`worker/src/names.ts`). Cold page renders ~5× faster in local tests. The frontend works with either Worker. |
 | High | Pending | Match quiz: add `GEMINI_API_KEY` in Vercel (Production + Preview) | Set locally in `frontend/.env.local` on 2026-10-26 and tested against real Gemini. Until Vercel has it, production `/api/quiz` 404s and no Quiz tab shows. The key was pasted into a chat on 2026-10-26 — user may rotate it in AI Studio (then update both places). Possible next: a "Quiz from the last match" card on home. |
