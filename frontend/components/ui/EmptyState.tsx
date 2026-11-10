@@ -32,6 +32,7 @@ export default function EmptyState({
   action,
   secondary,
   compact = false,
+  titleAs: TitleTag = 'p',
 }: {
   icon?: IconName;
   title: string;
@@ -39,6 +40,7 @@ export default function EmptyState({
   action?: StateAction;
   secondary?: StateAction;
   compact?: boolean;
+  titleAs?: 'p' | 'h1';
 }) {
   return (
     <div className={`${styles.empty} ${compact ? styles.compact : ''}`}>
@@ -46,7 +48,7 @@ export default function EmptyState({
         <Icon name={icon} size={compact ? 18 : 22} />
       </span>
       <span className={styles.flatline} aria-hidden="true" />
-      <p className={styles.title}>{title}</p>
+      <TitleTag className={styles.title}>{title}</TitleTag>
       {body && <p className={styles.body}>{body}</p>}
       {(action || secondary) && (
         <div className={styles.actions}>

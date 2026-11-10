@@ -12,7 +12,7 @@ All data comes from the upstream's undocumented internal APIs through a Cloudfla
 
 ## Current objective
 
-2026-11-10: SEO pass (audit 2026-11-09; all code items done in two rounds, uncommitted; user still to add a custom domain, Search Console and a contact address) — ARCHITECTURE › SEO; open items in TODO.
+2026-11-10: SEO pass (audit 2026-11-09; rounds 1–2 committed in bbbc8cf; round 3 — 404 page title/h1, robots, verification env vars — uncommitted; real 404 status for unknown ids still needs the user's call, see TODO). Left for the user: custom domain + `NEXT_PUBLIC_SITE_URL`, Search Console/Bing verification (`GOOGLE_SITE_VERIFICATION`/`BING_SITE_VERIFICATION`), a contact address — ARCHITECTURE › SEO; TODO.
 
 2026-10-21: redesign for a friendlier, client-facing look, page by page — **home done** (two rounds:
 first colours/type only, which the user said still looked like the old design; then a real layout

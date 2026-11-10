@@ -32,6 +32,7 @@ export function SeriesListSkeleton() {
   return (
     <div className={list.page} role="status" aria-busy="true" aria-label="Loading series">
       <PageHeader
+        titleAs="p"
         eyebrow="Competitions"
         title="Series"
         asideClassName={filter.toolbar}

@@ -46,18 +46,21 @@ export function PageHeader({
   children,
   aside,
   asideClassName,
+  titleAs: TitleTag = 'h1',
 }: {
   eyebrow?: string;
   title: string;
   children?: React.ReactNode;
   aside?: React.ReactNode;
   asideClassName?: string;
+  /** 'p' for loading skeletons: the real page's h1 follows in the same document. */
+  titleAs?: 'h1' | 'p';
 }) {
   return (
     <header className={styles.page}>
       <div className={styles.pageMain}>
         {eyebrow && <span className={styles.eyebrow}>{eyebrow}</span>}
-        <h1 className={styles.pageTitle}>{title}</h1>
+        <TitleTag className={styles.pageTitle}>{title}</TitleTag>
         {children}
       </div>
       {aside && <div className={`${styles.pageAside} ${asideClassName ?? ''}`}>{aside}</div>}

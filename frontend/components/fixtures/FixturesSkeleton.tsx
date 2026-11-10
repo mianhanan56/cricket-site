@@ -11,6 +11,7 @@ export default function FixturesSkeleton() {
   return (
     <div className={page.page} role="status" aria-busy="true" aria-label="Loading fixtures">
       <PageHeader
+        titleAs="p"
         eyebrow="Every match"
         title="Fixtures"
         asideClassName={ff.toolbar}

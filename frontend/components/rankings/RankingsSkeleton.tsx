@@ -10,6 +10,7 @@ export default function RankingsSkeleton() {
   return (
     <div className={`${rk.page} ${stagger}`} role="status" aria-busy="true" aria-label="Loading ICC rankings">
       <PageHeader
+        titleAs="p"
         eyebrow="ICC Rankings"
         title="Rankings"
         asideClassName={rk.toolbar}

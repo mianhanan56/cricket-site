@@ -529,6 +529,17 @@ imported only by the route, so none of it ships to the browser:
   `noindex`. In Next 14 a page-level `openGraph` replaces the root's wholesale, image included, so
   `pageMeta` always sets images (default `/opengraph-image`). `images: 'segment'` leaves them to the
   route's own `opengraph-image.tsx` (only `/matches/[id]` has one: `shareCard` in `lib/brandImage.tsx`).
+- Unknown ids answer 200: the root `app/loading.tsx` flushes the shell before any `notFound()`, including one
+  thrown from `generateMetadata` (tried 2026-11-10 on a production build — still 200). The not-found render
+  carries Next's own `noindex` meta and the "Page not found" title, so nothing is indexed; a real 404 status
+  needs the loading boundaries dropped on detail routes or a middleware existence check (TODO, user's call).
+  `not-found.tsx` sets its title (don't add `robots`: Next already injects `noindex`) and an h1 via
+  `EmptyState titleAs="h1"`.
+- One h1 per document: a loading skeleton streams into the same HTML as the page, so skeleton headers use
+  `PageHeader titleAs="p"` (same look, no second h1).
+- `robots.ts` disallows `/api/` and `/search` (internal search results); everything else relies on `noindex`.
+- Search Console / Bing verification tags come from `GOOGLE_SITE_VERIFICATION` and `BING_SITE_VERIFICATION`
+  (root layout `verification`), so verifying is a Vercel env var, not a code change. OG locale is `en_GB`.
 - `noindex`: `/my`, `/automations`, `/search`, `/insights`, and news stories (`/news/[slug]`: headline and
   summary only, thin next to the original; `/news` itself stays indexed).
 - Rankings: each of the 20 ICC lists is its own indexable URL via the query (`lib/rankingsPages.ts`):

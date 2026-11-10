@@ -7,7 +7,7 @@ const TILES = Array.from({ length: 12 }, (_, i) => i);
 export default function Loading() {
   return (
     <div className={styles.page} role="status" aria-busy="true" aria-label="Loading teams">
-      <PageHeader eyebrow="Teams" title="International teams" />
+      <PageHeader eyebrow="Teams" title="International teams" titleAs="p" />
       <ul className={`${styles.grid} ${stagger}`}>
         {TILES.map((i) => (
           <li key={i} className={styles.tile}>

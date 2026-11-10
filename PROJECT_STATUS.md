@@ -12,6 +12,7 @@ UI polish pass on navigation, series stats and page spacing (uncommitted working
 - JSON-LD (`lib/structuredData.ts`): SportsEvent, Person, SportsTeam, StadiumOrArena, NewsArticle, BreadcrumbList, WebSite/Organization.
 - Home's first match list is server-rendered (crawlable links); match titles use full team names; match share card image.
 - Sitemap from 99 to ≈1.85k URLs (finished matches, players, stats, 20 rankings lists). Fixture-preview redirect is now permanent (308).
+- Round 3: 404 page has its own title and h1; skeleton headers are no longer h1s; robots disallows `/api/` and `/search`; Search Console/Bing verification from env; OG locale `en_GB`.
 - Round 2: news stories noindex; per-list rankings titles/canonicals; /about and /privacy; finished matches carry the full card and a Top performers block; team/player share cards.
 
 ## Completed features

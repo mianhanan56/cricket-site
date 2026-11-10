@@ -8,7 +8,7 @@ const ROWS = Array.from({ length: 6 }, (_, i) => i);
 export default function Loading() {
   return (
     <div className={styles.page} role="status" aria-busy="true" aria-label="Loading news">
-      <PageHeader eyebrow="News" title="Latest news" />
+      <PageHeader eyebrow="News" title="Latest news" titleAs="p" />
       <div className={list.lead}>
         <Skeleton className={list.leadImage} />
         <div className={list.leadBody}>

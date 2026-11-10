@@ -37,7 +37,7 @@ export function pageMeta(input: PageMetaInput): Metadata {
     alternates: { canonical: path },
     openGraph: {
       siteName: SITE_NAME,
-      locale: 'en',
+      locale: 'en_GB',
       url: path,
       title: shareTitle,
       description,

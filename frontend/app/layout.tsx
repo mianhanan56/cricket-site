@@ -38,12 +38,16 @@ export const metadata: Metadata = {
   description: HOME_DESCRIPTION,
   applicationName: SITE_NAME,
   manifest: '/manifest.json',
+  verification: {
+    ...(process.env.GOOGLE_SITE_VERIFICATION ? { google: process.env.GOOGLE_SITE_VERIFICATION } : {}),
+    ...(process.env.BING_SITE_VERIFICATION ? { other: { 'msvalidate.01': process.env.BING_SITE_VERIFICATION } } : {}),
+  },
   // `apple` is app/apple-icon.tsx's PNG; naming `icons` here overrides the file convention.
   icons: { icon: '/icon.svg', apple: { url: '/apple-icon', type: 'image/png', sizes: '180x180' } },
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
-    locale: 'en',
+    locale: 'en_GB',
     title: HOME_TITLE,
     description: HOME_DESCRIPTION,
   },
