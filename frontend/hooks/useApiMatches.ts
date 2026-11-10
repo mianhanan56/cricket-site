@@ -442,6 +442,8 @@ export function useApiMatchExtras(
     ballsPerOver?: number;
     /** Lets the card mark the innings in progress — see `getApiScorecard`. */
     status?: MatchStatus;
+    /** A card read on the server, shown until the first fetch answers. */
+    initialInnings?: InningsScore[];
   } = {}
 ): UseApiMatchExtrasResult {
   const {
@@ -450,9 +452,10 @@ export function useApiMatchExtras(
     repeat = true,
     ballsPerOver,
     status,
+    initialInnings,
   } = options;
 
-  const [innings, setInnings] = useState<InningsScore[]>([]);
+  const [innings, setInnings] = useState<InningsScore[]>(initialInnings ?? []);
   const [commentary, setCommentary] = useState<CommentaryBall[]>([]);
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [overs, setOvers] = useState<OverSummary[]>([]);
@@ -461,7 +464,7 @@ export function useApiMatchExtras(
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
 
   const active = enabled && Boolean(matchKey);
-  const inningsRef = useRef<InningsScore[]>([]);
+  const inningsRef = useRef<InningsScore[]>(initialInnings ?? []);
   const keyRef = useRef(matchKey);
   // The newest feed row held: later polls read only the tail down to it, not three overs again.
   const newestRef = useRef<number | null>(null);

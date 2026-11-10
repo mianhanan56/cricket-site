@@ -17,6 +17,9 @@ import { TaggedNews } from '../../../components/news/NewsList';
 import styles from './team.module.scss';
 import { venueText } from '@/lib/venue';
 import { meetingFormat } from '@/lib/seriesFormat';
+import { pageMeta } from '@/lib/seo';
+import JsonLd from '@/components/seo/JsonLd';
+import { breadcrumbs, sportsTeam } from '@/lib/structuredData';
 
 // Per-fetch freshness rather than page-level `revalidate`: ISR would cache the
 // notFound() path too, serving an unknown key as a soft 404.
@@ -35,8 +38,10 @@ export async function generateMetadata({ params }: { params: { key: string } }) 
     ? `Ranked ${rankings.map((r) => `${r.position} in ${r.format}`).join(', ')}.`
     : null;
 
-  return {
-    title: `${team.name} — Fixtures, Squad & Form`,
+  return pageMeta({
+    title: `${team.name} Cricket Team — Fixtures, Results, Squad & Form`,
+    path: `/teams/${team.id}`,
+    images: 'segment',
     description: [
       `${team.name} cricket: upcoming fixtures, recent results and the current squad.`,
       ranked,
@@ -44,7 +49,7 @@ export async function generateMetadata({ params }: { params: { key: string } }) 
     ]
       .filter(Boolean)
       .join(' '),
-  };
+  });
 }
 
 const FORM_WORD = { W: 'won', L: 'lost', N: 'no result' } as const;
@@ -157,6 +162,7 @@ export default async function TeamPage({ params }: { params: { key: string } }) 
 
   return (
     <div className={styles.page}>
+      <JsonLd data={[sportsTeam(team), breadcrumbs([{ name: 'Teams', path: '/teams' }, { name: team.name, path: `/teams/${team.id}` }])]} />
       <div className={styles.back}>
         <BackButton />
       </div>

@@ -30,6 +30,13 @@ const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string
       { href: '/search', label: 'Search', docked: true },
     ],
   },
+  {
+    title: 'PulseCrease',
+    links: [
+      { href: '/about', label: 'About' },
+      { href: '/privacy', label: 'Privacy' },
+    ],
+  },
 ];
 
 export default function Footer() {
@@ -40,7 +47,7 @@ export default function Footer() {
           <Link href="/" className={styles.logo} aria-label="PulseCrease home">
             <Logo />
           </Link>
-          <p className={styles.tagline}>Every ball. Live.</p>
+          <p className={styles.tagline}>Live cricket scores, scorecards, fixtures and ICC rankings — every ball, as it happens.</p>
         </div>
 
         <nav className={styles.columns} aria-label="Footer">

@@ -1,12 +1,14 @@
-import type { Metadata } from 'next';
+import { pageMeta } from '@/lib/seo';
 import type { Match } from '@/types';
 import { getApiMatchList } from '@/lib/api';
 import InsightsView from './InsightsView';
 
-export const metadata: Metadata = {
+export const metadata = pageMeta({
   title: 'Insights',
   description: 'Every live match read at once — equations, pulse, tight chases.',
-};
+  path: '/insights',
+  noindex: true,
+});
 
 // The first list arrives with the page; the client poll replaces it within a second.
 export const revalidate = 15;

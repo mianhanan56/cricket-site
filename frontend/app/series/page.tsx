@@ -1,3 +1,4 @@
+import { pageMeta } from '@/lib/seo';
 import type { Match, SeriesSummary } from '@/types';
 import { pickParam } from '../../lib/queryParams';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '../../lib/matchType';
@@ -8,10 +9,12 @@ import EmptyState from '../../components/ui/EmptyState';
 import { PageHeader } from '../../components/ui/Section';
 import styles from './series.module.scss';
 
-export const metadata = {
-  title: 'Series',
-  description: 'Live, upcoming and recently finished cricket series.',
-};
+export const metadata = pageMeta({
+  title: 'Cricket Series — Live, Upcoming & Recent',
+  description:
+    'Every live, upcoming and recently finished cricket series and tournament — international tours, T20 leagues and domestic competitions, with fixtures and results.',
+  path: '/series',
+});
 
 // Series move on the scale of a result, not a ball: revalidated, not polled.
 export const revalidate = 300;

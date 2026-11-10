@@ -16,6 +16,9 @@ import EmptyState from '../../../../../components/ui/EmptyState';
 import BackButton from '../../../../../components/ui/BackButton';
 import { PageHeader } from '../../../../../components/ui/Section';
 import styles from './seriesStat.module.scss';
+import { pageMeta } from '@/lib/seo';
+import JsonLd from '@/components/seo/JsonLd';
+import { breadcrumbs } from '@/lib/structuredData';
 
 // Aggregated from every scorecard in the series, so cached hard.
 const REVALIDATE = 900;
@@ -63,10 +66,11 @@ export async function generateMetadata({ params }: { params: { id: string; kind:
   const series = await readSchedule(params.id).catch(() => null);
   const label = seriesStatLabel(kind);
 
-  return {
+  return pageMeta({
     title: series ? `${label} in ${series.name}` : label,
     description: series ? `${label} in ${series.name}: the leading ten, with innings, average and strike rate.` : undefined,
-  };
+    path: `/series/${params.id}/stats/${params.kind}`,
+  });
 }
 
 const BATTING_COLUMNS = ['Runs', 'Mat', 'Inns', 'HS', 'Avg', 'SR', '100', '50', '4s', '6s'] as const;
@@ -128,6 +132,7 @@ export default async function SeriesStatPage({ params }: { params: { id: string;
 
   return (
     <div className={styles.page}>
+      <JsonLd data={breadcrumbs([{ name: 'Series', path: '/series' }, { name: series.name, path: `/series/${params.id}` }, { name: label, path: `/series/${params.id}/stats/${params.kind}` }])} />
       <BackButton fallback={`/series/${params.id}`} className={styles.back} />
 
       <PageHeader eyebrow={series.name} title={label} />

@@ -17,6 +17,7 @@ import { PlayerSituations } from './MatchState';
 import WinProbability from './WinProbability';
 import MomentumGraph from './MomentumGraph';
 import PlayerLink from './PlayerLink';
+import TopPerformers from './TopPerformers';
 import PreStart from './PreStart';
 import Skeleton from '../ui/Skeleton';
 import { fmtOvers } from './ScorecardPanel';
@@ -150,6 +151,8 @@ export default function LivePanel({
           <PlayerOfMatchCard award={match.playerOfMatch} teams={[match.homeTeam, match.awayTeam]} />
         </section>
       )}
+
+      {match.status === 'COMPLETED' && <TopPerformers innings={innings} />}
 
       {preStart && !pending && <PreStart match={match} state={state} />}
 

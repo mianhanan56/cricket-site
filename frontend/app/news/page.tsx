@@ -1,3 +1,4 @@
+import { pageMeta } from '@/lib/seo';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import type { NewsPage } from '@/types';
@@ -15,15 +16,16 @@ function readPage(raw: string | string[] | undefined): number | null {
   return Number.isInteger(n) && n >= 1 ? n : null;
 }
 
+const pageHref = (page: number) => (page <= 1 ? '/news' : `/news?page=${page}`);
+
 export function generateMetadata({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
   const page = readPage(searchParams?.page) ?? 1;
-  return {
+  return pageMeta({
     title: page > 1 ? `Cricket News — Page ${page}` : 'Cricket News',
     description: 'The latest cricket news — team announcements, squads, previews and reaction.',
-  };
+    path: pageHref(page),
+  });
 }
-
-const pageHref = (page: number) => (page <= 1 ? '/news' : `/news?page=${page}`);
 
 export default async function NewsPageView({
   searchParams,

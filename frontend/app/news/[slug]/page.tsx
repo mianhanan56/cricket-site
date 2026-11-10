@@ -6,6 +6,9 @@ import { NewsGrid } from '../../../components/news/NewsList';
 import BackButton from '../../../components/ui/BackButton';
 import LocalTime from '../../../components/ui/LocalTime';
 import { SectionHead } from '../../../components/ui/Section';
+import { pageMeta } from '@/lib/seo';
+import JsonLd from '@/components/seo/JsonLd';
+import { breadcrumbs, newsArticle } from '@/lib/structuredData';
 import styles from './story.module.scss';
 
 // cache(): generateMetadata and the page share one read per request.
@@ -15,17 +18,15 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const story = await loadStory(params.slug).catch(() => null);
   if (!story) return { title: 'News' };
   const { article } = story;
-  return {
+  return pageMeta({
     title: article.title,
     description: article.excerpt ?? undefined,
-    openGraph: {
-      type: 'article',
-      title: article.title,
-      description: article.excerpt ?? undefined,
-      publishedTime: article.publishedAt,
-      images: article.image ? [article.image] : undefined,
-    },
-  };
+    path: `/news/${article.slug}`,
+    images: article.image ? [article.image] : undefined,
+    article: { publishedTime: article.publishedAt, authors: article.author ? [article.author] : undefined },
+    // Headline and summary only (the body isn't republished): thin next to the original, so kept out of the index.
+    noindex: true,
+  });
 }
 
 export default async function NewsStoryPage({ params }: { params: { slug: string } }) {
@@ -37,6 +38,15 @@ export default async function NewsStoryPage({ params }: { params: { slug: string
 
   return (
     <div className={styles.page}>
+      <JsonLd
+        data={[
+          newsArticle(article),
+          breadcrumbs([
+            { name: 'News', path: '/news' },
+            { name: article.title, path: `/news/${article.slug}` },
+          ]),
+        ]}
+      />
       <BackButton fallback="/news" className={styles.back} />
 
       <article className={styles.story}>

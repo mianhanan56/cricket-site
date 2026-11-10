@@ -1,3 +1,4 @@
+import { pageMeta } from '@/lib/seo';
 import { getRankings } from '@/lib/rankings';
 import { rankedDirectory } from '@/lib/directory';
 import { rankingsByPlayer, type DirectoryRow } from '@/lib/playersDirectory';
@@ -17,10 +18,11 @@ import styles from './players.module.scss';
 
 export const revalidate = 3600;
 
-export const metadata = {
+export const metadata = pageMeta({
   title: 'Players — ICC Ranked Batters, Bowlers & All-rounders',
   description: 'Every player on a current ICC ranking list, by discipline and format, with position and rating.',
-};
+  path: '/players',
+});
 
 export default async function PlayersPage({
   searchParams,

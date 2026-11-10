@@ -46,12 +46,14 @@ export interface HomeMatchesProps {
   /** Active tab from the URL; '' means none picked yet. */
   initialTab: HomeTab | '';
   initialType: MatchTypeKey;
+  /** Server-rendered seed for the live poll. */
+  initialMatches?: Match[];
   /** Streamed from the server; sits under the match board. */
   news?: ReactNode;
 }
 
-export default function HomeMatches({ initialTab, initialType, news }: HomeMatchesProps) {
-  const { matches, isLoading, error, refresh, isRefreshing } = useApiMatches();
+export default function HomeMatches({ initialTab, initialType, initialMatches, news }: HomeMatchesProps) {
+  const { matches, isLoading, error, refresh, isRefreshing } = useApiMatches({ initial: initialMatches });
   const follows = useFollows();
   const [{ tab: picked, type: typeKey }, setQuery] = useQueryTabs(
     { tab: initialTab, type: initialType },

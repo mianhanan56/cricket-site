@@ -12,6 +12,9 @@ import Toaster from '../components/notifications/Toaster';
 import AutomationEngine from '../components/automations/AutomationEngine';
 import { Analytics } from '@vercel/analytics/next';
 import { SITE_URL } from '../lib/site';
+import { HOME_DESCRIPTION, HOME_TITLE, SITE_NAME } from '../lib/seo';
+import JsonLd from '../components/seo/JsonLd';
+import { siteGraph } from '../lib/structuredData';
 
 const archivo = Archivo({
   subsets: ['latin'],
@@ -29,24 +32,25 @@ const figtree = Figtree({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'PulseCrease — Live Cricket Intelligence',
-    template: '%s | PulseCrease',
+    default: HOME_TITLE,
+    template: `%s | ${SITE_NAME}`,
   },
-  description: 'Every ball. Live.',
-  applicationName: 'PulseCrease',
+  description: HOME_DESCRIPTION,
+  applicationName: SITE_NAME,
   manifest: '/manifest.json',
   // `apple` is app/apple-icon.tsx's PNG; naming `icons` here overrides the file convention.
   icons: { icon: '/icon.svg', apple: { url: '/apple-icon', type: 'image/png', sizes: '180x180' } },
   openGraph: {
     type: 'website',
-    siteName: 'PulseCrease',
-    title: 'PulseCrease — Live Cricket Intelligence',
-    description: 'Every ball. Live.',
+    siteName: SITE_NAME,
+    locale: 'en',
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PulseCrease — Live Cricket Intelligence',
-    description: 'Every ball. Live.',
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
   },
 };
 
@@ -99,6 +103,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster />
         <AutomationEngine />
         <Analytics />
+        <JsonLd data={siteGraph()} />
       </body>
     </html>
   );

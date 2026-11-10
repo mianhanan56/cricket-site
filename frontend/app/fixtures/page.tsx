@@ -1,3 +1,4 @@
+import { pageMeta } from '@/lib/seo';
 import { pickParam } from '@/lib/queryParams';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '@/lib/matchType';
 import { FIXTURE_FORMAT_KEYS, type FixtureFormatKey } from '@/lib/tabs';
@@ -9,10 +10,12 @@ import EmptyState from '@/components/ui/EmptyState';
 import { PageHeader } from '@/components/ui/Section';
 import styles from './fixtures.module.scss';
 
-export const metadata = {
-  title: 'Fixtures',
-  description: 'Upcoming cricket fixtures by format.',
-};
+export const metadata = pageMeta({
+  title: 'Cricket Fixtures & Schedule',
+  description:
+    'Upcoming cricket fixtures for the next month — Test, ODI and T20I internationals, T20 leagues and domestic cricket, with dates, start times and venues.',
+  path: '/fixtures',
+});
 
 export const revalidate = 300;
 

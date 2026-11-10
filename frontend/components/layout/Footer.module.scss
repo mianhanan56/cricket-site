@@ -46,8 +46,10 @@
 }
 
 .tagline {
+  max-width: 34ch;
   font-stretch: $stretch-wide;
   font-size: $fs-md;
+  line-height: $leading-normal;
   color: $text-3;
 }
 

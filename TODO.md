@@ -1,11 +1,15 @@
 # TODO — PulseCrease
 
-Last updated: 2026-11-04
+Last updated: 2026-11-10
 
 UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before any fix.
 
 | Priority | Status | Task | Notes |
 | --- | --- | --- | --- |
+| High | Pending | SEO: point a custom domain at the site and set `NEXT_PUBLIC_SITE_URL`; verify in Google Search Console and Bing, submit `/sitemap.xml` | User action. Canonicals, OG URLs and the sitemap all use `SITE_URL`; on `pulsecrease.vercel.app` until then. |
+| Low | Pending | SEO: set a public contact address | `CONTACT_EMAIL` in `frontend/lib/site.ts` is null; setting it shows a Contact section on /about and a line on /privacy. |
+| Done | Done | SEO round 2 (2026-11-10) | News stories noindex + out of sitemap; 20 rankings lists with own title/canonical; /about + /privacy + footer column and descriptive tagline; finished matches server-render the full card and a Top performers block (5–8 player links vs 0–1); share cards for teams and players. Uncommitted. |
+| Done | Done | SEO fixes 1, 2, 4, 5, 6, 7 (+ noindex, permanent preview redirect) | 2026-11-10, uncommitted. See ARCHITECTURE › SEO. Verified on a production build: home HTML has match links, every page type has canonical/OG/JSON-LD, sitemap ≈1.9k URLs, no hydration errors. |
 | High | Pending | Deploy the frontend for the `/api/worker` proxy, then check Home on the blocked network | 2026-11-04: Home was empty on networks that block `*.workers.dev`. After deploy, DevTools should show `/api/worker/matches/live` (200), not `workers.dev`. Watch Vercel edge-request usage: blocked visitors get no socket and poll every 2s through Vercel. Lasting fix if usage grows: a custom domain on the Worker. |
 | High | Pending | Deploy the Worker for broadcaster names (`cd worker && npm run deploy`) | 2026-10-30: `/match/info` `broadcasters` no longer carries the data source's own name (the site has been printing it in "Where to watch"); `SHAPE_VERSION` 3. Until deployed, production still shows it. |
 | High | Pending | Deploy the Worker for `/mapping` name memory (`cd worker && npm run deploy`) | 2026-10-27: names served from isolate memory, upstream asked only for unseen keys (`worker/src/names.ts`). Cold page renders ~5× faster in local tests. The frontend works with either Worker. |

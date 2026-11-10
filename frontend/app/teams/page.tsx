@@ -1,11 +1,13 @@
+import { pageMeta } from '@/lib/seo';
 import { getRankings } from '../../lib/rankings';
 import { rankedDirectory } from '../../lib/directory';
 import TeamsDirectory from './TeamsDirectory';
 
-export const metadata = {
-  title: 'Teams',
+export const metadata = pageMeta({
+  title: 'Cricket Teams',
   description: 'Every ICC-ranked men’s and women’s side — fixtures, results, form and squads.',
-};
+  path: '/teams',
+});
 
 export const revalidate = 3600;
 

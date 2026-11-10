@@ -68,9 +68,12 @@ export default function MatchDetail({
   seriesTable,
   seriesLeaders,
   initialTab = '',
+  initialCard,
 }: {
   matchId: string;
   initial: Match;
+  /** A finished match's full card, read on the server so the first HTML carries it. */
+  initialCard?: InningsScore[] | null;
   /** A scheduled fixture with no upstream key yet — nothing match-keyed exists upstream. */
   preview?: boolean;
   headToHead?: HeadToHead | null;
@@ -80,7 +83,7 @@ export default function MatchDetail({
   /** `?tab=` from the URL; '' when absent or not a tab. */
   initialTab?: TabKey | '';
 }) {
-  const [match, setMatch] = useState<Match>(initial);
+  const [match, setMatch] = useState<Match>(() => withCard(initial, initialCard ?? undefined));
   // Offered only once questions exist, so a match the model can't quiz never shows an empty tab.
   // The clock only gates a fetch, never markup, so reading it in render can't break hydration.
   const quiz = useMatchQuiz(matchId, preview ? null : quizKind(match, Date.now()));
@@ -125,6 +128,7 @@ export default function MatchDetail({
     repeat: isLive,
     ballsPerOver: match.ballsPerOver,
     status: match.status,
+    initialInnings: initialCard ?? undefined,
   });
   const extrasPending = extrasEnabled && !apiExtras.loaded;
 

@@ -1,11 +1,12 @@
 import { cache } from 'react';
-import { notFound, redirect } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import type { HeadToHead, PointsTableGroup, SeriesLeaders } from '@/types';
 import {
   getApiFixtureRange,
   getApiMatch,
   getApiMatchSeriesSquads,
   getApiScheduledMatch,
+  getApiScorecard,
   getApiSeriesLeaders,
   getApiSeriesTable,
   parseScheduledMatchId,
@@ -15,7 +16,10 @@ import MatchDetail from '../../../components/match/MatchDetail';
 import { VENUE_TBD } from '@/lib/venue';
 import { pickParam } from '@/lib/queryParams';
 import { MATCH_TAB_KEYS, type MatchTab } from '@/lib/tabs';
-import { matchFormat } from '@/lib/seriesFormat';
+import { matchOrdinal } from '@/lib/seriesFormat';
+import { pageMeta } from '@/lib/seo';
+import JsonLd from '@/components/seo/JsonLd';
+import { breadcrumbs, sportsEvent } from '@/lib/structuredData';
 
 // Freshness is set per-fetch below rather than with a page-level `revalidate`:
 // making the route ISR-cached also caches the notFound() path, which turns an
@@ -33,12 +37,23 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   const m = await loadMatch(params.id).catch(() => null);
   if (!m) return { title: 'Match Centre' };
 
-  const year = new Date(m.startTime).getFullYear();
-  const verb = m.status === 'LIVE' ? 'Live Score' : m.status === 'UPCOMING' ? 'Preview' : 'Result';
-  return {
-    title: `${m.homeTeam.shortName} vs ${m.awayTeam.shortName} ${verb} — ${matchFormat(m)} ${year}`,
-    description: `${m.homeTeam.name} vs ${m.awayTeam.name}, ${m.series.name}. ${matchFormat(m)} ${verb.toLowerCase()}${m.venue === VENUE_TBD ? '' : ` at ${m.venue}`}.`,
-  };
+  const fixture = `${m.homeTeam.name} vs ${m.awayTeam.name}`;
+  const which = m.stage ?? matchOrdinal(m);
+  const at = m.venue === VENUE_TBD ? '' : ` at ${m.venue}`;
+  const verb = m.status === 'LIVE' ? 'Live Score' : m.status === 'UPCOMING' ? 'Preview' : 'Result & Scorecard';
+  const lead =
+    m.status === 'COMPLETED'
+      ? `${fixture}, ${which}, ${m.series.name}${at}.${m.result ? ` ${m.result}.` : ''} Full scorecard and ball-by-ball commentary.`
+      : m.status === 'LIVE'
+        ? `${fixture} live score, ${which}, ${m.series.name}${at}. Ball-by-ball commentary, scorecard and win probability.`
+        : `${fixture}, ${which}, ${m.series.name}${at}. Preview, squads, head-to-head record and live score once play starts.`;
+
+  return pageMeta({
+    title: `${fixture} ${verb}, ${which} — ${m.series.name}`,
+    description: lead,
+    path: `/matches/${m.id}`,
+    images: 'segment',
+  });
 }
 
 export default async function MatchDetailPage({
@@ -55,11 +70,12 @@ export default async function MatchDetailPage({
   if (!match) notFound();
 
   // Preview links outlive the preview: once the upstream allocates a key, send the reader to it.
-  if (match.id !== params.id) redirect(`/matches/${match.id}`);
+  if (match.id !== params.id) permanentRedirect(`/matches/${match.id}`);
 
   // Head-to-head, standings, series squads (upcoming only — the floor under an
   // announced XI) and leaders: static for the life of the page, each on its own cache window.
-  const [record, table, squads, leaders] = await Promise.all([
+  // A finished card is final, so it's read here and cached: the first HTML then carries every batter and bowler.
+  const [record, table, squads, leaders, card] = await Promise.all([
     corpusRead.then((corpus): HeadToHead | null =>
       corpus ? headToHead(match.homeTeam, match.awayTeam, corpus, { exclude: params.id }) : null
     ).catch(() => null),
@@ -72,17 +88,31 @@ export default async function MatchDetailPage({
     match.series.id
       ? getApiSeriesLeaders(match.series.id, { revalidate: match.status === 'LIVE' ? 15 : 300 }).catch(() => null)
       : Promise.resolve(null as SeriesLeaders | null),
+    match.status === 'COMPLETED' && !preview
+      ? getApiScorecard(match.id, { revalidate: 3600, ballsPerOver: match.ballsPerOver, status: match.status }).catch(
+          () => null
+        )
+      : Promise.resolve(null),
   ]);
 
+  const crumbs = [
+    ...(match.series.id ? [{ name: match.series.name, path: `/series/${match.series.id}` }] : []),
+    { name: `${match.homeTeam.shortName} vs ${match.awayTeam.shortName}`, path: `/matches/${match.id}` },
+  ];
+
   return (
-    <MatchDetail
-      matchId={params.id}
-      preview={preview}
-      initial={squads ? { ...match, squads } : match}
-      headToHead={record}
-      seriesTable={table}
-      seriesLeaders={leaders}
-      initialTab={pickParam<MatchTab | ''>(searchParams?.tab, MATCH_TAB_KEYS, '')}
-    />
+    <>
+      <JsonLd data={[sportsEvent(match), breadcrumbs(crumbs)]} />
+      <MatchDetail
+        matchId={params.id}
+        preview={preview}
+        initial={squads ? { ...match, squads } : match}
+        headToHead={record}
+        seriesTable={table}
+        seriesLeaders={leaders}
+        initialTab={pickParam<MatchTab | ''>(searchParams?.tab, MATCH_TAB_KEYS, '')}
+        initialCard={card?.length ? card : null}
+      />
+    </>
   );
 }

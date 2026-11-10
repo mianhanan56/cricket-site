@@ -1,0 +1,80 @@
+@use 'component' as *;
+
+.grid {
+  display: grid;
+  gap: $space-3;
+
+  @include tablet {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.card {
+  @include panel;
+  display: grid;
+  align-content: start;
+  gap: $space-2;
+  padding: $space-4;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $space-3;
+  padding-bottom: $space-2;
+  border-bottom: 1px solid $line;
+}
+
+.team {
+  font-size: $fs-md;
+  font-weight: 700;
+  color: $text;
+}
+
+.score {
+  @include data-num;
+  font-size: $fs-md;
+  font-weight: 600;
+  color: $text-2;
+}
+
+.list {
+  display: grid;
+  gap: $space-2;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: $space-3;
+  min-width: 0;
+}
+
+// The bowler answers the batters above, so a little air sets the line apart.
+.bowling {
+  margin-top: $space-1;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: $fs-body;
+  color: $text;
+}
+
+.figure {
+  @include data-num;
+  flex-shrink: 0;
+  font-size: $fs-body;
+  font-weight: 700;
+  color: $text;
+}
+
+.sub {
+  font-weight: 400;
+  color: $text-3;
+}

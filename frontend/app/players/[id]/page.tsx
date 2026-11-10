@@ -25,6 +25,9 @@ import { SectionHead } from '@/components/ui/Section';
 import { TaggedNews } from '@/components/news/NewsList';
 import { RANKINGS_FORMAT_KEYS, type RankingsFormat } from '@/lib/tabs';
 import styles from './player.module.scss';
+import { pageMeta } from '@/lib/seo';
+import JsonLd from '@/components/seo/JsonLd';
+import { breadcrumbs, person } from '@/lib/structuredData';
 
 // Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
 const REVALIDATE = 3600;
@@ -50,8 +53,10 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
       ? `${bowl.wickets} wickets at ${bowl.average.toFixed(2)} in ${bowl.format}`
       : null;
 
-  return {
+  return pageMeta({
     title: `${player.name} — Profile, Stats & Recent Form`,
+    path: `/players/${player.id}`,
+    images: 'segment',
     description: [
       `${player.name}${player.countryShortName ? `, ${player.countryShortName}` : ''} — ${player.role.toLowerCase()}.`,
       line && `${line}.`,
@@ -59,7 +64,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
     ]
       .filter(Boolean)
       .join(' '),
-  };
+  });
 }
 
 // A birth date is a calendar date, so it is formatted in a fixed zone rather than shifted.
@@ -346,6 +351,7 @@ export default async function PlayerPage({
 
   return (
     <div className={styles.page}>
+      <JsonLd data={[person(player), breadcrumbs([{ name: 'Players', path: '/players' }, { name: player.name, path: `/players/${player.id}` }])]} />
       <BackButton className={styles.back} fallback="/players" />
 
       <header className={styles.hero}>

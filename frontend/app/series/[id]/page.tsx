@@ -33,6 +33,9 @@ import EmptyState from '../../../components/ui/EmptyState';
 import BackButton from '../../../components/ui/BackButton';
 import { PageHeader, SectionHead } from '../../../components/ui/Section';
 import styles from './seriesDetail.module.scss';
+import { pageMeta } from '@/lib/seo';
+import JsonLd from '@/components/seo/JsonLd';
+import { breadcrumbs } from '@/lib/structuredData';
 
 // Freshness is per-fetch rather than a page-level `revalidate`: ISR would also
 // cache the notFound() path and turn an unknown id into a soft 404.
@@ -52,12 +55,13 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   const series = await readSchedule(params.id).catch(() => null);
   if (!series) return { title: 'Series' };
 
-  return {
-    title: `${series.name} — Fixtures & Results`,
+  return pageMeta({
+    title: `${series.name} — Fixtures, Results & Points Table`,
     description: `All ${series.matchCount} ${seriesFormatPhrase(series)} ${
       series.matchCount === 1 ? 'match' : 'matches'
-    } in ${series.name}: fixtures, live scores and results.`,
-  };
+    } in ${series.name}: fixtures, live scores, results, points table and top run-scorers and wicket-takers.`,
+    path: `/series/${params.id}`,
+  });
 }
 
 // The schedule carries no scores; a feed match (when the feed has it) does.
@@ -166,6 +170,7 @@ export default async function SeriesDetailPage({
 
   return (
     <div className={styles.page}>
+      <JsonLd data={breadcrumbs([{ name: 'Series', path: '/series' }, { name: series.name, path: `/series/${series.id}` }])} />
       <BackButton fallback="/series" className={styles.back} />
 
       <PageHeader

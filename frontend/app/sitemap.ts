@@ -1,70 +1,88 @@
 import type { MetadataRoute } from 'next';
-import { getApiMatchList, seriesFromMatches } from '../lib/api';
+import type { Match } from '@/types';
+import { getApiFixtureRange, getApiMatchList, parseScheduledMatchId } from '../lib/api';
+import { getRankings } from '../lib/rankings';
+import { rankedDirectory } from '../lib/directory';
+import { allRankingsQueries, rankingsPath } from '../lib/rankingsPages';
 import { SITE_URL as SITE } from '../lib/site';
 
-/**
- * Rebuild the sitemap hourly.
- *
- * Without this the route is fully static: it is generated once at build time
- * and then frozen, so every match, series, team and venue that appeared after
- * the deploy was missing from it until the next one — which for a site whose
- * entire URL space turns over weekly is most of the sitemap, most of the time.
- * An hour matches the window the underlying match list is fetched with.
- */
+// Rebuilt hourly: the match and series URL space turns over every few days.
 export const revalidate = 3600;
 
-/** Distinct, non-empty keys, in first-seen order. */
-const uniq = (keys: string[]): string[] => [...new Set(keys.filter(Boolean))];
+const STAT_SLUGS = ['most-runs', 'most-wickets'];
 
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticRoutes: MetadataRoute.Sitemap = [
-    '',
-    '/series',
-    '/fixtures',
-    '/rankings',
-    '/teams',
-    '/players',
-    '/news',
-  ].map((p) => ({
-    url: `${SITE}${p}`,
-    lastModified: new Date(),
-    changeFrequency: 'daily',
-    priority: p === '' ? 1 : 0.7,
-  }));
+type Entry = MetadataRoute.Sitemap[number];
 
-  let dynamic: MetadataRoute.Sitemap = [];
-  try {
-    const matches = await getApiMatchList({ revalidate: 3600 });
-    dynamic = [
-      ...matches.map((m) => ({
-        url: `${SITE}/matches/${m.id}`,
-        lastModified: new Date(),
-        priority: 0.6,
-      })),
-      // Series come off the same fetch, so listing them costs nothing extra.
-      ...seriesFromMatches(matches).map((s) => ({
-        url: `${SITE}/series/${s.id}`,
-        lastModified: new Date(),
-        priority: 0.5,
-      })),
-      // Teams and grounds, from the same fetch again. Deduped because the feed
-      // names the same sides and the same venues across dozens of matches, and a
-      // sitemap that lists a URL forty times is a sitemap with one entry and
-      // thirty-nine mistakes.
-      ...uniq(matches.flatMap((m) => [m.homeTeam.id, m.awayTeam.id])).map((key) => ({
-        url: `${SITE}/teams/${key}`,
-        lastModified: new Date(),
-        priority: 0.5,
-      })),
-      ...uniq(matches.map((m) => m.venueId ?? '')).map((key) => ({
-        url: `${SITE}/venues/${key}`,
-        lastModified: new Date(),
-        priority: 0.4,
-      })),
-    ];
-  } catch {
-    // Worker unreachable at build time — ship the static routes only.
+const entry = (path: string, priority: number, extra: Partial<Entry> = {}): Entry => ({
+  url: `${SITE}${path}`,
+  priority,
+  ...extra,
+});
+
+/** First entry per URL wins, so list the most informative source first. */
+function dedupe(entries: Entry[]): Entry[] {
+  const seen = new Set<string>();
+  return entries.filter((e) => !seen.has(e.url) && seen.add(e.url));
+}
+
+function matchEntries(matches: Match[]): Entry[] {
+  const now = Date.now();
+  const out: Entry[] = [];
+  const series = new Map<string, { played: boolean; last: number }>();
+
+  for (const m of matches) {
+    const start = +new Date(m.startTime);
+    // Only real match keys: a fixture without one is a preview URL that later redirects.
+    if (!parseScheduledMatchId(m.id)) {
+      out.push(
+        entry(`/matches/${m.id}`, m.status === 'LIVE' ? 0.9 : 0.6, {
+          changeFrequency: m.status === 'COMPLETED' ? 'monthly' : m.status === 'LIVE' ? 'always' : 'daily',
+          ...(m.status === 'COMPLETED' && start <= now ? { lastModified: new Date(start) } : {}),
+        })
+      );
+    }
+    if (m.series.id) {
+      const s = series.get(m.series.id) ?? { played: false, last: 0 };
+      s.played ||= m.status === 'COMPLETED';
+      s.last = Math.max(s.last, Math.min(start, now));
+      series.set(m.series.id, s);
+    }
   }
 
-  return [...staticRoutes, ...dynamic];
+  for (const [id, s] of series) {
+    out.push(entry(`/series/${id}`, 0.6, { changeFrequency: 'daily', lastModified: new Date(s.last) }));
+    if (s.played) for (const slug of STAT_SLUGS) out.push(entry(`/series/${id}/stats/${slug}`, 0.4));
+  }
+
+  for (const m of matches) {
+    out.push(entry(`/teams/${m.homeTeam.id}`, 0.5), entry(`/teams/${m.awayTeam.id}`, 0.5));
+    if (m.venueId) out.push(entry(`/venues/${m.venueId}`, 0.4));
+  }
+  return out;
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const staticRoutes: Entry[] = [
+    entry('', 1, { changeFrequency: 'always' }),
+    ...['/fixtures', '/series', '/teams', '/players', '/news'].map((p) => entry(p, 0.8, { changeFrequency: 'daily' })),
+    ...allRankingsQueries().map((q) => entry(rankingsPath(q), 0.7, { changeFrequency: 'weekly' })),
+    ...['/about', '/privacy'].map((p) => entry(p, 0.3, { changeFrequency: 'yearly' })),
+  ];
+
+  // Each source is optional: a failed read drops its URLs, never the whole sitemap.
+  // News stories are noindex (headline and summary only), so they stay out.
+  const [live, corpus, rankings] = await Promise.all([
+    getApiMatchList({ revalidate: 3600 }).catch(() => [] as Match[]),
+    getApiFixtureRange().catch(() => [] as Match[]),
+    getRankings().catch(() => null),
+  ]);
+
+  const directory = rankings ? rankedDirectory(rankings) : { players: [], teams: [] };
+
+  return dedupe([
+    ...staticRoutes,
+    ...matchEntries([...live, ...corpus]),
+    ...directory.teams.map((t) => entry(`/teams/${t.id}`, 0.6, { changeFrequency: 'weekly' })),
+    ...directory.players.map((p) => entry(`/players/${p.id}`, 0.5, { changeFrequency: 'weekly' })),
+  ]);
 }

@@ -12,6 +12,9 @@ import UpcomingRail from '@/components/home/UpcomingRail';
 import { PageHeader, SectionHead } from '@/components/ui/Section';
 import styles from './venue.module.scss';
 import { meetingFormat } from '@/lib/seriesFormat';
+import { pageMeta } from '@/lib/seo';
+import JsonLd from '@/components/seo/JsonLd';
+import { breadcrumbs, place } from '@/lib/structuredData';
 
 // There is no venue endpoint: everything here is derived from a window of the schedule.
 // Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
@@ -36,15 +39,16 @@ export async function generateMetadata({ params }: { params: { key: string } }) 
     ? `${venue.chased} of the last ${decided} results here went to the side batting second.`
     : null;
 
-  return {
+  return pageMeta({
     title: `${venue.name} — Results, Fixtures & Chasing Record`,
+    path: `/venues/${venue.id}`,
     description: [
       `Cricket at ${venue.name}: recent results, upcoming fixtures and how matches are won here.`,
       split,
     ]
       .filter(Boolean)
       .join(' '),
-  };
+  });
 }
 
 /** How decided matches split between the chasing side and the side batting first. */
@@ -136,6 +140,7 @@ export default async function VenuePage({ params }: { params: { key: string } })
 
   return (
     <div className={styles.page}>
+      <JsonLd data={[place(venue.id, venue.name), breadcrumbs([{ name: venue.name, path: `/venues/${venue.id}` }])]} />
       <BackButton className={styles.back} />
 
       <PageHeader

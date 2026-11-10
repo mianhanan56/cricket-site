@@ -1,0 +1,31 @@
+@use 'component' as *;
+
+.glance {
+  @include panel;
+  display: grid;
+  padding: $space-1 $space-4;
+}
+
+.row {
+  display: grid;
+  gap: $space-1;
+  padding-block: $space-3;
+
+  & + & {
+    border-top: 1px solid $line;
+  }
+
+  @include tablet {
+    grid-template-columns: 160px 1fr;
+    gap: $space-4;
+  }
+}
+
+.term {
+  font-weight: 600;
+  color: $text;
+}
+
+.value {
+  color: $text-2;
+}

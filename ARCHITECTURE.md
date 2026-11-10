@@ -19,7 +19,8 @@ Next.js 14 (Vercel) ──SSR/ISR fetch──▶ Cloudflare Worker `worker` ─�
 - **Browser reads go through the site's own origin** (2026-11-04): `apiGet` in the browser calls
   `/api/worker/<route>`, which `next.config.js` rewrites to the Worker (Vercel proxies it). Some
   networks block `*.workers.dev` (seen from the user's own connection: TCP to the Worker's IPs
-  hangs), which left Home — the only page whose matches load client-side — empty. Server renders
+  hangs), which left Home's live board empty (Home's first match list has been server-rendered since
+  2026-11-10; the poll still runs in the browser). Server renders
   still call the Worker directly. The `/live` WebSocket can't be proxied by Vercel, so it still
   dials the Worker; where that's blocked the HTTP polls carry on at their no-socket rate.
 - User state (follows, alert rules, notifications, theme) lives in the browser (`localStorage`).
@@ -520,6 +521,36 @@ imported only by the route, so none of it ships to the browser:
   winner (it differs between builds). A component that takes a `className` must not set the same
   property itself — see `BackButton` (`.spaced` only when no class is passed) and the scorecard
   (`td.top`, `.table .left`).
+
+## SEO
+
+- Every page's metadata goes through `pageMeta` (`lib/seo.ts`): title, description, canonical
+  (`alternates.canonical`, query-free except `/news?page=N`), full `openGraph` + `twitter`, optional
+  `noindex`. In Next 14 a page-level `openGraph` replaces the root's wholesale, image included, so
+  `pageMeta` always sets images (default `/opengraph-image`). `images: 'segment'` leaves them to the
+  route's own `opengraph-image.tsx` (only `/matches/[id]` has one: `shareCard` in `lib/brandImage.tsx`).
+- `noindex`: `/my`, `/automations`, `/search`, `/insights`, and news stories (`/news/[slug]`: headline and
+  summary only, thin next to the original; `/news` itself stays indexed).
+- Rankings: each of the 20 ICC lists is its own indexable URL via the query (`lib/rankingsPages.ts`):
+  `rankingsPath` drops defaults (and `category` on team lists) for the canonical, `rankingsMeta` names
+  the list ("ICC Women's T20I Team Rankings"). Filter switching is unchanged.
+- Share cards (`shareCard`): `/matches/[id]`, `/teams/[key]`, `/players/[id]` each have an `opengraph-image.tsx`.
+- Finished matches: the page reads the full card on the server (`getApiScorecard`, 1h) and seeds
+  `MatchDetail` (`initialCard` → `useApiMatchExtras({ initialInnings })`); the Summary tab shows
+  `TopPerformers` (top two bats + best bowler per innings, linked).
+- `/about` and `/privacy` (`components/info/InfoPage`), linked from the footer's PulseCrease column.
+  `CONTACT_EMAIL` in `lib/site.ts` is null (user, 2026-11-10: no public address yet); set it and the
+  contact lines appear on both pages. Privacy copy describes what the code stores — update it with any
+  new `createPersisted` key, cookie, analytics or third-party call.
+- JSON-LD (`lib/structuredData.ts`, rendered by `components/seo/JsonLd.tsx`): `Organization` +
+  `WebSite` with `SearchAction` in the root layout; `SportsEvent` on matches; `Person`, `SportsTeam`,
+  `StadiumOrArena`, `NewsArticle`; `BreadcrumbList` on every detail page.
+- Home passes its server-read match list to `HomeMatches` → `useApiMatches({ initial })`, so the
+  match links are in the HTML crawlers get.
+- `sitemap.ts` (hourly): live list + the 45-back/12-forward fixture corpus (real match keys only, no
+  `fx-` previews), their series (+ most-runs/most-wickets stats once a match is played), teams and
+  venues, ICC-ranked players and teams, the 20 rankings lists, /about and /privacy. No news stories (noindex).
+  Deduped; ≈1.85k URLs on 2026-11-10.
 
 ## Key design decisions
 

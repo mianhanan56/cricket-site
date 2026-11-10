@@ -1,10 +1,18 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-11-04
+Last updated: 2026-11-10
 
 ## Current milestone
 
 UI polish pass on navigation, series stats and page spacing (uncommitted working tree on `main`).
+
+## Recently completed (uncommitted, 2026-11-10, SEO)
+
+- `lib/seo.ts` `pageMeta` on every page: canonical, full Open Graph/Twitter, real home title and description; noindex on personal pages.
+- JSON-LD (`lib/structuredData.ts`): SportsEvent, Person, SportsTeam, StadiumOrArena, NewsArticle, BreadcrumbList, WebSite/Organization.
+- Home's first match list is server-rendered (crawlable links); match titles use full team names; match share card image.
+- Sitemap from 99 to ≈1.85k URLs (finished matches, players, stats, 20 rankings lists). Fixture-preview redirect is now permanent (308).
+- Round 2: news stories noindex; per-list rankings titles/canonicals; /about and /privacy; finished matches carry the full card and a Top performers block; team/player share cards.
 
 ## Completed features
 
