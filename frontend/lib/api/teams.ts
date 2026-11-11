@@ -6,7 +6,7 @@ import { attributeResult } from './attribution';
 import { apiGet, type FetchOpts } from './client';
 import { scheduleFormat, scheduleStatus } from './codes';
 import { getApiFixtureRange, type Fixture } from './fixtures';
-import { cleanKey, resolveKeys, seriesRef, toTeam, type ApiMapEntry } from './names';
+import { cleanKey, isKey, resolveKeys, seriesRef, toTeam, type ApiMapEntry } from './names';
 import { getApiTeamRankings, type ApiTeamRankingsResponse } from './rankings';
 import { parseScheduledMatchId, scheduledMatchId, type ApiSeriesMatch } from './schedule';
 import { getApiTeamSquad } from './squads';
@@ -109,7 +109,7 @@ export async function getApiTeamProfile(
   opts: FetchOpts = {}
 ): Promise<TeamProfile | null> {
   const key = cleanKey(teamKey);
-  if (!key) return null;
+  if (!isKey(key)) return null;
 
   const [names, scheduled, corpus, rankings] = await Promise.all([
     resolveKeys({ t: [key] }, opts),

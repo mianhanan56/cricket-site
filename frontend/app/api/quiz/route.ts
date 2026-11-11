@@ -4,6 +4,7 @@ import type { Match, MatchQuiz } from '@/types';
 import { getApiFixtureRange, getApiMatch, getApiScorecard } from '@/lib/api';
 import { geminiConfigured, geminiJson } from '@/lib/gemini';
 import { quizKind } from '@/lib/quiz';
+import { createBudget, retryWindow } from '@/lib/quizGuard';
 import { QUIZ_SCHEMA, QUIZ_SYSTEM, checkQuiz, lastMatches, matchSheet, quizCast, quizPrompt, quizzable, toQuiz, warmupQuiz } from '@/lib/quizGen';
 
 export const maxDuration = 60;
@@ -13,8 +14,16 @@ export const maxDuration = 60;
 // unstable_cache keeps nothing — the next reader tries again.
 const QUIZ_TTL = 60 * 60 * 24 * 30;
 
+// Generations one instance may start in an hour. A day's results need a handful; the hard
+// ceiling is the quota on the key itself.
+const budget = createBudget(40, 60 * 60_000);
+
+/** No model call was made: the match failed earlier this window, or the budget is spent. */
+class QuizHeld extends Error {}
+
 const cachedQuiz = unstable_cache(
   async (id: string): Promise<MatchQuiz> => {
+    if (!budget.spend(Date.now())) throw new QuizHeld('generation budget spent');
     const match = await getApiMatch(id, { revalidate: 300 });
     if (!match) throw new Error('match not found');
     const innings = await getApiScorecard(id, { status: match.status, ballsPerOver: match.ballsPerOver, revalidate: 300 });
@@ -28,24 +37,60 @@ const cachedQuiz = unstable_cache(
   { revalidate: QUIZ_TTL }
 );
 
+// A failure is remembered for the rest of its window, shared by every instance, so a match that
+// can't be quizzed costs one attempt a window, not one a request. unstable_cache keeps nothing
+// when its function throws, so a read never writes: it only returns while a failure is recorded.
+const recording = new Set<string>();
+const failure = unstable_cache(
+  async (id: string, window: number): Promise<true> => {
+    if (!recording.has(`${id}:${window}`)) throw new Error('no failure held');
+    return true;
+  },
+  ['match-quiz-failed-v1'],
+  { revalidate: QUIZ_TTL }
+);
+
+const failedThisWindow = (id: string, window: number): Promise<boolean> => failure(id, window).catch(() => false);
+
+async function holdFailure(id: string, window: number): Promise<void> {
+  const key = `${id}:${window}`;
+  recording.add(key);
+  await failure(id, window)
+    .catch(() => undefined)
+    .finally(() => recording.delete(key));
+}
+
+const warn = (id: string, err: unknown) => console.warn('quiz', id, err instanceof Error ? err.message : err);
+
+async function generate(id: string): Promise<MatchQuiz> {
+  const window = retryWindow(Date.now());
+  if (await failedThisWindow(id, window)) throw new QuizHeld('failed earlier this window');
+  try {
+    return await cachedQuiz(id);
+  } catch (err) {
+    if (err instanceof QuizHeld) throw err;
+    warn(id, err);
+    await holdFailure(id, window);
+    throw new QuizHeld('generation failed');
+  }
+}
+
 // unstable_cache doesn't merge concurrent misses: when a result lands, every open page asks at
 // once. One generation per match per instance.
 const inFlight = new Map<string, Promise<MatchQuiz>>();
 function quizFor(id: string): Promise<MatchQuiz> {
   let pending = inFlight.get(id);
   if (!pending) {
-    pending = cachedQuiz(id).finally(() => inFlight.delete(id));
+    pending = generate(id).finally(() => inFlight.delete(id));
     inFlight.set(id, pending);
   }
   return pending;
 }
 
-const warn = (id: string, err: unknown) => console.warn('quiz', id, err instanceof Error ? err.message : err);
-
 async function warmupFor(match: Match): Promise<MatchQuiz | null> {
   // Only finished games before this one count, so the corpus's forward pages are never needed.
   const sources = lastMatches(match, await getApiFixtureRange({ forward: 0 }));
-  const quizzes = await Promise.all(sources.map((s) => quizFor(s.matchKey).catch((err) => (warn(s.matchKey, err), null))));
+  const quizzes = await Promise.all(sources.map((s) => quizFor(s.matchKey).catch(() => null)));
   const found = quizzes.filter((q): q is MatchQuiz => Boolean(q));
   return found.length ? warmupQuiz(match.id, found) : null;
 }
@@ -70,7 +115,7 @@ export async function GET(req: NextRequest) {
     const maxAge = kind === 'result' ? 'public, s-maxage=86400, stale-while-revalidate=604800' : 'public, s-maxage=300';
     return NextResponse.json(quiz, { headers: { 'cache-control': maxAge } });
   } catch (err) {
-    warn(id, err);
+    if (!(err instanceof QuizHeld)) warn(id, err);
     return nothing(503);
   }
 }

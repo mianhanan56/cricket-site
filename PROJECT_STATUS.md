@@ -1,10 +1,22 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-11-10
+Last updated: 2026-11-11
 
 ## Current milestone
 
 UI polish pass on navigation, series stats and page spacing (uncommitted working tree on `main`).
+
+## Recently completed (uncommitted, 2026-11-11, security audit + fixes)
+
+Audit report with evidence and status: `SECURITY_AUDIT_2026-11-11.md`. Fixed (not deployed):
+
+- Worker: every string param bounded by a pattern (PC-03); `/health`, 404 and upstream-error bodies no longer name the upstream or relay its error text (PC-03, PC-07); upstream 4xx held 60s (PC-02); `RATE_LIMITER` binding, 3000/min per address (PC-02); localhost origin only on a local Worker (PC-11).
+- Live hub: card/feed topics only for matches in the current list, socket/topic/message ceilings (PC-05).
+- Quiz: a failed generation is held for its 15-minute window across instances; 40 generations an hour per instance (PC-04).
+- Frontend: CSP and security headers, `X-Powered-By` off (PC-08); image optimizer off (PC-09); malformed ids are a not-found without a request (PC-06, partly); stored notification links can't leave the site (PC-12).
+- Tests added: 28 Worker tests (`worker/tests`), 16 frontend cases in 4 files.
+- Verified: Worker run locally (`wrangler dev`, isolated copy) — validation, redaction, refusal cache, hub caps; production build from an isolated copy — headers, 0 CSP violations across 21 page loads in headless Chrome, quiz failure hold (1 model call for 3 requests), real pages render.
+- Open: Next.js upgrade (PC-01), dashboard-side limits (PC-02, PC-06), lockfile choice (PC-10). See TODO.
 
 ## Recently completed (uncommitted, 2026-11-10, SEO)
 
@@ -381,7 +393,8 @@ See TODO.md.
 
 ## Testing status
 
-- `npm test` (frontend): **140/140 pass** (2026-10-06; +5: broken stand, pulse window/wickets, delivery dedupe ×2, format/category labels; scorecard fixtures given a consistent last stand).
+- `npm test` (frontend): **188/188 pass** (2026-11-11, incl. the security cases). `npm test` (worker): **28/28 pass** (2026-11-11).
+- Earlier: frontend 140/140 (2026-10-06; +5: broken stand, pulse window/wickets, delivery dedupe ×2, format/category labels; scorecard fixtures given a consistent last stand).
 - Data-consistency fixes verified on a production build from an isolated copy against live data (2026-10-02): Home Live 3 = ticker 3 (ROI v J&K shows "Stumps"); Home Today 4 = Fixtures Today 4 (same rows); Home series cards equal /series (WI tour 27 Sept → 17 Oct, 2/8); Teams Men 12 incl. Ireland; 14MJ header "17th T10"; pulse "3 in 8 · Last 8 balls"; 360px clean on Home and Test team rankings.
 - Series performance: decoded/summed figures equal the upstream's own totals on 471 series×format groups (36 players incl. Tests, The Hundred, county); 320–1280px no overflow; select → format → load older → match → Back → reload flow verified (2026-10-02).
 - `tsc --noEmit`: frontend clean, worker clean (2026-10-02). Lint clean.
@@ -389,7 +402,7 @@ See TODO.md.
 
 ## Build status
 
-Production `next build` passes from an isolated copy (2026-10-06, incl. `/news` and the pre-launch QA fixes).
+Production `next build` and `next lint` pass from an isolated copy (2026-11-11, with the security fixes). `wrangler deploy --dry-run` accepts the Worker config.
 
 ## Deployment status
 

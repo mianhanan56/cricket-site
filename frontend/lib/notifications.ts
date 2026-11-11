@@ -45,8 +45,8 @@ export function parseNotifications(raw: unknown): PulseNotification[] | null {
       kind: typeof n.kind === 'string' && KINDS.has(n.kind) ? (n.kind as NotificationKind) : 'alert',
       title: n.title,
       body: typeof n.body === 'string' ? n.body : '',
-      // Only in-app links: the panel hands this straight to the router.
-      href: typeof n.href === 'string' && n.href.startsWith('/') ? n.href : undefined,
+      // Only in-app links: the panel hands this straight to the router, and "//host" is another site.
+      href: typeof n.href === 'string' && /^\/(?![/\\])/.test(n.href) ? n.href : undefined,
       at: n.at,
       read: n.read === true,
       automationId: typeof n.automationId === 'string' ? n.automationId : undefined,

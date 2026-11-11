@@ -16,23 +16,43 @@
 
 import type { UpstreamName } from './upstreams';
 
-export interface ParamSpec {
-  /** `list` accepts a comma-separated string and sends a JSON array upstream. */
-  type: 'int' | 'string' | 'list';
+interface IntSpec {
+  type: 'int';
   /** Permitted values. Anything else is rejected with a 400. */
-  enum?: readonly (string | number)[];
+  enum?: readonly number[];
   /** Applied when the caller omits the param. */
-  default?: string | number;
+  default?: number;
   /** Reject the request when absent and there is no default. */
   required?: boolean;
-  /** `list` only: cap on how many keys one call may resolve. */
-  maxItems?: number;
-  /** `int` only: inclusive bounds, for params that are a range rather than a set. */
+  /** Inclusive bounds, for params that are a range rather than a set. */
   min?: number;
   max?: number;
-  /** `string` only: the whole value must match. Required for a param filled into the path. */
-  pattern?: RegExp;
 }
+
+// A string goes upstream as sent, so it is always bounded: a set of values or a pattern
+// the whole value must match. The union makes leaving both out a type error.
+type StringSpec = {
+  type: 'string';
+  default?: string;
+  required?: boolean;
+} & ({ enum: readonly string[]; pattern?: undefined } | { pattern: RegExp; enum?: undefined });
+
+/** Accepts a comma-separated string and sends a JSON array upstream. */
+interface ListSpec {
+  type: 'list';
+  /** Each key must match; one that doesn't is dropped, like an unknown param. */
+  pattern: RegExp;
+  /** Cap on how many keys one call may resolve. */
+  maxItems?: number;
+}
+
+export type ParamSpec = IntSpec | StringSpec | ListSpec;
+
+/** The upstream's f_keys: match, series, team, player, venue and umpire ids. */
+export const KEY = /^[A-Za-z0-9]{1,12}$/;
+// Feed ids are epoch milliseconds; "1" asks for a whole innings.
+const FEED_CURSOR = /^\d{0,16}$/;
+const PAGE = /^[1-9]\d?$/;
 
 export interface RouteDef {
   /** Path on this Worker. */
@@ -107,11 +127,11 @@ export const ROUTES: RouteDef[] = [
     method: 'POST',
     ttl: 21600,
     params: {
-      t: { type: 'list', maxItems: 200 }, // teams
-      v: { type: 'list', maxItems: 200 }, // venues
-      s: { type: 'list', maxItems: 200 }, // series
-      p: { type: 'list', maxItems: 200 }, // players
-      u: { type: 'list', maxItems: 200 }, // umpires
+      t: { type: 'list', pattern: KEY, maxItems: 200 }, // teams
+      v: { type: 'list', pattern: KEY, maxItems: 200 }, // venues
+      s: { type: 'list', pattern: KEY, maxItems: 200 }, // series
+      p: { type: 'list', pattern: KEY, maxItems: 200 }, // players
+      u: { type: 'list', pattern: KEY, maxItems: 200 }, // umpires
     },
     bodyDefaults: { lc: 'en' },
     headers: { type: 'home' },
@@ -126,7 +146,7 @@ export const ROUTES: RouteDef[] = [
     method: 'GET',
     ttl: 5,
     params: {
-      key: { type: 'string', required: true },
+      key: { type: 'string', required: true, pattern: KEY },
     },
     note: 'Batting + bowling + partnerships + extras per innings, packed dot-delimited',
   },
@@ -148,7 +168,7 @@ export const ROUTES: RouteDef[] = [
     // and never after it, so this is cached far longer than the live routes.
     ttl: 300,
     params: {
-      key: { type: 'string', required: true },
+      key: { type: 'string', required: true, pattern: KEY },
     },
     note: 'Pre-match info: squads, captain/keeper, broadcast, weather',
   },
@@ -170,8 +190,8 @@ export const ROUTES: RouteDef[] = [
     method: 'POST',
     ttl: 5,
     params: {
-      matchKey: { type: 'string', required: true },
-      lastDocId: { type: 'string', default: '' },
+      matchKey: { type: 'string', required: true, pattern: KEY },
+      lastDocId: { type: 'string', default: '', pattern: FEED_CURSOR },
       // One innings only (0-based) — the upstream's own commentary filter, which also drops the editorial rows.
       inning: { type: 'int', min: 0, max: 3 },
     },
@@ -208,7 +228,7 @@ export const ROUTES: RouteDef[] = [
       gender: { type: 'string', enum: ['men', 'women'], default: 'men' },
       type: { type: 'string', enum: ['test', 'odi', 't20'], default: 'test' },
       play: { type: 'string', enum: ['batting', 'bowling', 'allrounder', 'team'], default: 'batting' },
-      page: { type: 'string', default: '1' },
+      page: { type: 'string', default: '1', pattern: PAGE },
     },
     note: 'ICC player rankings; type=test|odi|t20, play=batting|bowling|allrounder',
   },
@@ -281,7 +301,7 @@ export const ROUTES: RouteDef[] = [
     // live detail of a match in progress comes from /matches/live instead.
     ttl: 300,
     params: {
-      key: { type: 'string', required: true },
+      key: { type: 'string', required: true, pattern: KEY },
     },
     buildBody: (p) => ({ fkey: p.key }),
     note: 'All matches in a series, grouped by date: /series/matches?key=2AW',
@@ -313,7 +333,7 @@ export const ROUTES: RouteDef[] = [
     // cadence as the schedule it sits beside.
     ttl: 300,
     params: {
-      key: { type: 'string', required: true },
+      key: { type: 'string', required: true, pattern: KEY },
     },
     buildBody: (p) => ({ fkey: p.key }),
     note: 'Points table, one entry per group: /series/table?key=2E2',
@@ -340,7 +360,7 @@ export const ROUTES: RouteDef[] = [
     // Leaders and the tournament fours/sixes move by the ball while a match is on.
     ttl: 30,
     params: {
-      key: { type: 'string', required: true },
+      key: { type: 'string', required: true, pattern: KEY },
     },
     buildBody: (p) => ({ sf: p.key }),
     note: 'Series overview, tournament leaders only: /series/overview?key=2AW',
@@ -362,7 +382,7 @@ export const ROUTES: RouteDef[] = [
     // then only for injuries.
     ttl: 3600,
     params: {
-      key: { type: 'string', required: true },
+      key: { type: 'string', required: true, pattern: KEY },
     },
     buildBody: (p) => ({ fkey: p.key }),
     note: 'Series squads by team, players as f_keys: /series/squads?key=2E2',
@@ -386,7 +406,7 @@ export const ROUTES: RouteDef[] = [
     method: 'POST',
     ttl: 300,
     params: {
-      key: { type: 'string', required: true },
+      key: { type: 'string', required: true, pattern: KEY },
     },
     buildBody: (p) => ({ fkey: p.key }),
     note: "One team's fixtures, grouped by series: /team/matches?key=2Y",
@@ -421,7 +441,7 @@ export const ROUTES: RouteDef[] = [
     // same window the rankings use and collapses every reader onto one call.
     ttl: 3600,
     params: {
-      key: { type: 'string', required: true },
+      key: { type: 'string', required: true, pattern: KEY },
     },
     buildBody: (p) => ({ pf: p.key }),
     note: 'Player profile, career stats and recent form: /player/overview?key=1IG',
@@ -439,7 +459,7 @@ export const ROUTES: RouteDef[] = [
     // Same cadence as the overview, so a series record and the form beside it agree.
     ttl: 3600,
     params: {
-      key: { type: 'string', required: true },
+      key: { type: 'string', required: true, pattern: KEY },
       ft: { type: 'int', enum: [0, 1, 2, 3, 4, 5], default: 0 },
       bb: { type: 'int', enum: [0, 1], default: 1 },
       page: { type: 'int', default: 0, min: 0, max: 60 },
@@ -473,7 +493,7 @@ export const ROUTES: RouteDef[] = [
     ttl: 900,
     params: {
       type: { type: 'string', enum: ['s', 't', 'p'], required: true },
-      key: { type: 'string', required: true, pattern: /^[A-Za-z0-9]{1,12}$/ },
+      key: { type: 'string', required: true, pattern: KEY },
       page: { type: 'int', default: 1, min: 1, max: 30 },
       limit: { type: 'int', default: 12, min: 1, max: 20 },
       content_lang: { type: 'string', enum: ['en'], default: 'en' },
@@ -518,17 +538,9 @@ export function readParams(route: RouteDef, search: URLSearchParams): Record<str
   for (const [name, spec] of Object.entries(route.params ?? {})) {
     const raw = search.get(name);
 
-    if (raw === null) {
-      // A `list` param always goes upstream, empty if unasked-for: the upstream expects
-      // every bucket present in the body, not just the populated ones.
-      if (spec.type === 'list') out[name] = [];
-      else if (spec.default !== undefined) out[name] = spec.default;
-      else if (spec.required) throw new ParamError(`Missing required param '${name}'`);
-      continue;
-    }
-
     if (spec.type === 'list') {
-      const items = [...new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))].sort();
+      // Always sent, empty if unasked-for: the upstream expects every bucket in the body.
+      const items = [...new Set((raw ?? '').split(',').map((s) => s.trim()).filter((s) => spec.pattern.test(s)))].sort();
       const cap = spec.maxItems ?? 100;
       if (items.length > cap) {
         throw new ParamError(`Param '${name}' accepts at most ${cap} keys, got ${items.length}`);
@@ -537,27 +549,31 @@ export function readParams(route: RouteDef, search: URLSearchParams): Record<str
       continue;
     }
 
-    let value: string | number = raw;
+    if (raw === null) {
+      if (spec.default !== undefined) out[name] = spec.default;
+      else if (spec.required) throw new ParamError(`Missing required param '${name}'`);
+      continue;
+    }
+
     if (spec.type === 'int') {
       const n = Number(raw);
-      if (!Number.isInteger(n)) throw new ParamError(`Param '${name}' must be an integer, got '${raw}'`);
-      if (spec.min !== undefined && n < spec.min) {
-        throw new ParamError(`Param '${name}' must be >= ${spec.min}, got '${raw}'`);
+      if (!Number.isInteger(n)) throw new ParamError(`Param '${name}' must be an integer`);
+      if (spec.min !== undefined && n < spec.min) throw new ParamError(`Param '${name}' must be >= ${spec.min}`);
+      if (spec.max !== undefined && n > spec.max) throw new ParamError(`Param '${name}' must be <= ${spec.max}`);
+      if (spec.enum && !spec.enum.includes(n)) {
+        throw new ParamError(`Param '${name}' must be one of ${spec.enum.join(', ')}`);
       }
-      if (spec.max !== undefined && n > spec.max) {
-        throw new ParamError(`Param '${name}' must be <= ${spec.max}, got '${raw}'`);
-      }
-      value = n;
+      out[name] = n;
+      continue;
     }
 
-    if (spec.enum && !spec.enum.includes(value)) {
-      throw new ParamError(`Param '${name}' must be one of ${spec.enum.join(', ')}, got '${raw}'`);
+    if (spec.enum && !spec.enum.includes(raw)) {
+      throw new ParamError(`Param '${name}' must be one of ${spec.enum.join(', ')}`);
     }
     if (spec.pattern && !spec.pattern.test(raw)) {
-      throw new ParamError(`Param '${name}' has an invalid format, got '${raw}'`);
+      throw new ParamError(`Param '${name}' has an invalid format`);
     }
-
-    out[name] = value;
+    out[name] = raw;
   }
 
   return out;

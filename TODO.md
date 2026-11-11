@@ -1,13 +1,20 @@
 # TODO — PulseCrease
 
-Last updated: 2026-11-10
+Last updated: 2026-11-11
 
 UX audit items (production, 2026-09-29) are awaiting the user's go-ahead before any fix.
 
 | Priority | Status | Task | Notes |
 | --- | --- | --- | --- |
+| High | Pending | Security: deploy the Worker and the frontend with the 2026-11-11 fixes, then run the retest checklist | User action. `cd worker && npm run deploy`, then push the frontend; either order works. Checklist: `SECURITY_AUDIT_2026-11-11.md` §13. If the deploy rejects `[[ratelimits]]`, remove that block (the code runs without it). After deploy, confirm `/_next/image` no longer serves remote URLs and the site shows no CSP errors in DevTools. |
+| High | Pending | Security: upgrade Next.js off 14.x (PC-01) | 14.2.35 is the last 14.x; `npm audit` lists 25 advisories fixed only in 15.5.29 / 16.4.6. Needs React 19 and async `params`/`searchParams`; Next 15+ also stops caching `fetch` by default (set `fetchCache = 'default-cache'` or pass `revalidate` everywhere). Both lockfiles need updating: as far as I know Vercel picks `yarn.lock` when both exist — confirm in a build log. Do it as its own change. |
+| High | Pending | Security: rate limits that code can't provide (PC-02, PC-06) | User action. Cloudflare: serve the Worker from a custom domain and add a rate-limiting rule (a refused request on `workers.dev` still counts against the daily allowance). Vercel: Firewall rate limits on `/api/*` and the `opengraph-image` routes; spend limit. Google Cloud: quota cap on the Gemini key, restrict it to the Generative Language API. |
+| Medium | Pending | Security: review dashboard settings the audit couldn't see | Vercel: preview Deployment Protection, env vars per environment (does Preview share the production Gemini key?). Cloudflare: plan and daily limits. GitHub: repo visibility. List in the report §6. |
+| Low | Pending | Security: keep one lockfile per package (PC-10) | `frontend/` and `worker/` each track `package-lock.json` and `yarn.lock`. Pick the one the deploy uses, delete the other, then update `wrangler` and `eslint-config-next` (dev-only advisories). User's call which. |
+| Low | Pending | Security: publish `/.well-known/security.txt` | Needs a contact address (`CONTACT_EMAIL` is null). |
+| Done | Done | Security audit + code fixes (2026-11-11) | Uncommitted. PC-03, PC-04, PC-05, PC-07, PC-08, PC-09, PC-11, PC-12 fixed; PC-02 and PC-06 partly (code side). See PROJECT_STATUS and ARCHITECTURE › Security. |
 | High | Pending | SEO: point a custom domain at the site and set `NEXT_PUBLIC_SITE_URL`; verify in Google Search Console and Bing, submit `/sitemap.xml` | User action. Canonicals, OG URLs and the sitemap all use `SITE_URL`; on `pulsecrease.vercel.app` until then. Verification: set `GOOGLE_SITE_VERIFICATION` / `BING_SITE_VERIFICATION` in Vercel (meta tags render from them) and redeploy. |
-| Done | Done | SEO round 3 (2026-11-10) | 404 page title + h1; loading skeletons no longer add a second h1; robots disallows `/api/` + `/search`; verification tags from env; OG locale `en_GB`. Uncommitted. |
+| Done | Done | SEO round 3 (2026-11-10) | 404 page title + h1; loading skeletons no longer add a second h1; robots disallows `/api/` + `/search`; verification tags from env; OG locale `en_GB`. Live on pulsecrease.vercel.app, checked 2026-11-11 (robots, 404, metadata, JSON-LD, sitemap 1,854 URLs). Not in search results yet that day. |
 | Low | Pending | SEO: set a public contact address | `CONTACT_EMAIL` in `frontend/lib/site.ts` is null; setting it shows a Contact section on /about and a line on /privacy. |
 | Done | Done | SEO round 2 (2026-11-10) | News stories noindex + out of sitemap; 20 rankings lists with own title/canonical; /about + /privacy + footer column and descriptive tagline; finished matches server-render the full card and a Top performers block (5–8 player links vs 0–1); share cards for teams and players. Uncommitted. |
 | Done | Done | SEO fixes 1, 2, 4, 5, 6, 7 (+ noindex, permanent preview redirect) | 2026-11-10, uncommitted. See ARCHITECTURE › SEO. Verified on a production build: home HTML has match links, every page type has canonical/OG/JSON-LD, sitemap ≈1.9k URLs, no hydration errors. |

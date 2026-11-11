@@ -5,7 +5,7 @@ import type { Match, MatchFormat, MatchStatus, SeriesSummary, Team } from '@/typ
 import { isUnofficialTest } from '../matchType';
 import type { FetchOpts } from './client';
 import { knockoutStage, scheduleFormat, scheduleStatus } from './codes';
-import { cleanKey, resolveKeys, toTeam, venueOf } from './names';
+import { cleanKey, isKey, resolveKeys, toTeam, venueOf } from './names';
 import { getApiSeriesMatches, scheduleRows, scheduledMatchId, type ApiSeriesMatch } from './schedule';
 
 /**
@@ -123,6 +123,7 @@ export async function getApiSeriesSchedule(
   opts: FetchOpts & { fallback?: SeriesSummary } = {}
 ): Promise<SeriesSchedule | null> {
   const id = cleanKey(seriesKey);
+  if (!isKey(id)) return null;
   const raw = await getApiSeriesMatches(id, opts);
 
   // Rows need only a start time: unallocated fixtures have no match key, and requiring

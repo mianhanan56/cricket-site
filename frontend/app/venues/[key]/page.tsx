@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ON_INTENT } from '@/lib/intentPrefetch';
 import { notFound } from 'next/navigation';
 import type { HeadToHeadMatch, VenueProfile } from '@/types';
-import { getApiFixtureRange } from '@/lib/api';
+import { getApiFixtureRange, isKey } from '@/lib/api';
 import { venueProfile } from '@/lib/venues';
 import TeamBadge from '@/components/ui/TeamBadge';
 import LocalTime from '@/components/ui/LocalTime';
@@ -22,6 +22,7 @@ const REVALIDATE = 1800;
 
 // cache(): generateMetadata and the page share one read per request.
 const loadVenue = cache(async (key: string): Promise<VenueProfile | null> => {
+  if (!isKey(key)) return null;
   const corpus = await getApiFixtureRange({ revalidate: REVALIDATE });
   // Normally ~1,000 fixtures; none at all means the feed is down, which is not a missing venue.
   if (!corpus.length) throw new Error('Fixture list unavailable');

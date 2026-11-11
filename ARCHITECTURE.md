@@ -1,7 +1,7 @@
 # Architecture — PulseCrease
 
 Live cricket site: scores, match telemetry, momentum, series stats and client-side alerts.
-Last verified against source: 2026-10-26.
+Last verified against source: 2026-10-26; Security section 2026-11-11.
 
 ## System overview
 
@@ -43,10 +43,12 @@ cricket/
 │   ├── tests/               node:test unit suites (run via tsx)
 │   ├── scripts/check-live.mts  Network audit of today's live feed (not part of npm test)
 │   ├── types/index.ts       All shared interfaces
-│   └── next.config.js       PWA (next-pwa), image host allowlist, staleTimes, prod URL guard
+│   └── next.config.js       PWA (next-pwa), security headers + CSP, staleTimes, prod URL guard
 └── worker/                  Cloudflare Worker fronting the upstream
     ├── src/index.ts         Request handling, CORS, cache, SWR
     ├── src/routes.ts        Route allowlist: upstream, method translation, typed params, TTLs
+    ├── src/hubRules.ts      Live hub limits: topic admission, socket and message ceilings
+    ├── tests/               node:test suites for params, hub rules and the handler (`npm test`)
     ├── src/upstreams.ts     The five upstream hosts
     ├── scripts/probe.sh     Manual endpoint probing
     └── wrangler.toml        Name `pulsecrease-api`, dev port 8788, ALLOWED_ORIGINS
@@ -59,11 +61,17 @@ commands inside `frontend/` or `worker/`.
 
 - Every route is a plain **GET** with query params; the Worker translates to the upstream's
   POST/JSON where needed so responses stay cacheable.
-- Params are typed and enum-bounded; unknown params are dropped (keeps cache keys stable),
-  bad values return 400 with the permitted set.
+- Params are typed and bounded; unknown params are dropped (keeps cache keys stable), bad values
+  return 400. Every string param has an `enum` or a `pattern` (a type error otherwise): keys are
+  `[A-Za-z0-9]{1,12}`, the commentary cursor digits, `/mapping` drops list items that aren't keys.
 - Sends the upstream site as `Origin`/`Referer` (their hosts 400 with "Invalid Host header" otherwise).
   Policy: no bot-protection circumvention — if the upstream adds a challenge, stop.
 - No secrets, no KV. The allowlist is what keeps it from being an open relay.
+- Callers are told little (2026-11-11): `/health` is `{status:'ok'}`, an unknown path `{error:'Not found'}`,
+  a failed upstream call `{error, status}` — the upstream's URL and error text go to the log only. An
+  upstream 4xx is held 60s in the edge cache (not 408/429/5xx, and never over a body being served stale).
+  A `RATE_LIMITER` binding (wrangler.toml, 3000/min per address) runs before every route.
+  `ALLOWED_ORIGINS` is production only; a Worker on localhost accepts localhost origins by itself.
 - `/mapping` (`src/names.ts`): the isolate keeps every name it has served and asks the upstream
   only for unseen keys (unknown ones are remembered 5 min); the rest goes through the edge
   cache as usual. `X-Worker-Cache: MEMORY` when nothing went upstream. Needed because the edge
@@ -90,7 +98,10 @@ commands inside `frontend/` or `worker/`.
   scorecard / newest commentary page when changed). One upstream poll per topic for all sockets:
   2s while changing, 10s/30s when quiet, stops with no subscribers. Frames carry `epoch` + a
   global rising `seq`; diffs carry `prev`. Origin checked against `ALLOWED_ORIGINS`. Upstream
-  fetch shared with the HTTP path via `src/upstream.ts`.
+  fetch shared with the HTTP path via `src/upstream.ts`. Limits (`src/hubRules.ts`): a `card:`/`feed:`
+  topic is admitted only for a match in the current list (otherwise ignored; the page's HTTP poll
+  carries on), 30 topics a socket, 400 in the hub, 100 sockets an address, 10,000 in all, and a
+  message over 4 KB or more than 40 in 10s closes the socket.
 - Every upstream run on the HTTP path races `RUN_DEADLINE_MS` (fetch timeout + 2s), so an `inFlight`
   key is always released even when a body read stalls past the fetch's own timeout (seen 2026-10-21:
   live scorecard/commentary keys hung for good). Logged as `upstream unsettled`.
@@ -385,6 +396,10 @@ imported only by the route, so none of it ships to the browser:
 - `app/api/quiz/route.ts` — `GET /api/quiz?match=<id>`. 404 when `quizKind` is none, when no warm-up
   source exists, or when `GEMINI_API_KEY` is unset; 503 when a result quiz fails. The kind check runs
   outside the cache so a match that isn't ready never stores a miss.
+- Abuse limits (2026-11-11): a failed generation is remembered for the rest of its 15-minute window
+  (`match-quiz-failed-v1`, shared across instances; `lib/quizGuard.ts`), so a match that can't be
+  quizzed costs one model call a window instead of one a request; each instance starts at most 40
+  generations an hour. Either case answers 503 without calling the model.
 - `unstable_cache` keeps one result quiz per match for 30 days (key `match-quiz-v4`; bump it to
   regenerate every quiz, and on any change to the cached shape), so each match costs one model call.
   An in-flight map in the route makes concurrent misses on one instance share a single generation
@@ -522,6 +537,26 @@ imported only by the route, so none of it ships to the browser:
   property itself — see `BackButton` (`.spaced` only when no class is passed) and the scorecard
   (`td.top`, `.table .left`).
 
+## Security
+
+Audit and remediation 2026-11-11: `SECURITY_AUDIT_2026-11-11.md` (findings PC-01…PC-14, status table at its top).
+
+- No accounts, cookies or server-side user data: the exposure is availability and abuse of the upstream, not data.
+- Response headers come from `next.config.js` `headers()`: a static CSP (production builds only — `next dev`
+  needs eval), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Cross-Origin-Opener-Policy`,
+  `Permissions-Policy`; `poweredByHeader` off. The CSP allows script and connections to this origin and the
+  Worker only (`connect-src` is built from `NEXT_PUBLIC_WORKER_URL` / `NEXT_PUBLIC_LIVE_WS_URL`), images from
+  any https host, no frames. **A new third-party script, API or embed needs its origin added there**, or the
+  browser blocks it. Preview deployments also allow the Vercel toolbar's origins.
+- Ids from a URL are checked with `isKey` (`lib/api/names.ts`) inside the loaders (`getApiPlayerProfile`,
+  `getApiTeamProfile`, `getApiSeriesSchedule`, `getApiArchivedMatch`, `parseScheduledMatchId`, the venue page),
+  so a malformed id is a not-found with no request made. The Worker enforces the same pattern.
+- Stored notification links must start with a single `/` (`parseNotifications`): `//host` is another site.
+- Worker limits: see Worker above. Quiz limits: see Match quiz.
+- Tests: `frontend/tests/{securityHeaders,keys,quizGuard,notifications}.test.ts`; `worker/tests/*.test.ts`.
+- Not fixable in code: the Worker's daily request allowance (needs a Cloudflare rate-limiting rule on a custom
+  domain), Vercel Firewall limits, a quota cap on the Gemini key. Open: the Next.js upgrade (14.x is end-of-life).
+
 ## SEO
 
 - Every page's metadata goes through `pageMeta` (`lib/seo.ts`): title, description, canonical
@@ -573,7 +608,8 @@ imported only by the route, so none of it ships to the browser:
 - **No average first-innings score**: schedule scores are per team, not per innings.
 - **Production build fails** if `NEXT_PUBLIC_WORKER_URL` points at localhost (it is inlined
   into the client bundle). Local Worker dev uses `npm run local` / `.env.wrangler.local`, never `.env.local`.
-- **Image optimizer pinned** to `cricketvectors.akamaized.net` (avoids open proxy).
+- **Image optimizer off** (`images.unoptimized`, 2026-11-11): nothing uses `next/image`, and an open
+  `/_next/image` is a resizing proxy for anyone. Adding `next/image` means allowlisting hosts again.
 - Series stat tables: `seriesStatRows` reads every card once; `getApiSeriesStatTables` ranks several
   kinds off that single read.
 

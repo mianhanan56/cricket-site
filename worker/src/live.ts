@@ -7,13 +7,26 @@
 // the `prev` seq it follows, so a client can tell when one went missing.
 
 import { DurableObject } from 'cloudflare:workers';
+import {
+  admit,
+  isIdle,
+  MAX_MESSAGE_CHARS,
+  MAX_SOCKETS,
+  MAX_SOCKETS_PER_ADDRESS,
+  MAX_TOPICS,
+  parseTopic,
+  withinMessageRate,
+  type Attachment,
+  type Kind,
+} from './hubRules';
 import { matchRoute, readParams, type RouteDef } from './routes';
 import { SHAPES } from './shapes';
 import { fetchUpstream } from './upstream';
 
 const PROTOCOL = 1;
-const MAX_TOPICS_PER_SOCKET = 30;
-const KEY = /^[A-Za-z0-9_-]{1,40}$/;
+// How long the hub trusts its copy of which matches exist before asking again.
+const KNOWN_TTL_MS = 60_000;
+const KNOWN_RETRY_MS = 5_000;
 
 // A topic polls every 2s while it keeps changing, matching the old client poll,
 // and slows once it has been quiet: a Test at stumps should not cost a request
@@ -22,8 +35,6 @@ const FAST_MS = 2_000;
 const QUIET_MS = 10_000;
 const IDLE_MS = 30_000;
 const MAX_RETRY_MS = 60_000;
-
-type Kind = 'matches' | 'card' | 'feed';
 
 interface TopicState {
   kind: Kind;
@@ -37,18 +48,6 @@ interface TopicState {
   due: number;
   unchanged: number;
   failures: number;
-}
-
-interface Attachment {
-  topics: string[];
-}
-
-function parseTopic(topic: unknown): { kind: Kind; key: string } | null {
-  if (topic === 'matches') return { kind: 'matches', key: '' };
-  if (typeof topic !== 'string') return null;
-  const [kind, key] = topic.split(':');
-  if ((kind === 'card' || kind === 'feed') && key && KEY.test(key)) return { kind, key };
-  return null;
 }
 
 function newTopic(kind: Kind, key: string): TopicState {
@@ -73,6 +72,10 @@ export class LiveHub extends DurableObject<unknown> {
   private readonly epoch = crypto.randomUUID();
   private readonly topics = new Map<string, TopicState>();
   private seq = 0;
+  /** Match ids in the current list: the only keys a card or feed topic may name. */
+  private known = new Set<string>();
+  private knownAt = 0;
+  private knownRead: Promise<void> | null = null;
 
   constructor(ctx: DurableObjectState, env: unknown) {
     super(ctx, env);
@@ -84,14 +87,29 @@ export class LiveHub extends DurableObject<unknown> {
     if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket') {
       return new Response('Expected a WebSocket upgrade', { status: 426 });
     }
+    const address = `ip:${request.headers.get('CF-Connecting-IP') ?? 'unknown'}`;
+    if (this.full(address)) {
+      this.dropIdle();
+      if (this.full(address)) return new Response('Too many connections', { status: 503, headers: { 'Retry-After': '60' } });
+    }
+
     const { 0: client, 1: server } = new WebSocketPair();
-    this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ topics: [] } satisfies Attachment);
+    this.ctx.acceptWebSocket(server, [address]);
+    server.serializeAttachment({ topics: [], at: Date.now() } satisfies Attachment);
     server.send(JSON.stringify({ type: 'hello', v: PROTOCOL, epoch: this.epoch, ts: Date.now() }));
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async webSocketMessage(ws: WebSocket, raw: string | ArrayBuffer): Promise<void> {
+    const counted = (ws.deserializeAttachment() as Attachment | null) ?? { topics: [] };
+    const size = typeof raw === 'string' ? raw.length : raw.byteLength;
+    const allowed = size <= MAX_MESSAGE_CHARS && withinMessageRate(counted, Date.now());
+    ws.serializeAttachment(counted);
+    if (!allowed) {
+      ws.close(1008, 'Too many or too large messages');
+      return;
+    }
+
     let msg: { type?: unknown; topics?: unknown };
     try {
       msg = JSON.parse(typeof raw === 'string' ? raw : new TextDecoder().decode(raw));
@@ -99,23 +117,22 @@ export class LiveHub extends DurableObject<unknown> {
       return;
     }
     if (msg.type !== 'subscribe' && msg.type !== 'unsubscribe') return;
-    const asked = Array.isArray(msg.topics) ? msg.topics : [];
-    const valid = asked.filter((t): t is string => parseTopic(t) !== null);
+    const asked: unknown[] = Array.isArray(msg.topics) ? msg.topics : [];
 
-    const current = new Set((ws.deserializeAttachment() as Attachment | null)?.topics ?? []);
+    if (msg.type === 'subscribe' && asked.some((t) => typeof t === 'string' && t !== 'matches')) await this.readKnown();
+
+    // Read again: another message on this socket may have been handled during the await.
+    const attachment = (ws.deserializeAttachment() as Attachment | null) ?? { topics: [] };
+    const current = new Set(attachment.topics);
     if (msg.type === 'unsubscribe') {
-      for (const t of valid) current.delete(t);
-      ws.serializeAttachment({ topics: [...current] } satisfies Attachment);
+      for (const t of asked) if (typeof t === 'string') current.delete(t);
+      ws.serializeAttachment({ ...attachment, topics: [...current] } satisfies Attachment);
       return;
     }
 
-    const added: string[] = [];
-    for (const t of valid) {
-      if (current.size >= MAX_TOPICS_PER_SOCKET) break;
-      if (!current.has(t)) added.push(t);
-      current.add(t);
-    }
-    ws.serializeAttachment({ topics: [...current] } satisfies Attachment);
+    const added = admit(asked, current, this.topics, (key) => this.known.has(key));
+    for (const t of added) current.add(t);
+    ws.serializeAttachment({ ...attachment, topics: [...current] } satisfies Attachment);
 
     let fetchNow = false;
     for (const topic of added) {
@@ -156,7 +173,7 @@ export class LiveHub extends DurableObject<unknown> {
       if (this.topics.has(topic)) continue;
       // Attachments outlive deploys; one written by an older topic format is skipped, not fatal.
       const parsed = parseTopic(topic);
-      if (parsed) this.topics.set(topic, newTopic(parsed.kind, parsed.key));
+      if (parsed && this.topics.size < MAX_TOPICS) this.topics.set(topic, newTopic(parsed.kind, parsed.key));
     }
 
     const due = [...this.topics.entries()].filter(([, s]) => s.due <= now);
@@ -164,6 +181,51 @@ export class LiveHub extends DurableObject<unknown> {
 
     const next = Math.min(...[...this.topics.values()].map((s) => s.due));
     await this.ctx.storage.setAlarm(Math.max(next, Date.now() + 1_000));
+  }
+
+  private full(address: string): boolean {
+    return (
+      this.ctx.getWebSockets().length >= MAX_SOCKETS || this.ctx.getWebSockets(address).length >= MAX_SOCKETS_PER_ADDRESS
+    );
+  }
+
+  /** Closes the sockets that never subscribed, so a pile of them can't hold every slot. */
+  private dropIdle(): void {
+    const now = Date.now();
+    for (const ws of this.ctx.getWebSockets()) {
+      if (!isIdle(ws.deserializeAttachment() as Attachment | null, now)) continue;
+      try {
+        ws.close(1008, 'Idle');
+      } catch {
+        // Already closed.
+      }
+    }
+  }
+
+  /** Refreshes `known` when it has aged out. The `matches` topic keeps it fresh for free while it runs. */
+  private readKnown(): Promise<void> {
+    if (Date.now() - this.knownAt < KNOWN_TTL_MS) return Promise.resolve();
+    this.knownRead ??= (async () => {
+      try {
+        const { route, search } = upstreamFor('matches', '');
+        const res = await fetchUpstream(route, readParams(route, search));
+        if (!res.ok) throw new Error(`upstream ${res.status}`);
+        const raw: unknown = await res.json();
+        this.setKnown(SHAPES[route.match]?.(raw) ?? raw);
+      } catch {
+        // Keep the last list and look again shortly; meanwhile unknown keys are refused.
+        this.knownAt = Date.now() - KNOWN_TTL_MS + KNOWN_RETRY_MS;
+      } finally {
+        this.knownRead = null;
+      }
+    })();
+    return this.knownRead;
+  }
+
+  private setKnown(body: unknown): void {
+    if (!body || typeof body !== 'object') return;
+    this.known = new Set(Object.keys(body));
+    this.knownAt = Date.now();
   }
 
   private async armAlarm(at: number): Promise<void> {
@@ -194,6 +256,7 @@ export class LiveHub extends DurableObject<unknown> {
     const first = state.body === null;
 
     if (state.kind === 'matches') {
+      this.setKnown(body);
       const entries = body && typeof body === 'object' ? Object.entries(body as Record<string, unknown>) : [];
       const next = new Map(entries.map(([id, m]) => [id, JSON.stringify(m)]));
       const prev = state.hash instanceof Map ? state.hash : new Map<string, string>();

@@ -8,7 +8,8 @@
     "deploy": "wrangler deploy",
     "tail": "wrangler tail",
     "probe": "./scripts/probe.sh",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "esbuild tests/*.test.ts --bundle --platform=node --format=esm --alias:cloudflare:workers=./tests/stubs/cloudflare-workers.ts --outdir=.wrangler/tests --log-level=warning && node --test \".wrangler/tests/*.test.js\""
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260801.1",

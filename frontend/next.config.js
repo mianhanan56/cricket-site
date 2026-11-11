@@ -33,6 +33,41 @@ if (
   );
 }
 
+// The browser reads the Worker through /api/worker; only the live socket dials it directly.
+const WORKER_ORIGIN = new URL(WORKER_URL).origin;
+const LIVE_ORIGIN = new URL(process.env.NEXT_PUBLIC_LIVE_WS_URL ?? WORKER_URL).origin.replace(/^http/, 'ws');
+// The Vercel toolbar on preview deployments loads from these.
+const PREVIEW = process.env.VERCEL_ENV === 'preview';
+
+// Static rather than nonce-based: a nonce makes every page dynamic. Next's own bootstrap is
+// inline script, hence 'unsafe-inline' — this policy limits where code, frames and requests
+// may go, and is not a defence against injected inline script.
+const CSP = [
+  "default-src 'self'",
+  `script-src 'self' 'unsafe-inline'${PREVIEW ? ' https://vercel.live' : ''}`,
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  `font-src 'self' data:${PREVIEW ? ' https://vercel.live https://assets.vercel.com' : ''}`,
+  `connect-src 'self' ${WORKER_ORIGIN} ${LIVE_ORIGIN}${PREVIEW ? ' https://vercel.live wss://ws-us3.pusher.com' : ''}`,
+  `frame-src ${PREVIEW ? 'https://vercel.live' : "'none'"}`,
+  "worker-src 'self'",
+  "manifest-src 'self'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+const SECURITY_HEADERS = [
+  // `next dev` needs eval for hot reload, so the policy is sent by production builds only.
+  ...(process.env.NODE_ENV === 'production' ? [{ key: 'Content-Security-Policy', value: CSP }] : []),
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()' },
+];
+
 const withPWA = withPWAInit({
   dest: 'public',
   // Don't run the service worker in dev (avoids caching headaches while coding).
@@ -91,6 +126,7 @@ const withPWA = withPWAInit({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
   experimental: {
     // Switching tabs asks the server again instead of replaying the router's copy
     // of a page for up to 30s (5 min if static). The server's per-fetch revalidate
@@ -106,17 +142,16 @@ const nextConfig = {
   async rewrites() {
     return [{ source: `${WORKER_PROXY_PATH}/:path*`, destination: `${WORKER_URL.replace(/\/$/, '')}/:path*` }];
   },
+  async headers() {
+    return [{ source: '/:path*', headers: SECURITY_HEADERS }];
+  },
   sassOptions: {
     includePaths: [path.join(__dirname, 'scss')],
   },
   images: {
-    // Pinned to the hosts the upstream actually serves media from. `hostname: '**'` made
-    // the image optimizer an open proxy — anyone could route arbitrary remote
-    // images through this deployment, on our bandwidth and under our domain.
-    // Nothing uses next/image yet, which is the cheapest moment to close it.
-    // The one host the upstream serves media from: team crests (TEAM_LOGO_BASE) and
-    // player portraits (PLAYER_IMAGE_BASE) are both on it. See lib/api.
-    remotePatterns: [{ protocol: 'https', hostname: 'cricketvectors.akamaized.net' }],
+    // Nothing uses next/image, so /_next/image is switched off rather than left open to
+    // anyone as a resizing proxy. Adding next/image later means allowlisting its hosts here.
+    unoptimized: true,
   },
 };
 

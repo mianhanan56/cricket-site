@@ -97,6 +97,9 @@ const flightKey = (kind: ApiMapKind, key: string): string => `${kind}:${key}`;
 /** The upstream prefixes some keys with "^" on the match object but not in the map. */
 export const cleanKey = (key: string | undefined): string => (key ?? '').replace(/^\^/, '');
 
+/** A key as the upstream issues them. Anything else from a URL is not worth a request (the Worker refuses it too). */
+export const isKey = (key: string): boolean => /^[A-Za-z0-9]{1,12}$/.test(key);
+
 /** The Worker caps /mapping at 200 keys per bucket. */
 const MAPPING_BATCH = 200;
 

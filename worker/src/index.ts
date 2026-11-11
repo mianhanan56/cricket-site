@@ -22,7 +22,6 @@ import {
   matchRoute,
   ParamError,
   readParams,
-  ROUTES,
   upstreamTarget,
   type ParamValue,
   type RouteDef,
@@ -33,6 +32,8 @@ export { LiveHub } from './live';
 export interface Env {
   ALLOWED_ORIGINS: string;
   LIVE_HUB: DurableObjectNamespace;
+  /** Per-address request ceiling (wrangler.toml `ratelimits`). Absent in a deploy without the binding. */
+  RATE_LIMITER?: RateLimit;
 }
 
 // How long past its TTL a cached body may still be served when upstream fails.
@@ -42,6 +43,10 @@ const STALE_GRACE_SECONDS = 300;
 // Ceiling on one upstream run, body included; past the fetch timeout, under the frontend's 15s.
 const RUN_DEADLINE_MS = UPSTREAM_TIMEOUT_MS + 2_000;
 
+// An upstream 4xx is held this long, so asking again for a key it refuses doesn't reach it each time.
+const REFUSAL_TTL_SECONDS = 60;
+const REFUSAL_HEADER = 'x-worker-upstream-status';
+const RETRY_AFTER_SECONDS = 10;
 
 /**
  * Upstream calls this isolate currently has open, keyed by the cache key.
@@ -66,17 +71,22 @@ interface StoredBody {
 }
 
 /** What one upstream attempt produced. `status: 0` means the call never landed. */
-type FetchOutcome =
-  | { ok: true; stored: StoredBody }
-  | { ok: false; status: number; detail: string };
+type FetchOutcome = { ok: true; stored: StoredBody } | { ok: false; status: number };
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
-    const cors = corsHeaders(request, env);
+    const cors = corsHeaders(request, env, url);
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
+    }
+    if (env.RATE_LIMITER) {
+      const { success } = await env.RATE_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') ?? 'unknown' });
+      if (!success) {
+        cors.set('Retry-After', String(RETRY_AFTER_SECONDS));
+        return json({ error: 'Too many requests' }, 429, cors);
+      }
     }
     // WebSockets skip CORS, so the origin allowlist is enforced here by hand.
     if (url.pathname === '/live') {
@@ -84,7 +94,7 @@ export default {
         return json({ error: 'Expected a WebSocket upgrade' }, 426, cors);
       }
       const origin = request.headers.get('Origin');
-      if (origin && !allowedOrigins(env).includes(origin)) {
+      if (origin && !originAllowed(origin, env, url)) {
         return json({ error: 'Origin not allowed' }, 403, cors);
       }
       return env.LIVE_HUB.get(env.LIVE_HUB.idFromName('live')).fetch(request);
@@ -94,30 +104,13 @@ export default {
       return json({ error: 'Method not allowed' }, 405, cors);
     }
 
+    // Nothing here names a route or an upstream: both are in the source, not on the wire.
     if (url.pathname === '/' || url.pathname === '/health') {
-      return json(
-        {
-          status: 'ok',
-          worker: 'pulsecrease-api',
-          live: { path: '/live', topics: ['matches', 'card:<matchKey>', 'feed:<matchKey>'] },
-          upstreams: UPSTREAMS,
-          routes: ROUTES.map((r) => ({
-            path: r.match,
-            upstream: `${r.method} ${UPSTREAMS[r.base]}${r.path}`,
-            ttl: r.ttl,
-            params: r.params ? Object.keys(r.params) : [],
-            note: r.note,
-          })),
-        },
-        200,
-        cors
-      );
+      return json({ status: 'ok' }, 200, cors);
     }
 
     const route = matchRoute(url.pathname);
-    if (!route) {
-      return json({ error: `No route for ${url.pathname}`, routes: ROUTES.map((r) => r.match) }, 404, cors);
-    }
+    if (!route) return json({ error: 'Not found' }, 404, cors);
 
     let params: Record<string, ParamValue>;
     try {
@@ -153,6 +146,9 @@ async function serve(
 
   const cached = await cache.match(cacheKey);
   if (cached) {
+    const refused = cached.headers.get(REFUSAL_HEADER);
+    if (refused) return upstreamError(Number(refused), cors);
+
     const basis = Number(cached.headers.get('x-worker-age-basis') ?? 0);
     const ageSeconds = (Date.now() - basis) / 1000;
 
@@ -164,31 +160,16 @@ async function serve(
     // never makes a user wait on the upstream round-trip. Single-flighted, so
     // the whole readership arriving inside one expired window costs one
     // upstream call rather than one each.
-    ctx.waitUntil(fetchAndStore(cacheKey, route, params, cache, ctx));
+    // A refusal here must not replace the body being served.
+    ctx.waitUntil(fetchAndStore(cacheKey, route, params, cache, ctx, false));
     return withHeaders(cached, cors, 'STALE', route.ttl);
   }
 
   // A cold miss is single-flighted too, and for the same reason: without it,
   // every reader arriving before the first body lands goes upstream
-  // separately. Joining callers get the same outcome — including the same
-  // upstream error, so a failure still reports what actually went wrong
-  // rather than a generic 502.
-  const outcome = await fetchAndStore(cacheKey, route, params, cache, ctx);
-
-  if (!outcome.ok) {
-    return outcome.status === 0
-      ? json({ error: 'Upstream unreachable', detail: outcome.detail }, 502, cors)
-      : json(
-          {
-            error: 'Upstream error',
-            status: outcome.status,
-            upstream: `${route.method} ${UPSTREAMS[route.base]}${path}`,
-            detail: outcome.detail,
-          },
-          outcome.status === 429 ? 429 : 502,
-          cors
-        );
-  }
+  // separately. Joining callers get the same outcome, upstream status included.
+  const outcome = await fetchAndStore(cacheKey, route, params, cache, ctx, true);
+  if (!outcome.ok) return upstreamError(outcome.status, cors);
 
   return withHeaders(responseFrom(outcome.stored), cors, 'MISS', route.ttl);
 }
@@ -250,7 +231,8 @@ function fetchAndStore(
   route: RouteDef,
   params: Record<string, ParamValue>,
   cache: Cache,
-  ctx: ExecutionContext
+  ctx: ExecutionContext,
+  holdRefusal: boolean
 ): Promise<FetchOutcome> {
   const open = inFlight.get(cacheKey.url);
   if (open) return open;
@@ -260,9 +242,11 @@ function fetchAndStore(
       const fresh = await fetchUpstream(route, params);
 
       if (!fresh.ok) {
+        // The upstream's own words go to the log, never to the caller.
         const detail = await fresh.text().catch(() => '');
-        console.warn('upstream error', { route: route.match, status: fresh.status });
-        return { ok: false, status: fresh.status, detail: detail.slice(0, 500) };
+        console.warn('upstream error', { route: route.match, status: fresh.status, detail: detail.slice(0, 300) });
+        if (holdRefusal && isRefusal(fresh.status)) ctx.waitUntil(cache.put(cacheKey, refusal(fresh.status)));
+        return { ok: false, status: fresh.status };
       }
 
       return { ok: true, stored: await store(cacheKey, fresh, route, cache, ctx) };
@@ -271,7 +255,7 @@ function fetchAndStore(
       const timedOut = err instanceof Error && err.name === 'TimeoutError';
       const detail = timedOut ? `No reply within ${UPSTREAM_TIMEOUT_MS / 1000}s` : String(err);
       console.warn('upstream unreachable', { route: route.match, detail });
-      return { ok: false, status: 0, detail };
+      return { ok: false, status: 0 };
     }
   })();
 
@@ -282,7 +266,7 @@ function fetchAndStore(
   const deadline = new Promise<FetchOutcome>((resolve) => {
     timer = setTimeout(() => {
       console.warn('upstream unsettled', { route: route.match });
-      resolve({ ok: false, status: 0, detail: `No reply within ${RUN_DEADLINE_MS / 1000}s` });
+      resolve({ ok: false, status: 0 });
     }, RUN_DEADLINE_MS);
   });
   const run = Promise.race([work, deadline]).finally(() => {
@@ -345,6 +329,31 @@ function withHeaders(response: Response, cors: Headers, status: string, ttl: num
   return new Response(response.body, { status: 200, headers });
 }
 
+/** The caller's view of a failed upstream call: its status (which the frontend reads), nothing else. `0` never landed. */
+function upstreamError(status: number, cors: Headers): Response {
+  if (status === 0) return json({ error: 'Upstream unreachable' }, 502, cors);
+  return json({ error: 'Upstream error', status }, status === 429 ? 429 : 502, cors);
+}
+
+// 408 and 429 are the upstream being busy, not the key being wrong.
+const isRefusal = (status: number) => status >= 400 && status < 500 && status !== 408 && status !== 429;
+
+function refusal(status: number): Response {
+  return new Response(null, {
+    status: 200,
+    headers: { [REFUSAL_HEADER]: String(status), 'Cache-Control': `public, max-age=${REFUSAL_TTL_SECONDS}` },
+  });
+}
+
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1)$/;
+const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+function originAllowed(origin: string, env: Env, self: URL): boolean {
+  if (allowedOrigins(env).includes(origin)) return true;
+  // A Worker answering on localhost is `wrangler dev`, and so are its callers.
+  return LOCAL_HOST.test(self.hostname) && LOCAL_ORIGIN.test(origin);
+}
+
 function allowedOrigins(env: Env): string[] {
   return (env.ALLOWED_ORIGINS ?? '')
     .split(',')
@@ -352,9 +361,8 @@ function allowedOrigins(env: Env): string[] {
     .filter(Boolean);
 }
 
-function corsHeaders(request: Request, env: Env): Headers {
+function corsHeaders(request: Request, env: Env, self: URL): Headers {
   const origin = request.headers.get('Origin') ?? '';
-  const allowed = allowedOrigins(env);
 
   const headers = new Headers({
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
@@ -365,7 +373,7 @@ function corsHeaders(request: Request, env: Env): Headers {
 
   // Echo the origin only when it's on the list. Server-side callers (Next.js
   // SSR) send no Origin and are unaffected by CORS.
-  if (origin && allowed.includes(origin)) {
+  if (origin && originAllowed(origin, env, self)) {
     headers.set('Access-Control-Allow-Origin', origin);
   }
 

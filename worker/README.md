@@ -67,14 +67,29 @@ cacheable and the frontend stays simple.
 | `/series/overview` | `POST stats /series/getSeriesOverview` | 30s | `key` — series f_key. Series overview; `i4` holds the tournament leaders — see below |
 | `/team/matches` | `POST oc /teamInside/getMatchForTeamID` | 5m | `key` — team f_key. The team's fixtures, grouped by series |
 
-Params are typed and enum-bounded. Unknown params (`utm_source` and friends) are
+Params are typed and bounded. Unknown params (`utm_source` and friends) are
 dropped rather than rejected, so a decorated URL still hits the same cache
-entry. Bad values get a 400 with the permitted set:
+entry. Bad values get a 400 that names the param, never the value sent:
 
 ```bash
 curl 'localhost:8788/rankings?category=9'
-# {"error":"Param 'category' must be one of 0, 1, 2, got '9'","path":"/rankings"}
+# {"error":"Param 'category' must be one of 0, 1, 2","path":"/rankings"}
 ```
+
+Every string goes upstream as sent, so every string param has a set of values or a
+pattern (the `ParamSpec` types make leaving both out a compile error). Keys are
+`[A-Za-z0-9]{1,12}`, the commentary cursor is digits, and a `/mapping` list drops any
+item that is not a key. A new route needs the same.
+
+What a caller is told is deliberately little. `/` and `/health` answer
+`{"status":"ok"}`; an unknown path answers `{"error":"Not found"}`; a failed upstream
+call answers `{"error":"Upstream error","status":<upstream status>}` (the frontend
+reads `status` to tell "unknown key" from an outage). The upstream's URL and its own
+error text go to the Worker log (`npm run tail`), not to the response.
+
+An upstream 4xx is held in the edge cache for 60 seconds, so a key it refuses is asked
+for once a minute, not once a request. 408, 429 and 5xx are not held, and a refusal
+that arrives during a background refresh never replaces the body being served.
 
 ## Response shapes
 
@@ -316,6 +331,14 @@ Port 8788. No secrets, no
 token, is what stops a stranger who finds your Worker URL from using it as an
 open relay into the upstream's API.
 
+A Worker answering on `localhost` accepts `http://localhost:*` origins by itself, so
+`ALLOWED_ORIGINS` lists production origins only.
+
+```bash
+npm test                 # param rules, hub rules and the request handler (bundled with esbuild, run on node:test)
+npm run typecheck
+```
+
 ## Deploy
 
 ```bash
@@ -324,6 +347,14 @@ npm run deploy
 
 Then add your production domain to `ALLOWED_ORIGINS` in `wrangler.toml`. Logs:
 `npm run tail`.
+
+`wrangler.toml` binds a rate limiter (`RATE_LIMITER`, 3000 requests a minute per
+calling address) that every request passes before its route. It stops a flood from
+one address; it does not protect the account's daily request allowance, because a
+refused request is still a request. That needs a Cloudflare rate-limiting rule in
+front of the Worker, which means serving it from a custom domain instead of
+`workers.dev`. If a deploy rejects the binding, remove the `[[ratelimits]]` block —
+the code runs without it.
 
 The first deploy with the live hub applies the `v1` migration in `wrangler.toml`,
 which creates the `LiveHub` Durable Object class (SQLite-backed, so it works on
@@ -353,9 +384,14 @@ hub    → {"type":"matches:update","topic":"matches","epoch":"…","seq":42,"pr
 client can tell a missed diff from topics interleaving. `epoch` changes when the
 object restarts. A topic polls every 2s while it keeps changing, then 10s and
 30s once quiet, and stops when nothing subscribes. The Origin header is checked
-against `ALLOWED_ORIGINS` by hand, since WebSockets skip CORS. `/health` lists
-`live`, which the frontend reads before dialling so a Worker without the hub is
-never tried.
+against `ALLOWED_ORIGINS` by hand, since WebSockets skip CORS.
+
+Every topic is an upstream poll, so the hub limits who can start one
+(`src/hubRules.ts`): a `card:` or `feed:` topic is accepted only for a match in the
+current `/matches/live` list (anything else is ignored, and the page's own HTTP poll
+carries on); 30 topics a socket, 400 in the hub; 100 sockets an address and 10,000 in
+all, with sockets that never subscribed closed first when it is full; a message over
+4 KB or more than 40 in ten seconds closes the socket.
 
 Cost: while anyone is connected, the hub wakes on an alarm about every 2s, which
 is up to ~43k alarms a day and close to continuous Durable Object duration. That

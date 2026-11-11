@@ -3,9 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2026-08-08"
 
 [vars]
-# Comma-separated browser origins allowed to call this Worker.
-# Add your production domain once deployed.
-ALLOWED_ORIGINS = "http://localhost:3005,https://pulsecrease.vercel.app"
+# Comma-separated browser origins allowed to call this Worker. Production only:
+# `wrangler dev` accepts localhost origins by itself (src/index.ts).
+ALLOWED_ORIGINS = "https://pulsecrease.vercel.app"
 
 # No secrets. Every upstream endpoint in src/routes.ts is unauthenticated — the
 # allowlist, not a token, is what keeps this from being an open relay.
@@ -16,6 +16,14 @@ ALLOWED_ORIGINS = "http://localhost:3005,https://pulsecrease.vercel.app"
 
 [dev]
 port = 8788
+
+# Ceiling per calling address, across every route and the /live handshake. Sized above a
+# Vercel function's own bursts (a search-index rebuild is ~500 reads in a minute), so it
+# stops a flood from one address, not a busy match. `period` must be 10 or 60.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 3000, period = 60 }
 
 # One hub holds every live WebSocket and polls the upstream once for all of them (src/live.ts).
 [[durable_objects.bindings]]

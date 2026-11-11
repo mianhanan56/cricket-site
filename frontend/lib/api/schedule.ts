@@ -4,7 +4,7 @@ import type { Match } from '@/types';
 import { apiGet, type FetchOpts } from './client';
 import { knockoutStage, scheduleBalls, scheduleFormat, scheduleStatus } from './codes';
 import type { ApiMatchInfo } from './matchInfo';
-import { cleanKey, resolveKeys, seriesRef, toTeam, venueOf } from './names';
+import { cleanKey, isKey, resolveKeys, seriesRef, toTeam, venueOf } from './names';
 import { scorecardFromRaw, type ApiScorecardBody } from './scorecard';
 
 /** One match as /series/matches sends it, grouped under a date key ("2026/7/21"). */
@@ -52,7 +52,7 @@ export const scheduleRows = (raw: ApiSeriesMatchesResponse | null | undefined): 
  */
 export async function getApiArchivedMatch(id: string, opts: FetchOpts = {}): Promise<Match | null> {
   const key = cleanKey(id);
-  if (!key) return null;
+  if (!isKey(key)) return null;
 
   // Nothing on this path is live, so each endpoint keeps its own window rather than the caller's.
   const archived: FetchOpts = { signal: opts.signal };
@@ -136,7 +136,7 @@ export function parseScheduledMatchId(
 ): { seriesKey: string; rowId: string } | null {
   if (!id.startsWith(SCHEDULED_ID_PREFIX)) return null;
   const [seriesKey, rowId] = id.slice(SCHEDULED_ID_PREFIX.length).split('-');
-  if (!seriesKey || !rowId) return null;
+  if (!seriesKey || !rowId || !isKey(cleanKey(seriesKey)) || !isKey(rowId)) return null;
   return { seriesKey: cleanKey(seriesKey), rowId };
 }
 

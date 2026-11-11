@@ -54,6 +54,14 @@ describe('stored notifications', () => {
     assert.equal(n.read, false);
   });
 
+  it('keeps a link only when it stays on this site', () => {
+    const link = (href: unknown) => parseNotifications([{ ...valid, href }])?.[0].href;
+    assert.equal(link('/matches/13Q6?tab=scorecard'), '/matches/13Q6?tab=scorecard');
+    for (const off of ['//evil.example/x', '/\\evil.example', 'https://evil.example', 'evil.example', '', 7]) {
+      assert.equal(link(off), undefined, String(off));
+    }
+  });
+
   it('drops a repeated id or event', () => {
     const rows = [valid, { ...valid }, { ...valid, id: 'z' }, { ...valid, id: 'y', eventKey: 'r:w9' }];
     assert.deepEqual(

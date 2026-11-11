@@ -1,6 +1,6 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-11-10. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-11-11. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
@@ -11,6 +11,14 @@ All data comes from the upstream's undocumented internal APIs through a Cloudfla
 `worker/`. **No backend, no database** — ignore any mention of Express/Prisma/Neon.
 
 ## Current objective
+
+2026-11-11: security audit and remediation (uncommitted). Report: `SECURITY_AUDIT_2026-11-11.md` (keep it
+out of a public repo while findings are open). Fixed in code and verified locally: Worker param patterns,
+redacted `/health` / 404 / upstream-error bodies, 60s hold on upstream refusals, a rate-limit binding, live-hub
+caps and topic validation, quiz failure hold + generation budget, security headers + CSP, image optimizer off,
+id checks in the loaders, stricter stored notification links (ARCHITECTURE › Security). **Not deployed** — the
+user deploys; Worker and frontend can go in either order. Still open: the Next.js upgrade (PC-01; 14.2.35 is
+the last 14.x and has unpatched advisories) and the dashboard items in TODO.
 
 2026-11-10: SEO pass (audit 2026-11-09; rounds 1–2 committed in bbbc8cf; round 3 — 404 page title/h1, robots, verification env vars — uncommitted; real 404 status for unknown ids still needs the user's call, see TODO). Left for the user: custom domain + `NEXT_PUBLIC_SITE_URL`, Search Console/Bing verification (`GOOGLE_SITE_VERIFICATION`/`BING_SITE_VERIFICATION`), a contact address — ARCHITECTURE › SEO; TODO.
 
@@ -252,7 +260,8 @@ cd frontend && npm run local                    # frontend against local Worker 
 - There is **no root package.json**; the README's `--workspace` commands don't work from root.
 - Env vars are all optional (`NEXT_PUBLIC_WORKER_URL`, `NEXT_PUBLIC_SITE_URL`). Never put a
   localhost Worker URL in `.env.local` — production builds throw on it by design.
-- Worker CORS allows only `http://localhost:3005` and `https://pulsecrease.vercel.app`.
+- Worker CORS allows only `https://pulsecrease.vercel.app`; a Worker running on localhost (`wrangler dev`)
+  also accepts `http://localhost:*` origins.
 
 ## Useful commands
 
@@ -261,6 +270,7 @@ cd frontend && npm test                 # node:test via tsx, offline
 cd frontend && npx tsc --noEmit -p .
 cd frontend && npm run check:live       # audits today's live feed (network)
 cd worker && npm run typecheck
+cd worker && npm test                   # params, hub rules, request handler (esbuild bundle → node:test)
 ```
 
 ## Gotchas another agent must know
@@ -278,6 +288,9 @@ cd worker && npm run typecheck
 - Derived data (H2H, venues, team form) comes from the shared schedule window in
   `getApiFixtureRange`; keep callers on the same window so they share cache entries.
 - Never guess result attribution; unattributable results are counted separately.
+- Security (2026-11-11): a new Worker route's string params need an `enum` or `pattern` (the types enforce it);
+  a new third-party script/API/embed needs its origin in the CSP in `next.config.js`; `/_next/image` is off.
+  The Worker's error bodies carry only the upstream status — look in `npm run tail` for the upstream's text.
 
 ## User rules (from CLAUDE.md and prior feedback)
 
@@ -288,7 +301,8 @@ cd worker && npm run typecheck
 - Banned: accent bars beside headings; tiny muted "View all"/"More →" links; explanatory or
   data-provenance captions beside labels and page subtitles describing the page.
 - Don't touch production services (Vercel, Cloudflare, etc.) without explicit instruction.
-- Delete any test files you create for a task; keep these four memory files.
+- Delete any test files you create for a task; keep these four memory files. Exception: the security
+  tests added 2026-11-11 stay — the user asked for them.
 
 ## Known bugs / blockers
 

@@ -1,5 +1,5 @@
 export { WORKER_URL, isRejectedRequest } from './client';
-export { teamLogoUrl, getApiMapping, playerImageUrl } from './names';
+export { teamLogoUrl, getApiMapping, isKey, playerImageUrl } from './names';
 export type { ApiMapping } from './names';
 export { getApiRankingList, getApiTeamRankings, getApiTeamRankingList } from './rankings';
 export type { ApiRankingRow, ApiTeamRankingRow } from './rankings';

@@ -10,7 +10,7 @@ import type {
   PlayerRoleLabel,
 } from '@/types';
 import { apiGet, type FetchOpts } from './client';
-import { cleanKey, playerImageUrl, resolveKeys, type NameCache } from './names';
+import { cleanKey, isKey, playerImageUrl, resolveKeys, type NameCache } from './names';
 import { getApiScorecard } from './scorecard';
 
 /** Basic info. Only the fields the profile page reads. */
@@ -255,7 +255,7 @@ export async function getApiPlayerProfile(
   opts: FetchOpts = {}
 ): Promise<PlayerProfile | null> {
   const id = cleanKey(key);
-  if (!id) return null;
+  if (!isKey(id)) return null;
 
   const raw = await apiGet<ApiPlayerOverview>(`/player/overview?key=${encodeURIComponent(id)}`, {
     revalidate: 3600,
