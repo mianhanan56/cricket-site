@@ -51,7 +51,8 @@ const RESULTS_FIRST = 8;
 // cache(): generateMetadata and the page share one read per request; each attaches its own catch.
 const readSchedule = cache((id: string): Promise<SeriesSchedule | null> => getApiSeriesSchedule(id, { revalidate: REVALIDATE }));
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const series = await readSchedule(params.id).catch(() => null);
   if (!series) return { title: 'Series' };
 
@@ -92,13 +93,12 @@ function More({ label, children }: { label: string; children: React.ReactNode })
   );
 }
 
-export default async function SeriesDetailPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: Record<string, string | string[] | undefined>;
+export default async function SeriesDetailPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
   const feedRead = getApiMatchList({ revalidate: LIVE_REVALIDATE }).catch(() => [] as Match[]);
   let scheduleError: unknown = null;
   const [schedule, feed, table, leaders, news, squadTeams] = await Promise.all([

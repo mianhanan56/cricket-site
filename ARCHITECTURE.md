@@ -8,7 +8,7 @@ Last verified against source: 2026-10-26; Security section 2026-11-11.
 ```
 Browser ──(client polling via /api/worker/*)──┐   (live WebSocket goes straight to the Worker)
                                               ▼
-Next.js 14 (Vercel) ──SSR/ISR fetch──▶ Cloudflare Worker `worker` ──▶ upstream internal APIs
+Next.js 15 (Vercel) ──SSR/ISR fetch──▶ Cloudflare Worker `worker` ──▶ upstream internal APIs
                                         (allowlist + edge cache + CORS)     (5 upstream hosts)
 ```
 
@@ -31,7 +31,7 @@ Next.js 14 (Vercel) ──SSR/ISR fetch──▶ Cloudflare Worker `worker` ─�
 cricket/
 ├── .claude/                 CLAUDE.md (project rules) + skills/design-standards.md
 ├── README.md                Canonical overview; data-source table per page
-├── frontend/                Next.js 14 App Router app — the whole application
+├── frontend/                Next.js 15 App Router app (React 19) — the whole application
 │   ├── app/                 Routes (see "Pages" below); page.tsx + <name>.module.scss per route
 │   ├── components/          Grouped by domain: automations, brand, fixtures, follow, home,
 │   │                        insights, layout, live, match, notifications, player, rankings,
@@ -537,6 +537,17 @@ imported only by the route, so none of it ships to the browser:
   property itself — see `BackButton` (`.spaced` only when no class is passed) and the scorecard
   (`td.top`, `.table .left`).
 
+## Next.js 15 notes (2026-11-12)
+
+- `params` and `searchParams` are Promises in pages, `generateMetadata` and route handlers: each takes `props`
+  and awaits them on its first lines. `opengraph-image` still gets `params` as a plain object in 15 (a Promise in 16).
+- `fetch` is no longer cached unless asked: every `apiGet` call passes `revalidate`. A read added without one
+  is uncached and reaches the Worker on every render.
+- GET route handlers are dynamic by default; `/api/search-index` and `/api/search-players` stay prerendered
+  through `export const revalidate`.
+- React 19 types: `useRef` needs an initial value, and a ref passed to a hook is `RefObject<T | null>`.
+- `next lint` still works but is deprecated (removed in 16); the build still uses webpack, which `next-pwa` needs.
+
 ## Security
 
 Audit and remediation 2026-11-11: `SECURITY_AUDIT_2026-11-11.md` (findings PC-01…PC-14, status table at its top).
@@ -555,7 +566,8 @@ Audit and remediation 2026-11-11: `SECURITY_AUDIT_2026-11-11.md` (findings PC-01
 - Worker limits: see Worker above. Quiz limits: see Match quiz.
 - Tests: `frontend/tests/{securityHeaders,keys,quizGuard,notifications}.test.ts`; `worker/tests/*.test.ts`.
 - Not fixable in code: the Worker's daily request allowance (needs a Cloudflare rate-limiting rule on a custom
-  domain), Vercel Firewall limits, a quota cap on the Gemini key. Open: the Next.js upgrade (14.x is end-of-life).
+  domain), Vercel Firewall limits, a quota cap on the Gemini key.
+- Next.js 15.5.29 / React 19 since 2026-11-12 (PC-01: 14.2.35 was the last 14.x and had 25 unpatched advisories).
 
 ## SEO
 

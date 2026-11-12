@@ -1,12 +1,20 @@
 # Project Status — PulseCrease
 
-Last updated: 2026-11-11
+Last updated: 2026-11-12
 
 ## Current milestone
 
 UI polish pass on navigation, series stats and page spacing (uncommitted working tree on `main`).
 
-## Recently completed (uncommitted, 2026-11-11, security audit + fixes)
+## Recently completed (uncommitted, 2026-11-12, Next.js 15 upgrade)
+
+- `next` 14.2.35 → 15.5.29, `react`/`react-dom` 18.3 → 19.3, `@types/react*` 19, `eslint-config-next` 15.5.29 (PC-01). `npm audit`: no advisory left on `next` itself (it still lists the `postcss` it bundles, moderate); 0 critical. npm keeps `yarn.lock` in step with `package-lock.json`.
+- Code: `params`/`searchParams` awaited in 13 pages (22 signatures) and `icons/[size]`; `useScrollFade`/`useActiveInView` accept nullable refs; two `useRef` calls given an initial value. No behaviour change intended.
+- Verified from an isolated production build (reading the Worker through the site's proxy, because this network blocked `workers.dev` that day): 24 pages equal to production on status and h1; redirects, not-found, OG images, icons, sitemap (1,842 URLs), search indexes and RSC payloads equal; security headers present; quiz failure hold still one model call for three requests; browser-driven run of 16 page loads plus navigation, tab switch, back, search, follow and theme with no console errors, hydration errors or CSP messages.
+- Shared first-load JS is 105 kB (was 90 kB): React 19 and the Next 15 runtime.
+- Production retest of the 2026-11-11 fixes (2026-11-12): frontend fixes live (headers, CSP clean in headless Chrome, `/_next/image` 404, quiz hold, malformed ids); **Worker not redeployed** — `/api/worker` still lists the upstream hosts and relays upstream errors.
+
+## Recently completed (committed in 8698d84, 2026-11-11, security audit + fixes)
 
 Audit report with evidence and status: `SECURITY_AUDIT_2026-11-11.md`. Fixed (not deployed):
 
@@ -393,7 +401,7 @@ See TODO.md.
 
 ## Testing status
 
-- `npm test` (frontend): **188/188 pass** (2026-11-11, incl. the security cases). `npm test` (worker): **28/28 pass** (2026-11-11).
+- `npm test` (frontend): **188/188 pass** (2026-11-12, on Next 15 / React 19; first 2026-11-11 with the security cases). `npm test` (worker): **28/28 pass** (2026-11-11).
 - Earlier: frontend 140/140 (2026-10-06; +5: broken stand, pulse window/wickets, delivery dedupe ×2, format/category labels; scorecard fixtures given a consistent last stand).
 - Data-consistency fixes verified on a production build from an isolated copy against live data (2026-10-02): Home Live 3 = ticker 3 (ROI v J&K shows "Stumps"); Home Today 4 = Fixtures Today 4 (same rows); Home series cards equal /series (WI tour 27 Sept → 17 Oct, 2/8); Teams Men 12 incl. Ireland; 14MJ header "17th T10"; pulse "3 in 8 · Last 8 balls"; 360px clean on Home and Test team rankings.
 - Series performance: decoded/summed figures equal the upstream's own totals on 471 series×format groups (36 players incl. Tests, The Hundred, county); 320–1280px no overflow; select → format → load older → match → Back → reload flow verified (2026-10-02).
@@ -402,7 +410,7 @@ See TODO.md.
 
 ## Build status
 
-Production `next build` and `next lint` pass from an isolated copy (2026-11-11, with the security fixes). `wrangler deploy --dry-run` accepts the Worker config.
+Production `next build` and `next lint` pass from an isolated copy on Next 15.5.29 (2026-11-12; on 14.2.35 with the security fixes 2026-11-11). `wrangler deploy --dry-run` accepts the Worker config.
 
 ## Deployment status
 

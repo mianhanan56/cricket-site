@@ -5,7 +5,7 @@ Before ANY UI/design task, read and follow:
 .claude/skills/design-standards.md
 
 ## Project Structure
-- Frontend: Next.js 14 App Router + SCSS Modules
+- Frontend: Next.js 15 App Router + SCSS Modules
 - Monorepo: npm workspaces
 
 ## Key Rules

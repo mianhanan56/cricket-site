@@ -24,12 +24,11 @@ export const metadata = pageMeta({
   path: '/players',
 });
 
-export default async function PlayersPage({
-  searchParams,
-}: {
+export default async function PlayersPage(props: {
   // Read here rather than with useSearchParams() so the filtered list stays in the HTML.
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const searchParams = await props.searchParams;
   const gender = pickParam<RankingsGender>(searchParams?.gender, RANKINGS_GENDER_KEYS, 'men');
   const role = pickParam<PlayersRoleKey>(searchParams?.role, PLAYERS_ROLE_KEYS, 'all');
   const requested = pickParam<PlayersFormatKey>(searchParams?.format, PLAYERS_FORMAT_KEYS, 'all');

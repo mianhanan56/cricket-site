@@ -10,7 +10,8 @@ export function generateStaticParams() {
   return SIZES.map((size) => ({ size }));
 }
 
-export function GET(_req: Request, { params }: { params: { size: string } }) {
-  if (!(SIZES as readonly string[]).includes(params.size)) notFound();
-  return markImage(Number(params.size));
+export async function GET(_req: Request, { params }: { params: Promise<{ size: string }> }) {
+  const { size } = await params;
+  if (!(SIZES as readonly string[]).includes(size)) notFound();
+  return markImage(Number(size));
 }

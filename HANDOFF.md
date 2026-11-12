@@ -1,24 +1,32 @@
 # Handoff — PulseCrease
 
-Last updated: 2026-11-11. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
+Last updated: 2026-11-12. Read this, then ARCHITECTURE.md, PROJECT_STATUS.md and TODO.md.
 If anything conflicts, trust: source code → ARCHITECTURE.md → PROJECT_STATUS.md → HANDOFF.md → TODO.md.
 
 ## Project overview
 
 PulseCrease is a live cricket site (scores, match telemetry, momentum, series stats, client-side
-alerts). Next.js 14 App Router + TypeScript + SCSS Modules in `frontend/`, deployed to Vercel.
+alerts). Next.js 15 App Router (React 19) + TypeScript + SCSS Modules in `frontend/`, deployed to Vercel.
 All data comes from the upstream's undocumented internal APIs through a Cloudflare Worker in
 `worker/`. **No backend, no database** — ignore any mention of Express/Prisma/Neon.
 
 ## Current objective
+
+2026-11-12: Next.js 14.2.35 → 15.5.29 with React 19 (PC-01; uncommitted, not deployed). Async `params` /
+`searchParams` on 13 pages and the icons route, three React 19 ref typings; nothing else changed
+(ARCHITECTURE › Next.js 15 notes). Verified from an isolated production build: 24 pages match production on
+status and h1, redirects/not-found/OG images/feeds match, and a browser-driven run (16 page loads, navigation,
+tabs, back, search, follow, theme) logged no console errors. Same day, production retest of the 2026-11-11
+fixes: **the frontend fixes are live, the Worker is still the old build** — `cd worker && npm run deploy` is
+still owed, and until then `/api/worker` names the upstream and relays its errors.
 
 2026-11-11: security audit and remediation (uncommitted). Report: `SECURITY_AUDIT_2026-11-11.md` (keep it
 out of a public repo while findings are open). Fixed in code and verified locally: Worker param patterns,
 redacted `/health` / 404 / upstream-error bodies, 60s hold on upstream refusals, a rate-limit binding, live-hub
 caps and topic validation, quiz failure hold + generation budget, security headers + CSP, image optimizer off,
 id checks in the loaders, stricter stored notification links (ARCHITECTURE › Security). **Not deployed** — the
-user deploys; Worker and frontend can go in either order. Still open: the Next.js upgrade (PC-01; 14.2.35 is
-the last 14.x and has unpatched advisories) and the dashboard items in TODO.
+user deploys; Worker and frontend can go in either order. (Committed in 8698d84; frontend deployed, Worker not
+yet — see 2026-11-12 above.) Still open: the dashboard items in TODO.
 
 2026-11-10: SEO pass (audit 2026-11-09; rounds 1–2 committed in bbbc8cf; round 3 — 404 page title/h1, robots, verification env vars — uncommitted; real 404 status for unknown ids still needs the user's call, see TODO). Left for the user: custom domain + `NEXT_PUBLIC_SITE_URL`, Search Console/Bing verification (`GOOGLE_SITE_VERIFICATION`/`BING_SITE_VERIFICATION`), a contact address — ARCHITECTURE › SEO; TODO.
 
@@ -281,6 +289,10 @@ cd worker && npm test                   # params, hub rules, request handler (es
   into a scratch dir, symlink `node_modules`, build/start there on another port. Headless checks on
   other ports need CORS disabled in the browser.
 - Dev server runs on port 3005 (3000 is used by an unrelated app on this machine).
+- This machine's network sometimes blocks `*.workers.dev` outright (Node: `fetch failed … ETIMEDOUT`), which
+  makes a local server render come back empty or not-found. To verify a build then, set
+  `NEXT_PUBLIC_WORKER_URL=https://pulsecrease.vercel.app/api/worker` in the scratch copy's `.env.local`.
+  The scratch directory lives in `/tmp` and does not survive a restart.
 - The upstream wire format is single-letter keys and changes without notice; the Worker renames them
   (`worker/src/shapes/`), so a new upstream field needs a line there before the frontend can read it.
   If something breaks, probe the upstream first (`worker/scripts/probe.sh`). "Invalid Host header" =

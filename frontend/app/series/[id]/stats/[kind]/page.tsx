@@ -59,7 +59,8 @@ const HEADLINE: Record<SeriesStatKind, { head: string; unit: string | null; repl
 // cache(): generateMetadata and the page share one read per request.
 const readSchedule = cache((id: string) => getApiSeriesSchedule(id, { revalidate: REVALIDATE }));
 
-export async function generateMetadata({ params }: { params: { id: string; kind: string } }) {
+export async function generateMetadata(props: { params: Promise<{ id: string; kind: string }> }) {
+  const params = await props.params;
   const kind = SLUGS[params.kind];
   if (!kind) return { title: 'Series stats' };
 
@@ -110,7 +111,8 @@ function cellsFor(row: SeriesStatRow, discipline: SeriesStatTable['discipline'])
       ];
 }
 
-export default async function SeriesStatPage({ params }: { params: { id: string; kind: string } }) {
+export default async function SeriesStatPage(props: { params: Promise<{ id: string; kind: string }> }) {
+  const params = await props.params;
   const kind = SLUGS[params.kind];
   if (!kind) notFound();
 

@@ -74,7 +74,7 @@ export default function QuizPanel({ quiz }: { quiz: MatchQuiz }) {
   };
 
   // A–D or 1–4 answers, Enter moves on. The handler is refreshed each render and bound once.
-  const onKey = useRef<(e: KeyboardEvent) => void>();
+  const onKey = useRef<((e: KeyboardEvent) => void) | undefined>(undefined);
   onKey.current = (e) => {
     const target = e.target as HTMLElement | null;
     if (!q || e.metaKey || e.ctrlKey || e.altKey || target?.closest('input, textarea, select, [contenteditable]')) return;

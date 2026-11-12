@@ -22,12 +22,11 @@ export const revalidate = 300;
 const EYEBROW = 'Every match';
 const TITLE = 'Fixtures';
 
-export default async function FixturesPage({
-  searchParams,
-}: {
+export default async function FixturesPage(props: {
   // Read here rather than with useSearchParams() so the filtered list stays in the HTML.
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const searchParams = await props.searchParams;
   const format = pickParam<FixtureFormatKey>(searchParams?.format, FIXTURE_FORMAT_KEYS, 'all');
   const type = pickParam<MatchTypeKey>(searchParams?.type, MATCH_TYPE_KEYS, 'all');
   const date = pickDayParam(searchParams?.date);

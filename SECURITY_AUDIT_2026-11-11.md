@@ -10,13 +10,15 @@
 
 > **Handle as confidential.** This file describes unpatched weaknesses in a live site. It is untracked in git; do not commit it to a public repository while the findings are open.
 
-## Remediation status (11 November 2026)
+## Remediation status (updated 12 November 2026)
 
-The findings below describe production as audited. This table is what has changed since. Nothing is deployed yet, so production still behaves as audited until the Worker and the frontend are redeployed.
+The findings below describe production as audited. This table is what has changed since.
+
+**Deployment, as retested on production on 12 November:** the frontend fixes are live. The Worker has **not** been redeployed, so PC-02, PC-03, PC-05, PC-07 and PC-11 are fixed in the repository but not in production. The Next.js upgrade is in the working tree, not yet committed or deployed.
 
 | ID | Status | What was done | What remains |
 |---|---|---|---|
-| PC-01 | **Open** | — | Upgrade Next.js to 15.5.29 or 16.4.6 as its own change |
+| PC-01 | Fixed in code (12 Nov) | Next.js 14.2.35 → 15.5.29 with React 19. `npm audit` lists no advisory against `next` itself | Commit and deploy. Next.js 16 later |
 | PC-02 | Partly fixed | Upstream refusals held 60 s; key space bounded (PC-03); rate-limit binding, 3000 requests a minute per address | A refused request still counts against the Worker's daily allowance. Needs a Cloudflare rate-limiting rule on a custom domain |
 | PC-03 | Fixed | Every string param has a pattern or a set of values, enforced by the types; error bodies carry the upstream status only | — |
 | PC-04 | Fixed in code | A failed generation is held for its 15-minute window across instances; 40 generations an hour per instance | Quota cap on the key in Google Cloud |
@@ -45,7 +47,21 @@ How the fixes were verified:
 | Headless Chrome, 21 page loads | No Content-Security-Policy violations |
 | Quiz with a deliberately invalid key | Three requests, one model call |
 
-Not verified: behaviour on Vercel and Cloudflare themselves. Section 13 is the checklist to run after deploying.
+### Production retest, 12 November 2026
+
+| Check | Result |
+|---|---|
+| Security headers and CSP | Live. No policy violations in headless Chrome on 10 pages |
+| `X-Powered-By` | Gone |
+| `/_next/image` with a remote URL | 404 |
+| Quiz: an id that fails | Second request answered in 0.5 s with no new generation |
+| Malformed ids | Not-found in about 0.5 s (was 1–2 s with upstream reads) |
+| `/api/worker` and `/api/worker/nope` | **Still list the upstream hosts and routes** — Worker not redeployed |
+| `/api/worker/rankings/players?page=x` | **Still returns the upstream's SQL error** — Worker not redeployed |
+| 200-character key | **Still relayed** — Worker not redeployed |
+| Rate-limit burst, live-hub caps | Not tested: they depend on the Worker deploy, and the burst would mean thousands of requests at production |
+
+The Next.js 15 build was verified from an isolated production build, not on Vercel: 24 pages equal to production on status and heading; a browser-driven run of 16 page loads plus navigation, tabs, search, follow and theme logged no errors.
 
 ## How to read this report
 

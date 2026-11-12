@@ -30,7 +30,7 @@ export default function PulseTrace({ points, label, still }: { points: TracePoin
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
   const [active, setActive] = useState<number | null>(null);
-  const touchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const touchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const el = ref.current;

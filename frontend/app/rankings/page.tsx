@@ -34,17 +34,17 @@ function readQuery(searchParams?: SearchParams): RankingsQuery {
 }
 
 // Each list is its own indexable page: "ICC women's T20I bowling rankings" lands on exactly that list.
-export function generateMetadata({ searchParams }: { searchParams?: SearchParams }) {
+export async function generateMetadata(props: { searchParams?: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   const query = readQuery(searchParams);
   return pageMeta({ ...rankingsMeta(query), path: rankingsPath(query) });
 }
 
-export default async function RankingsPage({
-  searchParams,
-}: {
+export default async function RankingsPage(props: {
   // Read here, not via useSearchParams(), so the list is in the HTML rather than behind Suspense.
-  searchParams?: SearchParams;
+  searchParams?: Promise<SearchParams>;
 }) {
+  const searchParams = await props.searchParams;
   // Never throws, never empty: falls back to the bundled snapshot.
   const { data, teams, asOf } = await getRankings();
 

@@ -15,11 +15,10 @@ export const metadata = pageMeta({ title: HOME_TITLE, absoluteTitle: true, descr
 // client poll takes over from it. The active tab and type filter are read out of the URL, so a filtered
 // home view is linkable (/?tab=upcoming&type=international). `tab` has no
 // default: with none set the tab still follows the data (live > upcoming).
-export default async function HomePage({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
+export default async function HomePage(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const searchParams = await props.searchParams;
   const tab = pickParam<HomeTab | ''>(searchParams?.tab, [...HOME_TAB_KEYS, ''], '');
   const type = pickParam<MatchTypeKey>(searchParams?.type, MATCH_TYPE_KEYS, 'all');
   const initialMatches: Match[] = await getApiMatchList({ revalidate: 15 }).catch(() => []);

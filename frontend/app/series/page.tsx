@@ -22,11 +22,10 @@ export const revalidate = 300;
 const EYEBROW = 'Competitions';
 const TITLE = 'Series';
 
-export default async function SeriesPage({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
+export default async function SeriesPage(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const searchParams = await props.searchParams;
   const status = pickParam<SeriesStatusKey>(searchParams?.status, SERIES_STATUS_KEYS, 'all');
   const type = pickParam<MatchTypeKey>(searchParams?.type, MATCH_TYPE_KEYS, 'all');
 

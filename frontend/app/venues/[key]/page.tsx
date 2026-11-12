@@ -31,7 +31,8 @@ const loadVenue = cache(async (key: string): Promise<VenueProfile | null> => {
   return venueProfile(key, named?.venue ?? 'Unknown ground', corpus);
 });
 
-export async function generateMetadata({ params }: { params: { key: string } }) {
+export async function generateMetadata(props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   const venue = await loadVenue(params.key).catch(() => null);
   if (!venue) return { title: 'Venue' };
 
@@ -132,7 +133,8 @@ function ResultRow({ match }: { match: HeadToHeadMatch }) {
   );
 }
 
-export default async function VenuePage({ params }: { params: { key: string } }) {
+export default async function VenuePage(props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   const venue = await loadVenue(params.key);
   if (!venue) notFound();
 

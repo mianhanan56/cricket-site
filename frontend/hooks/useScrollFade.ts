@@ -4,7 +4,7 @@ import { useEffect, type RefObject } from 'react';
  * Marks a horizontal scroller with the edges that still hide content —
  * `data-fade="start" | "end" | "both"` — for the `scroll-fade` mixin to shade.
  */
-export function useScrollFade(ref: RefObject<HTMLElement>): void {
+export function useScrollFade(ref: RefObject<HTMLElement | null>): void {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -41,7 +41,7 @@ export function useScrollFade(ref: RefObject<HTMLElement>): void {
  * so a tab picked at a faded edge, or the last one on a phone, isn't left half hidden.
  * `key` changes whenever the selection or the row's width might have.
  */
-export function useActiveInView(ref: RefObject<HTMLElement>, key: string): void {
+export function useActiveInView(ref: RefObject<HTMLElement | null>, key: string): void {
   useEffect(() => {
     const row = ref.current;
     const on = row?.querySelector<HTMLElement>('[aria-checked="true"], [aria-selected="true"], [aria-current="page"]');

@@ -33,7 +33,8 @@ const loadMatch = cache((id: string) =>
   parseScheduledMatchId(id) ? getApiScheduledMatch(id) : getApiMatch(id, { revalidate: REVALIDATE })
 );
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const m = await loadMatch(params.id).catch(() => null);
   if (!m) return { title: 'Match Centre' };
 
@@ -56,13 +57,12 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   });
 }
 
-export default async function MatchDetailPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams?: { tab?: string | string[] };
+export default async function MatchDetailPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ tab?: string | string[] }>;
 }) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
   const preview = parseScheduledMatchId(params.id) !== null;
   // The corpus needs nothing from the match, so it is read while the match loads.
   const corpusRead = getApiFixtureRange().catch(() => null);

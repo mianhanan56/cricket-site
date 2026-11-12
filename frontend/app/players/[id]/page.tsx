@@ -41,7 +41,8 @@ const loadPlayer = cache(async (id: string): Promise<PlayerProfile | null> =>
   })
 );
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
+export async function generateMetadata(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const player = await loadPlayer(params.id).catch(() => null);
   if (!player) return { title: 'Player' };
 
@@ -304,13 +305,12 @@ function rankingHref(r: PlayerRanking, gender: PlayerProfile['gender']): string 
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-export default async function PlayerPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { series?: string | string[]; format?: string | string[] };
+export default async function PlayerPage(props: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ series?: string | string[]; format?: string | string[] }>;
 }) {
+  const params = await props.params;
+  const searchParams = await props.searchParams;
   const profile = await loadPlayer(params.id);
   if (!profile) notFound();
   const player = await withFreshForm(profile);

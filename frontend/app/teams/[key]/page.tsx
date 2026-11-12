@@ -29,7 +29,8 @@ const REVALIDATE = 1800;
 // cache(): generateMetadata and the page share one read per request.
 const loadTeam = cache((key: string): Promise<TeamProfile | null> => getApiTeamProfile(key, { revalidate: REVALIDATE }));
 
-export async function generateMetadata({ params }: { params: { key: string } }) {
+export async function generateMetadata(props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   const profile = await loadTeam(params.key).catch(() => null);
   if (!profile) return { title: 'Team' };
 
@@ -148,7 +149,8 @@ function ResultRow({ match, teamKey }: { match: HeadToHeadMatch; teamKey: string
   );
 }
 
-export default async function TeamPage({ params }: { params: { key: string } }) {
+export default async function TeamPage(props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   const profile = await loadTeam(params.key);
   if (!profile) notFound();
 

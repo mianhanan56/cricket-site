@@ -11,7 +11,7 @@ Worker.
 
 | Layer      | Tech                                                |
 | ---------- | --------------------------------------------------- |
-| Frontend   | Next.js 14 (App Router) · TypeScript · SCSS Modules |
+| Frontend   | Next.js 15 (App Router) · TypeScript · SCSS Modules |
 | Data       | Cloudflare Workers fronting the upstream                |
 | Cache      | Cloudflare edge cache · Next.js ISR                 |
 | Live       | Durable Object WebSocket hub, HTTP polling fallback |
@@ -20,7 +20,7 @@ Worker.
 
 ```
 cricket/
-├── frontend/     Next.js 14 app (App Router) — the whole application
+├── frontend/     Next.js 15 app (App Router) — the whole application
 └── worker/       Worker fronting the upstream — every route the app reads, plus the live hub
 ```
 

@@ -14,7 +14,8 @@ import styles from './story.module.scss';
 // cache(): generateMetadata and the page share one read per request.
 const loadStory = cache(getNewsStory);
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
+export async function generateMetadata(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const story = await loadStory(params.slug).catch(() => null);
   if (!story) return { title: 'News' };
   const { article } = story;
@@ -29,7 +30,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   });
 }
 
-export default async function NewsStoryPage({ params }: { params: { slug: string } }) {
+export default async function NewsStoryPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const story = await loadStory(params.slug);
   if (!story) notFound();
   const { article, related } = story;

@@ -18,7 +18,8 @@ function readPage(raw: string | string[] | undefined): number | null {
 
 const pageHref = (page: number) => (page <= 1 ? '/news' : `/news?page=${page}`);
 
-export function generateMetadata({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
+export async function generateMetadata(props: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const searchParams = await props.searchParams;
   const page = readPage(searchParams?.page) ?? 1;
   return pageMeta({
     title: page > 1 ? `Cricket News — Page ${page}` : 'Cricket News',
@@ -27,11 +28,10 @@ export function generateMetadata({ searchParams }: { searchParams?: Record<strin
   });
 }
 
-export default async function NewsPageView({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
+export default async function NewsPageView(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const searchParams = await props.searchParams;
   const page = readPage(searchParams?.page);
   if (page === null) redirect('/news');
   if (page > NEWS_MAX_PAGE) notFound();
