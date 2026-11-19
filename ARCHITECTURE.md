@@ -36,7 +36,7 @@ cricket/
 │   ├── components/          Grouped by domain: automations, brand, fixtures, follow, home,
 │   │                        insights, layout, live, match, notifications, player, rankings,
 │   │                        search, series, ui
-│   ├── hooks/               useApiMatches (shared live poll), useQueryTabs (URL-synced tabs)
+│   ├── hooks/               useApiMatches (shared live poll), useQueryTabs (URL-synced tabs via history.replaceState — no server round-trip, so no scroll jump)
 │   ├── lib/                 Data client + pure domain logic (see "Modules")
 │   ├── data/                rankings.json — bundled fallback snapshot only
 │   ├── scss/                component.scss (tokens/mixins), global.scss (custom props, resets), main.scss
@@ -76,15 +76,13 @@ commands inside `frontend/` or `worker/`.
   only for unseen keys (unknown ones are remembered 5 min); the rest goes through the edge
   cache as usual. `X-Worker-Cache: MEMORY` when nothing went upstream. Needed because the edge
   cache keys the whole key set — one new key missed it for all (~1s upstream each).
-- Upstream hosts: `oc` (oc.crickapi.com), `stats`, `content` (commentary), `news`,
+- Upstream hosts: `oc` (oc.crickapi.com), `stats`, `content` (commentary),
   `php` (api.goscorer.com — live match list). Wrong host ⇒ "Invalid Host header".
 - Routes (TTL): `/matches/live` 2s · `/rankings` 1h · `/rankings/players` 1h · `/mapping` 6h ·
-  `/fixtures` 5m · `/news/topics` 15m · `/news/tagged` 15m · `/news/article` 15m · `/match/info` 5m · `/match/scorecard` 5s · `/match/commentary` 5s ·
+  `/fixtures` 5m · `/match/info` 5m · `/match/scorecard` 5s · `/match/commentary` 5s ·
   `/player/overview` 1h · `/player/matches` 1h · `/series/matches` 5m · `/series/table` 5m · `/series/squads` 1h ·
   `/series/overview` 30s · `/team/matches` 5m. Full detail and wire formats: `worker/README.md`
   and `worker/src/routes.ts`.
-- A route `path` may hold `{param}` placeholders (`/news/tagged` → `/api/articles/filter/{type}_{key}`);
-  `upstreamTarget` fills them and leaves the rest as the query. A param filled into a path needs a `pattern`.
 - **Response shapes** (`src/shape.ts`, `src/shapes/*.ts`, 2026-10-28): the upstream's single-letter
   keys are renamed to camelCase (`c1` → `headline`, `t1f` → `team1Key`) and unread fields dropped,
   before a body is cached (`store`) or pushed by the hub (`refresh`). Values are untouched — packed
@@ -112,7 +110,7 @@ commands inside `frontend/` or `worker/`.
 
 | Module | Responsibility |
 | --- | --- |
-| `api/` | The data client (split by domain 2026-10-23; import everything from `@/lib/api`, whose `index.ts` re-exports the public API). Layers, no runtime import cycles: `client` (`apiGet`, `WORKER_URL`, `FetchOpts`, `isRejectedRequest`, `inWidth` — at most N calls in flight) → `names` (the only door into the name cache: `resolveKeys`; `toTeam`, `seriesRef`, `venueOf`, crest/portrait URLs) → `codes` (schedule-row status/format/Hundred codes) → domains: `matches` (list + `toMatch`), `notes` (breaks/stumps/latched stoppages), `scorecard`, `matchInfo`, `commentary` + `feedNotes`, `schedule` (series rows, archived and `fx-` matches), `series`, `fixtures`, `player`, `playerMatches`, `standings`, `leaders`, `statTables`, `squads`, `attribution`, `teams`, `rankings`, `news`. |
+| `api/` | The data client (split by domain 2026-10-23; import everything from `@/lib/api`, whose `index.ts` re-exports the public API). Layers, no runtime import cycles: `client` (`apiGet`, `WORKER_URL`, `FetchOpts`, `isRejectedRequest`, `inWidth` — at most N calls in flight) → `names` (the only door into the name cache: `resolveKeys`; `toTeam`, `seriesRef`, `venueOf`, crest/portrait URLs) → `codes` (schedule-row status/format/Hundred codes) → domains: `matches` (list + `toMatch`), `notes` (breaks/stumps/latched stoppages), `scorecard`, `matchInfo`, `commentary` + `feedNotes`, `schedule` (series rows, archived and `fx-` matches), `series`, `fixtures`, `player`, `playerMatches`, `standings`, `leaders`, `statTables`, `squads`, `attribution`, `teams`, `rankings`. |
 | `headToHead.ts`, `venues.ts`, `venue.ts` | Records **derived** from the schedule corpus (`getApiFixtureRange`) — the upstream has no H2H/venue/team-results endpoint. |
 | `matchState.ts`, `liveScore.ts`, `innings.ts`, `situation.ts`, `crease.ts`, `overs.ts`, `balls.ts` | Match state machine, innings reading, one-line situation text, crease context, ball parsing. |
 | `momentum.ts`, `pulse.ts`, `telemetry.ts` | Worm graph points, live pulse readings, chase telemetry. |
@@ -123,7 +121,6 @@ commands inside `frontend/` or `worker/`.
 | `tabs.ts`, `queryParams.ts`, `uiState.ts`, `navigationDepth.ts` | URL tab vocabularies/validation, overlay state, back-button depth. |
 | `matchType.ts`, `featured.ts`, `fixtureDays.ts`, `datetime.ts`, `relativeTime.ts` | Classification, featured match choice, calendar keys, time formatting. |
 | `timeout.ts` | `withTimeout(ms, signal?)` — every client fetch's deadline (Worker 15s, search index 15s); links signals by hand where `AbortSignal.any` is missing. |
-| `news.ts` | the upstream news decode: `/news/topics` (latest, keyed team/series/player tags, excerpt) and `/news/tagged` (one team/series/player; headline cards, no excerpt or keyed tags). Images rewritten to the upstream's resizing CDN (`?type=mq` lead, `lq` thumbs). Articles link out to the upstream — the article body is not republished. `getTaggedNews` never throws. |
 | `text.ts`, `site.ts`, `seriesFormat.ts` | `ordinal`/`plural`; `SITE_URL` (env → Vercel production domain → localhost); `MATCH_FORMAT_LABEL` + series format phrases. |
 
 Shared vocabulary lives in one place each: `isChaseTight` (telemetry), `MATCH_FORMAT_LABEL`
@@ -162,9 +159,7 @@ is live). `LiveHero` is keyed by match, so `ScoreTicker` scrolls the picked pill
 mount. Then Your cricket band (only when following), the Matches board — Live and All are a flat
 `MatchGrid` of `MatchTile`s (All opens at 12 with a "Show all" button), Upcoming is `UpcomingRail`,
 Results is `ResultList` cards (no Player of the match: the match page has it, user ask) — then
-`FollowPrompt` (only when following nothing), Top stories (`TopStories`, a server component streamed
-under Suspense and passed into the client `HomeMatches` as its `news` prop; latest news page 1, a
-lead with the picture full bleed plus four cards), and Series in progress when nothing is live.
+`FollowPrompt` (only when following nothing), and Series in progress when nothing is live.
 Scoreboard pitch (`components/live/PitchView`, 2026-10-22, user ask): a side-on SVG pitch in the
 face-off's middle column on desktop (replacing "vs"), a strip under the sides below that. It plays
 the newest delivery when one arrives while it's on screen (keyed by innings/over/ball/extra, never
@@ -220,7 +215,7 @@ after the finish ("Tea Break" on a won Test), which reads as no result, and the 
 its slow list poll until a real one arrives.
 
 Server pages wrap any loader that `generateMetadata` also calls in React `cache()` (match, player,
-team, venue, series, series stats, news story): `apiGet` always passes an abort signal, and Next skips
+team, venue, series, series stats): `apiGet` always passes an abort signal, and Next skips
 its fetch dedupe for any fetch with one, so without it the read and decode ran twice per request.
 The match page starts the corpus read before awaiting the match; an archived match reads its card
 alongside `/match/info`; `getApiTeamSquad` reads roles alongside the squad list.
@@ -250,15 +245,10 @@ pair's stand a ball after the wicket.
 
 `/` home · `/fixtures` · `/matches/[id]` · `/series` · `/series/[id]` (tabs incl. stats) ·
 `/series/[id]/stats/[kind]` · `/teams` · `/teams/[key]` · `/venues/[key]` · `/players` ·
-`/players/[id]` · `/rankings` · `/news` (`?page=`) · `/search` · `/insights` · `/automations` · `/my` ·
+`/players/[id]` · `/rankings` · `/search` · `/insights` · `/automations` · `/my` ·
 `/api/search-index` · `sitemap.ts` · `robots.ts`. Data source and freshness per page: README table.
 
-News (`components/news/NewsList.tsx`): `/news` leads with the newest story, then rows; tag chips
-link to our team/series/player pages. Every card opens `/news/[slug]` (the upstream's slug, ending in the
-article id): headline, summary, cover, author, tags, related. No link to or mention of the upstream
-anywhere in the UI (user decision, 2026-10-07); the article body is not republished. `getNewsStory` reads `/news/article`, falling back
-to the first three latest-news pages; a mismatched slug redirects to the real one. Team and player pages stream a News section (`TaggedNews`,
-under `Suspense`, hidden when empty); the series page gets a News tab only when it has articles.
+News was removed from the site (user, 2026-11-19): no `/news` pages, nav/footer links, home Top stories, team/player/series news, news alerts or `NewsArticle` JSON-LD. Old `/news` URLs 404. The Worker's `/news/*` routes, the `news` host and the `{param}` path placeholders (only news used them) are gone too.
 
 ## Player series performance
 
@@ -368,10 +358,7 @@ into rules the engine runs beside the stored ones — a `FOLLOWED` rule (followe
 with the chosen moments, and a `PLAYER` 50/100 rule per followed player. They are built per render,
 never stored, ids start `follow:` (no `recordFire`), and deliver to the browser too. Settings
 (`pc.followAlerts`: on/off plus the moments switched off — Match start, Wickets, 50s and 100s, Close
-chase, Results, News) live in `components/follow/FollowAlertsPanel` on My Cricket and Alerts. News:
-the engine's `NewsWatcher` reads `/news/topics` page 1 (20) every 5 minutes and notifies stories
-under 3 hours old tagged with a followed team/series/player, at most 3 a read, each once
-(`claimEvent('news:<id>')`); notification kind `news`. The first Follow click asks for browser
+chase, Results) live in `components/follow/FollowAlertsPanel` on My Cricket and Alerts. The first Follow click asks for browser
 permission (`askOnFollow`, the click is the gesture). Still tab-open only: no push server.
 
 ## Match quiz
@@ -577,7 +564,7 @@ Audit and remediation 2026-11-11: `SECURITY_AUDIT_2026-11-11.md` (findings PC-01
 ## SEO
 
 - Every page's metadata goes through `pageMeta` (`lib/seo.ts`): title, description, canonical
-  (`alternates.canonical`, query-free except `/news?page=N`), full `openGraph` + `twitter`, optional
+  (`alternates.canonical`, query-free), full `openGraph` + `twitter`, optional
   `noindex`. In Next 14 a page-level `openGraph` replaces the root's wholesale, image included, so
   `pageMeta` always sets images (default `/opengraph-image`). `images: 'segment'` leaves them to the
   route's own `opengraph-image.tsx` (only `/matches/[id]` has one: `shareCard` in `lib/brandImage.tsx`).
@@ -592,8 +579,7 @@ Audit and remediation 2026-11-11: `SECURITY_AUDIT_2026-11-11.md` (findings PC-01
 - `robots.ts` disallows `/api/` and `/search` (internal search results); everything else relies on `noindex`.
 - Search Console / Bing verification tags come from `GOOGLE_SITE_VERIFICATION` and `BING_SITE_VERIFICATION`
   (root layout `verification`), so verifying is a Vercel env var, not a code change. OG locale is `en_GB`.
-- `noindex`: `/my`, `/automations`, `/search`, `/insights`, and news stories (`/news/[slug]`: headline and
-  summary only, thin next to the original; `/news` itself stays indexed).
+- `noindex`: `/my`, `/automations`, `/search`, `/insights`.
 - Rankings: each of the 20 ICC lists is its own indexable URL via the query (`lib/rankingsPages.ts`):
   `rankingsPath` drops defaults (and `category` on team lists) for the canonical, `rankingsMeta` names
   the list ("ICC Women's T20I Team Rankings"). Filter switching is unchanged.
@@ -607,12 +593,12 @@ Audit and remediation 2026-11-11: `SECURITY_AUDIT_2026-11-11.md` (findings PC-01
   new `createPersisted` key, cookie, analytics or third-party call.
 - JSON-LD (`lib/structuredData.ts`, rendered by `components/seo/JsonLd.tsx`): `Organization` +
   `WebSite` with `SearchAction` in the root layout; `SportsEvent` on matches; `Person`, `SportsTeam`,
-  `StadiumOrArena`, `NewsArticle`; `BreadcrumbList` on every detail page.
+  `StadiumOrArena`; `BreadcrumbList` on every detail page.
 - Home passes its server-read match list to `HomeMatches` → `useApiMatches({ initial })`, so the
   match links are in the HTML crawlers get.
 - `sitemap.ts` (hourly): live list + the 45-back/12-forward fixture corpus (real match keys only, no
   `fx-` previews), their series (+ most-runs/most-wickets stats once a match is played), teams and
-  venues, ICC-ranked players and teams, the 20 rankings lists, /about and /privacy. No news stories (noindex).
+  venues, ICC-ranked players and teams, the 20 rankings lists, /about and /privacy.
   Deduped; ≈1.85k URLs on 2026-11-10.
 
 ## Key design decisions
