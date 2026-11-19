@@ -4,9 +4,7 @@ import { pickParam } from '../lib/queryParams';
 import { HOME_DESCRIPTION, HOME_TITLE, pageMeta } from '../lib/seo';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '../lib/matchType';
 import { HOME_TAB_KEYS, type HomeTab } from '../lib/tabs';
-import { Suspense } from 'react';
 import HomeMatches from '../components/home/HomeMatches';
-import TopStories, { TopStoriesSkeleton } from '../components/home/TopStories';
 import styles from './page.module.scss';
 
 export const metadata = pageMeta({ title: HOME_TITLE, absoluteTitle: true, description: HOME_DESCRIPTION, path: '/' });
@@ -30,11 +28,6 @@ export default async function HomePage(props: {
         initialTab={tab}
         initialType={type}
         initialMatches={initialMatches}
-        news={
-          <Suspense fallback={<TopStoriesSkeleton />}>
-            <TopStories />
-          </Suspense>
-        }
       />
     </div>
   );

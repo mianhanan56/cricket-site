@@ -22,7 +22,6 @@ import { SeriesPerformanceSkeleton } from '@/components/player/SeriesPerformance
 import FormTabs from '@/components/player/FormTabs';
 import { isSeriesFormatKey, seriesFormatOptions } from '@/lib/playerSeries';
 import { SectionHead } from '@/components/ui/Section';
-import { TaggedNews } from '@/components/news/NewsList';
 import { RANKINGS_FORMAT_KEYS, type RankingsFormat } from '@/lib/tabs';
 import styles from './player.module.scss';
 import { pageMeta } from '@/lib/seo';
@@ -502,10 +501,6 @@ export default async function PlayerPage(props: {
           )}
         </aside>
       </div>
-
-      <Suspense fallback={null}>
-        <TaggedNews kind="player" id={player.id} className={styles.news} />
-      </Suspense>
     </div>
   );
 }

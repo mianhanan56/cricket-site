@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Match } from '@/types';
 import { useApiMatches } from '@/hooks/useApiMatches';
 import { useFixturesAhead } from '@/hooks/useFixturesAhead';
@@ -48,11 +48,9 @@ export interface HomeMatchesProps {
   initialType: MatchTypeKey;
   /** Server-rendered seed for the live poll. */
   initialMatches?: Match[];
-  /** Streamed from the server; sits under the match board. */
-  news?: ReactNode;
 }
 
-export default function HomeMatches({ initialTab, initialType, initialMatches, news }: HomeMatchesProps) {
+export default function HomeMatches({ initialTab, initialType, initialMatches }: HomeMatchesProps) {
   const { matches, isLoading, error, refresh, isRefreshing } = useApiMatches({ initial: initialMatches });
   const follows = useFollows();
   const [{ tab: picked, type: typeKey }, setQuery] = useQueryTabs(
@@ -256,8 +254,6 @@ export default function HomeMatches({ initialTab, initialType, initialMatches, n
       <FollowPrompt />
 
       <QuizCard matches={matches} followed={followedTeams} />
-
-      {news}
 
       {seriesTotals && seriesTotals.length > 0 && (
         <section className={styles.board} aria-labelledby="series-title">

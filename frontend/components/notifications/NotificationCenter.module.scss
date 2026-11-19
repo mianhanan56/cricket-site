@@ -224,11 +224,6 @@
   border-radius: 2px;
 }
 
-.news {
-  background: $text;
-  box-shadow: 0 0 0 3px $line;
-}
-
 .itemBody {
   display: flex;
   flex-direction: column;
@@ -260,10 +255,6 @@
 
 .resultText {
   color: $text-2;
-}
-
-.newsText {
-  color: $text;
 }
 
 .time {

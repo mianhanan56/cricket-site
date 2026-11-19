@@ -14,7 +14,6 @@ export const PRIMARY_NAV: NavLink[] = [
   { href: '/rankings', label: 'Rankings', icon: 'rankings' },
   { href: '/fixtures', label: 'Fixtures', icon: 'calendar' },
   { href: '/teams', label: 'Teams', icon: 'teams' },
-  { href: '/news', label: 'News', icon: 'news' },
 ];
 
 export function isActive(pathname: string, link: NavLink): boolean {

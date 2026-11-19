@@ -1,4 +1,4 @@
-import type { ITeam, Match, NewsArticle, PlayerProfile } from '@/types';
+import type { ITeam, Match, PlayerProfile } from '@/types';
 import { SITE_URL } from './site';
 import { HOME_DESCRIPTION, SITE_NAME } from './seo';
 import { VENUE_TBD } from './venue';
@@ -125,20 +125,5 @@ export function place(id: string, name: string): Thing {
     '@type': 'StadiumOrArena',
     name,
     url: abs(`/venues/${id}`),
-  };
-}
-
-export function newsArticle(article: NewsArticle): Thing {
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'NewsArticle',
-    headline: article.title,
-    url: abs(`/news/${article.slug}`),
-    datePublished: article.publishedAt,
-    ...(article.excerpt ? { description: article.excerpt } : {}),
-    ...(article.image ? { image: [article.image] } : {}),
-    ...(article.author ? { author: { '@type': 'Person', name: article.author } } : {}),
-    publisher: { '@id': ORG_ID },
-    ...(article.tags.length ? { keywords: article.tags.map((t) => t.name).join(', ') } : {}),
   };
 }

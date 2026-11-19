@@ -18,7 +18,6 @@ const DOCK: NavLink[] = [
 const MORE: NavLink[] = [
   { href: '/teams', label: 'Teams', icon: 'teams' },
   { href: '/players', label: 'Players', icon: 'player' },
-  { href: '/news', label: 'News', icon: 'news' },
   { href: '/my', label: 'My Cricket', icon: 'star' },
   { href: '/automations', label: 'Alerts', icon: 'bolt' },
 ];

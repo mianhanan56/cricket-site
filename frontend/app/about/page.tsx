@@ -19,7 +19,6 @@ const SECTIONS = [
   { href: '/rankings', title: 'ICC rankings', body: 'Team, batting, bowling and all-rounder lists for every format.' },
   { href: '/teams', title: 'Teams', body: 'Form, fixtures, results and squads for every ranked side.' },
   { href: '/players', title: 'Players', body: 'Career numbers, recent form and series-by-series performance.' },
-  { href: '/news', title: 'News', body: 'Squad announcements, previews and reaction.' },
   { href: '/automations', title: 'Alerts', body: 'Wickets, milestones and close finishes from the matches you follow.' },
 ];
 

@@ -64,13 +64,12 @@ function matchEntries(matches: Match[]): Entry[] {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: Entry[] = [
     entry('', 1, { changeFrequency: 'always' }),
-    ...['/fixtures', '/series', '/teams', '/players', '/news'].map((p) => entry(p, 0.8, { changeFrequency: 'daily' })),
+    ...['/fixtures', '/series', '/teams', '/players'].map((p) => entry(p, 0.8, { changeFrequency: 'daily' })),
     ...allRankingsQueries().map((q) => entry(rankingsPath(q), 0.7, { changeFrequency: 'weekly' })),
     ...['/about', '/privacy'].map((p) => entry(p, 0.3, { changeFrequency: 'yearly' })),
   ];
 
   // Each source is optional: a failed read drops its URLs, never the whole sitemap.
-  // News stories are noindex (headline and summary only), so they stay out.
   const [live, corpus, rankings] = await Promise.all([
     getApiMatchList({ revalidate: 3600 }).catch(() => [] as Match[]),
     getApiFixtureRange().catch(() => [] as Match[]),

@@ -27,5 +27,3 @@ export { getApiMatchSeriesSquads, getApiPlayerCatalogue, getApiSeriesSquadTeams,
 export type { PlayerCatalogueRow } from './squads';
 export { attributeResult } from './attribution';
 export { getApiTeamProfile } from './teams';
-export { getApiNewsTopics, getApiNewsArticle, getApiTaggedNews } from './news';
-export type { ApiNewsArticle, ApiNewsTopics, ApiTaggedNews } from './news';

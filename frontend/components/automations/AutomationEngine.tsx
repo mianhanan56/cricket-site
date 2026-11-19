@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Match } from '@/types';
 import { HIDDEN_INTERVAL_MS, useApiMatches } from '@/hooks/useApiMatches';
-import { feedFromRows, getApiMatchFeed, getApiNewsTopics, type ApiFeedRow } from '@/lib/api';
-import { newsFromTopics } from '@/lib/news';
+import { feedFromRows, getApiMatchFeed, type ApiFeedRow } from '@/lib/api';
 import { isTopicLive, subscribeLive } from '@/lib/live/socket';
 import {
   feedFirings,
@@ -19,8 +18,8 @@ import {
   type ScopeContext,
 } from '@/lib/automations';
 import { claimEvent, pushNotification } from '@/lib/notifications';
-import { followCount, useFollows, type Follows } from '@/lib/follows';
-import { followRules, followedNews, isFollowRule, momentOn, useFollowAlerts } from '@/lib/followAlerts';
+import { useFollows } from '@/lib/follows';
+import { followRules, isFollowRule, useFollowAlerts } from '@/lib/followAlerts';
 import { useNotificationPermission } from './useNotificationPermission';
 
 const LIST_INTERVAL_MS = 15_000;
@@ -31,9 +30,6 @@ const MAX_FEED_MATCHES = 6;
 // A tab frozen, asleep or parked longer than this saw nothing happen live; what
 // changed meanwhile is history, not an alert.
 const STALE_GAP_MS = 5 * 60_000;
-// The upstream's news list is cached for 15 minutes at the edge; reading it more often finds nothing new.
-const NEWS_INTERVAL_MS = 5 * 60_000;
-const NEWS_PER_READ = 3;
 
 const isHidden = () => document.visibilityState === 'hidden';
 
@@ -82,73 +78,14 @@ export default function AutomationEngine() {
       ),
     [automations, follows, prefs]
   );
-  const news = momentOn(prefs, 'news') && followCount(follows) > 0;
-  const held = useEngineLock(active.length > 0 || news);
+  const held = useEngineLock(active.length > 0);
 
   const [permission] = useNotificationPermission();
   // A hidden tab keeps checking only when a browser notification is waiting on it.
-  const background = permission === 'granted' && (news || active.some((a) => a.action.system));
+  const background = permission === 'granted' && active.some((a) => a.action.system);
 
   if (!held) return null;
-  return (
-    <>
-      {active.length > 0 && <Runner rules={active} background={background} />}
-      {news && <NewsWatcher follows={follows} background={background} />}
-    </>
-  );
-}
-
-/** New stories tagged with anything the reader follows, a few at a time, each once across tabs. */
-function NewsWatcher({ follows, background }: { follows: Follows; background: boolean }) {
-  const followsRef = useRef(follows);
-  followsRef.current = follows;
-  const backgroundRef = useRef(background);
-  backgroundRef.current = background;
-
-  useEffect(() => {
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    let readAt = 0;
-
-    const run = async () => {
-      if (timer) clearTimeout(timer);
-      if (!isHidden() || backgroundRef.current) {
-        readAt = Date.now();
-        try {
-          const { articles } = newsFromTopics(await getApiNewsTopics(1, 20), 1);
-          if (cancelled) return;
-          let sent = 0;
-          for (const { article, about } of followedNews(articles, followsRef.current, Date.now())) {
-            if (sent === NEWS_PER_READ) break;
-            if (!claimEvent(`news:${article.id}`)) continue;
-            sent += 1;
-            pushNotification({
-              kind: 'news',
-              title: article.title,
-              body: about.join(' · '),
-              href: `/news/${article.slug}`,
-              eventKey: `news:${article.id}`,
-              system: true,
-            });
-          }
-        } catch {
-          // Try again next tick.
-        }
-      }
-      if (!cancelled) timer = setTimeout(run, NEWS_INTERVAL_MS);
-    };
-
-    const onVisible = () => !isHidden() && Date.now() - readAt > NEWS_INTERVAL_MS && void run();
-    document.addEventListener('visibilitychange', onVisible);
-    void run();
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, []);
-
-  return null;
+  return active.length > 0 ? <Runner rules={active} background={background} /> : null;
 }
 
 function Runner({ rules, background }: { rules: Automation[]; background: boolean }) {

@@ -1201,35 +1201,6 @@ export interface TeamProfile {
   squadSeries: { id: string; name: string } | null;
 }
 
-export type NewsTagKind = 'team' | 'series' | 'player';
-
-export interface NewsTag {
-  kind: NewsTagKind;
-  /** The upstream key — the same id our team, series and player routes take. */
-  id: string;
-  name: string;
-}
-
-export interface NewsArticle {
-  id: string;
-  /** Our address for it: /news/<slug>. */
-  slug: string;
-  title: string;
-  excerpt: string | null;
-  image: string | null;
-  imageCaption: string | null;
-  publishedAt: string;
-  author: string | null;
-  category: string | null;
-  tags: NewsTag[];
-}
-
-export interface NewsPage {
-  articles: NewsArticle[];
-  page: number;
-  hasNext: boolean;
-}
-
 /** One multiple-choice question about a finished match, written from its card. */
 export interface QuizQuestion {
   question: string;

@@ -29,7 +29,6 @@ export const KIND_LABEL: Record<NotificationKind, string> = {
   moment: 'Moment',
   alert: 'Alert',
   result: 'Result',
-  news: 'News',
 };
 
 export default function NotificationCenter() {
@@ -146,10 +145,10 @@ function Panel() {
                 title={filter === 'unread' ? 'You’re all caught up' : 'No notifications yet'}
                 body={
                   following
-                    ? 'Matches and news from what you follow land here.'
+                    ? 'Matches from what you follow land here.'
                     : automations.length
                       ? 'Your alerts land here as matches unfold.'
-                      : 'Follow a team or series and PulseCrease will tell you when its matches start, wickets fall and news breaks.'
+                      : 'Follow a team or series and PulseCrease will tell you when its matches start, wickets fall and results come in.'
                 }
                 action={following || automations.length ? undefined : { label: 'Pick your teams', href: '/my' }}
               />

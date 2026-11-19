@@ -14,7 +14,6 @@ import {
 } from '../../../lib/api';
 import { pickParam } from '../../../lib/queryParams';
 import { seriesFormatPhrase } from '../../../lib/seriesFormat';
-import { getTaggedNews } from '../../../lib/news';
 import PointsTable from '../../../components/series/PointsTable';
 import { rankedLeaders } from '../../../components/series/SeriesLeaders';
 import { LiveLeaderFigures, LiveLeadersBoard } from '../../../components/series/LiveLeaders';
@@ -28,7 +27,6 @@ import SeriesMatchStrip from '../../../components/series/SeriesMatchStrip';
 import SeriesMilestones, { MilestonesSkeleton } from '../../../components/series/SeriesMilestones';
 import SeriesSquads, { SquadsSkeleton } from '../../../components/series/SeriesSquads';
 import FollowButton from '../../../components/follow/FollowButton';
-import { NewsGrid } from '../../../components/news/NewsList';
 import EmptyState from '../../../components/ui/EmptyState';
 import BackButton from '../../../components/ui/BackButton';
 import { PageHeader, SectionHead } from '../../../components/ui/Section';
@@ -42,7 +40,7 @@ import { breadcrumbs } from '@/lib/structuredData';
 const REVALIDATE = 300;
 const LIVE_REVALIDATE = 15;
 
-const TAB_KEYS = ['matches', 'table', 'stats', 'squads', 'news'] as const;
+const TAB_KEYS = ['matches', 'table', 'stats', 'squads'] as const;
 type TabKey = (typeof TAB_KEYS)[number];
 
 const UPCOMING_FIRST = 10;
@@ -101,7 +99,7 @@ export default async function SeriesDetailPage(props: {
   const searchParams = await props.searchParams;
   const feedRead = getApiMatchList({ revalidate: LIVE_REVALIDATE }).catch(() => [] as Match[]);
   let scheduleError: unknown = null;
-  const [schedule, feed, table, leaders, news, squadTeams] = await Promise.all([
+  const [schedule, feed, table, leaders, squadTeams] = await Promise.all([
     readSchedule(params.id).catch((err) => {
       scheduleError = err;
       return null;
@@ -115,7 +113,6 @@ export default async function SeriesDetailPage(props: {
         revalidate: list.some((m) => m.series.id === params.id && m.status === 'LIVE') ? LIVE_REVALIDATE : REVALIDATE,
       }).catch(() => null)
     ),
-    getTaggedNews('series', params.id),
     getApiSeriesSquadTeams(params.id, { revalidate: 3600 }),
   ]);
 
@@ -159,7 +156,6 @@ export default async function SeriesDetailPage(props: {
     ...(table.length > 0 ? [{ key: 'table', label: 'Points table', count: table.length > 1 ? table.length : null }] : []),
     ...(shownLeaders.length > 0 ? [{ key: 'stats', label: 'Top performers' }] : []),
     ...(squadTeams.length > 0 ? [{ key: 'squads', label: 'Squads' }] : []),
-    ...(news.length > 0 ? [{ key: 'news', label: 'News' }] : []),
   ];
 
   // A tab this series has no section for falls back rather than 404-ing.
@@ -297,13 +293,6 @@ export default async function SeriesDetailPage(props: {
           <Suspense key={pickedTeam} fallback={<SquadsSkeleton />}>
             <SeriesSquads seriesId={series.id} teams={squadTeams} selected={pickedTeam} />
           </Suspense>
-        </section>
-      )}
-
-      {tab === 'news' && (
-        <section>
-          <SectionHead title="News" count={news.length} level={3} />
-          <NewsGrid articles={news} />
         </section>
       )}
     </div>

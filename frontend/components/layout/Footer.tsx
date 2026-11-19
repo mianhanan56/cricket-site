@@ -19,7 +19,6 @@ const COLUMNS: Array<{ title: string; links: Array<{ href: string; label: string
       { href: '/rankings', label: 'Rankings', docked: true },
       { href: '/teams', label: 'Teams' },
       { href: '/players', label: 'Players' },
-      { href: '/news', label: 'News' },
     ],
   },
   {

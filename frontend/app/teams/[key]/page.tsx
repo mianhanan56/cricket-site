@@ -1,4 +1,4 @@
-import { Suspense, cache } from 'react';
+import { cache } from 'react';
 import Link from 'next/link';
 import { ON_INTENT } from '@/lib/intentPrefetch';
 import { notFound } from 'next/navigation';
@@ -13,7 +13,6 @@ import { SectionHead } from '../../../components/ui/Section';
 import TeamUpcoming from './TeamUpcoming';
 import TeamResults from './TeamResults';
 import FollowButton from '../../../components/follow/FollowButton';
-import { TaggedNews } from '../../../components/news/NewsList';
 import styles from './team.module.scss';
 import { venueText } from '@/lib/venue';
 import { meetingFormat } from '@/lib/seriesFormat';
@@ -262,10 +261,6 @@ export default async function TeamPage(props: { params: Promise<{ key: string }>
           </div>
         </section>
       )}
-
-      <Suspense fallback={null}>
-        <TaggedNews kind="team" id={team.id} className={styles.section} />
-      </Suspense>
 
       {!upcoming.length && !recent.length && !squad.length && (
         <EmptyState
