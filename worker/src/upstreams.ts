@@ -6,7 +6,7 @@
 //   url           -> the default base; most endpoints live here
 //   newUrl        -> stats / detailed rankings
 //   commentaryUrl -> ball-by-ball feeds
-//   newsUrl       -> editorial content
+//   newsUrl       -> editorial content (not proxied: the site has no news)
 //   phpBaseUrl    -> the legacy PHP tier; the live match list lives here
 //
 // Deliberately absent: cricket-exchange.firebaseio.com. The upstream streams live
@@ -19,7 +19,6 @@ export const UPSTREAMS = {
   oc: 'https://oc.crickapi.com',
   stats: 'https://stats.crickapi.com',
   content: 'https://content.crickapi.com',
-  news: 'https://crexweb.crickapi.com',
   php: 'https://api.goscorer.com/api/v3',
 } as const;
 

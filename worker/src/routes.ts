@@ -59,7 +59,7 @@ export interface RouteDef {
   match: string;
   /** Which host in UPSTREAMS serves it. */
   base: UpstreamName;
-  /** Path appended to the upstream base. `{name}` is filled from that param, which then leaves the query. */
+  /** Path appended to the upstream base. */
   path: string;
   /** How the upstream wants to be called. */
   method: 'GET' | 'POST';
@@ -467,52 +467,6 @@ export const ROUTES: RouteDef[] = [
     buildBody: (p) => ({ pf: p.key, ft: p.ft, bb: p.bb, page: p.page }),
     note: "A player's innings by series: /player/matches?key=1IG&ft=3&bb=1&page=0",
   },
-  {
-    match: '/news/topics',
-    base: 'news',
-    path: '/api/articlesOC/topics',
-    method: 'GET',
-    ttl: 900,
-    params: {
-      // Bounded for the same reason /fixtures is: an unbounded page number is an
-      // unbounded number of cache entries, and one caller walking it is enough
-      // to fill the edge with pages nobody will read again. Articles are read
-      // from the front; sixty pages is far past where anyone stops.
-      page: { type: 'int', default: 1, min: 1, max: 60 },
-      // Five is what the upstream sends when no limit is asked for.
-      limit: { type: 'int', default: 5, min: 1, max: 20 },
-    },
-  },
-  {
-    // Articles tagged with one series (s), team (t) or player (p) — what the upstream's
-    // own team/series News tabs call. Headline cards only, no article body.
-    match: '/news/tagged',
-    base: 'news',
-    path: '/api/articles/filter/{type}_{key}',
-    method: 'GET',
-    ttl: 900,
-    params: {
-      type: { type: 'string', enum: ['s', 't', 'p'], required: true },
-      key: { type: 'string', required: true, pattern: KEY },
-      page: { type: 'int', default: 1, min: 1, max: 30 },
-      limit: { type: 'int', default: 12, min: 1, max: 20 },
-      content_lang: { type: 'string', enum: ['en'], default: 'en' },
-    },
-    note: 'News tagged with a team: /news/tagged?type=t&key=O',
-  },
-  {
-    // One article — headline, summary, cover, tags — plus the upstream's own "more news" and "more from the author".
-    match: '/news/article',
-    base: 'news',
-    path: '/api/articlesoc/{id}',
-    method: 'GET',
-    ttl: 900,
-    params: {
-      id: { type: 'string', required: true, pattern: /^[0-9a-f]{24}$/ },
-      content_lang: { type: 'string', enum: ['en'], default: 'en' },
-    },
-    note: 'One article by id: /news/article?id=6ac50f91b73383ab29c20a24',
-  },
 ];
 
 export type ParamValue = string | number | string[];
@@ -599,16 +553,10 @@ function canonicalQuery(params: Record<string, ParamValue>): string {
   return qs.toString();
 }
 
-/** The upstream path with its `{name}` placeholders filled, and the query built from the params left over. */
+/** The upstream path and the query built from the params. */
 export function upstreamTarget(
   route: RouteDef,
   params: Record<string, ParamValue>
 ): { path: string; query: string } {
-  const rest = { ...params };
-  const path = route.path.replace(/\{(\w+)\}/g, (_, name: string) => {
-    const value = rest[name];
-    delete rest[name];
-    return encodeURIComponent(String(value));
-  });
-  return { path, query: canonicalQuery(rest) };
+  return { path: route.path, query: canonicalQuery(params) };
 }

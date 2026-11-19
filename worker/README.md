@@ -36,7 +36,6 @@ Angular service calls it — the names below are the upstream's own config keys.
 | `oc` | `oc.crickapi.com` | the default base — rankings, mapping, series, player, team |
 | `stats` | `stats.crickapi.com` | stats and detailed rankings |
 | `content` | `content.crickapi.com` | ball-by-ball commentary |
-| `news` | `crexweb.crickapi.com` | editorial content |
 | `php` | `api.goscorer.com/api/v3` | legacy PHP tier — the live match list |
 
 Guessing wrong gets you `{"error":"Invalid Host header"}`, which is the single
@@ -54,9 +53,6 @@ cacheable and the frontend stays simple.
 | `/rankings` | `POST oc /ranking/rankingFront` | 1h | `category` 0=test 1=odi 2=t20, `gender` 0=men 1=women, `play` |
 | `/mapping` | `POST oc /mapping/getHomeMapData` | 6h | `t` teams, `v` venues, `s` series, `p` players, `u` umpires — comma-separated keys |
 | `/fixtures` | `POST stats /fixture/getFixture` | 5m | `wise` 1=date 2=series 3=team, `page` (negative = past), `gender`, `format`, `level` — see below |
-| `/news/topics` | `GET news /api/articlesOC/topics` | 15m | `page`, `limit` (default 5, max 20) — latest articles with full body, keyed tags |
-| `/news/article` | `GET news /api/articlesoc/{id}` | 15m | `id` (24 hex) — one article (headline, cover, tags) plus `moreNews` and `moreFromAuthor` |
-| `/news/tagged` | `GET news /api/articles/filter/{type}_{key}` | 15m | `type` s/t/p, `key` f_key, `page`, `limit` (default 12) — headline cards for one series/team/player |
 | `/rankings/players` | `POST oc /ranking/getRanking` | 1h | `category`, `play`, `type`, `gender`, `page` — **strings**, see below |
 | `/match/info` | `GET php /getIV4` | 5m | `key` — match f_key. Pre-match squads, captain/keeper, broadcast, weather |
 | `/player/overview` | `POST stats /player/getPlayerOverview` | 1h | `key` — player f_key. Profile, career stats, recent form — see below |
@@ -477,12 +473,6 @@ And a `lastDocId` that is not a feed id (we send `1`) returns the **whole** feed
 instead of a page — one innings in one request (~125 KB T20, ~375 KB for 100 overs). Without
 `inning` that is the whole match (~1 MB for four innings). A per-over filter (`inning`+`overNumber`)
 exists in the upstream's bundle but is ignored by the API.
-
-**`/news/topics` upstream carries every article's full HTML body** — ~10 KB an article (120 KB at
-`limit=12`), ~2.5s cold. Nothing reads it, so the shape drops it; the call is still slow cold, and
-the frontend only makes it server-side, behind the 15-minute TTL.
-`/news/tagged` is headline cards only (~13 KB for 12). The upstream also has `/api/articlesoc/matchId/{id}`
-(numeric match id, ~1.3 MB) and `/api/home/{section}` (section 0 = news); neither is wired.
 
 **The upstream's format is obfuscated.** It ships single-letter keys — `t1Sname`,
 `wp`, `flb`, `dt_id`. The Worker renames the keys (see [Response shapes](#response-shapes));

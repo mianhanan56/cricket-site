@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { matchRoute, ParamError, readParams, ROUTES, upstreamTarget } from '../src/routes';
+import { matchRoute, ParamError, readParams, ROUTES } from '../src/routes';
 
 const read = (path: string, query: string) => {
   const route = matchRoute(path);
@@ -25,7 +25,7 @@ test('keys as the upstream issues them pass', () => {
 });
 
 test('a keyed route refuses anything that is not a short alphanumeric key', () => {
-  const keyed = ROUTES.filter((r) => r.params?.key && r.match !== '/news/tagged').map((r) => r.match);
+  const keyed = ROUTES.filter((r) => r.params?.key).map((r) => r.match);
   assert.ok(keyed.length >= 9);
   for (const path of keyed) {
     for (const bad of ['A'.repeat(13), 'AUDIT KEY', 'a.b', '^2MT', "1' OR '1'='1", '../x', 'a/b', '']) {
@@ -78,10 +78,3 @@ test('an error names the param, never the value sent', () => {
   }
 });
 
-test('a param filled into the upstream path is encoded and leaves the query', () => {
-  const route = matchRoute('/news/tagged');
-  assert.ok(route);
-  const target = upstreamTarget(route, readParams(route, new URLSearchParams('type=t&key=O')));
-  assert.equal(target.path, '/api/articles/filter/t_O');
-  assert.ok(!target.query.includes('key='));
-});
