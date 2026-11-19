@@ -152,19 +152,6 @@
   min-width: 0;
 }
 
-.captain {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: $r-xs;
-  font-family: $font-mono;
-  font-size: 10px;
-  font-weight: 700;
-  color: $signal-ink;
-  background: $signal;
-}
-
 .role {
   @include eyebrow;
   flex-shrink: 0;

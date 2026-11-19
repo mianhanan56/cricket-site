@@ -58,6 +58,7 @@ tbody td.batter {
 // Outranks `td.batter > *`, which blocks every child.
 tbody td > .nameRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: $space-1;
 }

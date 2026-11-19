@@ -16,6 +16,7 @@ import Skeleton, { staggerRows } from '../ui/Skeleton';
 import TeamBadge from '../ui/TeamBadge';
 import HeadToHeadBlock from './HeadToHead';
 import PlayerLink from './PlayerLink';
+import PlayerMarks from './PlayerMarks';
 import WatchLinks from './WatchLinks';
 import { broadcasters } from '@/lib/broadcasters';
 import { ordinal } from '@/lib/text';
@@ -85,11 +86,7 @@ function PlayerList({ players, className = '' }: { players: SquadPlayer[]; class
         <li key={p.id} className={styles.squadPlayer}>
           <span className={styles.squadName}>
             <PlayerLink id={p.id} name={p.name} />
-            {p.isCaptain && (
-              <abbr className={styles.captain} title="Captain">
-                C
-              </abbr>
-            )}
+            <PlayerMarks captain={p.isCaptain} />
           </span>
           {p.role && <span className={`${styles.role} ${ROLE_CLASS[p.role] ?? ''}`}>{ROLE_LABELS[p.role]}</span>}
         </li>

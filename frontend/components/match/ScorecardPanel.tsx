@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { BatsmanLine, BowlerLine, ExtrasBreakdown, InningsScore, Match, MatchSquads } from '@/types';
 import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER, ballsFrom, formatProgressShort } from '@/lib/overs';
 import { atCrease, dismissalOf } from '@/lib/crease';
@@ -8,6 +8,7 @@ import TableScroll from '../ui/TableScroll';
 import Segmented from '../ui/Segmented';
 import PlayerLink from './PlayerLink';
 import PlayerBallsButton from './PlayerBalls';
+import PlayerMarks, { roleMarksFrom } from './PlayerMarks';
 import { ordinal } from '@/lib/text';
 import { BowlingSkeleton, ScorecardSkeleton } from './MatchDetailSkeleton';
 import mc from './matchCenter.module.scss';
@@ -53,6 +54,7 @@ export default function ScorecardPanel({
   // Follows the innings in progress (the upstream lists the side still to bat as an empty innings) until
   // the reader picks one.
   const [picked, setPicked] = useState<number | null>(null);
+  const roleMarks = useMemo(() => roleMarksFrom(squads), [squads]);
   const inPlay = innings.findIndex((i) => i.phase === 'CURRENT');
   const lastBatted = innings.map((i) => !i.notStarted).lastIndexOf(true);
   const selected = Math.min(picked ?? (inPlay >= 0 ? inPlay : Math.max(0, lastBatted)), Math.max(0, innings.length - 1));
@@ -150,6 +152,7 @@ export default function ScorecardPanel({
                           <PlayerLink id={b.playerId} name={b.name} className={styles.batterName}>
                             {striking && b.playerId === strikerId && <span className={styles.notOut}>*</span>}
                           </PlayerLink>
+                          <PlayerMarks {...roleMarks.get(b.playerId)} />
                           {ballFeed && b.balls > 0 && (
                             <PlayerBallsButton
                               {...ballsProps}
@@ -213,7 +216,10 @@ export default function ScorecardPanel({
                 {yetToBat.map((p) => (
                   <tr key={p.playerId}>
                     <td className={`${mc.left} ${styles.batter}`}>
-                      <PlayerLink id={p.playerId} name={p.name} className={styles.batterName} />
+                      <span className={styles.nameRow}>
+                        <PlayerLink id={p.playerId} name={p.name} className={styles.batterName} />
+                        <PlayerMarks {...roleMarks.get(p.playerId)} />
+                      </span>
                       <span className={styles.dismissal}>Yet to bat</span>
                     </td>
                     {[0, 1, 2, 3, 4].map((c) => (
@@ -240,6 +246,7 @@ export default function ScorecardPanel({
                 <li key={p.playerId}>
                   <span className={styles.ytbNum}>{batting.length + i + 1}</span>
                   <PlayerLink id={p.playerId} name={p.name} />
+                  <PlayerMarks {...roleMarks.get(p.playerId)} />
                 </li>
               ))}
             </ol>
@@ -269,6 +276,7 @@ export default function ScorecardPanel({
                       <td className={mc.left}>
                         <span className={styles.nameRow}>
                           <PlayerLink id={b.playerId} name={b.name} className={styles.batterName} />
+                          <PlayerMarks {...roleMarks.get(b.playerId)} />
                           {ballFeed && ballsFrom(b.overs, perOver) > 0 && (
                             <PlayerBallsButton
                               {...ballsProps}

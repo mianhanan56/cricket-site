@@ -1,0 +1,30 @@
+@use 'component' as *;
+
+.marks {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  flex-shrink: 0;
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding-inline: 6px;
+  border-radius: $r-xs;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.captain {
+  color: $signal-ink;
+  background: $signal;
+}
+
+.keeper {
+  color: $text-2;
+  background: $surface-3;
+}
