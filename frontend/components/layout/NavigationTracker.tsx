@@ -13,7 +13,7 @@ import { pushNavigation } from '@/lib/navigationDepth';
  * undercount everything before it.
  *
  * Watches the pathname only, deliberately. The query-string filters in this app
- * navigate with `router.replace`, which does not add a history entry, so
+ * write the URL with `history.replaceState`, which adds no history entry, so
  * counting them would claim a Back target that is not there. Missing one errs
  * toward the fallback link, which is a page on this site either way.
  */

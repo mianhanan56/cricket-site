@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 
 /**
  * Tab / filter state that lives in the URL, so a filtered view is linkable and
@@ -17,8 +17,12 @@ import { usePathname, useRouter } from 'next/navigation';
  *     than the render waiting on a navigation. Switching tabs stays instant on
  *     data the client already holds; the URL catches up in the same tick.
  *
- * `replace`, not `push`: flicking through four tabs should not leave four
- * entries for the reader to back out of.
+ * The URL is written with history.replaceState, not router.replace: a router
+ * navigation re-renders the page on the server and the route's loading.tsx
+ * swaps in a skeleton meanwhile, which collapses the page and throws the
+ * reader back to the top. Every caller filters client-held data, so no server
+ * round-trip is needed. Replace, not push: flicking through four tabs should
+ * not leave four entries for the reader to back out of.
  *
  * @param initial values from the URL on this render (validated server-side)
  * @param defaults values that are the page's default view, and so are dropped
@@ -28,7 +32,6 @@ export function useQueryTabs<S extends Record<string, string>>(
   initial: S,
   defaults?: Partial<S>
 ): [S, (patch: Partial<S>) => void] {
-  const router = useRouter();
   const pathname = usePathname();
   const [state, setState] = useState<S>(initial);
 
@@ -52,10 +55,10 @@ export function useQueryTabs<S extends Record<string, string>>(
         else next.set(key, value);
       }
       const qs = next.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      window.history.replaceState(null, '', qs ? `${pathname}?${qs}` : pathname);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pathname, router, JSON.stringify(defaults ?? {})]
+    [pathname, JSON.stringify(defaults ?? {})]
   );
 
   return [state, set];

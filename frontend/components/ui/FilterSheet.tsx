@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { lockScroll } from '@/lib/scrollLock';
 import Icon from './Icon';
 import styles from './FilterSheet.module.scss';
 
@@ -55,7 +56,7 @@ export default function FilterSheet<V extends Values>({
   };
   const close = () => {
     setOpen(false);
-    triggerRef.current?.focus();
+    triggerRef.current?.focus({ preventScroll: true });
   };
   const apply = () => {
     onApply(normalize(draft));
@@ -66,9 +67,8 @@ export default function FilterSheet<V extends Values>({
   useEffect(() => {
     if (!open) return;
     const sheet = sheetRef.current;
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    sheet?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+    const unlock = lockScroll();
+    sheet?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus({ preventScroll: true });
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -90,7 +90,7 @@ export default function FilterSheet<V extends Values>({
     };
     document.addEventListener('keydown', onKey);
     return () => {
-      document.body.style.overflow = prevOverflow;
+      unlock();
       document.removeEventListener('keydown', onKey);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

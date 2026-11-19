@@ -4,6 +4,8 @@
   display: flex;
   flex-direction: column;
   gap: $space-3;
+  // The hero resizes with the type filter; anchor on the board so the clicked filter stays put.
+  overflow-anchor: none;
 }
 
 .board {

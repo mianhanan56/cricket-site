@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useApiMatches } from '@/hooks/useApiMatches';
 import { closeOverlay, openOverlay, useOverlay } from '@/lib/uiState';
+import { lockScroll } from '@/lib/scrollLock';
 import {
   buildIndex,
   loadSearchIndex,
@@ -84,16 +85,15 @@ function SearchDialog() {
 
   useEffect(() => {
     returnFocus.current = document.activeElement;
-    inputRef.current?.focus();
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    inputRef.current?.focus({ preventScroll: true });
+    const unlock = lockScroll();
     loadSearchIndex((data) => {
       setIndex(data);
       setIndexLoading(false);
     });
     return () => {
-      document.body.style.overflow = prevOverflow;
-      if (!leaving.current && returnFocus.current instanceof HTMLElement) returnFocus.current.focus();
+      unlock();
+      if (!leaving.current && returnFocus.current instanceof HTMLElement) returnFocus.current.focus({ preventScroll: true });
     };
   }, []);
 
