@@ -23,16 +23,23 @@ interface GeminiRequest {
   prompt: string;
   /** Gemini's OpenAPI subset. */
   schema: Record<string, unknown>;
+  /** Flash-Lite first: short, frequent jobs where speed matters more than depth. */
+  lite?: boolean;
 }
 
 /** One JSON reply constrained to `schema`. Throws on any failure. */
 export async function geminiJson(opts: GeminiRequest): Promise<unknown> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw new Error('GEMINI_API_KEY is not set');
-  const attempts: Array<[string, number]> = [
-    [process.env.GEMINI_MODEL || DEFAULT_MODEL, PRIMARY_TIMEOUT_MS],
-    [FALLBACK_MODEL, FALLBACK_TIMEOUT_MS],
-  ];
+  const attempts: Array<[string, number]> = opts.lite
+    ? [
+        [FALLBACK_MODEL, PRIMARY_TIMEOUT_MS],
+        [process.env.GEMINI_MODEL || DEFAULT_MODEL, FALLBACK_TIMEOUT_MS],
+      ]
+    : [
+        [process.env.GEMINI_MODEL || DEFAULT_MODEL, PRIMARY_TIMEOUT_MS],
+        [FALLBACK_MODEL, FALLBACK_TIMEOUT_MS],
+      ];
 
   let last: unknown;
   for (const [model, timeoutMs] of attempts) {

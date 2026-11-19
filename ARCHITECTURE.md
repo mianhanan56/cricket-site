@@ -181,7 +181,7 @@ new-batter cards (format career, rank, age; for bowlers `runs` is wickets and `s
 batter v bowler, `pvtc` player v the opponent, `ac`/`rc` reviews (`review_type` 0 batting, 1
 fielding; `result` 1 out; `ultraedge` 1 bat involved; retained/lost from the side's reviews-left
 before and after), `pm`/`tm` milestones, `w` dismissal lines, `tc` chase, `to` toss, `ic2` innings
-end; polls (`pl`) are dropped. `CommentaryFeed` places each note after the last ball published
+end; polls (`pl`) are dropped. Every IST time in commentary text is rewritten as PKT in the data layer (`istToPakistan`, applied in `plainText`/`richText`; the venue's local time is kept when it differs); `components/ui/ReaderClocks` then shows those PKT stamps in the reader's own zone (`pktToZone`, DST read for the note's day). Server and hydration render PKT. **Rewritten commentary** (2026-11-19): the upstream's ball descriptions and writers' notes are never rendered (they still reach the browser in the feed data). `GET /api/commentary?match&inning&block&sig` (`app/api/commentary/route.ts`) reads one 5-over block of an innings server-side (prose notes before the first ball are block `PRE_BLOCK`), has Gemini (Flash-Lite first, `lib/gemini.ts` `lite`) rewrite the items not yet stored, and stores each per `itemKey` (id + hash of its wording) in `unstable_cache` (the quiz's throw-unless-writing trick): a line never changes once written, a corrected ball gets a new one. An item the model won't answer in 2 calls at least 2 min apart is given up on for the day (a day-keyed store; plain line / note hidden until then). `sig` is the page's `blockSignature`; the answer is CDN-cached for a day only when the server's block matches it and every item is settled. Stored rewrites are always served; new ones only for matches started in the last 14 days, whatever their status (an old match can sit "live" upstream for good); a failed match lookup is a retryable `failed`, an old match `closed` (final for the page, CDN 1h). `components/match/useCommentaryRewrites` asks for the blocks of the rows drawn, newest first, two at a time; first text per key wins. Until a rewrite arrives a ball shows `plainLine` (outcome from data) and a prose note is hidden; stat-list notes (`featured`) and the other cards stay as sent. Ball `headline` ("Bowler to Batter") is its own field so prose is never split off a dash. Shared grouping/prompt/checks: `lib/commentaryRewrite.ts`. Without `GEMINI_API_KEY` the route 404s: balls keep plain lines, prose notes stay hidden. `CommentaryFeed` places each note after the last ball published
 before it (`at` against the ball's timestamp), over cards by over number — both by
 `lastIndexAtOrBelow` (`lib/balls.ts`), which tolerates out-of-order and missing times — and draws
 160 rows at a time. Cards live in `components/match/FeedNotes`. History reads **one innings per request**
@@ -564,6 +564,11 @@ Audit and remediation 2026-11-11: `SECURITY_AUDIT_2026-11-11.md` (findings PC-01
   so a malformed id is a not-found with no request made. The Worker enforces the same pattern.
 - Stored notification links must start with a single `/` (`parseNotifications`): `//host` is another site.
 - Worker limits: see Worker above. Quiz limits: see Match quiz.
+- `/api/commentary` (model calls from a public GET): params range-checked, new rewrites only for matches started
+  in the last 14 days, 200 calls an hour per instance, a 60s hold after a model failure or spent budget, 2 tries per
+  item at least 2 min apart, rewrites with links refused and @handles stripped (the upstream text is untrusted
+  prompt input); output renders as text only. Accepted: no per-IP limit here (Worker / Vercel Firewall), 365-day
+  store for written lines.
 - Tests: `frontend/tests/{securityHeaders,keys,quizGuard,notifications}.test.ts`; `worker/tests/*.test.ts`.
 - Not fixable in code: the Worker's daily request allowance (needs a Cloudflare rate-limiting rule on a custom
   domain), Vercel Firewall limits, a quota cap on the Gemini key.

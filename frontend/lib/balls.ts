@@ -17,6 +17,7 @@ export type BallEntry = Pick<
   | 'extra'
   | 'isWicket'
   | 'text'
+  | 'headline'
   | 'scoreAfter'
   | 'inning'
   | 'timestamp'
@@ -32,6 +33,7 @@ export const toBallEntry = ({
   extra,
   isWicket,
   text,
+  headline,
   scoreAfter,
   inning,
   timestamp,
@@ -45,6 +47,7 @@ export const toBallEntry = ({
   extra,
   isWicket,
   text,
+  ...(headline ? { headline } : null),
   scoreAfter,
   inning,
   timestamp,

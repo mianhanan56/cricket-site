@@ -8,7 +8,10 @@ import Segmented from '../ui/Segmented';
 import FilterSheet from '../ui/FilterSheet';
 import PlayerLink from './PlayerLink';
 import FeedNoteRow, { type NoteContext } from './FeedNotes';
+import ReaderClocks from '../ui/ReaderClocks';
 import { CommentarySkeleton } from './MatchDetailSkeleton';
+import { useCommentaryRewrites } from './useCommentaryRewrites';
+import { ballKey, isProseNote, noteKey, plainLine, splitBall, textToRich } from '@/lib/commentaryRewrite';
 import mc from './matchCenter.module.scss';
 import styles from './CommentaryFeed.module.scss';
 
@@ -120,10 +123,11 @@ function word(b: BallEntry, kind: BallKind): string {
   return WORD[kind];
 }
 
-function BallEvent({ b }: { b: BallEntry }) {
+// The upstream's description is never shown: its rewrite, or the outcome until one arrives.
+function BallEvent({ b, rewrite }: { b: BallEntry; rewrite: string | undefined }) {
   const kind = ballKind(b);
-  const [head, ...rest] = b.text.split('—');
-  const body = rest.join('—').trim();
+  const { head } = splitBall(b);
+  const body = rewrite ?? plainLine(b);
   const big = kind === 'six' || kind === 'four' || kind === 'wicket';
 
   return (
@@ -137,13 +141,9 @@ function BallEvent({ b }: { b: BallEntry }) {
           {b.runs > 0 && kind !== 'run' && <span className={styles.runs}>{runsLabel(b)}</span>}
           {b.scoreAfter && <span className={styles.score}>{b.scoreAfter}</span>}
         </div>
-        {body ? (
-          <p className={styles.text}>
-            <span className={styles.head}>{head.trim()}</span> {body}
-          </p>
-        ) : (
-          <p className={styles.text}>{b.text}</p>
-        )}
+        <p className={styles.text}>
+          {head && <span className={styles.head}>{head}</span>} <ReaderClocks text={body} at={b.timestamp} />
+        </p>
       </div>
     </li>
   );
@@ -227,7 +227,7 @@ function CommentaryFeed({
   summaries: OverSummary[];
   /** Writers' notes, stat cards and reviews, shown between the balls under "All". */
   notes: FeedNote[];
-  match: Pick<Match, 'format' | 'homeTeam' | 'awayTeam'>;
+  match: Pick<Match, 'id' | 'format' | 'homeTeam' | 'awayTeam'>;
   squads: MatchSquads | null;
   pending?: boolean;
   loadingMore?: boolean;
@@ -309,8 +309,21 @@ function CommentaryFeed({
 
   const [limit, setLimit] = useState(PAGE_ROWS);
   useEffect(() => setLimit(PAGE_ROWS), [filter, inningNum]);
-  const shown = rows.slice(0, limit);
+  const shown = useMemo(() => rows.slice(0, limit), [rows, limit]);
   const moreDrawn = rows.length > limit;
+  const wanted = useMemo(
+    () => ({
+      balls: shown.flatMap((r) => (r.kind === 'ball' ? [r.ball] : [])),
+      notes: shown.flatMap((r) => (r.kind === 'note' && isProseNote(r.note) ? [r.note] : [])),
+    }),
+    [shown]
+  );
+  const rewrites = useCommentaryRewrites(match.id, balls, notes, wanted);
+  // A writer's note waits for its rewrite rather than show the upstream's words.
+  const visible = useMemo(
+    () => shown.filter((r) => !(r.kind === 'note' && isProseNote(r.note) && !rewrites.has(noteKey(r.note)))),
+    [shown, rewrites]
+  );
 
   const autoWalks = useRef(0);
   const searching = SEARCH_FILTERS.has(filter);
@@ -402,15 +415,20 @@ function CommentaryFeed({
           className={styles.mobileFilter}
         />
 
-        {rows.length ? (
+        {visible.length ? (
           <ol className={styles.feed}>
-            {shown.map((row) =>
+            {visible.map((row) =>
               row.kind === 'over' ? (
                 <OverCard key={row.key} summary={row.summary} />
               ) : row.kind === 'note' ? (
-                <FeedNoteRow key={row.key} note={row.note} ctx={ctx} />
+                <FeedNoteRow
+                  key={row.key}
+                  note={row.note}
+                  ctx={ctx}
+                  paragraphs={isProseNote(row.note) ? textToRich(rewrites.get(noteKey(row.note)) ?? '') : undefined}
+                />
               ) : (
-                <BallEvent key={row.key} b={row.ball} />
+                <BallEvent key={row.key} b={row.ball} rewrite={rewrites.get(ballKey(row.ball))} />
               )
             )}
           </ol>

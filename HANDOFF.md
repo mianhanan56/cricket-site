@@ -12,6 +12,10 @@ All data comes from the upstream's undocumented internal APIs through a Cloudfla
 
 ## Current objective
 
+2026-11-19: commentary rewritten by Gemini so the upstream's wording never shows (ARCHITECTURE › Commentary tab › Rewritten commentary). Needs `GEMINI_API_KEY` in Vercel — until then balls show plain outcome lines and writers' notes are hidden. Verified against the real key from a scratch production build (13LU): 103/103 balls rewritten, no upstream phrases on the page. Passed four rounds of two reviewer agents (correctness; security/quality) under the team rule — see memory `reviewer-agents-before-handoff`. Accepted, not changed: upstream text still reaches the browser in feed data (not rendered); toss/review/chase/milestone cards, MatchEvents, the pulse tooltip and notifications still use upstream short factual lines; no per-IP limit in the route.
+
+2026-11-19: commentary times shown in Pakistan time — upstream "2:13 PM IST, 1:43 PM Local Time" stamps render in the reader's own timezone ("2:13 PM IST, 1:43 PM Local Time" in India, "8:43 AM GMT" in the UK); PKT on the server and for readers in Pakistan (`lib/pakistanTime.ts`, `components/ui/ReaderClocks.tsx`).
+
 2026-11-12: Next.js 14.2.35 → 15.5.29 with React 19 (PC-01; uncommitted, not deployed). Async `params` /
 `searchParams` on 13 pages and the icons route, three React 19 ref typings; nothing else changed
 (ARCHITECTURE › Next.js 15 notes). Verified from an isolated production build: 24 pages match production on

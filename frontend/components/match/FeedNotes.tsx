@@ -3,6 +3,7 @@ import type { FeedNote, RichParagraph, Team } from '@/types';
 import { playerImageUrl } from '@/lib/api';
 import PlayerPortrait from '../player/PlayerPortrait';
 import PlayerLink from './PlayerLink';
+import ReaderClocks from '../ui/ReaderClocks';
 import styles from './FeedNotes.module.scss';
 
 export interface NoteContext {
@@ -17,7 +18,7 @@ export interface NoteContext {
 
 const fixed = (n: number | null, digits = 2) => (n === null ? '—' : n.toFixed(digits));
 
-function Rich({ paragraphs }: { paragraphs: RichParagraph[] }) {
+function Rich({ paragraphs, at }: { paragraphs: RichParagraph[]; at: number }) {
   return (
     <>
       {paragraphs.map((lines, i) => (
@@ -28,12 +29,14 @@ function Rich({ paragraphs }: { paragraphs: RichParagraph[] }) {
               {runs.map((r, k) =>
                 r.title ? (
                   <strong key={k} className={styles.title}>
-                    {r.text}
+                    <ReaderClocks text={r.text} at={at} />
                   </strong>
                 ) : r.strong ? (
-                  <strong key={k}>{r.text}</strong>
+                  <strong key={k}>
+                    <ReaderClocks text={r.text} at={at} />
+                  </strong>
                 ) : (
-                  <Fragment key={k}>{r.text}</Fragment>
+                  <ReaderClocks key={k} text={r.text} at={at} />
                 )
               )}
             </Fragment>
@@ -83,12 +86,12 @@ function batterContext(position: number | null): string {
 const MILESTONE_WORD: Record<number, string> = { 50: 'Fifty', 100: 'Hundred', 150: '150', 200: 'Double hundred', 300: 'Triple hundred' };
 
 /** One of the upstream's interleaved items, as a row of the commentary list. */
-export default function FeedNoteRow({ note, ctx }: { note: FeedNote; ctx: NoteContext }) {
+export default function FeedNoteRow({ note, ctx, paragraphs }: { note: FeedNote; ctx: NoteContext; paragraphs?: RichParagraph[] }) {
   switch (note.kind) {
     case 'text':
       return (
         <li className={`${styles.note} ${note.featured ? styles.record : styles.text}`}>
-          <Rich paragraphs={note.paragraphs} />
+          <Rich paragraphs={paragraphs ?? note.paragraphs} at={note.at} />
         </li>
       );
 

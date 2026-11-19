@@ -404,7 +404,8 @@ export function feedFromRows(feed: ApiBallFeed[]): Pick<ApiMatchFeed, 'balls' | 
     .map((f) => {
       const [over, ball] = String(f.over ?? '').split('.');
       const outcome = parseBallOutcome(f.outcome);
-      const text = [plainText(f.headline), plainText(f.text)].filter(Boolean).join(' — ');
+      const headline = plainText(f.headline);
+      const text = [headline, plainText(f.text)].filter(Boolean).join(' — ');
 
       return {
         id: String(f.id ?? `${over}.${ball}`),
@@ -417,6 +418,7 @@ export function feedFromRows(feed: ApiBallFeed[]): Pick<ApiMatchFeed, 'balls' | 
         extra: outcome.extra,
         isWicket: outcome.isWicket,
         text,
+        ...(headline ? { headline } : null),
         scoreAfter: f.score ?? null,
         inning: f.inning,
         timestamp: f.id ? new Date(f.id).toISOString() : undefined,

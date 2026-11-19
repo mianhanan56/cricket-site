@@ -2,11 +2,12 @@
 // ball feed (notes, stat cards, reviews, milestones) as `FeedNote`s.
 import type { FeedNote, RichParagraph, RichRun } from '@/types';
 import type { ApiBallFeed } from './commentary';
+import { istToPakistan } from '../pakistanTime';
 import { cleanKey } from './names';
 
 /** The upstream writes bold tags and entities into its commentary; the UI renders text. */
 export function plainText(raw: string | undefined): string {
-  return (raw ?? '')
+  return istToPakistan(raw ?? '')
     .replace(/<[^>]*>/g, '')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
@@ -50,7 +51,7 @@ export function richText(raw: string | undefined): RichParagraph[] {
     line = [];
   };
 
-  for (const token of (raw ?? '').split(/(<[^>]*>)/)) {
+  for (const token of istToPakistan(raw ?? '').split(/(<[^>]*>)/)) {
     if (!token) continue;
     const tag = /^<\s*(\/?)\s*([a-z0-9]+)/i.exec(token);
     if (tag) {
