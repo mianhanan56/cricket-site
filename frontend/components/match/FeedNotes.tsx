@@ -86,12 +86,12 @@ function batterContext(position: number | null): string {
 const MILESTONE_WORD: Record<number, string> = { 50: 'Fifty', 100: 'Hundred', 150: '150', 200: 'Double hundred', 300: 'Triple hundred' };
 
 /** One of the upstream's interleaved items, as a row of the commentary list. */
-export default function FeedNoteRow({ note, ctx, paragraphs }: { note: FeedNote; ctx: NoteContext; paragraphs?: RichParagraph[] }) {
+export default function FeedNoteRow({ note, ctx }: { note: FeedNote; ctx: NoteContext }) {
   switch (note.kind) {
     case 'text':
       return (
         <li className={`${styles.note} ${note.featured ? styles.record : styles.text}`}>
-          <Rich paragraphs={paragraphs ?? note.paragraphs} at={note.at} />
+          <Rich paragraphs={note.paragraphs} at={note.at} />
         </li>
       );
 

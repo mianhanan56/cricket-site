@@ -527,10 +527,7 @@ export interface CommentaryBall {
   extraRuns: number;
   extra: BallExtra | null;
   isWicket: boolean;
-  /** "Bowler to Batter — description", as the upstream writes it. */
   text: string;
-  /** "Bowler to Batter" alone. */
-  headline?: string;
   /** Team score after the delivery, "205/7". Absent where the feed omits it. */
   scoreAfter?: string | null;
   /** Innings index, 0-based, as the feed numbers them. */
