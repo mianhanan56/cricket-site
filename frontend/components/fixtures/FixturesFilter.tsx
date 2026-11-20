@@ -22,6 +22,7 @@ import {
   type MatchTypeKey,
 } from '@/lib/matchType';
 import { FIXTURE_FORMAT_TABS, type FixtureFormatKey } from '@/lib/tabs';
+import { GENDER_OPTIONS, filterByGender, type GenderKey } from '@/lib/gender';
 import FilterMenu from '../ui/FilterMenu';
 import FilterSheet from '../ui/FilterSheet';
 import Icon from '../ui/Icon';
@@ -40,7 +41,7 @@ interface DayGroup {
 }
 
 export interface FixturesFilterProps {
-  /** The page's heading, which carries the format and competition menus. */
+  /** The page's heading, which carries the gender, format and competition menus. */
   eyebrow: string;
   title: string;
   fixtures: PackedFixtures;
@@ -48,6 +49,7 @@ export interface FixturesFilterProps {
   coveredUntil: string | null;
   initialFormat: FixtureFormatKey;
   initialType: MatchTypeKey;
+  initialGender: GenderKey;
   /** Selected day ("2026-08-20"), or '' for every day. */
   initialDate: string;
   serverToday: string;
@@ -178,13 +180,14 @@ export default function FixturesFilter({
   coveredUntil,
   initialFormat,
   initialType,
+  initialGender,
   initialDate,
   serverToday,
 }: FixturesFilterProps) {
-  // Every filter is URL state: /fixtures?format=t20&type=international&date=2026-08-20.
-  const [{ format, type, date }, setQuery] = useQueryTabs(
-    { format: initialFormat, type: initialType, date: initialDate },
-    { format: 'all', type: 'all', date: '' }
+  // Every filter is URL state: /fixtures?gender=women&format=t20&type=international&date=2026-08-20.
+  const [{ gender, format, type, date }, setQuery] = useQueryTabs(
+    { gender: initialGender, format: initialFormat, type: initialType, date: initialDate },
+    { gender: 'all', format: 'all', type: 'all', date: '' }
   );
 
   const active = FIXTURE_FORMAT_TABS.find((t) => t.key === format) ?? FIXTURE_FORMAT_TABS[0];
@@ -194,7 +197,7 @@ export default function FixturesFilter({
   const [todayKey, setTodayKey] = useState(serverToday);
   useEffect(() => setTodayKey(dayKeyOf(new Date())), []);
 
-  // Format and type narrow the list; the date only picks a day of it, so day counts describe the filtered list.
+  // Gender, format and type narrow the list; the date only picks a day of it, so day counts describe the filtered list.
   // The read's last day is only partly listed, so it waits for the next read rather than showing short.
   const whole = useMemo(() => {
     const all = unpackFixtures(fixtures);
@@ -204,9 +207,9 @@ export default function FixturesFilter({
   }, [fixtures, coveredUntil]);
 
   const filtered = useMemo(() => {
-    const byType = filterByMatchType(whole, matchType);
+    const byType = filterByMatchType(filterByGender(whole, gender), matchType);
     return active.format ? byType.filter((f) => f.format === active.format) : byType;
-  }, [whole, matchType, active.format]);
+  }, [whole, gender, matchType, active.format]);
 
   // Fixtures arrive sorted, so appending in order keeps days and matches in time order.
   const groups = useMemo<DayGroup[]>(() => {
@@ -229,7 +232,7 @@ export default function FixturesFilter({
   const lastKey = groups[groups.length - 1]?.key;
 
   const [shownDays, setShownDays] = useState(DAYS_PER_PAGE);
-  useEffect(() => setShownDays(DAYS_PER_PAGE), [format, type, date]);
+  useEffect(() => setShownDays(DAYS_PER_PAGE), [gender, format, type, date]);
 
   const shownFrom = date ? pickedGroups : groups;
   const visibleGroups = useMemo(() => shownFrom.slice(0, shownDays), [shownFrom, shownDays]);
@@ -251,7 +254,7 @@ export default function FixturesFilter({
     return () => observer.disconnect();
   }, [hasMore, shownDays]);
 
-  const filtersOn = format !== 'all' || type !== 'all';
+  const filtersOn = gender !== 'all' || format !== 'all' || type !== 'all';
 
   return (
     <>
@@ -261,6 +264,7 @@ export default function FixturesFilter({
         asideClassName={styles.toolbar}
         aside={
           <>
+            <FilterMenu label="Gender" value={gender} options={GENDER_OPTIONS} onChange={(next) => setQuery({ gender: next })} />
             <FilterMenu label="Format" value={format} options={FORMAT_OPTIONS} onChange={(next) => setQuery({ format: next })} />
             <FilterMenu
               label="Competition"
@@ -275,11 +279,12 @@ export default function FixturesFilter({
 
       <FilterSheet
         groups={() => [
+          { key: 'gender', label: 'Gender', options: GENDER_OPTIONS },
           { key: 'format', label: 'Format', options: FORMAT_OPTIONS },
           { key: 'type', label: 'Competition', options: MATCH_TYPE_KEY_OPTIONS },
         ]}
-        value={{ format, type }}
-        defaults={{ format: 'all', type: 'all' }}
+        value={{ gender, format, type }}
+        defaults={{ gender: 'all', format: 'all', type: 'all' }}
         onApply={(next) => setQuery(next)}
         className={styles.mobileFilter}
       />
@@ -310,14 +315,16 @@ export default function FixturesFilter({
       ) : (
         <EmptyState
           icon="calendar"
-          title={`No ${type === 'all' ? '' : `${type} `}${active.format ? `${active.format} ` : ''}fixtures ${
+          title={`No ${type === 'all' ? '' : `${type} `}${gender === 'all' ? '' : `${gender === 'women' ? "women's" : "men's"} `}${
+            active.format ? `${active.format} ` : ''
+          }fixtures ${
             date ? describeSelection(date) : 'scheduled'
           }`}
           action={
             date
               ? { label: 'Show every day', onClick: () => setQuery({ date: '' }) }
               : filtersOn
-                ? { label: 'Show all cricket', onClick: () => setQuery({ format: 'all', type: 'all' }) }
+                ? { label: 'Show all cricket', onClick: () => setQuery({ gender: 'all', format: 'all', type: 'all' }) }
                 : { label: 'Live matches', href: '/' }
           }
         />

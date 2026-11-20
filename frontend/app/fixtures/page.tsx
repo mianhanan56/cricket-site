@@ -2,6 +2,7 @@ import { pageMeta } from '@/lib/seo';
 import { pickParam } from '@/lib/queryParams';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '@/lib/matchType';
 import { FIXTURE_FORMAT_KEYS, type FixtureFormatKey } from '@/lib/tabs';
+import { GENDER_KEYS, type GenderKey } from '@/lib/gender';
 import { dayKeyOf, pickDayParam } from '@/lib/fixtureDays';
 import { getApiFixtureSchedule, type Fixture } from '@/lib/api';
 import { packFixtures } from '@/lib/fixturePack';
@@ -29,6 +30,7 @@ export default async function FixturesPage(props: {
   const searchParams = await props.searchParams;
   const format = pickParam<FixtureFormatKey>(searchParams?.format, FIXTURE_FORMAT_KEYS, 'all');
   const type = pickParam<MatchTypeKey>(searchParams?.type, MATCH_TYPE_KEYS, 'all');
+  const gender = pickParam<GenderKey>(searchParams?.gender, GENDER_KEYS, 'all');
   const date = pickDayParam(searchParams?.date);
 
   let fixtures: Fixture[] = [];
@@ -63,6 +65,7 @@ export default async function FixturesPage(props: {
           coveredUntil={coveredUntil}
           initialFormat={format}
           initialType={type}
+          initialGender={gender}
           initialDate={date}
           // The client re-derives today for its own timezone on mount.
           serverToday={dayKeyOf(new Date())}
