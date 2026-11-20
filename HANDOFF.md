@@ -12,13 +12,17 @@ All data comes from the upstream's undocumented internal APIs through a Cloudfla
 
 ## Current objective
 
+2026-11-20: player Form follows live matches — By series and Recent take figures from the scorecard on load and every 30s while a match is live; series bowling shows an Overs tile (`lib/liveFigures.ts`, `hooks/useLiveCards.ts`; uncommitted).
+
+2026-11-20: Fixtures has a Gender menu (All / Men / Women) before Format and Competition, also in the mobile filter sheet (`lib/gender.ts`; uncommitted).
+
 2026-11-19: news removed from the site (user ask: "all news, everywhere"; uncommitted). Deleted `app/news/`, `components/news/`, `components/home/TopStories`, `lib/news.ts`, `lib/api/news.ts`, news types, `newsArticle` JSON-LD and the news icon; removed News from top nav, phone More sheet, footer, /about, sitemap, home, series News tab, team/player news sections, and the follow-alert News moment + `NewsWatcher` + `news` notification kind (stored `off: ['news']` / old news notifications are dropped by the existing parsers). Old `/news` URLs 404; `/series/x?tab=news` falls back to Matches. Worker `/news/*` routes, `shapes/news.ts`, the `news` upstream host and the now-unused `{param}` path placeholders removed too (worker tsc + 27 tests pass); live only after `cd worker && npm run deploy`. `scripts/probe.sh` keeps the news host — it explores the upstream, not our routes. tsc, lint, 212 tests pass; checked every main page at 390/1280 in a scratch dev server.
 
 2026-11-19: "Captain" and "Wicket-keeper" labels (written out, not hover) on the scorecard — batting rows, pre-match lineup, yet-to-bat chips and bowling rows (`components/match/PlayerMarks.tsx`, uncommitted). Marks come from `/match/info` `captainAndKeeperKeys` via the squads MatchDetail already loads; the Info tab's captain badge now uses the same component. Verified on 150S (light/dark, desktop/mobile).
 
 2026-11-19: filters no longer throw the reader to the top (uncommitted). (1) `useQueryTabs` writes the URL with `history.replaceState`, not `router.replace` — no server re-render, so `loading.tsx` no longer swaps the page for a skeleton (home, fixtures, series, rankings, players). (2) Mobile Filters sheet and search overlay lock scroll on `<html>` via `lib/scrollLock.ts` + `html.scroll-locked`; locking `<body>` collapsed the page because html has `overflow-x: clip`, so every sheet open reset scroll to 0. Their focus calls use `preventScroll`. (3) Home `.stage` has `overflow-anchor: none` so the type filter stays under the cursor when the hero resizes. Verified in headless Chrome against a scratch dev server, all five pages, desktop + mobile; a control run with the old hook showed a server fetch on every click. Side effect: rankings `<title>` no longer follows an in-page filter change.
 
-2026-11-19: commentary rewritten by Gemini so the upstream's wording never shows (ARCHITECTURE › Commentary tab › Rewritten commentary). Needs `GEMINI_API_KEY` in Vercel — until then balls show plain outcome lines and writers' notes are hidden. Verified against the real key from a scratch production build (13LU): 103/103 balls rewritten, no upstream phrases on the page. Passed four rounds of two reviewer agents (correctness; security/quality) under the team rule — see memory `reviewer-agents-before-handoff`. Accepted, not changed: upstream text still reaches the browser in feed data (not rendered); toss/review/chase/milestone cards, MatchEvents, the pulse tooltip and notifications still use upstream short factual lines; no per-IP limit in the route.
+2026-11-20: the Gemini commentary rewrite (shipped 2026-11-19 in 0786682) was removed at the user's ask — the upstream's commentary shows as sent again. The free tier was unreliable for it (Flash-Lite 503s for hours, full Flash hanging). Times in commentary still render in the reader's timezone.
 
 2026-11-19: commentary times shown in Pakistan time — upstream "2:13 PM IST, 1:43 PM Local Time" stamps render in the reader's own timezone ("2:13 PM IST, 1:43 PM Local Time" in India, "8:43 AM GMT" in the UK); PKT on the server and for readers in Pakistan (`lib/pakistanTime.ts`, `components/ui/ReaderClocks.tsx`).
 
@@ -63,7 +67,7 @@ restreams or iframes — declined (unlicensed). Agreed legal route, not built ye
 link to the rights holder per match, official embeds where they exist, a second-screen live mode.
 
 2026-10-26: AI match quiz built (ARCHITECTURE › Match quiz) on Gemini's free tier — the user
-asked for a free model. Needs `GEMINI_API_KEY` before it shows anywhere (TODO).
+asked for a free model. `GEMINI_API_KEY` is set locally and in Vercel Production.
 
 2026-10-27: home `LiveHero` fixture layout (shown when the current innings hasn't started, e.g.
 an innings break) now prints each side's score and overs beside its name.
