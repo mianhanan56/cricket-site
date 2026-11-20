@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import type { PlayerFormEntry } from '@/types';
 import { formatInZone, SERVER_ZONE } from '@/lib/datetime';
+import { isRecent, withCardForm } from '@/lib/liveFigures';
+import { useLiveCards } from '@/hooks/useLiveCards';
 import Segmented from '../ui/Segmented';
 import { FormBars, FormRow, MoreToggle, StatTiles, tierOf, type Discipline, type FormColumn } from './FormCard';
 import { useFormDiscipline } from './FormTabs';
@@ -69,14 +71,25 @@ function column(i: Innings, n: number): FormColumn {
 
 /** The last innings with bat or ball: the numbers, the shape, and the matches on request. */
 export default function RecentForm({
-  batting,
-  bowling,
+  playerId,
+  batting: servedBatting,
+  bowling: servedBowling,
   lead,
 }: {
+  playerId: string;
   batting: PlayerFormEntry[];
   bowling: PlayerFormEntry[];
   lead: Discipline;
 }) {
+  const live = useLiveCards(
+    useMemo(
+      () => [...servedBatting, ...servedBowling].filter((e) => e.matchId && isRecent(e.date)).map((e) => e.matchId as string),
+      [servedBatting, servedBowling]
+    )
+  );
+  const batting = useMemo(() => withCardForm(servedBatting, 'batting', playerId, live), [servedBatting, playerId, live]);
+  const bowling = useMemo(() => withCardForm(servedBowling, 'bowling', playerId, live), [servedBowling, playerId, live]);
+
   const offered: Discipline[] = [batting.length ? 'batting' : null, bowling.length ? 'bowling' : null].filter(
     (d): d is Discipline => d !== null
   );

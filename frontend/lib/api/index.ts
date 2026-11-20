@@ -18,7 +18,7 @@ export { seriesFromMatches, getApiSeriesSchedule, seriesScheduleFromMatches, wit
 export type { SeriesScheduleMatch, SeriesSchedule } from './series';
 export { getApiFixtureSchedule, getApiFixtureRange, getApiFixturesPage, getApiSeriesCatalogue } from './fixtures';
 export type { Fixture, SeriesCatalogueEntry } from './fixtures';
-export { getApiPlayerProfile, withFreshForm } from './player';
+export { freshCards, getApiPlayerProfile, withFreshForm } from './player';
 export { getApiPlayerSeriesPage } from './playerMatches';
 export { getApiSeriesTable } from './standings';
 export { getApiSeriesLeaders } from './leaders';

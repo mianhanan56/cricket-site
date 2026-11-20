@@ -12,6 +12,8 @@ import type {
 import { getApiPlayerSeriesPage } from '@/lib/api';
 import { SERVER_ZONE, formatInZone } from '@/lib/datetime';
 import { oversFrom } from '@/lib/overs';
+import { recentSeriesMatches, withCardFigures } from '@/lib/liveFigures';
+import { useLiveCards } from '@/hooks/useLiveCards';
 import {
   battingSummary,
   bowlingSummary,
@@ -155,6 +157,7 @@ function FormatRecord({ format, discipline }: { format: PlayerSeriesFormatRecord
     <>
       <StatTiles
         stats={[
+          [s.workload.unit === 'balls' ? 'Balls' : 'Overs', s.workload.value],
           ['Wickets', s.wickets],
           ['Economy', rate(s.economy)],
           ['Average', rate(s.average)],
@@ -286,7 +289,9 @@ export default function SeriesPerformance({
   const request = useRef(0);
 
   const formatOptions = useMemo(() => seriesFormatOptions(formatCodes), [formatCodes]);
-  const current = lists[format];
+  const raw = lists[format];
+  const liveCards = useLiveCards(useMemo(() => (raw ? recentSeriesMatches(raw) : []), [raw]));
+  const current = useMemo(() => (raw ? withCardFigures(raw, playerId, liveCards) : raw), [raw, playerId, liveCards]);
   const series = useMemo(() => (current ? mergeLists(current) : []), [current]);
   const selectedId = selected[format] ?? null;
   const shown = series.find((s) => s.id === selectedId) ?? null;

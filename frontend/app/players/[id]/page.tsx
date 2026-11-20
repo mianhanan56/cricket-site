@@ -413,6 +413,7 @@ export default async function PlayerPage(props: {
             recent={
               player.recentBatting.length > 0 || recentBowling.length > 0 ? (
                 <RecentForm
+                  playerId={player.id}
                   batting={player.recentBatting}
                   bowling={recentBowling}
                   lead={/bowl/i.test(player.role) ? 'bowling' : 'batting'}

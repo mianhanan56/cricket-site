@@ -1,5 +1,6 @@
 import type { PlayerRoleLabel } from '@/types';
-import { getApiPlayerSeriesPage } from '@/lib/api';
+import { freshCards, getApiPlayerSeriesPage } from '@/lib/api';
+import { recentSeriesMatches, withCardFigures } from '@/lib/liveFigures';
 import {
   defaultSeries,
   firstLists,
@@ -35,6 +36,8 @@ export default async function PlayerSeriesSection({
   let lists = await firstLists(fetchPage).catch(() => null);
   if (!lists) return <EmptyState compact title="No series performance available yet." />;
   if (series) lists = await listsCovering(lists, series, fetchPage, URL_SEARCH_PAGES).catch(() => lists!);
+  const recent = recentSeriesMatches(lists);
+  if (recent.length) lists = withCardFigures(lists, playerId, await freshCards(recent));
 
   const merged = mergeLists(lists);
   const initial = merged.find((s) => s.id === series)?.id ?? defaultSeries(merged)?.id ?? null;

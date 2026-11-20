@@ -1,6 +1,7 @@
 // /player/overview: a whole career in one call. A format is always a pair of
 // codes (competition + format, see `playerFormatLabel`).
 import type {
+  InningsScore,
   PlayerBattingCareer,
   PlayerBowlingCareer,
   PlayerDebut,
@@ -12,6 +13,7 @@ import type {
 import { apiGet, type FetchOpts } from './client';
 import { cleanKey, isKey, playerImageUrl, resolveKeys, type NameCache } from './names';
 import { getApiScorecard } from './scorecard';
+import { isRecent, withCardForm } from '../liveFigures';
 
 /** Basic info. Only the fields the profile page reads. */
 interface ApiPlayerInfo {
@@ -394,55 +396,30 @@ export async function getApiPlayerProfile(
   };
 }
 
-/** How far back a form entry may still be a match in progress (a Test runs five days). */
-const FORM_LIVE_WINDOW_MS = 6 * 24 * 60 * 60 * 1000;
-
 /**
  * Recent form with the latest matches re-read off their scorecards. The upstream's profile is cached
  * for an hour and can still hold an innings as it stood mid-match ("52 (57)*" after the batter
  * was out for 77).
  */
 export async function withFreshForm(profile: PlayerProfile, opts: FetchOpts = {}): Promise<PlayerProfile> {
-  const now = Date.now();
   const recent = new Set(
     [...profile.recentBatting, ...profile.recentBowling]
-      .filter((e) => e.matchId && e.date && now - +new Date(e.date) < FORM_LIVE_WINDOW_MS)
+      .filter((e) => e.matchId && isRecent(e.date))
       .map((e) => e.matchId as string)
   );
   if (!recent.size) return profile;
-
-  const cards = new Map(
-    await Promise.all(
-      [...recent].map(
-        async (key) => [key, await getApiScorecard(key, { revalidate: 15, ...opts }).catch(() => null)] as const
-      )
-    )
-  );
-
-  // Entries are newest first, so a Test's two innings map onto the card's last innings first.
-  const refresh = (entries: PlayerFormEntry[], discipline: 'batting' | 'bowling'): PlayerFormEntry[] => {
-    const used = new Map<string, number>();
-    return entries.map((entry) => {
-      const card = entry.matchId ? cards.get(entry.matchId) : null;
-      if (!card) return entry;
-      const lines =
-        discipline === 'batting'
-          ? card.flatMap((inn) => inn.batting?.filter((l) => l.playerId === profile.id) ?? [])
-          : card.flatMap((inn) => inn.bowling?.filter((l) => l.playerId === profile.id) ?? []);
-      const n = used.get(entry.matchId as string) ?? 0;
-      used.set(entry.matchId as string, n + 1);
-      const line = lines[lines.length - 1 - n];
-      if (!line) return entry;
-      if ('balls' in line) {
-        return { ...entry, figures: `${line.runs} (${line.balls})`, notOut: !line.out };
-      }
-      return { ...entry, figures: `${line.wickets}-${line.runs}` };
-    });
-  };
-
+  const cards = await freshCards([...recent], opts);
   return {
     ...profile,
-    recentBatting: refresh(profile.recentBatting, 'batting'),
-    recentBowling: refresh(profile.recentBowling, 'bowling'),
+    recentBatting: withCardForm(profile.recentBatting, 'batting', profile.id, cards),
+    recentBowling: withCardForm(profile.recentBowling, 'bowling', profile.id, cards),
   };
+}
+
+/** Scorecards by match id, at most 15s old; a card that fails to load is left out. */
+export async function freshCards(matchIds: string[], opts: FetchOpts = {}): Promise<Map<string, InningsScore[]>> {
+  const read = await Promise.all(
+    matchIds.map(async (key) => [key, await getApiScorecard(key, { revalidate: 15, ...opts }).catch(() => null)] as const)
+  );
+  return new Map(read.filter((e): e is readonly [string, InningsScore[]] => Boolean(e[1]?.length)));
 }
