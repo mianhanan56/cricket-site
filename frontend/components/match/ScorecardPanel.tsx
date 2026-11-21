@@ -11,6 +11,7 @@ import PlayerBallsButton from './PlayerBalls';
 import PlayerMarks, { roleMarksFrom } from './PlayerMarks';
 import { ordinal } from '@/lib/text';
 import { BowlingSkeleton, ScorecardSkeleton } from './MatchDetailSkeleton';
+import { inningsInProgress, lastBattedIndex } from './inningsView';
 import mc from './matchCenter.module.scss';
 import styles from './ScorecardPanel.module.scss';
 
@@ -41,6 +42,7 @@ export default function ScorecardPanel({
   innings,
   squads,
   pending,
+  underway = false,
   strikerId,
   onShowSquads,
 }: {
@@ -48,6 +50,8 @@ export default function ScorecardPanel({
   innings: InningsScore[];
   squads: MatchSquads | null;
   pending?: boolean;
+  /** The latest innings is still being batted — not between innings, not finished. */
+  underway?: boolean;
   strikerId?: string | null;
   onShowSquads: () => void;
 }) {
@@ -56,7 +60,7 @@ export default function ScorecardPanel({
   const [picked, setPicked] = useState<number | null>(null);
   const roleMarks = useMemo(() => roleMarksFrom(squads), [squads]);
   const inPlay = innings.findIndex((i) => i.phase === 'CURRENT');
-  const lastBatted = innings.map((i) => !i.notStarted).lastIndexOf(true);
+  const lastBatted = lastBattedIndex(innings);
   const selected = Math.min(picked ?? (inPlay >= 0 ? inPlay : Math.max(0, lastBatted)), Math.max(0, innings.length - 1));
   const current = innings[selected];
   const perOver = match.ballsPerOver || DEFAULT_BALLS_PER_OVER;
@@ -69,8 +73,7 @@ export default function ScorecardPanel({
   const extras = current?.extras ?? (isLatest ? match.scorecard?.extras : undefined);
   const extrasBreakdown = current?.extrasBreakdown ?? (isLatest ? match.scorecard?.extrasBreakdown : undefined);
   const yetToBat = current?.yetToBat ?? [];
-  const inProgress = match.status === 'LIVE' && isLatest && !match.note?.betweenInnings;
-  // The side still to bat sits after the live innings as an empty one, so isLatest misses it here.
+  const inProgress = inningsInProgress(innings, selected, underway);
   const striking = selected === lastBatted;
   const fallOfWickets = current?.fallOfWickets ?? [];
   const partnerships = current?.partnerships ?? [];

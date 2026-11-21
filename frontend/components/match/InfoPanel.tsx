@@ -20,6 +20,8 @@ import PlayerMarks from './PlayerMarks';
 import WatchLinks from './WatchLinks';
 import { broadcasters } from '@/lib/broadcasters';
 import { ordinal } from '@/lib/text';
+import { MATCH_FORMAT_LABEL } from '@/lib/seriesFormat';
+import { isUnofficialTest } from '@/lib/matchType';
 import mc from './matchCenter.module.scss';
 import styles from './InfoPanel.module.scss';
 
@@ -200,7 +202,7 @@ export default function InfoPanel({
         match.venue
       ),
     ],
-    ['Format', match.format],
+    ['Format', isUnofficialTest(match) ? 'Multi-day' : MATCH_FORMAT_LABEL[match.format]],
     ...(match.stage
       ? ([['Match', match.stage]] as Array<[string, React.ReactNode]>)
       : match.matchNumber

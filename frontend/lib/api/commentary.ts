@@ -257,6 +257,7 @@ function toMatchEvent(f: ApiBallFeed): MatchEvent | null {
     label: spec.label,
     text,
     over,
+    inning: f.inning ?? null,
     timestamp: f.id ? new Date(f.id).toISOString() : undefined,
     ...(wicket ? { wicket } : {}),
   };

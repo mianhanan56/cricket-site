@@ -64,19 +64,32 @@ export interface RevisedTarget {
   balls: number;
 }
 
+const TARGET_ROW = /needs?\s+(\d+)\s+runs?\s+(?:in|from|off)\s+(\d+)\s+balls?/i;
+
 /**
  * The target the feed's own target row states — "SYS-W needs 155 runs in 120 balls" — which is
  * the only place a DLS revision reaches us; the card's scores always say first innings + 1.
+ * A later row (a second revision) wins over an earlier one.
  */
-export function targetFromFeed(events: ReadonlyArray<Pick<MatchEvent, 'kind' | 'text'>>): RevisedTarget | null {
-  const text = events.find((e) => e.kind === 'TARGET' && e.text)?.text ?? '';
-  const m = /needs?\s+(\d+)\s+runs?\s+(?:in|from|off)\s+(\d+)\s+balls?/i.exec(text);
-  return m ? { target: Number(m[1]), balls: Number(m[2]) } : null;
+export function targetFromFeed(
+  events: ReadonlyArray<Pick<MatchEvent, 'kind' | 'text' | 'timestamp'>>
+): RevisedTarget | null {
+  let best: { at: number; target: RevisedTarget } | null = null;
+  for (const e of events) {
+    if (e.kind !== 'TARGET' || !e.text) continue;
+    const m = TARGET_ROW.exec(e.text);
+    if (!m) continue;
+    const parsed = e.timestamp ? Date.parse(e.timestamp) : NaN;
+    const at = Number.isNaN(parsed) ? -Infinity : parsed;
+    if (!best || at > best.at) best = { at, target: { target: Number(m[1]), balls: Number(m[2]) } };
+  }
+  return best?.target ?? null;
 }
 
 /**
- * What a second innings is chasing and over how many balls: the feed's stated target when it
- * can be a whole-innings one (more runs than scored, more balls than bowled), else first innings + 1.
+ * What a second innings is chasing and over how many balls: the feed's stated target, else first
+ * innings + 1. A revision holds once reached or once its balls are up, but not both — play past a
+ * reached target means the row was some other equation, not the innings' target.
  */
 export function chaseOf(
   first: InningsScore,
@@ -85,9 +98,8 @@ export function chaseOf(
   perOver: number,
   revised?: RevisedTarget | null
 ): { target: number; limit: number | null } {
-  if (revised && revised.target > current.runs && revised.balls > ballsFrom(current.overs ?? 0, perOver)) {
-    return { target: revised.target, limit: revised.balls };
-  }
+  const impossible = revised && current.runs >= revised.target && ballsFrom(current.overs ?? 0, perOver) > revised.balls;
+  if (revised && revised.target > 0 && revised.balls > 0 && !impossible) return { target: revised.target, limit: revised.balls };
   return { target: first.runs + 1, limit: inningsBallLimit(first, match, perOver) };
 }
 
@@ -159,5 +171,5 @@ export function inningsProgress(match: Match, innings?: InningsScore[], revised?
       : first
         ? inningsBallLimit(first, match, eq.perOver)
         : match.ballsLimit ?? (SCHEDULED_OVERS[match.format] ?? 0) * eq.perOver;
-  return limit ? eq.ballsBowled / limit : null;
+  return limit ? Math.min(1, eq.ballsBowled / limit) : null;
 }

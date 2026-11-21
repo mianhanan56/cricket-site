@@ -238,6 +238,8 @@ export interface MatchEvent {
   text?: string | null;
   /** Over the event belongs to, when the feed says. */
   over?: number | null;
+  /** Innings index, 0-based, when the feed says. */
+  inning?: number | null;
   timestamp?: string;
   /** A wicket card's own fields, for matching it to the scorecard's fall of wickets. */
   wicket?: WicketRef;

@@ -5,6 +5,7 @@ import type { MatchEvent, MatchFormat } from '@/types';
 import type { InningsWorm, WormPoint } from '@/lib/momentum';
 import { SCHEDULED_OVERS, ballsFrom, oversFrom } from '@/lib/overs';
 import Segmented from '../ui/Segmented';
+import { momentsFor } from './inningsView';
 import styles from './MomentumGraph.module.scss';
 
 const WORM_H = 190;
@@ -53,7 +54,9 @@ export default function MomentumGraph({
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(0);
   const multi = format === 'TEST';
-  const [pick, setPick] = useState<string>(() => String(Math.max(0, worms.length - 1)));
+  // Follows the latest innings until the reader picks one.
+  const [picked, setPick] = useState<string | null>(null);
+  const pick = picked ?? String(worms[worms.length - 1]?.index ?? 0);
   const [readout, setReadout] = useState<Readout | null>(null);
   const [crossX, setCrossX] = useState<number | null>(null);
 
@@ -71,6 +74,10 @@ export default function MomentumGraph({
   const shown = useMemo(
     () => (multi ? worms.filter((wm) => String(wm.index) === pick) : worms),
     [multi, worms, pick]
+  );
+  const marks = useMemo(
+    () => momentsFor(moments, shown.map((wm) => wm.index), shown.length === worms.length),
+    [moments, shown, worms.length]
   );
 
   const maxBalls = Math.max(
@@ -235,7 +242,7 @@ export default function MomentumGraph({
               })
             )}
 
-            {moments.map((m) => {
+            {marks.map((m) => {
               if (m.over == null || m.over * perOver > maxBalls) return null;
               const mx = PAD_L + (m.over - 0.5) * overW;
               const text = `Over ${m.over} · ${m.label}${m.text ? ` — ${m.text}` : ''}`;

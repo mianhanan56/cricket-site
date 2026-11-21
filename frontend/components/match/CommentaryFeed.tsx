@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import type { FeedNote, Match, MatchSquads, OverSummary } from '@/types';
+import type { FeedNote, MatchFormat, MatchSquads, OverSummary, Team } from '@/types';
 import { ballKind, lastIndexAtOrBelow, runsLabel, type BallEntry, type BallKind } from '@/lib/balls';
 import { MATCH_FORMAT_LABEL } from '@/lib/seriesFormat';
 import Segmented from '../ui/Segmented';
@@ -121,7 +121,7 @@ function word(b: BallEntry, kind: BallKind): string {
   return WORD[kind];
 }
 
-function BallEvent({ b }: { b: BallEntry }) {
+const BallEvent = memo(function BallEvent({ b }: { b: BallEntry }) {
   const kind = ballKind(b);
   const [head, ...rest] = b.text.split('—');
   const body = rest.join('—').trim();
@@ -150,7 +150,7 @@ function BallEvent({ b }: { b: BallEntry }) {
       </div>
     </li>
   );
-}
+});
 
 function overTone(token: string): string {
   const t = token.toUpperCase();
@@ -162,7 +162,7 @@ function overTone(token: string): string {
   return '';
 }
 
-function OverCard({ summary }: { summary: OverSummary }) {
+const OverCard = memo(function OverCard({ summary }: { summary: OverSummary }) {
   return (
     <li className={styles.overCard}>
       <div className={styles.overHead}>
@@ -212,13 +212,17 @@ function OverCard({ summary }: { summary: OverSummary }) {
       </dl>
     </li>
   );
-}
+});
+
+const NoteRow = memo(FeedNoteRow);
 
 function CommentaryFeed({
   balls,
   summaries,
   notes,
-  match,
+  format,
+  homeTeam,
+  awayTeam,
   squads,
   pending,
   loadingMore,
@@ -230,7 +234,9 @@ function CommentaryFeed({
   summaries: OverSummary[];
   /** Writers' notes, stat cards and reviews, shown between the balls under "All". */
   notes: FeedNote[];
-  match: Pick<Match, 'format' | 'homeTeam' | 'awayTeam'>;
+  format: MatchFormat;
+  homeTeam: Team;
+  awayTeam: Team;
   squads: MatchSquads | null;
   pending?: boolean;
   loadingMore?: boolean;
@@ -271,14 +277,14 @@ function CommentaryFeed({
       before = n.reviewsLeft;
     }
 
-    const sides = [match.homeTeam, match.awayTeam];
+    const sides = [homeTeam, awayTeam];
     return {
       names,
       team: (id) => sides.find((t) => t.id === id) ?? null,
-      format: MATCH_FORMAT_LABEL[match.format],
+      format: MATCH_FORMAT_LABEL[format],
       retained,
     };
-  }, [squads, summaries, notes, match.homeTeam, match.awayTeam, match.format]);
+  }, [squads, summaries, notes, homeTeam, awayTeam, format]);
 
   const rows = useMemo<FeedRow[]>(() => {
     const inScope = (n: number | undefined) => inningNum === null || n === inningNum;
@@ -411,7 +417,7 @@ function CommentaryFeed({
               row.kind === 'over' ? (
                 <OverCard key={row.key} summary={row.summary} />
               ) : row.kind === 'note' ? (
-                <FeedNoteRow key={row.key} note={row.note} ctx={ctx} />
+                <NoteRow key={row.key} note={row.note} ctx={ctx} />
               ) : (
                 <BallEvent key={row.key} b={row.ball} />
               )
@@ -450,5 +456,5 @@ function CommentaryFeed({
   );
 }
 
-// Its inputs hold their identity across a poll that changed nothing, so it skips that render.
+// Skips a poll that changed nothing only while the caller holds every prop's identity (teams by id).
 export default memo(CommentaryFeed);

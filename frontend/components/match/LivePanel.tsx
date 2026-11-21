@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef } from 'react';
-import type { InningsScore, Match, MatchEvent, OverSummary, PlayerOfMatch, Team } from '@/types';
+import type { InningsScore, Match, MatchConditions, MatchEvent, OverSummary, PlayerOfMatch, Team } from '@/types';
 import { inningsUnderway, type MatchStateView } from '@/lib/matchState';
 import type { Crease } from '@/lib/crease';
 import type { BallEntry, BallGroup } from '@/lib/balls';
@@ -21,9 +21,10 @@ import TopPerformers from './TopPerformers';
 import PreStart from './PreStart';
 import Skeleton from '../ui/Skeleton';
 import { fmtOvers } from './ScorecardPanel';
+import { regulationInnings } from './inningsView';
 import mc from './matchCenter.module.scss';
 import styles from './LivePanel.module.scss';
-import { targetFromFeed } from '@/lib/telemetry';
+import type { RevisedTarget } from '@/lib/telemetry';
 
 const GRAPH_WALK_BUDGET = 8;
 
@@ -71,8 +72,10 @@ export default function LivePanel({
   balls,
   overs,
   events,
+  revised,
   groups,
   crease,
+  conditions,
   pending,
   history,
 }: {
@@ -85,31 +88,35 @@ export default function LivePanel({
   balls: BallEntry[];
   overs: OverSummary[];
   events: MatchEvent[];
+  revised: RevisedTarget | null;
   groups: BallGroup[];
   crease: Crease | null;
+  conditions: MatchConditions | null;
   pending: boolean;
   history: { loadMore: () => void; loading: boolean; exhausted: boolean };
 }) {
   const live = match.status === 'LIVE';
-  const window = useMemo(() => recentInningsBalls(balls), [balls]);
+  const recent = useMemo(() => recentInningsBalls(balls), [balls]);
   const pulseOn = inningsUnderway(state);
-  const revised = useMemo(() => targetFromFeed(events), [events]);
   const started = innings.filter((i) => !i.notStarted);
   const current = started[started.length - 1];
   // Read whatever window is in hand (6 balls up) rather than wait on the older pages; the meters
   // fill to the full window as they land. The card's wicket count still vets the window.
   const readings = useMemo(() => {
     if (!pulseOn) return null;
-    const inHand = legalBalls(window) + 1;
+    const inHand = legalBalls(recent) + 1;
     return matchPulse(
-      window,
+      recent,
       match.format,
       perOver,
       current ? { ballsBowled: Math.min(ballsFrom(current.overs, perOver), inHand), wickets: current.wickets } : undefined
     );
-  }, [pulseOn, window, match.format, perOver, current]);
-  const trace = useMemo(() => pulseTrace(window), [window]);
-  const worms = useMemo(() => inningsWorms(innings, overs, balls, perOver), [innings, overs, balls, perOver]);
+  }, [pulseOn, recent, match.format, perOver, current]);
+  const trace = useMemo(() => pulseTrace(recent), [recent]);
+  const worms = useMemo(
+    () => inningsWorms(regulationInnings(innings, match.format), overs, balls, perOver),
+    [innings, match.format, overs, balls, perOver]
+  );
   const moments = useMemo(() => axisMoments(events), [events]);
   const keyEvents = useMemo(() => keyMoments(events, innings), [events, innings]);
 
@@ -140,7 +147,7 @@ export default function LivePanel({
   const showLive = live && state.family !== 'upcoming';
   // Nothing on the board and nothing in the feed: the grid would be two empty panels.
   const preStart =
-    (match.status === 'UPCOMING' || live) &&
+    live &&
     !balls.length &&
     !batted.some((i) => i.overs > 0 || i.runs > 0 || i.wickets > 0);
 
@@ -154,7 +161,7 @@ export default function LivePanel({
 
       {match.status === 'COMPLETED' && <TopPerformers innings={innings} />}
 
-      {preStart && !pending && <PreStart match={match} state={state} />}
+      {preStart && !pending && <PreStart match={match} state={state} conditions={conditions} />}
 
       {showLive && !(preStart && !pending) && (
         <div className={styles.liveGrid}>
@@ -242,8 +249,8 @@ export default function LivePanel({
             <div className={mc.surface}>
               {readings ? (
                 <>
-                  <PulseTrace points={trace} label={`Last ${window.length} deliveries`} still={!state.alive} />
-                  <MatchPulse readings={readings} window={legalBalls(window)} />
+                  <PulseTrace points={trace} label={`Last ${recent.length} deliveries`} still={!state.alive} />
+                  <MatchPulse readings={readings} window={legalBalls(recent)} />
                 </>
               ) : (
                 pending ? (

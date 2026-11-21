@@ -17,7 +17,7 @@ import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
 import { battedInnings, formatTeamScore, inningsFor, withCard } from '@/lib/innings';
 import { creaseContext, matchSituation, type MatchSituation } from '@/lib/situation';
 import { isStaleStoppage, attributeResult } from '@/lib/api';
-import { matchStateOf } from '@/lib/matchState';
+import { inningsUnderway, matchStateOf } from '@/lib/matchState';
 import { quizKind } from '@/lib/quiz';
 import { breakFromFeed } from '@/lib/feedBreak';
 import { inningsProgress, liveEquation, targetFromFeed } from '@/lib/telemetry';
@@ -37,6 +37,8 @@ import ScorecardPanel from './ScorecardPanel';
 import CommentaryFeed from './CommentaryFeed';
 import InfoPanel from './InfoPanel';
 import QuizPanel from './QuizPanel';
+import { regulationInnings } from './inningsView';
+import { useChaseTarget } from './useChaseTarget';
 import mc from './matchCenter.module.scss';
 import styles from './MatchDetail.module.scss';
 
@@ -147,9 +149,13 @@ export default function MatchDetail({
   const squadsPending = squadsEnabled && match.status === 'UPCOMING' && !squadsLoaded && !squads;
 
   // The upstream card is a complete card each poll, not a delta.
+  // The list poll carries no squads; a fixture's series squads came with the page and must outlive it.
   useEffect(() => {
     if (!polled) return;
-    setMatch(withCard(polled, apiExtras.innings.length ? apiExtras.innings : undefined));
+    setMatch((prev) => {
+      const next = withCard(polled, apiExtras.innings.length ? apiExtras.innings : undefined);
+      return next.squads || !prev.squads ? next : { ...next, squads: prev.squads };
+    });
   }, [polled, apiExtras.innings]);
 
   useEffect(() => {
@@ -187,8 +193,11 @@ export default function MatchDetail({
   const state = matchStateOf(match, feedBreak && !listStoppage ? feedBreak : note);
 
   const multiInnings = match.format === 'TEST';
-  const homeScore = scoreParts(inningsFor(match, match.homeTeam), perOver, multiInnings);
-  const awayScore = scoreParts(inningsFor(match, match.awayTeam), perOver, multiInnings);
+  const scored = innings.length > 2 && !multiInnings
+    ? { ...match, scorecard: { ...match.scorecard, innings: regulationInnings(innings, match.format) } }
+    : match;
+  const homeScore = scoreParts(inningsFor(scored, match.homeTeam), perOver, multiInnings);
+  const awayScore = scoreParts(inningsFor(scored, match.awayTeam), perOver, multiInnings);
 
   const cardDots = useMemo(
     () => (isLive ? reachedByCard(dots, apiExtras.innings, perOver) : dots),
@@ -246,8 +255,13 @@ export default function MatchDetail({
 
   const feedEvents = useMemo(() => mergeFeedItems(history.events, apiExtras.events, Infinity), [apiExtras.events, history.events]);
 
+  const chasing = isLive && !multiInnings && apiExtras.innings.filter((i) => !i.notStarted).length === 2 ? 1 : null;
+  const chaseRows = useChaseTarget(matchId, chasing);
   // Rates and crease read the fetched card — only it returns innings in innings order.
-  const revised = useMemo(() => (isLive ? targetFromFeed(feedEvents) : null), [isLive, feedEvents]);
+  const revised = useMemo(
+    () => (isLive ? targetFromFeed(chaseRows.length ? [...feedEvents, ...chaseRows] : feedEvents) : null),
+    [isLive, feedEvents, chaseRows]
+  );
   const eq = useMemo(
     () => (isLive ? liveEquation(match, apiExtras.innings.length ? apiExtras.innings : undefined, revised) : null),
     [isLive, match, apiExtras.innings, revised]
@@ -294,6 +308,12 @@ export default function MatchDetail({
     return () => io.disconnect();
   }, []);
 
+  // Each list poll hands back new team objects; held by id so the commentary feed's memo can skip.
+  const sides = useMemo(
+    () => ({ home: match.homeTeam, away: match.awayTeam }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [match.homeTeam.id, match.awayTeam.id]
+  );
   const railInn = eq?.innings;
   const panelRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -316,6 +336,20 @@ export default function MatchDetail({
     // Panel top just under the stuck rail, so the rail stays where it is.
     const gap = panel.getBoundingClientRect().top - rail.getBoundingClientRect().bottom;
     window.scrollBy({ top: gap });
+  };
+
+  const onTabKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const at = tabs.findIndex((t) => t.key === tab);
+    const to =
+      e.key === 'ArrowRight' ? (at + 1) % tabs.length
+      : e.key === 'ArrowLeft' ? (at - 1 + tabs.length) % tabs.length
+      : e.key === 'Home' ? 0
+      : e.key === 'End' ? tabs.length - 1
+      : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    pick(tabs[to].key);
+    tabsRef.current?.querySelector<HTMLButtonElement>(`#match-tab-${tabs[to].key}`)?.focus();
   };
 
   return (
@@ -349,13 +383,16 @@ export default function MatchDetail({
       </div>
 
       <nav ref={railRef} className={`${styles.rail} ${compact ? styles.railCompact : ''}`} aria-label="Match sections">
-        <div ref={tabsRef} className={styles.tabs} role="tablist">
+        <div ref={tabsRef} className={styles.tabs} role="tablist" onKeyDown={onTabKey}>
           {tabs.map((t) => (
             <button
               key={t.key}
+              id={`match-tab-${t.key}`}
               type="button"
               role="tab"
               aria-selected={tab === t.key}
+              aria-controls="match-panel"
+              tabIndex={tab === t.key ? 0 : -1}
               className={`${styles.tab} ${tab === t.key ? styles.active : ''}`}
               onClick={() => pick(t.key)}
             >
@@ -374,7 +411,7 @@ export default function MatchDetail({
             {railInn && (
               <span className={styles.miniScore}>
                 <Ticker value={`${railInn.runs}/${railInn.wickets}`} />
-                <small>{railInn.overs}</small>
+                <small>{formatProgressShort(railInn.overs, perOver)}</small>
               </span>
             )}
           </span>
@@ -382,7 +419,13 @@ export default function MatchDetail({
       </nav>
 
       {/* While the rail is stuck, a short tab must not let the page clamp and bring the header back. */}
-      <div ref={panelRef} className={`${styles.panelAnchor} ${compact ? styles.panelHold : ''}`}>
+      <div
+        ref={panelRef}
+        id="match-panel"
+        role="tabpanel"
+        aria-labelledby={`match-tab-${tab}`}
+        className={`${styles.panelAnchor} ${compact ? styles.panelHold : ''}`}
+      >
         {tab === 'live' && (
           <LivePanel
             match={match}
@@ -392,8 +435,10 @@ export default function MatchDetail({
             balls={feedBalls}
             overs={feedOvers}
             events={feedEvents}
+            revised={revised}
             groups={ballGroups}
             crease={crease}
+            conditions={conditions}
             pending={extrasPending}
             history={history}
           />
@@ -404,6 +449,7 @@ export default function MatchDetail({
             innings={innings}
             squads={squads}
             pending={extrasPending}
+            underway={isLive && inningsUnderway(state)}
             strikerId={crease?.batsmen.find((b) => b.onStrike)?.line.playerId ?? null}
             onShowSquads={() => show('info')}
           />
@@ -413,7 +459,9 @@ export default function MatchDetail({
             balls={feedBalls}
             summaries={feedOvers}
             notes={feedNotes}
-            match={match}
+            format={match.format}
+            homeTeam={sides.home}
+            awayTeam={sides.away}
             squads={squads}
             pending={extrasPending || (history.loading && !feedBalls.length)}
             loadingMore={history.loading}
@@ -441,7 +489,7 @@ export default function MatchDetail({
             <SeriesLeadersBoard leaders={leaders} seriesId={match.series.id} />
           </div>
         )}
-        {tab === 'quiz' && quiz && <QuizPanel quiz={quiz} />}
+        {tab === 'quiz' && quiz && <QuizPanel key={quiz.generatedAt} quiz={quiz} />}
       </div>
     </div>
   );

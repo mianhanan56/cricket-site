@@ -83,7 +83,7 @@ export default function QuizPanel({ quiz }: { quiz: MatchQuiz }) {
     if (!answered && index >= 0 && index < q.options.length) {
       e.preventDefault();
       choose(index);
-    } else if (answered && key === 'enter' && target?.tagName !== 'BUTTON') {
+    } else if (answered && key === 'enter' && !target?.closest('a, button, [role=tab], [role=button]')) {
       e.preventDefault();
       advance();
     }

@@ -1,9 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import type { Match } from '@/types';
+import type { Match, MatchConditions } from '@/types';
 import type { MatchStateView } from '@/lib/matchState';
-import { useApiMatchSquads } from '@/hooks/useApiMatches';
 import LocalTime from '../ui/LocalTime';
 import Countdown from '../live/Countdown';
 import mc from './matchCenter.module.scss';
@@ -11,8 +10,15 @@ import styles from './PreStart.module.scss';
 import { venueText } from '@/lib/venue';
 
 /** The Live tab before the first ball: what is known about the start, from the feed. */
-export default function PreStart({ match, state }: { match: Match; state: MatchStateView }) {
-  const { conditions } = useApiMatchSquads(match.id);
+export default function PreStart({
+  match,
+  state,
+  conditions,
+}: {
+  match: Match;
+  state: MatchStateView;
+  conditions: MatchConditions | null;
+}) {
   const weather = conditions?.weather;
   const ground = conditions?.venue;
   const status = state.alive ? match.note?.label ?? 'Waiting for the first ball' : state.label;

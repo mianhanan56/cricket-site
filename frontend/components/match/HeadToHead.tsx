@@ -6,21 +6,6 @@ import { meetingFormat } from '@/lib/seriesFormat';
 import styles from './HeadToHead.module.scss';
 import { venueText } from '@/lib/venue';
 
-/**
- * The record between the two sides in this match.
- *
- * Derived, not fetched — the upstream has no head-to-head endpoint, so this is read off
- * the result sentences on a window of the schedule. See lib/headToHead.
- *
- * The split bar is the same idiom as WinProbability directly above it on this
- * page, deliberately: one is the probability of this match, the other the record
- * behind it, and a reader should recognise the shape.
- *
- * The honesty is in `unresolved`. A match whose result names no side we can
- * identify is counted separately and printed, rather than being folded into the
- * draws — so "3–2 from 8 matches" never silently claims to be all eight.
- */
-/** The mark slot when nobody won: what happened instead. */
 function noWinnerMark(result: string): string {
   if (/draw/i.test(result)) return 'Draw';
   if (/\btie|tied/i.test(result)) return 'Tie';
@@ -31,8 +16,7 @@ function noWinnerMark(result: string): string {
 export default function HeadToHead({ record }: { record: H2H }) {
   const { home, away, played, homeWins, awayWins, drawn, unresolved, matches } = record;
 
-  // The bar is drawn over decided matches only: including draws would show a
-  // gap that reads as a third team.
+  // Decided matches only: draws in the bar would read as a third team.
   const decided = homeWins + awayWins;
   const homePct = decided ? Math.round((homeWins / decided) * 100) : 50;
 
