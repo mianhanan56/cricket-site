@@ -296,6 +296,12 @@
   white-space: nowrap;
 }
 
+.rowEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+}
+
 .format {
   @include chip;
   height: 22px;

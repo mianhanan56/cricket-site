@@ -3,7 +3,8 @@ import { pickParam } from '@/lib/queryParams';
 import { MATCH_TYPE_KEYS, type MatchTypeKey } from '@/lib/matchType';
 import { FIXTURE_FORMAT_KEYS, type FixtureFormatKey } from '@/lib/tabs';
 import { GENDER_KEYS, type GenderKey } from '@/lib/gender';
-import { dayKeyOf, pickDayParam } from '@/lib/fixtureDays';
+import { dayKeyIn, pickDayParam } from '@/lib/fixtureDays';
+import { SERVER_ZONE } from '@/lib/datetime';
 import { getApiFixtureSchedule, type Fixture } from '@/lib/api';
 import { packFixtures } from '@/lib/fixturePack';
 import FixturesFilter from '@/components/fixtures/FixturesFilter';
@@ -67,8 +68,7 @@ export default async function FixturesPage(props: {
           initialType={type}
           initialGender={gender}
           initialDate={date}
-          // The client re-derives today for its own timezone on mount.
-          serverToday={dayKeyOf(new Date())}
+          serverToday={dayKeyIn(new Date(), SERVER_ZONE)}
         />
       )}
     </div>

@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
   dayDate,
+  dayOfMonth,
   describeSelection,
+  formatDayKey,
   formatDayLong,
   rangeSelection,
   selectionDays,
   selectionRange,
 } from '@/lib/fixtureDays';
-import { LOCALE } from '@/lib/datetime';
 import Icon from '../ui/Icon';
 import styles from './FixtureCalendar.module.scss';
 
@@ -22,8 +23,8 @@ const monthKey = (key: string) => key.slice(0, 7);
 /** Every day of `month`'s grid, Monday-first, padded with the blanks either side. */
 function monthGrid(month: string): Array<string | null> {
   const first = dayDate(`${month}-01`);
-  const lead = (first.getDay() + 6) % 7;
-  const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const lead = (first.getUTCDay() + 6) % 7;
+  const days = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
 
   const cells: Array<string | null> = Array(lead).fill(null);
   for (let d = 1; d <= days; d++) cells.push(`${month}-${String(d).padStart(2, '0')}`);
@@ -152,10 +153,7 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
               <Icon name="chevronLeft" size={16} />
             </button>
             <span className={styles.month}>
-              {dayDate(`${month}-01`).toLocaleDateString(LOCALE, {
-                month: 'long',
-                year: 'numeric',
-              })}
+              {formatDayKey(`${month}-01`, { month: 'long', year: 'numeric' })}
             </span>
             <button
               type="button"
@@ -198,7 +196,7 @@ export default function FixtureCalendar({ value, onChange, counts, todayKey }: F
                   aria-label={`${formatDayLong(key)} — ${count} ${count === 1 ? 'fixture' : 'fixtures'}`}
                   onClick={() => pick(key)}
                 >
-                  {dayDate(key).getDate()}
+                  {dayOfMonth(key)}
                   {count > 0 && <span className={styles.dayCount}>{count}</span>}
                 </button>
               );

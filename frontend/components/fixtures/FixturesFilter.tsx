@@ -5,15 +5,16 @@ import type { Fixture } from '@/lib/api';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import {
   addDays,
-  dayDate,
-  dayKey,
-  dayKeyOf,
+  dayKeyIn,
+  dayOfMonth,
+  daysBetween,
   describeSelection,
+  formatDayKey,
   formatDayLong,
   selectionDays,
   toggleDay,
 } from '@/lib/fixtureDays';
-import { LOCALE } from '@/lib/datetime';
+import { readerZone, SERVER_ZONE } from '@/lib/datetime';
 import { unpackFixtures, type PackedFixtures } from '@/lib/fixturePack';
 import {
   MATCH_TYPE_KEY_OPTIONS,
@@ -58,13 +59,12 @@ export interface FixturesFilterProps {
 const WEEK = 7;
 const FORMAT_OPTIONS = FIXTURE_FORMAT_TABS.map((t) => ({ value: t.key, label: t.label }));
 
-const daysBetween = (from: string, to: string) => Math.round((+dayDate(to) - +dayDate(from)) / 86_400_000);
-const dayMonth = (key: string) => dayDate(key).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short' });
+const dayMonth = (key: string) => formatDayKey(key, { day: 'numeric', month: 'short' });
 
 /** "23 – 29 Oct", or "29 Oct – 4 Nov" across a month end. */
 function weekLabel(first: string, last: string): string {
   return first.slice(0, 7) === last.slice(0, 7)
-    ? `${dayDate(first).getDate()} – ${dayMonth(last)}`
+    ? `${dayOfMonth(first)} – ${dayMonth(last)}`
     : `${dayMonth(first)} – ${dayMonth(last)}`;
 }
 
@@ -100,7 +100,13 @@ function WeekStrip({
     if (w >= 0 && w < weeks) setWeek(w);
   }, [firstPicked, todayKey, weeks]);
 
-  const start = addDays(todayKey, Math.min(week, weeks - 1) * WEEK);
+  // A filter can shorten the schedule under the week being shown.
+  useEffect(() => {
+    if (week > weeks - 1) setWeek(weeks - 1);
+  }, [week, weeks]);
+  const shown = Math.min(week, weeks - 1);
+
+  const start = addDays(todayKey, shown * WEEK);
   const days = Array.from({ length: WEEK }, (_, i) => addDays(start, i));
 
   return (
@@ -114,8 +120,8 @@ function WeekStrip({
           <button
             type="button"
             className={styles.navBtn}
-            onClick={() => setWeek((w) => w - 1)}
-            disabled={week === 0}
+            onClick={() => setWeek(shown - 1)}
+            disabled={shown === 0}
             aria-label="Previous week"
           >
             <Icon name="chevronLeft" size={16} />
@@ -126,8 +132,8 @@ function WeekStrip({
           <button
             type="button"
             className={styles.navBtn}
-            onClick={() => setWeek((w) => w + 1)}
-            disabled={week >= weeks - 1}
+            onClick={() => setWeek(shown + 1)}
+            disabled={shown >= weeks - 1}
             aria-label="Next week"
           >
             <Icon name="chevronRight" size={16} />
@@ -152,9 +158,9 @@ function WeekStrip({
               onClick={() => onToggle(key)}
             >
               <span className={styles.dayName}>
-                {key === todayKey ? 'Today' : dayDate(key).toLocaleDateString(LOCALE, { weekday: 'short' })}
+                {key === todayKey ? 'Today' : formatDayKey(key, { weekday: 'short' })}
               </span>
-              <span className={styles.dayNum}>{dayDate(key).getDate()}</span>
+              <span className={styles.dayNum}>{dayOfMonth(key)}</span>
               <span className={styles.dayCount}>
                 {n ? (
                   <>
@@ -193,18 +199,21 @@ export default function FixturesFilter({
   const active = FIXTURE_FORMAT_TABS.find((t) => t.key === format) ?? FIXTURE_FORMAT_TABS[0];
   const matchType = parseMatchType(type);
 
-  // The reader's today is only known in the browser; the server's paints first.
-  const [todayKey, setTodayKey] = useState(serverToday);
-  useEffect(() => setTodayKey(dayKeyOf(new Date())), []);
+  // Days are the reader's, but their zone is only known after mount; until then server and client both use SERVER_ZONE.
+  const [{ zone, todayKey }, setDays] = useState({ zone: SERVER_ZONE, todayKey: serverToday });
+  useEffect(() => {
+    const reader = readerZone();
+    setDays({ zone: reader, todayKey: dayKeyIn(new Date(), reader) });
+  }, []);
 
   // Gender, format and type narrow the list; the date only picks a day of it, so day counts describe the filtered list.
   // The read's last day is only partly listed, so it waits for the next read rather than showing short.
   const whole = useMemo(() => {
     const all = unpackFixtures(fixtures);
     if (!coveredUntil) return all;
-    const cut = dayKey(coveredUntil);
-    return all.filter((f) => dayKey(f.startTime) < cut);
-  }, [fixtures, coveredUntil]);
+    const cut = dayKeyIn(coveredUntil, zone);
+    return all.filter((f) => dayKeyIn(f.startTime, zone) < cut);
+  }, [fixtures, coveredUntil, zone]);
 
   const filtered = useMemo(() => {
     const byType = filterByMatchType(filterByGender(whole, gender), matchType);
@@ -215,13 +224,13 @@ export default function FixturesFilter({
   const groups = useMemo<DayGroup[]>(() => {
     const out: DayGroup[] = [];
     for (const fixture of filtered) {
-      const key = dayKey(fixture.startTime);
+      const key = dayKeyIn(fixture.startTime, zone);
       const last = out[out.length - 1];
       if (last?.key === key) last.fixtures.push(fixture);
       else out.push({ key, fixtures: [fixture] });
     }
     return out;
-  }, [filtered]);
+  }, [filtered, zone]);
 
   const counts = useMemo(() => new Map(groups.map((g) => [g.key, g.fixtures.length])), [groups]);
 

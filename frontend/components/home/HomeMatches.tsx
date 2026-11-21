@@ -20,6 +20,8 @@ import { rankLive } from '@/lib/featured';
 import { isAtStumps, isLiveNow } from '@/lib/matchState';
 import { useFollows } from '@/lib/follows';
 import { seriesFromMatches } from '@/lib/api';
+import { readerZone } from '@/lib/datetime';
+import { dayKeyIn } from '@/lib/fixtureDays';
 import { SeriesList } from '../series/SeriesFilter';
 import LiveHero from './LiveHero';
 import NextUpHero from './NextUpHero';
@@ -78,15 +80,21 @@ export default function HomeMatches({ initialTab, initialType, initialMatches }:
   const needsSchedule = matches.length > 0 && (!liveList.length || picked === 'upcoming' || picked === 'all');
   const { fixtures: ahead, loadMore, hasMore } = useFixturesAhead(needsSchedule);
 
-  // Schedule rows the feed has no copy of, up to the last one read — that day is only partly read.
+  // Schedule rows the feed has no copy of. While more pages can be read, the last day read is only partly read.
+  // The schedule is only read in the browser, so the reader's zone is safe here.
   const missing = useMemo(() => {
+    if (!ahead.length) return [];
     const inFeed = new Set(matches.map((m) => m.id));
-    const lastRead = Math.max(0, ...ahead.map((f) => +new Date(f.startTime)));
+    const zone = readerZone();
+    const lastRead = Math.max(...ahead.map((f) => +new Date(f.startTime)));
+    const cut = hasMore ? dayKeyIn(new Date(lastRead), zone) : null;
     return filterByMatchType(
-      ahead.filter((f) => f.status === 'UPCOMING' && !inFeed.has(f.id) && +new Date(f.startTime) < lastRead),
+      ahead.filter(
+        (f) => f.status === 'UPCOMING' && !inFeed.has(f.id) && (cut === null || dayKeyIn(f.startTime, zone) < cut)
+      ),
       type
     );
-  }, [matches, ahead, type]);
+  }, [matches, ahead, type, hasMore]);
 
   const { upcomingList, finishedList } = useMemo(() => {
     const now = Date.now();

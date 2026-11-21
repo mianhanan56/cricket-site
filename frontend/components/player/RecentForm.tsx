@@ -136,17 +136,28 @@ export default function RecentForm({
 
       {open && (
         <ol className={styles.list}>
-          {entries.map((e, n) => (
-            <FormRow
-              key={`${e.matchId}-${n}`}
-              href={e.matchId ? `/matches/${e.matchId}` : null}
-              fig={`${e.figures}${e.notOut ? '*' : ''}`}
-              tier={tierOf(read(e, picked).lead, picked)}
-              title={e.fixture}
-              sub={e.date ? formatInZone(e.date, 'date', SERVER_ZONE) : ''}
-              aside={e.format && <span className={styles.format}>{e.format}</span>}
-            />
-          ))}
+          {entries.map((e, n) => {
+            const inns = read(e, picked);
+            const balls = picked === 'batting' && inns.second != null;
+            return (
+              <FormRow
+                key={`${e.matchId}-${n}`}
+                href={e.matchId ? `/matches/${e.matchId}` : null}
+                fig={inns.label}
+                tier={tierOf(inns.lead, picked)}
+                title={e.fixture}
+                sub={e.date ? formatInZone(e.date, 'date', SERVER_ZONE) : ''}
+                aside={
+                  (balls || e.format) && (
+                    <span className={styles.rowEnd}>
+                      {balls && <span className={styles.aside}>({inns.second})</span>}
+                      {e.format && <span className={styles.format}>{e.format}</span>}
+                    </span>
+                  )
+                }
+              />
+            );
+          })}
         </ol>
       )}
     </div>

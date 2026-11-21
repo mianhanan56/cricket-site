@@ -23,14 +23,16 @@ export default function PlayerPortrait({
   /** `lg` at the head of a profile, `sm` in a card rail, `xs` in a search row. */
   size?: 'xs' | 'sm' | 'lg';
 }) {
-  const [failed, setFailed] = useState(false);
+  // Keyed by src: a reused instance (LiveLeaders) must try each new portrait afresh.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = Boolean(src) && failedSrc === src;
   const imgRef = useRef<HTMLImageElement>(null);
   const box = size === 'lg' ? '' : styles[size];
 
   // A server-rendered image can fail before hydration attaches onError; it would sit as an empty well.
   useEffect(() => {
     const img = imgRef.current;
-    if (img?.complete && img.naturalWidth === 0) setFailed(true);
+    if (src && img?.complete && img.naturalWidth === 0) setFailedSrc(src);
   }, [src]);
 
   if (!src || failed) {
@@ -51,7 +53,7 @@ export default function PlayerPortrait({
         width={148}
         height={148}
         decoding="async"
-        onError={() => setFailed(true)}
+        onError={() => setFailedSrc(src)}
       />
     </span>
   );

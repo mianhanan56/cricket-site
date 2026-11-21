@@ -3,7 +3,6 @@ import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { SeriesLeader, SeriesLeaders as Leaders, SeriesStatKind } from '@/types';
 import PlayerPortrait from '../player/PlayerPortrait';
 import TeamBadge from '../ui/TeamBadge';
-import ViewAllCue from '../ui/ViewAllCue';
 import styles from './SeriesLeaders.module.scss';
 
 /** Kept here rather than imported from the route, so a page module stays out of this component. */
@@ -41,10 +40,7 @@ function hrefFor(seriesId: string, kind: SeriesLeader['kind']): string {
 export function LeaderFigure({ leader, seriesId }: { leader: SeriesLeader; seriesId: string }) {
   return (
     <Link {...ON_INTENT} href={hrefFor(seriesId, leader.kind)} className={styles.figure}>
-      <span className={styles.figureHead}>
-        <span className={styles.figureLabel}>{leader.label}</span>
-        <ViewAllCue />
-      </span>
+      <span className={styles.figureLabel}>{leader.label}</span>
       <span className={styles.figureBody}>
         <PlayerPortrait name={leader.playerName} src={leader.playerImage} size="sm" />
         <span className={styles.who}>
@@ -124,7 +120,6 @@ export function SeriesLeadersBoard({
           >
             <span className={styles.cardHead}>
               <span className={styles.cardLabel}>{leader.label}</span>
-              <ViewAllCue />
             </span>
 
             <span className={styles.value}>

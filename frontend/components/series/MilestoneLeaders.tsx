@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { ON_INTENT } from '@/lib/intentPrefetch';
 import type { SeriesStatTable } from '@/types';
 import TeamBadge from '../ui/TeamBadge';
-import ViewAllCue from '../ui/ViewAllCue';
 import PlayerLink from '../match/PlayerLink';
 import styles from './MilestoneLeaders.module.scss';
 
@@ -37,7 +36,6 @@ export default function MilestoneLeaders({
                 <h4 id={titleId} className={styles.title}>
                   {spec.label}
                 </h4>
-                <ViewAllCue />
               </Link>
             ) : (
               <h4 id={titleId} className={styles.title}>

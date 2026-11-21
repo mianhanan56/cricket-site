@@ -20,17 +20,9 @@
   }
 }
 
-.figureHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: $space-3;
-}
-
 .figureLabel {
   @include eyebrow;
 }
-
 
 .figureBody {
   display: flex;
@@ -224,7 +216,7 @@
   }
 }
 
-// The height of a heading row with its "View all" cue, so it lines up with the rankings beside it.
+// The same 24px heading row as the rankings beside it.
 .tileLabel {
   display: flex;
   align-items: center;

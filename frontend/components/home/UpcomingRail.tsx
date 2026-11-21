@@ -6,22 +6,12 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Match } from '@/types';
 import { formatInZone, readerZone, SERVER_ZONE } from '@/lib/datetime';
 import { matchStateOf } from '@/lib/matchState';
+import { dayKeyIn } from '@/lib/fixtureDays';
 import TeamBadge from '../ui/TeamBadge';
 import Countdown from '../live/Countdown';
 import StateChip from '../live/StateChip';
 import styles from './UpcomingRail.module.scss';
 import { matchFormat } from '@/lib/seriesFormat';
-
-const dayKeyFormats = new Map<string, Intl.DateTimeFormat>();
-
-function dayKeyIn(iso: string, zone: string): string {
-  let f = dayKeyFormats.get(zone);
-  if (!f) {
-    f = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' });
-    dayKeyFormats.set(zone, f);
-  }
-  return f.format(new Date(iso));
-}
 
 function dayHeading(key: string, today: string, tomorrow: string): string {
   if (key === today) return 'Today';
@@ -49,8 +39,8 @@ export default function UpcomingRail({
 
   // Read every render and passed to the memo, so the headings move on at midnight even when the list doesn't.
   const now = new Date();
-  const today = dayKeyIn(now.toISOString(), zone);
-  const tomorrow = dayKeyIn(new Date(now.getTime() + 86_400_000).toISOString(), zone);
+  const today = dayKeyIn(now, zone);
+  const tomorrow = dayKeyIn(new Date(now.getTime() + 86_400_000), zone);
 
   const days = useMemo(() => {
     const list = [...matches]
