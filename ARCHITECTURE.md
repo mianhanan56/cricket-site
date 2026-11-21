@@ -66,11 +66,18 @@ commands inside `frontend/` or `worker/`.
   `[A-Za-z0-9]{1,12}`, the commentary cursor digits, `/mapping` drops list items that aren't keys.
 - Sends the upstream site as `Origin`/`Referer` (their hosts 400 with "Invalid Host header" otherwise).
   Policy: no bot-protection circumvention — if the upstream adds a challenge, stop.
-- No secrets, no KV. The allowlist is what keeps it from being an open relay.
+- No KV. The allowlist is what keeps it from being an open relay. One secret, `WORKER_PROXY_SECRET`
+  (2026-11-21): set in the Worker (`wrangler secret put`) and in Vercel (server-only, no `NEXT_PUBLIC_`).
 - Callers are told little (2026-11-11): `/health` is `{status:'ok'}`, an unknown path `{error:'Not found'}`,
   a failed upstream call `{error, status}` — the upstream's URL and error text go to the log only. An
-  upstream 4xx is held 60s in the edge cache (not 408/429/5xx, and never over a body being served stale).
-  A `RATE_LIMITER` binding (wrangler.toml, 3000/min per address) runs before every route.
+  upstream 400/404 is held 60s in the edge cache (not 401/403/408/429/5xx, which are outages, and never
+  over a body being served stale). `RATE_LIMITER` (3000/min per reader) runs before every
+  route. Browsers and server renders both reach the Worker from Vercel's addresses, so `CF-Connecting-IP`
+  is only the key when the `x-pulse-proxy-secret` header is missing or wrong; with it,
+  `frontend/middleware.ts` (on `/api/worker/*`, which strips client-sent `x-pulse-*`) forwards the
+  reader's IP as `x-pulse-client-ip`. A server-side `apiGet` (secret, no IP) is not limited: one shared
+  server bucket could be drained by a visitor requesting random uncached pages. `experimental.caseSensitiveRoutes`
+  keeps `/API/Worker/…` from reaching the rewrite without the middleware.
   `ALLOWED_ORIGINS` is production only; a Worker on localhost accepts localhost origins by itself.
 - `/mapping` (`src/names.ts`): the isolate keeps every name it has served and asks the upstream
   only for unseen keys (unknown ones are remembered 5 min); the rest goes through the edge
@@ -99,7 +106,10 @@ commands inside `frontend/` or `worker/`.
   fetch shared with the HTTP path via `src/upstream.ts`. Limits (`src/hubRules.ts`): a `card:`/`feed:`
   topic is admitted only for a match in the current list (otherwise ignored; the page's HTTP poll
   carries on), 30 topics a socket, 400 in the hub, 100 sockets an address, 10,000 in all, and a
-  message over 4 KB or more than 40 in 10s closes the socket.
+  message over 4 KB or more than 40 in 10s closes the socket. The alarm re-arms before it refreshes,
+  runs at most 40 topics per alarm (most overdue first, 6 at a time), and each read has a 12s
+  whole-body ceiling that aborts it (`readUpstreamJson`), so one stalled body can't freeze the hub. After 2 failures in a row a topic sends
+  `topic:stale`; `lib/live/socket.ts` treats it as not ready, so hooks fall back to their fast polls.
 - Every upstream run on the HTTP path races `RUN_DEADLINE_MS` (fetch timeout + 2s), so an `inFlight`
   key is always released even when a body read stalls past the fetch's own timeout (seen 2026-10-21:
   live scorecard/commentary keys hung for good). Logged as `upstream unsettled`.

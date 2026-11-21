@@ -12,6 +12,8 @@ All data comes from the upstream's undocumented internal APIs through a Cloudfla
 
 ## Current objective
 
+2026-11-21: full-site review (5 reviewer agents, 48 findings) and fixes for all of them (uncommitted at time of writing). Highlights: Worker rate limit keyed per reader behind a shared secret, live hub can no longer stall, Back button no longer leaves the site, upcoming-match squads kept across polls, /fixtures no longer crashes on a bad ?date= and buckets days in one zone through hydration, DLS revised targets kept, The Hundred's stat tables at 5-ball overs, outages show errors instead of 404s, search/notification/More sheet keyboard + focus fixes, on-pitch contrast raised. **User must**: set `WORKER_PROXY_SECRET` (Worker secret + Vercel env), then deploy the Worker. Not fully fixed: on-pitch `--text-3` on surface-3 over the mown stripes is ~4.2:1 (needs surface token changes); run-out detection in per-over figures reads commentary text.
+
 2026-11-20: player Form follows live matches — By series and Recent take figures from the scorecard on load and every 30s while a match is live; series bowling shows an Overs tile (`lib/liveFigures.ts`, `hooks/useLiveCards.ts`; uncommitted).
 
 2026-11-20: Fixtures has a Gender menu (All / Men / Women) before Format and Competition, also in the mobile filter sheet (`lib/gender.ts`; uncommitted).
