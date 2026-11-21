@@ -1,47 +1,55 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { onSearchChange } from '@/lib/urlSearch';
 
 /**
  * Tab / filter state that lives in the URL, so a filtered view is linkable and
  * survives a reload — /fixtures?format=t20&type=international.
  *
- * Two deliberate choices:
+ * Pages that pass `read` are static (ISR): the server renders the default view,
+ * and the URL's own filters are applied once mounted. Reading `searchParams` on
+ * the server would render every request on a function, and useSearchParams()
+ * would ship a Suspense shell with no list in the HTML.
  *
- *  1. The initial value comes in as a prop, read from `searchParams` by the
- *     server page — NOT from useSearchParams(). Reading it here would drop the
- *     page out of static rendering into a Suspense shell, which for fixtures
- *     and rankings means shipping HTML with no fixtures and no rankings in it.
- *  2. State is the render source and the URL is written alongside it, rather
- *     than the render waiting on a navigation. Switching tabs stays instant on
- *     data the client already holds; the URL catches up in the same tick.
+ * State is the render source and the URL is written alongside it with
+ * history.replaceState, not router.replace: a router navigation re-renders the
+ * page on the server and loading.tsx swaps in a skeleton, which throws the
+ * reader back to the top. Replace, not push: flicking through four tabs should
+ * not leave four entries to back out of.
  *
- * The URL is written with history.replaceState, not router.replace: a router
- * navigation re-renders the page on the server and the route's loading.tsx
- * swaps in a skeleton meanwhile, which collapses the page and throws the
- * reader back to the top. Every caller filters client-held data, so no server
- * round-trip is needed. Replace, not push: flicking through four tabs should
- * not leave four entries for the reader to back out of.
- *
- * @param initial values from the URL on this render (validated server-side)
- * @param defaults values that are the page's default view, and so are dropped
- *                 from the URL instead of being pinned onto every shared link
+ * @param initial  the view to render before the URL is read
+ * @param defaults values dropped from the URL instead of pinned onto every shared link
+ * @param read     validates the URL's values; called on mount and whenever the query changes
+ *                 (back/forward, or a link to the same page that keeps it mounted)
  */
 export function useQueryTabs<S extends Record<string, string>>(
   initial: S,
-  defaults?: Partial<S>
+  defaults?: Partial<S>,
+  read?: (query: URLSearchParams) => S
 ): [S, (patch: Partial<S>) => void] {
   const pathname = usePathname();
   const [state, setState] = useState<S>(initial);
 
-  // Re-sync when the URL changes underneath us — back/forward, or a link into
-  // the page from elsewhere in the app. Compared by value, not identity: the
-  // prop object is rebuilt on every render.
+  // Compared by value, not identity: the prop object is rebuilt on every render.
   const initialKey = JSON.stringify(initial);
   useEffect(() => {
     setState(JSON.parse(initialKey) as S);
   }, [initialKey]);
+
+  const readRef = useRef(read);
+  readRef.current = read;
+  useEffect(() => {
+    const apply = () => {
+      const fromUrl = readRef.current?.(new URLSearchParams(window.location.search));
+      if (!fromUrl) return;
+      const key = JSON.stringify(fromUrl);
+      setState((prev) => (JSON.stringify(prev) === key ? prev : fromUrl));
+    };
+    apply();
+    return onSearchChange(apply);
+  }, []);
 
   const set = useCallback(
     (patch: Partial<S>) => {

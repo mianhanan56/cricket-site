@@ -1,8 +1,5 @@
 import { pageMeta } from '@/lib/seo';
 import type { Match, SeriesSummary } from '@/types';
-import { pickParam } from '../../lib/queryParams';
-import { MATCH_TYPE_KEYS, type MatchTypeKey } from '../../lib/matchType';
-import { SERIES_STATUS_KEYS, type SeriesStatusKey } from '../../lib/tabs';
 import { getApiMatchList, seriesFromMatches, withSeriesSchedules } from '../../lib/api';
 import SeriesFilter from '../../components/series/SeriesFilter';
 import EmptyState from '../../components/ui/EmptyState';
@@ -22,13 +19,8 @@ export const revalidate = 300;
 const EYEBROW = 'Competitions';
 const TITLE = 'Series';
 
-export default async function SeriesPage(props: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const searchParams = await props.searchParams;
-  const status = pickParam<SeriesStatusKey>(searchParams?.status, SERIES_STATUS_KEYS, 'all');
-  const type = pickParam<MatchTypeKey>(searchParams?.type, MATCH_TYPE_KEYS, 'all');
-
+// Static: status and type filters are read from the URL in the browser (SeriesFilter).
+export default async function SeriesPage() {
   // Matches go down raw: the type filter must apply before the series rollup,
   // or a domestic league with one international fixture would survive it.
   let matches: Match[] = [];
@@ -58,8 +50,6 @@ export default async function SeriesPage(props: {
           title={TITLE}
           matches={matches}
           totals={totals}
-          initialStatus={status}
-          initialType={type}
         />
       )}
     </div>

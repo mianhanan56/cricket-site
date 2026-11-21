@@ -265,8 +265,8 @@ export interface SeriesPerformanceProps {
   role: PlayerRoleLabel;
   formatCodes: number[];
   initialFormat: SeriesFormatKey;
-  initialLists: SeriesLists;
-  /** The series named in the URL when it was found, else the default. */
+  /** Null when the server read failed: the lists are then read here. */
+  initialLists: SeriesLists | null;
   initialSeries: string | null;
 }
 
@@ -279,11 +279,13 @@ export default function SeriesPerformance({
   initialSeries,
 }: SeriesPerformanceProps) {
   const [format, setFormat] = useState<SeriesFormatKey>(initialFormat);
-  const [lists, setLists] = useState<Partial<Record<SeriesFormatKey, SeriesLists>>>({ [initialFormat]: initialLists });
+  const [lists, setLists] = useState<Partial<Record<SeriesFormatKey, SeriesLists>>>(
+    initialLists ? { [initialFormat]: initialLists } : {}
+  );
   const [selected, setSelected] = useState<Partial<Record<SeriesFormatKey, string | null>>>({
     [initialFormat]: initialSeries,
   });
-  const [status, setStatus] = useState<'ready' | 'loading' | 'error'>('ready');
+  const [status, setStatus] = useState<'ready' | 'loading' | 'error'>(initialLists ? 'ready' : 'loading');
   const [loadingMore, setLoadingMore] = useState(false);
   const [discipline, setDiscipline] = useFormDiscipline(role === 'Bowler' ? 'bowling' : 'batting');
   const request = useRef(0);
@@ -348,16 +350,17 @@ export default function SeriesPerformance({
     }
   };
 
-  // Back/forward restores a URL this component wrote; follow it rather than the props the router replayed.
+  // The page is static: a ?format= / ?series= link, or a failed server read, is loaded here.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlFormat = params.get('format') ?? 'all';
     const urlSeries = params.get('series');
     const offered = urlFormat === 'all' || formatOptions.some((f) => f.value === urlFormat);
-    if (!isSeriesFormatKey(urlFormat) || !offered) return;
-    if (urlFormat !== initialFormat || (urlSeries && urlSeries !== initialSeries)) {
-      setFormat(urlFormat);
-      void loadFormat(urlFormat, urlSeries, true);
+    const valid = isSeriesFormatKey(urlFormat) && offered;
+    const next = valid ? urlFormat : initialFormat;
+    if (!initialLists || (valid && (urlFormat !== initialFormat || (urlSeries && urlSeries !== initialSeries)))) {
+      setFormat(next);
+      void loadFormat(next, urlSeries, true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

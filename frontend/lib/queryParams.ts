@@ -1,8 +1,5 @@
-// Validation for tab/filter values arriving from the URL.
-//
-// Lives outside the hooks layer because both sides need it: the server pages
-// read `searchParams` and hand the validated value down, and the client tab
-// rows use the same function when a value comes back off the URL.
+// Validation for tab/filter values arriving from the URL (see lib/urlFilters.ts), shared by
+// the static pages' client readers and the dynamic pages that still read `searchParams`.
 
 export type RawParam = string | string[] | undefined | null;
 

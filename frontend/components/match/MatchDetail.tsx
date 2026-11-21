@@ -11,7 +11,8 @@ import {
 } from '@/hooks/useApiMatches';
 import { useSeriesLeaders } from '@/hooks/useSeriesLeaders';
 import { useMatchQuiz } from '@/hooks/useMatchQuiz';
-import type { MatchTab } from '@/lib/tabs';
+import { MATCH_TAB_KEYS, type MatchTab } from '@/lib/tabs';
+import { pickParam } from '@/lib/queryParams';
 import { useLiveStatus } from '@/lib/live/socket';
 import { DEFAULT_BALLS_PER_OVER, formatProgressShort } from '@/lib/overs';
 import { battedInnings, formatTeamScore, inningsFor, withCard } from '@/lib/innings';
@@ -69,7 +70,6 @@ export default function MatchDetail({
   headToHead,
   seriesTable,
   seriesLeaders,
-  initialTab = '',
   initialCard,
 }: {
   matchId: string;
@@ -82,8 +82,6 @@ export default function MatchDetail({
   seriesTable?: PointsTableGroup[];
   /** The series' leaders, for the Stats tab; null where the upstream has none yet. */
   seriesLeaders?: SeriesLeaders | null;
-  /** `?tab=` from the URL; '' when absent or not a tab. */
-  initialTab?: TabKey | '';
 }) {
   const [match, setMatch] = useState<Match>(() => withCard(initial, initialCard ?? undefined));
   // Offered only once questions exist, so a match the model can't quiz never shows an empty tab.
@@ -91,7 +89,12 @@ export default function MatchDetail({
   const quiz = useMatchQuiz(matchId, preview ? null : quizKind(match, Date.now()));
   const hasSummary = !preview && initial.status !== 'UPCOMING';
   const defaultTab: TabKey = hasSummary ? 'live' : 'info';
-  const [picked, setPicked] = useState<TabKey>(initialTab || defaultTab);
+  const [picked, setPicked] = useState<TabKey>(defaultTab);
+  // The page is static, so a shared ?tab= is read once mounted.
+  useEffect(() => {
+    const fromUrl = pickParam<TabKey | ''>(new URLSearchParams(window.location.search).get('tab'), MATCH_TAB_KEYS, '');
+    if (fromUrl) setPicked(fromUrl);
+  }, []);
   // The polled status, not the first render's: a page opened before the start gains Live once play begins.
   const offered: Record<TabKey, boolean> = {
     live: !preview && match.status !== 'UPCOMING',
@@ -322,7 +325,7 @@ export default function MatchDetail({
   const railRef = useRef<HTMLElement>(null);
   const show = (next: TabKey) => {
     setPicked(next);
-    // replaceState, not the router: the page is dynamic and a navigation would re-render it on the server.
+    // replaceState, not the router: a navigation would re-render the page on the server.
     const url = new URL(window.location.href);
     if (next === defaultTab) url.searchParams.delete('tab');
     else url.searchParams.set('tab', next);

@@ -5,6 +5,7 @@ import { ON_INTENT } from '@/lib/intentPrefetch';
 import { useMemo, useState } from 'react';
 import type { RankingGender, RankingRole } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
+import { readPlayersQuery } from '@/lib/urlFilters';
 import {
   RANKING_FORMAT_LABEL,
   filterDirectory,
@@ -104,8 +105,8 @@ function Row({ item }: { item: DirectoryItem }) {
   );
 }
 
-export default function PlayersDirectory({ rows, initial }: { rows: DirectoryRow[]; initial: Filters }) {
-  const [filters, setQuery] = useQueryTabs(initial, DEFAULTS);
+export default function PlayersDirectory({ rows }: { rows: DirectoryRow[] }) {
+  const [filters, setQuery] = useQueryTabs(DEFAULTS, DEFAULTS, readPlayersQuery);
   const { gender, role, format } = filters;
   // Kept out of the URL: a server round trip per keystroke would fight the input.
   const [query, setSearch] = useState('');

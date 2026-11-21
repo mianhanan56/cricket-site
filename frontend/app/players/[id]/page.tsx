@@ -20,7 +20,6 @@ import CareerTabs, { type CareerLevel } from '@/components/player/CareerTabs';
 import PlayerSeriesSection from '@/components/player/PlayerSeriesSection';
 import { SeriesPerformanceSkeleton } from '@/components/player/SeriesPerformance';
 import FormTabs from '@/components/player/FormTabs';
-import { isSeriesFormatKey, seriesFormatOptions } from '@/lib/playerSeries';
 import { SectionHead } from '@/components/ui/Section';
 import { RANKINGS_FORMAT_KEYS, type RankingsFormat } from '@/lib/tabs';
 import styles from './player.module.scss';
@@ -28,8 +27,14 @@ import { pageMeta } from '@/lib/seo';
 import JsonLd from '@/components/seo/JsonLd';
 import { breadcrumbs, person } from '@/lib/structuredData';
 
-// Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
+// No paths at build time: each is rendered on its first visit, then served from cache until it revalidates.
+export function generateStaticParams() {
+  return [];
+}
+
 const REVALIDATE = 3600;
+// Live figures are kept current in the browser (useLiveCards), so the HTML's cards can be older.
+const CARD_REVALIDATE = 300;
 
 // The upstream refuses an unknown player key with a 400, so that is the 404; an outage throws to the error boundary.
 // cache(): generateMetadata and the page share one read per request.
@@ -71,7 +76,6 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
 const fmtDate = (iso: string) => formatInZone(iso, 'date', SERVER_ZONE);
 const fmtRate = (value: number) => (value > 0 ? value.toFixed(2) : '—');
 const fmtCount = (value: number | null) => (value === null ? '—' : String(value));
-
 
 const total = <T,>(rows: T[], pick: (row: T) => number) => rows.reduce((sum, row) => sum + pick(row), 0);
 const ratio = (top: number, bottom: number, scale = 1) => (bottom > 0 ? (top / bottom) * scale : 0);
@@ -302,25 +306,13 @@ function rankingHref(r: PlayerRanking, gender: PlayerProfile['gender']): string 
   return `/rankings?group=players&format=${format}&gender=${gender === 'Female' ? 'women' : 'men'}&category=${RANK_CATEGORY[r.discipline]}`;
 }
 
-const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-
 export default async function PlayerPage(props: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ series?: string | string[]; format?: string | string[] }>;
 }) {
   const params = await props.params;
-  const searchParams = await props.searchParams;
   const profile = await loadPlayer(params.id);
   if (!profile) notFound();
-  const player = await withFreshForm(profile);
-
-  const wantFormat = one(searchParams.format);
-  const seriesFormat =
-    isSeriesFormatKey(wantFormat) && seriesFormatOptions(player.formatCodes).some((f) => f.value === wantFormat)
-      ? wantFormat
-      : 'all';
-  const wantSeries = one(searchParams.series);
-  const seriesId = wantSeries && /^[A-Za-z0-9]{1,12}$/.test(wantSeries) ? wantSeries : null;
+  const player = await withFreshForm(profile, { revalidate: CARD_REVALIDATE });
 
   const crest = teamLogoUrl(player.countryKey ?? undefined);
 
@@ -408,8 +400,6 @@ export default async function PlayerPage(props: {
         <div className={styles.main}>
           <FormTabs
             className={styles.section}
-            // A link that names a series or a format came for the series view.
-            initial={seriesId || seriesFormat !== 'all' ? 'series' : 'recent'}
             recent={
               player.recentBatting.length > 0 || recentBowling.length > 0 ? (
                 <RecentForm
@@ -426,8 +416,6 @@ export default async function PlayerPage(props: {
                   playerId={player.id}
                   role={player.role}
                   formatCodes={player.formatCodes}
-                  format={seriesFormat}
-                  series={seriesId}
                 />
               </Suspense>
             }

@@ -1,6 +1,7 @@
 import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 import { notFound, permanentRedirect } from 'next/navigation';
-import type { HeadToHead, PointsTableGroup, SeriesLeaders } from '@/types';
+import type { HeadToHead, PointsTableGroup, SeriesLeaders, Team } from '@/types';
 import {
   getApiFixtureRange,
   getApiMatch,
@@ -14,15 +15,31 @@ import {
 import { headToHead } from '../../../lib/headToHead';
 import MatchDetail from '../../../components/match/MatchDetail';
 import { VENUE_TBD } from '@/lib/venue';
-import { pickParam } from '@/lib/queryParams';
-import { MATCH_TAB_KEYS, type MatchTab } from '@/lib/tabs';
 import { matchOrdinal } from '@/lib/seriesFormat';
 import { pageMeta } from '@/lib/seo';
 import JsonLd from '@/components/seo/JsonLd';
 import { breadcrumbs, sportsEvent } from '@/lib/structuredData';
 
-// Per-fetch freshness, not a page `revalidate`: an ISR-cached notFound() is a soft 404 (200).
-const REVALIDATE = 5;
+// No paths at build time: each is rendered on its first visit, then served from cache until it revalidates.
+export function generateStaticParams() {
+  return [];
+}
+
+// The page is ISR: it re-renders at most once per window however many readers are on it.
+// The client poll takes over the score on mount, so the HTML only seeds it.
+const REVALIDATE = 30;
+
+// The corpus is 58 schedule pages; parsing and walking it per render was the page's main CPU cost.
+// Thrown when empty so an outage is not held; a short window so a partly failed read heals soon.
+const cachedHeadToHead = unstable_cache(
+  async (home: Team, away: Team, exclude: string): Promise<HeadToHead | null> => {
+    const corpus = await getApiFixtureRange();
+    if (!corpus.length) throw new Error('fixture corpus empty');
+    return headToHead(home, away, corpus, { exclude });
+  },
+  ['match-head-to-head'],
+  { revalidate: 600 }
+);
 
 // An `fx-` id is a fixture with no key yet, read from its series' schedule. cache(): metadata and page share one read.
 const loadMatch = cache((id: string) =>
@@ -55,13 +72,9 @@ export async function generateMetadata(props: { params: Promise<{ id: string }> 
 
 export default async function MatchDetailPage(props: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ tab?: string | string[] }>;
 }) {
   const params = await props.params;
-  const searchParams = await props.searchParams;
   const preview = parseScheduledMatchId(params.id) !== null;
-  // The corpus needs nothing from the match, so it is read while the match loads.
-  const corpusRead = getApiFixtureRange().catch(() => null);
   // Null only when the upstream refuses the key; an outage throws to app/error.tsx instead of a 404.
   const match = await loadMatch(params.id);
   if (!match) notFound();
@@ -73,9 +86,7 @@ export default async function MatchDetailPage(props: {
   // announced XI) and leaders: static for the life of the page, each on its own cache window.
   // A finished card is final, so it's read here and cached: the first HTML then carries every batter and bowler.
   const [record, table, squads, leaders, card] = await Promise.all([
-    corpusRead.then((corpus): HeadToHead | null =>
-      corpus ? headToHead(match.homeTeam, match.awayTeam, corpus, { exclude: params.id }) : null
-    ).catch(() => null),
+    cachedHeadToHead(match.homeTeam, match.awayTeam, params.id).catch(() => null),
     match.series.id
       ? getApiSeriesTable(match.series.id).catch(() => [] as PointsTableGroup[])
       : Promise.resolve([] as PointsTableGroup[]),
@@ -83,7 +94,7 @@ export default async function MatchDetailPage(props: {
       ? getApiMatchSeriesSquads(match).catch(() => null)
       : Promise.resolve(null),
     match.series.id
-      ? getApiSeriesLeaders(match.series.id, { revalidate: match.status === 'LIVE' ? 15 : 300 }).catch(() => null)
+      ? getApiSeriesLeaders(match.series.id, { revalidate: match.status === 'LIVE' ? REVALIDATE : 300 }).catch(() => null)
       : Promise.resolve(null as SeriesLeaders | null),
     match.status === 'COMPLETED' && !preview
       ? getApiScorecard(match.id, { revalidate: 3600, ballsPerOver: match.ballsPerOver, status: match.status }).catch(
@@ -107,7 +118,6 @@ export default async function MatchDetailPage(props: {
         headToHead={record}
         seriesTable={table}
         seriesLeaders={leaders}
-        initialTab={pickParam<MatchTab | ''>(searchParams?.tab, MATCH_TAB_KEYS, '')}
         initialCard={card?.length ? card : null}
       />
     </>

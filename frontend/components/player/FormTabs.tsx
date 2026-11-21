@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { isSeriesFormatKey } from '@/lib/playerSeries';
 import Segmented from '../ui/Segmented';
 import { SectionHead } from '../ui/Section';
 import type { Discipline } from './FormCard';
@@ -23,15 +24,19 @@ export function useFormDiscipline(fallback: Discipline): [Discipline, (d: Discip
 export default function FormTabs({
   recent,
   series,
-  initial,
   className,
 }: {
   recent: ReactNode | null;
   series: ReactNode;
-  initial: FormView;
   className?: string;
 }) {
-  const [view, setView] = useState<FormView>(recent ? initial : 'series');
+  const [view, setView] = useState<FormView>(recent ? 'recent' : 'series');
+  // A link that names a series or a format came for the series view.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const format = q.get('format');
+    if (/^[A-Za-z0-9]{1,12}$/.test(q.get('series') ?? '') || (isSeriesFormatKey(format) && format !== 'all')) setView('series');
+  }, []);
   const [picked, pick] = useState<Discipline | null>(null);
   const shared = useMemo(() => ({ picked, pick }), [picked]);
 

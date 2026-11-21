@@ -1,57 +1,37 @@
 import type { PlayerRoleLabel } from '@/types';
 import { freshCards, getApiPlayerSeriesPage } from '@/lib/api';
 import { recentSeriesMatches, withCardFigures } from '@/lib/liveFigures';
-import {
-  defaultSeries,
-  firstLists,
-  listsCovering,
-  mergeLists,
-  seriesFormatCode,
-  type PageFetcher,
-  type SeriesFormatKey,
-} from '@/lib/playerSeries';
-import EmptyState from '../ui/EmptyState';
+import { defaultSeries, firstLists, mergeLists, seriesFormatCode, type PageFetcher } from '@/lib/playerSeries';
 import SeriesPerformance from './SeriesPerformance';
 
-/** Older pages read on the server to reach a series named in the URL. */
-const URL_SEARCH_PAGES = 8;
-
-/** The Form section's "By series" view, read on the server so a linked series opens in place. */
+/** The Form section's "By series" view; a ?format= / ?series= link is applied in the browser. */
 export default async function PlayerSeriesSection({
   playerId,
   role,
   formatCodes,
-  format,
-  series,
 }: {
   playerId: string;
   role: PlayerRoleLabel;
   formatCodes: number[];
-  format: SeriesFormatKey;
-  series: string | null;
 }) {
   const fetchPage: PageFetcher = (discipline, page) =>
-    getApiPlayerSeriesPage(playerId, { format: seriesFormatCode(format), discipline, page }, { revalidate: 3600 });
+    getApiPlayerSeriesPage(playerId, { format: seriesFormatCode('all'), discipline, page }, { revalidate: 3600 });
 
+  // A failed read is left to the browser: the page is ISR, and an empty section would be cached with it.
   let lists = await firstLists(fetchPage).catch(() => null);
-  if (!lists) return <EmptyState compact title="No series performance available yet." />;
-  if (series) lists = await listsCovering(lists, series, fetchPage, URL_SEARCH_PAGES).catch(() => lists!);
-  const recent = recentSeriesMatches(lists);
-  if (recent.length) lists = withCardFigures(lists, playerId, await freshCards(recent));
-
-  const merged = mergeLists(lists);
-  const initial = merged.find((s) => s.id === series)?.id ?? defaultSeries(merged)?.id ?? null;
+  if (lists) {
+    const recent = recentSeriesMatches(lists);
+    if (recent.length) lists = withCardFigures(lists, playerId, await freshCards(recent, { revalidate: 300 }));
+  }
 
   return (
     <SeriesPerformance
-      // A different URL selection is a different starting point, not an update to this one.
-      key={`${format}|${series ?? ''}`}
       playerId={playerId}
       role={role}
       formatCodes={formatCodes}
-      initialFormat={format}
+      initialFormat="all"
       initialLists={lists}
-      initialSeries={initial}
+      initialSeries={lists ? defaultSeries(mergeLists(lists))?.id ?? null : null}
     />
   );
 }

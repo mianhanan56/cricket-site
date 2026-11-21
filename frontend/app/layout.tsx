@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Archivo, Figtree } from 'next/font/google';
 import '../scss/main.scss';
@@ -6,6 +7,7 @@ import BottomNav from '../components/layout/BottomNav';
 import NavigationTracker from '../components/layout/NavigationTracker';
 import { THEME_COLOR } from '../components/layout/themeColor';
 import IntentPrefetch from '../components/layout/IntentPrefetch';
+import SearchParamsBridge from '../components/layout/SearchParamsBridge';
 import Footer from '../components/layout/Footer';
 import SearchOverlay, { SearchHotkeys } from '../components/search/SearchOverlay';
 import NotificationCenter from '../components/notifications/NotificationCenter';
@@ -90,6 +92,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <NavigationTracker />
+        <Suspense fallback={null}>
+          <SearchParamsBridge />
+        </Suspense>
         <IntentPrefetch />
         <SearchHotkeys />
         <div className="app-shell">

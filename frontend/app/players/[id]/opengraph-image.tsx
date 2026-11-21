@@ -1,6 +1,11 @@
 import { getApiPlayerProfile } from '@/lib/api';
 import { shareCard, shareImage } from '@/lib/brandImage';
 
+// No paths at build time: each is rendered on its first visit, then served from cache until it revalidates.
+export function generateStaticParams() {
+  return [];
+}
+
 export const alt = 'Player preview card';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';

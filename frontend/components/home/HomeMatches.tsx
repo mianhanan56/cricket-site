@@ -13,9 +13,9 @@ import {
   matchTypeKey,
   parseMatchType,
   type MatchType,
-  type MatchTypeKey,
 } from '@/lib/matchType';
 import type { HomeTab } from '@/lib/tabs';
+import { HOME_QUERY_DEFAULTS, readHomeQuery } from '@/lib/urlFilters';
 import { rankLive } from '@/lib/featured';
 import { isAtStumps, isLiveNow } from '@/lib/matchState';
 import { useFollows } from '@/lib/follows';
@@ -45,20 +45,14 @@ const STAGE_GRACE_MS = 60_000;
 const ALL_PREVIEW = 12;
 
 export interface HomeMatchesProps {
-  /** Active tab from the URL; '' means none picked yet. */
-  initialTab: HomeTab | '';
-  initialType: MatchTypeKey;
   /** Server-rendered seed for the live poll. */
   initialMatches?: Match[];
 }
 
-export default function HomeMatches({ initialTab, initialType, initialMatches }: HomeMatchesProps) {
+export default function HomeMatches({ initialMatches }: HomeMatchesProps) {
   const { matches, isLoading, error, refresh, isRefreshing } = useApiMatches({ initial: initialMatches });
   const follows = useFollows();
-  const [{ tab: picked, type: typeKey }, setQuery] = useQueryTabs(
-    { tab: initialTab, type: initialType },
-    { type: 'all' }
-  );
+  const [{ tab: picked, type: typeKey }, setQuery] = useQueryTabs(HOME_QUERY_DEFAULTS, { type: 'all' }, readHomeQuery);
   const type = parseMatchType(typeKey);
   const [featuredId, setFeaturedId] = useState<string | null>(null);
 

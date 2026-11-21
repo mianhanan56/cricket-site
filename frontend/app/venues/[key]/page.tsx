@@ -16,8 +16,12 @@ import { pageMeta } from '@/lib/seo';
 import JsonLd from '@/components/seo/JsonLd';
 import { breadcrumbs, place } from '@/lib/structuredData';
 
+// No paths at build time: each is rendered on its first visit, then served from cache until it revalidates.
+export function generateStaticParams() {
+  return [];
+}
+
 // There is no venue endpoint: everything here is derived from a window of the schedule.
-// Per-fetch freshness, not a page-level revalidate: ISR would cache notFound() for unknown keys.
 const REVALIDATE = 1800;
 
 // cache(): generateMetadata and the page share one read per request.

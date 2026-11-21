@@ -1,9 +1,5 @@
 import { pageMeta } from '@/lib/seo';
-import { pickParam } from '@/lib/queryParams';
-import { MATCH_TYPE_KEYS, type MatchTypeKey } from '@/lib/matchType';
-import { FIXTURE_FORMAT_KEYS, type FixtureFormatKey } from '@/lib/tabs';
-import { GENDER_KEYS, type GenderKey } from '@/lib/gender';
-import { dayKeyIn, pickDayParam } from '@/lib/fixtureDays';
+import { dayKeyIn } from '@/lib/fixtureDays';
 import { SERVER_ZONE } from '@/lib/datetime';
 import { getApiFixtureSchedule, type Fixture } from '@/lib/api';
 import { packFixtures } from '@/lib/fixturePack';
@@ -24,16 +20,8 @@ export const revalidate = 300;
 const EYEBROW = 'Every match';
 const TITLE = 'Fixtures';
 
-export default async function FixturesPage(props: {
-  // Read here rather than with useSearchParams() so the filtered list stays in the HTML.
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const searchParams = await props.searchParams;
-  const format = pickParam<FixtureFormatKey>(searchParams?.format, FIXTURE_FORMAT_KEYS, 'all');
-  const type = pickParam<MatchTypeKey>(searchParams?.type, MATCH_TYPE_KEYS, 'all');
-  const gender = pickParam<GenderKey>(searchParams?.gender, GENDER_KEYS, 'all');
-  const date = pickDayParam(searchParams?.date);
-
+// Static: filters are read from the URL in the browser (FixturesFilter), so every request is not a render.
+export default async function FixturesPage() {
   let fixtures: Fixture[] = [];
   let coveredUntil: string | null = null;
   let failed = false;
@@ -64,10 +52,6 @@ export default async function FixturesPage(props: {
           title={TITLE}
           fixtures={packFixtures(fixtures)}
           coveredUntil={coveredUntil}
-          initialFormat={format}
-          initialType={type}
-          initialGender={gender}
-          initialDate={date}
           serverToday={dayKeyIn(new Date(), SERVER_ZONE)}
         />
       )}

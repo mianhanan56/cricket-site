@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Fixture } from '@/lib/api';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
+import { FIXTURES_QUERY_DEFAULTS, readFixturesQuery } from '@/lib/urlFilters';
 import {
   addDays,
   dayKeyIn,
@@ -20,10 +21,9 @@ import {
   MATCH_TYPE_KEY_OPTIONS,
   filterByMatchType,
   parseMatchType,
-  type MatchTypeKey,
 } from '@/lib/matchType';
-import { FIXTURE_FORMAT_TABS, type FixtureFormatKey } from '@/lib/tabs';
-import { GENDER_OPTIONS, filterByGender, type GenderKey } from '@/lib/gender';
+import { FIXTURE_FORMAT_TABS } from '@/lib/tabs';
+import { GENDER_OPTIONS, filterByGender } from '@/lib/gender';
 import FilterMenu from '../ui/FilterMenu';
 import FilterSheet from '../ui/FilterSheet';
 import Icon from '../ui/Icon';
@@ -48,11 +48,6 @@ export interface FixturesFilterProps {
   fixtures: PackedFixtures;
   /** Where the schedule read stops mid-day (see `FixtureSchedule`); null when every day is whole. */
   coveredUntil: string | null;
-  initialFormat: FixtureFormatKey;
-  initialType: MatchTypeKey;
-  initialGender: GenderKey;
-  /** Selected day ("2026-08-20"), or '' for every day. */
-  initialDate: string;
   serverToday: string;
 }
 
@@ -184,16 +179,13 @@ export default function FixturesFilter({
   title,
   fixtures,
   coveredUntil,
-  initialFormat,
-  initialType,
-  initialGender,
-  initialDate,
   serverToday,
 }: FixturesFilterProps) {
   // Every filter is URL state: /fixtures?gender=women&format=t20&type=international&date=2026-08-20.
   const [{ gender, format, type, date }, setQuery] = useQueryTabs(
-    { gender: initialGender, format: initialFormat, type: initialType, date: initialDate },
-    { gender: 'all', format: 'all', type: 'all', date: '' }
+    FIXTURES_QUERY_DEFAULTS,
+    FIXTURES_QUERY_DEFAULTS,
+    readFixturesQuery
   );
 
   const active = FIXTURE_FORMAT_TABS.find((t) => t.key === format) ?? FIXTURE_FORMAT_TABS[0];

@@ -4,8 +4,9 @@ import { useMemo } from 'react';
 import type { Match, MatchStatus, SeriesSummary } from '@/types';
 import { useQueryTabs } from '@/hooks/useQueryTabs';
 import { seriesFromMatches } from '@/lib/api';
-import { MATCH_TYPE_KEY_OPTIONS, filterByMatchType, parseMatchType, type MatchTypeKey } from '@/lib/matchType';
+import { MATCH_TYPE_KEY_OPTIONS, filterByMatchType, parseMatchType } from '@/lib/matchType';
 import { SERIES_STATUS_TABS, type SeriesStatusKey } from '@/lib/tabs';
+import { SERIES_QUERY_DEFAULTS, readSeriesQuery } from '@/lib/urlFilters';
 import FilterMenu from '../ui/FilterMenu';
 import FilterSheet from '../ui/FilterSheet';
 import EmptyState from '../ui/EmptyState';
@@ -21,8 +22,6 @@ export interface SeriesFilterProps {
   matches: Match[];
   /** Real spans and totals from each series' own schedule, keyed by series id. */
   totals?: Record<string, SeriesSummary>;
-  initialStatus: SeriesStatusKey;
-  initialType: MatchTypeKey;
 }
 
 const GROUPS: Array<{ status: MatchStatus; title: string }> = [
@@ -49,11 +48,8 @@ export function SeriesList({ series }: { series: SeriesSummary[] }) {
   );
 }
 
-export default function SeriesFilter({ eyebrow, title, matches, totals, initialStatus, initialType }: SeriesFilterProps) {
-  const [{ status, type }, setQuery] = useQueryTabs(
-    { status: initialStatus, type: initialType },
-    { status: 'all', type: 'all' }
-  );
+export default function SeriesFilter({ eyebrow, title, matches, totals }: SeriesFilterProps) {
+  const [{ status, type }, setQuery] = useQueryTabs(SERIES_QUERY_DEFAULTS, SERIES_QUERY_DEFAULTS, readSeriesQuery);
 
   const active = SERIES_STATUS_TABS.find((t) => t.key === status) ?? SERIES_STATUS_TABS[0];
   const matchType = parseMatchType(type);

@@ -20,6 +20,11 @@ import { pageMeta } from '@/lib/seo';
 import JsonLd from '@/components/seo/JsonLd';
 import { breadcrumbs } from '@/lib/structuredData';
 
+// No paths at build time: each is rendered on its first visit, then served from cache until it revalidates.
+export function generateStaticParams() {
+  return [];
+}
+
 // Aggregated from every scorecard in the series, so cached hard.
 const REVALIDATE = 900;
 
