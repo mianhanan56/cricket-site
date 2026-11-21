@@ -1,17 +1,6 @@
-// Edge proxy in front of the upstream's internal APIs: collapse traffic with an
-// edge cache, emit the CORS our origins need, and serve stale data rather than
-// an error when upstream hiccups.
-//
-//   - Upstream is five hosts, not one (see upstreams.ts), and most endpoints
-//     are POST. Callers here always use GET; the translation happens below.
-//   - the upstream's hosts reject requests that do not look like they came from their
-//     own site, so every upstream call carries the upstream site as its Origin/Referer.
-//     That is the header their servers already expect from a browser on their
-//     site — it is not a bypass of any challenge or bot check. If the upstream adds
-//     real bot protection, this Worker will start failing, and the fix is to
-//     ask them for API access, not to defeat it.
-//
-// Routes are allowlisted in routes.ts. Anything else is a 404.
+// Edge proxy in front of the upstream's internal APIs: allowlisted GET routes (routes.ts),
+// an edge cache, CORS, and stale data rather than an error when the upstream hiccups.
+// No bot-protection circumvention: if the upstream adds a challenge, stop (README).
 
 import { UPSTREAMS } from './upstreams';
 import { fetchUpstream, UPSTREAM_TIMEOUT_MS } from './upstream';
@@ -34,7 +23,13 @@ export interface Env {
   LIVE_HUB: DurableObjectNamespace;
   /** Per-address request ceiling (wrangler.toml `ratelimits`). Absent in a deploy without the binding. */
   RATE_LIMITER?: RateLimit;
+  /** Shared with the site (`wrangler secret put`); proves a call came through it, so its client-IP header can be trusted. */
+  WORKER_PROXY_SECRET?: string;
 }
+
+export const PROXY_SECRET_HEADER = 'x-pulse-proxy-secret';
+export const CLIENT_IP_HEADER = 'x-pulse-client-ip';
+const ADDRESS = /^[0-9A-Fa-f:.]{2,45}$/;
 
 // How long past its TTL a cached body may still be served when upstream fails.
 // Stale scores beat a broken page.
@@ -48,20 +43,8 @@ const REFUSAL_TTL_SECONDS = 60;
 const REFUSAL_HEADER = 'x-worker-upstream-status';
 const RETRY_AFTER_SECONDS = 10;
 
-/**
- * Upstream calls this isolate currently has open, keyed by the cache key.
- *
- * Without it, the cache collapses traffic only once a body has LANDED — and the
- * moment an entry goes stale, every request arriving in that window starts its
- * own refresh. On /matches/live, whose TTL is two seconds, that is the whole
- * readership fanning out to the upstream at once, which is the exact thing the edge
- * cache exists to prevent. The first request through starts the call; the rest
- * join it.
- *
- * Isolate-local, so a colo with several isolates makes a few calls rather than
- * one. That is the practical bound on a Worker and still orders of magnitude
- * below one per reader.
- */
+// Upstream calls open in this isolate, by cache key: requests arriving while an entry is
+// missing or stale join the one call instead of each going upstream.
 const inFlight = new Map<string, Promise<FetchOutcome>>();
 
 /** A fetched body, held as bytes so every joining caller can build its own Response. */
@@ -81,8 +64,9 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
     }
-    if (env.RATE_LIMITER) {
-      const { success } = await env.RATE_LIMITER.limit({ key: request.headers.get('CF-Connecting-IP') ?? 'unknown' });
+    const bucket = rateBucket(request, env);
+    if (bucket.limiter) {
+      const { success } = await bucket.limiter.limit({ key: bucket.key });
       if (!success) {
         cors.set('Retry-After', String(RETRY_AFTER_SECONDS));
         return json({ error: 'Too many requests' }, 429, cors);
@@ -125,6 +109,30 @@ export default {
       : serve(route, params, cors, ctx);
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * What a request is counted against. Browsers reach the Worker through the site's rewrite and
+ * server renders call it from the site's functions, so without the secret every reader shares
+ * the site's address.
+ */
+function rateBucket(request: Request, env: Env): { limiter?: RateLimit; key: string } {
+  const direct = { limiter: env.RATE_LIMITER, key: request.headers.get('CF-Connecting-IP') ?? 'unknown' };
+  const sent = request.headers.get(PROXY_SECRET_HEADER);
+  if (!env.WORKER_PROXY_SECRET || !sent || !sameSecret(sent, env.WORKER_PROXY_SECRET)) return direct;
+  const client = request.headers.get(CLIENT_IP_HEADER)?.trim();
+  // The site's own render: one shared bucket would let anyone exhaust it with uncached pages.
+  if (!client) return { key: 'server' };
+  return { limiter: env.RATE_LIMITER, key: ADDRESS.test(client) ? client : 'unknown' };
+}
+
+function sameSecret(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a);
+  const y = new TextEncoder().encode(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
 
 /** One upstream call through the edge cache: fresh hit, stale-while-refresh, or a single-flighted miss. */
 async function serve(
@@ -215,16 +223,8 @@ function responseFrom(stored: StoredBody): Response {
 }
 
 /**
- * Fetch upstream and write the result to the cache — at most once at a time per
- * cache key, however many requests want it.
- *
- * The result is held as bytes rather than as a Response because a Response body
- * can only be read once: joining callers each need their own, so what is shared
- * is the ArrayBuffer they build it from.
- *
- * Never rejects. An upstream failure resolves to a described outcome so every
- * joined caller can report it identically, and so a failure clears the in-flight
- * slot rather than wedging the key.
+ * Fetch upstream and cache the result, once at a time per key. Held as bytes because joining
+ * callers each need their own Response. Never rejects, so a failure frees the in-flight slot.
  */
 function fetchAndStore(
   cacheKey: Request,
@@ -335,8 +335,8 @@ function upstreamError(status: number, cors: Headers): Response {
   return json({ error: 'Upstream error', status }, status === 429 ? 429 : 502, cors);
 }
 
-// 408 and 429 are the upstream being busy, not the key being wrong.
-const isRefusal = (status: number) => status >= 400 && status < 500 && status !== 408 && status !== 429;
+// Only these mean the key is wrong; 401/403 (a block), 408, 429 and 5xx are outages and never held.
+const isRefusal = (status: number) => status === 400 || status === 404;
 
 function refusal(status: number): Response {
   return new Response(null, {

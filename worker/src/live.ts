@@ -21,7 +21,7 @@ import {
 } from './hubRules';
 import { matchRoute, readParams, type RouteDef } from './routes';
 import { SHAPES } from './shapes';
-import { fetchUpstream } from './upstream';
+import { READ_DEADLINE_MS, readUpstreamJson } from './upstream';
 
 const PROTOCOL = 1;
 // How long the hub trusts its copy of which matches exist before asking again.
@@ -35,6 +35,12 @@ const FAST_MS = 2_000;
 const QUIET_MS = 10_000;
 const IDLE_MS = 30_000;
 const MAX_RETRY_MS = 60_000;
+// The free plan allows 50 subrequests an invocation; topics past this wait for the next alarm, oldest due first.
+export const MAX_REFRESHES_PER_ALARM = 40;
+// Workers open 6 connections at once per invocation; reads past that queue while their deadline runs.
+const REFRESH_WIDTH = 6;
+// Consecutive failures before subscribers are told to poll the API themselves.
+export const STALE_AFTER_FAILURES = 2;
 
 interface TopicState {
   kind: Kind;
@@ -48,10 +54,25 @@ interface TopicState {
   due: number;
   unchanged: number;
   failures: number;
+  refreshing: boolean;
+  /** A `topic:stale` frame went out and no update has followed it yet. */
+  stale: boolean;
 }
 
 function newTopic(kind: Kind, key: string): TopicState {
-  return { kind, key, seq: 0, body: null, hash: null, fetchedAt: 0, due: 0, unchanged: 0, failures: 0 };
+  return {
+    kind,
+    key,
+    seq: 0,
+    body: null,
+    hash: null,
+    fetchedAt: 0,
+    due: 0,
+    unchanged: 0,
+    failures: 0,
+    refreshing: false,
+    stale: false,
+  };
 }
 
 function upstreamFor(kind: Kind, key: string): { route: RouteDef; search: URLSearchParams } {
@@ -137,9 +158,9 @@ export class LiveHub extends DurableObject<unknown> {
     let fetchNow = false;
     for (const topic of added) {
       const state = this.topics.get(topic);
-      if (state && state.body !== null) {
-        this.send(ws, this.snapshotOf(topic, state));
-      } else if (!state) {
+      if (state && state.body !== null) this.send(ws, this.snapshotOf(topic, state));
+      if (state?.stale) this.send(ws, this.staleFrame(topic));
+      if (!state) {
         const { kind, key } = parseTopic(topic)!;
         this.topics.set(topic, newTopic(kind, key));
         fetchNow = true;
@@ -176,11 +197,32 @@ export class LiveHub extends DurableObject<unknown> {
       if (parsed && this.topics.size < MAX_TOPICS) this.topics.set(topic, newTopic(parsed.kind, parsed.key));
     }
 
-    const due = [...this.topics.entries()].filter(([, s]) => s.due <= now);
-    await Promise.all(due.map(([topic, state]) => this.refresh(topic, state)));
+    const due = [...this.topics.entries()]
+      .filter(([, s]) => s.due <= now && !s.refreshing)
+      .sort(([, a], [, b]) => a.due - b.due)
+      .slice(0, MAX_REFRESHES_PER_ALARM);
+    for (const [, state] of due) {
+      state.refreshing = true;
+      state.due = now + READ_DEADLINE_MS;
+    }
+    // Armed first, so a run that dies part way still has a next one.
+    await this.armNext();
+    let next = 0;
+    const lane = async () => {
+      while (next < due.length) {
+        const [topic, state] = due[next++];
+        await this.refresh(topic, state).finally(() => {
+          state.refreshing = false;
+        });
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(REFRESH_WIDTH, due.length) }, lane));
+    await this.armNext();
+  }
 
+  private async armNext(): Promise<void> {
     const next = Math.min(...[...this.topics.values()].map((s) => s.due));
-    await this.ctx.storage.setAlarm(Math.max(next, Date.now() + 1_000));
+    if (Number.isFinite(next)) await this.ctx.storage.setAlarm(Math.max(next, Date.now() + 1_000));
   }
 
   private full(address: string): boolean {
@@ -208,9 +250,7 @@ export class LiveHub extends DurableObject<unknown> {
     this.knownRead ??= (async () => {
       try {
         const { route, search } = upstreamFor('matches', '');
-        const res = await fetchUpstream(route, readParams(route, search));
-        if (!res.ok) throw new Error(`upstream ${res.status}`);
-        const raw: unknown = await res.json();
+        const raw = await readUpstreamJson(route, readParams(route, search));
         this.setKnown(SHAPES[route.match]?.(raw) ?? raw);
       } catch {
         // Keep the last list and look again shortly; meanwhile unknown keys are refused.
@@ -238,22 +278,26 @@ export class LiveHub extends DurableObject<unknown> {
     const { route, search } = upstreamFor(state.kind, state.key);
     let body: unknown;
     try {
-      const res = await fetchUpstream(route, readParams(route, search));
-      if (!res.ok) throw new Error(`upstream ${res.status}`);
-      const raw: unknown = await res.json();
+      const raw = await readUpstreamJson(route, readParams(route, search));
       body = SHAPES[route.match]?.(raw) ?? raw;
     } catch (err) {
-      // Subscribers keep what they have; their own HTTP poll is the fallback.
       if (!state.failures) console.warn('live: topic refresh failing', { topic, error: String(err) });
       state.failures += 1;
       state.due = Date.now() + cadence(state);
+      // Subscribers keep what they have, and go back to polling the API until the next update.
+      if (state.failures >= STALE_AFTER_FAILURES && !state.stale) {
+        state.stale = true;
+        this.broadcast(topic, this.staleFrame(topic));
+      }
       return;
     }
 
     if (state.failures) console.info('live: topic recovered', { topic, after: state.failures });
     state.failures = 0;
     state.fetchedAt = Date.now();
-    const first = state.body === null;
+    // After a stale frame the body goes out again even if unchanged: it is what marks the topic live.
+    const first = state.body === null || state.stale;
+    state.stale = false;
 
     if (state.kind === 'matches') {
       this.setKnown(body);
@@ -289,7 +333,7 @@ export class LiveHub extends DurableObject<unknown> {
       const same = hash === state.hash;
       state.body = body;
       state.hash = hash;
-      if (!same) {
+      if (!same || first) {
         state.seq = ++this.seq;
         this.broadcast(topic, this.snapshotOf(topic, state));
       }
@@ -303,6 +347,10 @@ export class LiveHub extends DurableObject<unknown> {
     const base = { topic, epoch: this.epoch, seq: state.seq, ts: state.fetchedAt };
     if (state.kind === 'matches') return { type: 'matches:snapshot', ...base, data: state.body };
     return { type: `${state.kind}:update`, ...base, matchId: state.key, data: state.body };
+  }
+
+  private staleFrame(topic: string): Record<string, unknown> {
+    return { type: 'topic:stale', topic, epoch: this.epoch, ts: Date.now() };
   }
 
   private broadcast(topic: string, message: Record<string, unknown>): void {

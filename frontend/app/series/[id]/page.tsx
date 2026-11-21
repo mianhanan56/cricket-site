@@ -113,7 +113,7 @@ export default async function SeriesDetailPage(props: {
         revalidate: list.some((m) => m.series.id === params.id && m.status === 'LIVE') ? LIVE_REVALIDATE : REVALIDATE,
       }).catch(() => null)
     ),
-    getApiSeriesSquadTeams(params.id, { revalidate: 3600 }),
+    getApiSeriesSquadTeams(params.id, { revalidate: 3600 }).catch(() => []),
   ]);
 
   // Schedule endpoint down: fall back to the feed's narrower view before 404-ing.

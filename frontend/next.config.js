@@ -132,6 +132,8 @@ const nextConfig = {
     // of a page for up to 30s (5 min if static). The server's per-fetch revalidate
     // still decides whether the upstream is actually called, so nothing is over-fetched.
     staleTimes: { dynamic: 0, static: 30 },
+    // Rewrites otherwise match any case, and /API/Worker/… would reach the Worker without middleware.ts.
+    caseSensitiveRoutes: true,
   },
   eslint: {
     // `next lint` and the build's lint pass only cover app/, components/, lib/

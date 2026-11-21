@@ -94,7 +94,7 @@ test('a key the upstream refuses is asked for once, then answered from the cache
 });
 
 test('an upstream outage or throttle is not held', async () => {
-  for (const status of [500, 429]) {
+  for (const status of [500, 429, 401, 403]) {
     calls = [];
     upstream = () => new Response('busy', { status });
     const res = await get(`/player/overview?key=K${status}`);
@@ -131,6 +131,32 @@ test('an address over its rate is turned away before the route runs', async () =
   assert.ok(res.headers.get('Retry-After'));
   assert.deepEqual(seen, ['203.0.113.9']);
   assert.equal(calls.length, 0);
+});
+
+const SECRET = 's3cret-value';
+const counted = () => {
+  const seen: string[] = [];
+  const limiter = (name: string) => ({ limit: async ({ key }: { key: string }) => (seen.push(`${name}:${key}`), { success: true }) });
+  return { seen, env: { RATE_LIMITER: limiter('reader'), WORKER_PROXY_SECRET: SECRET } };
+};
+
+test("through the site's proxy, each reader is counted by their own address", async () => {
+  const { seen, env } = counted();
+  const via = (ip: string) => ({ 'CF-Connecting-IP': '76.76.21.21', 'x-pulse-proxy-secret': SECRET, 'x-pulse-client-ip': ip });
+  await get('/health', { env, headers: via('203.0.113.9') });
+  await get('/health', { env, headers: via('2001:db8::1') });
+  await get('/health', { env, headers: { 'CF-Connecting-IP': '76.76.21.21', 'x-pulse-proxy-secret': SECRET } });
+  // The site's own render is not limited.
+  assert.deepEqual(seen, ['reader:203.0.113.9', 'reader:2001:db8::1']);
+});
+
+test('a forwarded address without the right secret is ignored', async () => {
+  const { seen, env } = counted();
+  const headers = { 'CF-Connecting-IP': '198.51.100.7', 'x-pulse-client-ip': '203.0.113.9' };
+  await get('/health', { env, headers });
+  await get('/health', { env, headers: { ...headers, 'x-pulse-proxy-secret': 'guess' } });
+  await get('/health', { env: { ...env, WORKER_PROXY_SECRET: undefined }, headers: { ...headers, 'x-pulse-proxy-secret': SECRET } });
+  assert.deepEqual(seen, ['reader:198.51.100.7', 'reader:198.51.100.7', 'reader:198.51.100.7']);
 });
 
 test('only the site gets a CORS grant; localhost only from a local Worker', async () => {

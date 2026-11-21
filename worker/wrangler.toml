@@ -7,8 +7,9 @@ compatibility_date = "2026-08-08"
 # `wrangler dev` accepts localhost origins by itself (src/index.ts).
 ALLOWED_ORIGINS = "https://pulsecrease.vercel.app"
 
-# No secrets. Every upstream endpoint in src/routes.ts is unauthenticated — the
-# allowlist, not a token, is what keeps this from being an open relay.
+# Every upstream endpoint in src/routes.ts is unauthenticated — the allowlist, not a
+# token, is what keeps this from being an open relay. One secret, WORKER_PROXY_SECRET
+# (`wrangler secret put`), only tells the rate limiter which calls came through the site.
 # No KV either. Rankings briefly lived in a KV namespace, back when
 # oc/ranking/getRanking looked unreachable; it turned out to take string params
 # (see the /rankings/players note in src/routes.ts), so they come from the upstream live

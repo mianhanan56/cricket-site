@@ -21,14 +21,10 @@ import { pageMeta } from '@/lib/seo';
 import JsonLd from '@/components/seo/JsonLd';
 import { breadcrumbs, sportsEvent } from '@/lib/structuredData';
 
-// Freshness is set per-fetch below rather than with a page-level `revalidate`:
-// making the route ISR-cached also caches the notFound() path, which turns an
-// unknown id into a soft 404 — the not-found page served with a 200.
+// Per-fetch freshness, not a page `revalidate`: an ISR-cached notFound() is a soft 404 (200).
 const REVALIDATE = 5;
 
-// An upstream match key reads the live feed (or the archive); an `fx-` id is a fixture
-// with no key yet, read from its series' schedule. cache(): generateMetadata and the
-// page share one read per request.
+// An `fx-` id is a fixture with no key yet, read from its series' schedule. cache(): metadata and page share one read.
 const loadMatch = cache((id: string) =>
   parseScheduledMatchId(id) ? getApiScheduledMatch(id) : getApiMatch(id, { revalidate: REVALIDATE })
 );
@@ -66,6 +62,7 @@ export default async function MatchDetailPage(props: {
   const preview = parseScheduledMatchId(params.id) !== null;
   // The corpus needs nothing from the match, so it is read while the match loads.
   const corpusRead = getApiFixtureRange().catch(() => null);
+  // Null only when the upstream refuses the key; an outage throws to app/error.tsx instead of a 404.
   const match = await loadMatch(params.id);
   if (!match) notFound();
 

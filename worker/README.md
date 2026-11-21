@@ -83,8 +83,9 @@ call answers `{"error":"Upstream error","status":<upstream status>}` (the fronte
 reads `status` to tell "unknown key" from an outage). The upstream's URL and its own
 error text go to the Worker log (`npm run tail`), not to the response.
 
-An upstream 4xx is held in the edge cache for 60 seconds, so a key it refuses is asked
-for once a minute, not once a request. 408, 429 and 5xx are not held, and a refusal
+An upstream 400 or 404 is held in the edge cache for 60 seconds, so a key it refuses is
+asked for once a minute, not once a request. Any other status (401/403 included — a block
+is an outage, not a missing page) is not held, and a refusal
 that arrives during a background refresh never replaces the body being served.
 
 ## Response shapes
@@ -352,6 +353,27 @@ front of the Worker, which means serving it from a custom domain instead of
 `workers.dev`. If a deploy rejects the binding, remove the `[[ratelimits]]` block —
 the code runs without it.
 
+### Rate limits behind the site
+
+Browsers reach the Worker through the site's `/api/worker` rewrite and server renders
+call it from Vercel functions, so on its own the limiter sees Vercel's addresses and
+every reader shares one bucket. With a shared secret the site says who is calling:
+`frontend/middleware.ts` adds `x-pulse-proxy-secret` and the reader's address
+(`x-pulse-client-ip`) to every `/api/worker/*` request, and server-side reads
+(`frontend/lib/api/client.ts`) add the secret alone. The Worker then counts a proxied
+request against the reader's address and leaves a server read unlimited (one shared
+bucket for renders would let anyone drain it with uncached pages). A request without a matching secret is counted by its own address,
+as before. The live socket dials the Worker directly and is unaffected.
+
+```bash
+openssl rand -hex 32                       # the secret
+npx wrangler secret put WORKER_PROXY_SECRET   # paste it
+# Vercel → Project → Settings → Environment Variables:
+#   WORKER_PROXY_SECRET = the same value (Production + Preview; never NEXT_PUBLIC_)
+```
+
+Set it on the Worker first, then redeploy the site. Until both have it, nothing changes.
+
 The first deploy with the live hub applies the `v1` migration in `wrangler.toml`,
 which creates the `LiveHub` Durable Object class (SQLite-backed, so it works on
 the free plan).
@@ -379,7 +401,11 @@ hub    → {"type":"matches:update","topic":"matches","epoch":"…","seq":42,"pr
 `seq` only rises, across all topics; a diff's `prev` is the seq it follows, so a
 client can tell a missed diff from topics interleaving. `epoch` changes when the
 object restarts. A topic polls every 2s while it keeps changing, then 10s and
-30s once quiet, and stops when nothing subscribes. The Origin header is checked
+30s once quiet, and stops when nothing subscribes. Each read has a 12s ceiling, body
+included, and one alarm refreshes at most 40 topics (the free plan's 50 subrequests);
+the rest go first on the next one. After two failed reads in a row the hub sends
+`{"type":"topic:stale","topic":…}`, and the client polls the API for that topic until
+its next update, which is sent even when the body hasn't changed. The Origin header is checked
 against `ALLOWED_ORIGINS` by hand, since WebSockets skip CORS.
 
 Every topic is an upstream poll, so the hub limits who can start one

@@ -45,9 +45,15 @@ export async function apiGet<T>(path: string, opts: FetchOpts = {}): Promise<T> 
   return JSON.parse(await read) as T;
 }
 
+// Server-only (never NEXT_PUBLIC_): tells the Worker's rate limiter this is the site's own render.
+const proxyHeaders = (): Record<string, string> => {
+  const secret = typeof window === 'undefined' ? process.env.WORKER_PROXY_SECRET : undefined;
+  return secret ? { 'x-pulse-proxy-secret': secret } : {};
+};
+
 async function readText(path: string, opts: FetchOpts): Promise<string> {
   const res = await fetch(`${apiBase()}${path}`, {
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', ...proxyHeaders() },
     signal: withTimeout(API_TIMEOUT_MS, opts.signal),
     next: opts.revalidate !== undefined ? { revalidate: opts.revalidate } : undefined,
   });
@@ -72,13 +78,13 @@ async function readText(path: string, opts: FetchOpts): Promise<string> {
 }
 
 /**
- * The request was refused (bad params, or the upstream answered 4xx), so the thing asked
- * for doesn't exist. A timeout, 5xx or 429 is an outage and must not read as a 404.
+ * The thing asked for doesn't exist: bad params, or the upstream answered 400/404. Anything
+ * else (a 401/403 block, 429, 5xx, a timeout) is an outage and must not read as a 404.
  */
 export function isRejectedRequest(err: unknown): boolean {
   const { status, upstreamStatus } = (err ?? {}) as { status?: number; upstreamStatus?: number };
   if (status === 400 || status === 404) return true;
-  return status === 502 && upstreamStatus !== undefined && upstreamStatus >= 400 && upstreamStatus < 500 && upstreamStatus !== 429;
+  return status === 502 && (upstreamStatus === 400 || upstreamStatus === 404);
 }
 
 /** Map with at most `width` calls in flight: all at once floods the Worker, one at a time is a round trip each. */

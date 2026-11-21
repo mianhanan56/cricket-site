@@ -99,11 +99,22 @@ function scheduleRetry() {
   }, delay);
 }
 
+const isStaleFrame = (value: unknown): value is { topic: string } =>
+  !!value &&
+  typeof value === 'object' &&
+  (value as { type?: unknown }).type === 'topic:stale' &&
+  typeof (value as { topic?: unknown }).topic === 'string';
+
 function onFrame(raw: string) {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
+    return;
+  }
+  if (isStaleFrame(parsed)) {
+    // The hub can't read this topic upstream; poll the API at full speed until its next update.
+    if (live.ready.delete(parsed.topic)) notify();
     return;
   }
   if (!isLiveFrame(parsed)) return;
