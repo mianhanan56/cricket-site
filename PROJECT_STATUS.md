@@ -6,6 +6,11 @@ Last updated: 2026-11-12
 
 UI polish pass on navigation, series stats and page spacing (uncommitted working tree on `main`).
 
+## Recently completed (uncommitted, 2026-11-22, Vercel CPU)
+
+- The Vercel team was paused 2026-11-21 (Hobby Fluid Active CPU 4h 4m / 4h, 99.4% this project). Home, fixtures, series, players are now static with ISR; match, player, team, venue, series-stats pages and their OG images are ISR on first visit (`generateStaticParams` returning `[]`). Filters and tabs are read from the URL in the browser (`lib/urlFilters.ts`, `useQueryTabs` `read`). Match head-to-head cached 10 min with `unstable_cache`; same-path links reset filters (`SearchParamsBridge`); a failed player series read loads in the browser instead of caching an empty section; match revalidate 5 → 30s, home 60s, player scorecards 15 → 300s.
+- Verified from a scratch production build: route table shows ○/● for all of these (only `/series/[id]`, `/rankings`, `/api/quiz` are ƒ); a second request is `x-nextjs-cache: HIT`; headless Chrome shows `?tab=`, `?type=`, `?format=`, `?gender=`, `?status=`, `?role=` applied after mount on home, fixtures, series, players, a match and a player. tsc, lint, 252 tests pass.
+
 ## Recently completed (uncommitted, 2026-11-12, Next.js 15 upgrade)
 
 - `next` 14.2.35 → 15.5.29, `react`/`react-dom` 18.3 → 19.3, `@types/react*` 19, `eslint-config-next` 15.5.29 (PC-01). `npm audit`: no advisory left on `next` itself (it still lists the `postcss` it bundles, moderate); 0 critical. npm keeps `yarn.lock` in step with `package-lock.json`.

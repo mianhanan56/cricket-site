@@ -36,7 +36,7 @@ cricket/
 │   ├── components/          Grouped by domain: automations, brand, fixtures, follow, home,
 │   │                        insights, layout, live, match, notifications, player, rankings,
 │   │                        search, series, ui
-│   ├── hooks/               useApiMatches (shared live poll), useQueryTabs (URL-synced tabs via history.replaceState — no server round-trip, so no scroll jump)
+│   ├── hooks/               useApiMatches (shared live poll), useQueryTabs (URL-synced tabs via history.replaceState — no server round-trip, so no scroll jump; static pages pass a `read` so the URL is applied after mount)
 │   ├── lib/                 Data client + pure domain logic (see "Modules")
 │   ├── data/                rankings.json — bundled fallback snapshot only
 │   ├── scss/                component.scss (tokens/mixins), global.scss (custom props, resets), main.scss
@@ -311,8 +311,8 @@ socket reschedules at once. Entry: a page that shows the list revalidates it on 
 `matches` topic is live (components mounting together share one request); `useApiMatchExtras`
 fetches on mount. Visibility return and socket reconnect both
 revalidate over HTTP. `next.config.js` sets `experimental.staleTimes { dynamic: 0, static: 30 }`:
-dynamic routes fetch on every link navigation; static ISR routes (`/teams`) may reuse a prefetch
-made within 30s. Back/forward replays the router copy, so `NavigationTracker` calls
+dynamic routes (`/series/[id]`, `/rankings`) fetch on every link navigation; static and ISR routes
+(nearly all the rest, see below) may reuse a prefetch made within 30s. Back/forward replays the router copy, so `NavigationTracker` calls
 `router.refresh()` after a traversal.
 PWA service worker: the ball-by-ball Worker routes (`/matches/live`, `/match/scorecard`,
 `/match/commentary`, `/live`) are left out of the service worker entirely — a saved copy rolled
@@ -328,6 +328,31 @@ the upstream's player records are cached for an hour and lag a live innings: on 
 those matches the live list calls LIVE (`hooks/useLiveCards`). Shared mapping: `lib/liveFigures.ts`
 (a Test's innings by the player's innings order; bowling overs → balls). The series bowling tiles
 lead with Overs (Balls for The Hundred).
+
+Rendering mode and the Vercel CPU budget (2026-11-22): the Hobby plan allows 4h of Fluid Active CPU a
+month (about 8 minutes a day) and pauses **every project on the team** when it is exceeded, which
+happened on 2026-11-21 (99.4% this project, spikes 17–19 Nov). Pages are therefore static or ISR, never
+rendered per request:
+- No server page reads `searchParams` (that makes a route dynamic). List filters and tabs are read in the
+  browser after mount: `useQueryTabs(defaults, defaults, read)` with readers in `lib/urlFilters.ts`
+  (home, fixtures, series, players), `MatchDetail` for `?tab=`, `FormTabs` + `SeriesPerformance` for a
+  player's `?format=` / `?series=`. The HTML is the default view; a filtered link applies a moment later.
+  `useQueryTabs` re-reads on every query change via `components/layout/SearchParamsBridge` (root layout,
+  own `<Suspense fallback={null}>`, the only `useSearchParams()` reader; publishes to `lib/urlSearch.ts`),
+  so a same-path link (footer "Fixtures" while on `/fixtures?format=t20`) resets the filters.
+- A failed read inside an ISR page is cached with it. Where that matters the section falls back to the
+  browser: `PlayerSeriesSection` passes `initialLists={null}` and `SeriesPerformance` loads the lists itself.
+- Dynamic segments export `generateStaticParams() { return [] }` (matches, players, teams, venues,
+  series stats, their OG images): nothing is built ahead, each path renders on first visit and is then
+  cached for its shortest fetch `revalidate`. Match 30s, home 60s, fixtures/series 300s, player 3600s
+  (scorecards 300s; the browser keeps live figures current).
+- Match head-to-head is `unstable_cache`d per pairing (10 min; an empty corpus throws, so is not cached): it walks the 58-page fixture corpus.
+- Still dynamic: `/series/[id]` (server-rendered `?tab=` sections and `?team=` squads via Links) and
+  `/rankings` (per-filter metadata for SEO), plus `/api/quiz`. Converting `/series/[id]` means rendering
+  every section and switching client-side.
+- Unknown ids were already a 200 + `noindex` (see TODO); now that answer is cached per path too.
+New pages must keep this: no `searchParams`/`headers()`/`cookies()` in a page, every fetch with a
+`revalidate`, and check `next build`'s route table shows ○ or ● for it.
 
 Link prefetch: Next prefetches every `<Link>` in view, and each prefetch of a dynamic route is a
 server render (a Vercel invocation). List links — match tiles/rows, scorecard player names, rankings,
@@ -524,8 +549,8 @@ imported only by the route, so none of it ships to the browser:
 - `next/og` images (`app/opengraph-image.tsx`, `twitter-image.tsx`, `apple-icon.tsx`,
   `app/icons/[size]` for the manifest) use `style` objects: Satori has no stylesheet support. This
   is the only exception to the no-inline-styles rule.
-- Match centre tab is `?tab=` (`MATCH_TAB_KEYS`), read by the server page and written with
-  `history.replaceState` (a router navigation would re-render the dynamic page on the server).
+- Match centre tab is `?tab=` (`MATCH_TAB_KEYS`), read by `MatchDetail` after mount (the page is ISR) and
+  written with `history.replaceState` (a router navigation would re-render the page on the server).
 - Series rows (`SeriesCard`) take their columns from `SeriesFilter`'s `.list` via subgrid at
   tablet+; the list rule uses element selectors (`> li`, `> div`, `> li > a`) to outrank `.row`.
 - The brand green has two roles: `$signal` is a fill behind `$signal-ink` text (buttons, badges, the
