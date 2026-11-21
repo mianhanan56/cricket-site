@@ -262,6 +262,12 @@
   }
 }
 
+.recentActive {
+  color: $text;
+  border-color: $line-3;
+  background: $surface-2;
+}
+
 .status {
   display: flex;
   justify-content: center;

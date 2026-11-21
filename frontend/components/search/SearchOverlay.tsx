@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useApiMatches } from '@/hooks/useApiMatches';
 import { closeOverlay, openOverlay, useOverlay } from '@/lib/uiState';
 import { lockScroll } from '@/lib/scrollLock';
+import { trapTab } from '../ui/focusTrap';
 import {
   buildIndex,
   loadSearchIndex,
@@ -12,6 +13,7 @@ import {
   recentSearchStore,
   rememberSearch,
   type EntityType,
+  type RecentSearch,
   type RemoteIndex,
   type SearchEntity,
 } from '@/lib/searchIndex';
@@ -74,6 +76,7 @@ function SearchDialog() {
   const [indexLoading, setIndexLoading] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<Element | null>(null);
   // A pick leaves the page, so focus stays with the new page instead of ringing the search trigger.
   const leaving = useRef(false);
@@ -87,12 +90,23 @@ function SearchDialog() {
     returnFocus.current = document.activeElement;
     inputRef.current?.focus({ preventScroll: true });
     const unlock = lockScroll();
+    const dialog = dialogRef.current;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeOverlay();
+      } else {
+        trapTab(e, dialog);
+      }
+    };
+    document.addEventListener('keydown', onKey);
     loadSearchIndex((data) => {
       setIndex(data);
       setIndexLoading(false);
     });
     return () => {
       unlock();
+      document.removeEventListener('keydown', onKey);
       if (!leaving.current && returnFocus.current instanceof HTMLElement) returnFocus.current.focus({ preventScroll: true });
     };
   }, []);
@@ -116,15 +130,26 @@ function SearchDialog() {
     return [...live, ...followed, ...topTeams].slice(0, 10);
   }, [entities, follows.teams, index]);
 
-  const flat = q.trim() ? results : suggestions;
+  const trimmed = q.trim();
+
+  // Arrow order must match what's on screen, so results are flattened in group order.
+  const groups = useMemo(
+    () =>
+      GROUPS.map((g) => ({ ...g, items: results.filter((r) => r.type === g.type) })).filter((g) => g.items.length),
+    [results]
+  );
+  const flat: Array<SearchEntity | RecentSearch> = trimmed
+    ? groups.flatMap((g) => g.items)
+    : [...recent, ...suggestions];
+  const current = Math.min(active, flat.length - 1);
 
   useEffect(() => setActive(0), [q]);
 
   useEffect(() => {
     listRef.current
-      ?.querySelector<HTMLElement>(`[data-idx="${active}"]`)
+      ?.querySelector<HTMLElement>(`[data-idx="${current}"]`)
       ?.scrollIntoView({ block: 'nearest' });
-  }, [active]);
+  }, [current]);
 
   const go = (href: string, label: string, type: EntityType | 'query') => {
     rememberSearch({ href, label, type });
@@ -133,34 +158,27 @@ function SearchDialog() {
     router.push(href);
   };
 
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
+  const onInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
-      closeOverlay();
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setActive((i) => Math.min(i + 1, flat.length - 1));
+      setActive(Math.max(0, Math.min(current + 1, flat.length - 1)));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActive((i) => Math.max(i - 1, 0));
+      setActive(Math.max(current - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const pick = flat[active];
+      const pick = flat[current];
       if (pick) go(pick.href, pick.label, pick.type);
-      else if (q.trim()) go(`/search?q=${encodeURIComponent(q.trim())}`, q.trim(), 'query');
-    } else if (e.key === 'Tab') {
-      // Keep focus inside the dialog.
-      e.preventDefault();
-      inputRef.current?.focus();
+      else if (trimmed) go(`/search?q=${encodeURIComponent(trimmed)}`, trimmed, 'query');
     }
   };
 
   const renderItem = (e: SearchEntity, i: number) => (
-    <li key={`${e.type}-${e.id}`} role="option" aria-selected={i === active} id={`sr-${i}`}>
+    <li key={`${e.type}-${e.id}`} role="option" aria-selected={i === current} id={`sr-${i}`}>
       <button
         type="button"
         data-idx={i}
-        className={`${styles.item} ${i === active ? styles.itemActive : ''}`}
+        className={`${styles.item} ${i === current ? styles.itemActive : ''}`}
         onMouseMove={() => setActive(i)}
         onClick={() => go(e.href, e.label, e.type)}
         tabIndex={-1}
@@ -191,12 +209,10 @@ function SearchDialog() {
     </li>
   );
 
-  const trimmed = q.trim();
-
   return (
     <div className={styles.root}>
       <button type="button" className={styles.scrim} aria-label="Close search" onClick={closeOverlay} tabIndex={-1} />
-      <div className={styles.dialog} role="dialog" aria-modal="true" aria-label="Search PulseCrease">
+      <div ref={dialogRef} className={styles.dialog} role="dialog" aria-modal="true" aria-label="Search PulseCrease">
         <div className={styles.field}>
           <Icon name="search" size={20} className={styles.fieldIcon} />
           <input
@@ -204,31 +220,30 @@ function SearchDialog() {
             className={styles.input}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            onKeyDown={onKeyDown}
+            onKeyDown={onInputKeyDown}
             placeholder="Search players, teams, series or matches"
             role="combobox"
             aria-expanded="true"
             aria-controls="search-results"
-            aria-activedescendant={flat.length ? `sr-${active}` : undefined}
+            aria-activedescendant={flat.length ? `sr-${current}` : undefined}
             autoComplete="off"
             spellCheck={false}
           />
-          <button type="button" className={styles.esc} onClick={closeOverlay}>
+          <button type="button" className={styles.esc} onClick={closeOverlay} aria-label="Close search (Esc)">
             Esc
           </button>
         </div>
 
         <div className={styles.body} ref={listRef} id="search-results">
           {trimmed ? (
-            results.length ? (
-              GROUPS.map((g) => {
-                const items = results.filter((r) => r.type === g.type);
-                if (!items.length) return null;
+            groups.length ? (
+              groups.map((g) => {
+                const start = flat.indexOf(g.items[0]);
                 return (
                   <section key={g.type} className={styles.group}>
                     <h2 className={styles.groupTitle}>{g.title}</h2>
                     <ul role="listbox" aria-label={g.title}>
-                      {items.map((e) => renderItem(e, flat.indexOf(e)))}
+                      {g.items.map((e, i) => renderItem(e, start + i))}
                     </ul>
                   </section>
                 );
@@ -260,10 +275,17 @@ function SearchDialog() {
                       Clear
                     </button>
                   </div>
-                  <ul className={styles.recent}>
-                    {recent.map((r) => (
-                      <li key={r.href}>
-                        <button type="button" className={styles.recentItem} onClick={() => go(r.href, r.label, r.type)} tabIndex={-1}>
+                  <ul className={styles.recent} role="listbox" aria-label="Recent">
+                    {recent.map((r, i) => (
+                      <li key={r.href} role="option" aria-selected={i === current} id={`sr-${i}`}>
+                        <button
+                          type="button"
+                          data-idx={i}
+                          className={`${styles.recentItem} ${i === current ? styles.recentActive : ''}`}
+                          onMouseMove={() => setActive(i)}
+                          onClick={() => go(r.href, r.label, r.type)}
+                          tabIndex={-1}
+                        >
                           <Icon name={r.type === 'query' ? 'history' : ICON_FOR[r.type]} size={15} />
                           {r.label}
                         </button>
@@ -276,7 +298,7 @@ function SearchDialog() {
                 <section className={styles.group}>
                   <h2 className={styles.groupTitle}>Suggested</h2>
                   <ul role="listbox" aria-label="Suggested">
-                    {suggestions.map((e, i) => renderItem(e, i))}
+                    {suggestions.map((e, i) => renderItem(e, recent.length + i))}
                   </ul>
                 </section>
               ) : (

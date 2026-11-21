@@ -118,6 +118,11 @@
 
 .optionActive {
   background: $surface-3;
+
+  // text-3 drops under 4.5:1 on surface-3 in dark mode.
+  .count {
+    color: $text-2;
+  }
 }
 
 .check {

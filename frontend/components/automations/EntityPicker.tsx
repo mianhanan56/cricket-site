@@ -33,11 +33,15 @@ export default function EntityPicker({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [remote, setRemote] = useState<RemoteIndex | null>(null);
+  const [remoteSettled, setRemoteSettled] = useState(false);
   const { matches } = useApiMatches({ intervalMs: 60_000 });
   const follows = useFollows();
 
   useEffect(() => {
-    loadRemoteIndex().then(setRemote);
+    loadRemoteIndex().then((data) => {
+      setRemote(data);
+      setRemoteSettled(true);
+    });
   }, []);
 
   const pool = useMemo<Array<PickedEntity & { sub: string }>>(() => {
@@ -66,6 +70,8 @@ export default function EntityPicker({
   const results = (terms.length ? pool.filter((e) => terms.every((t) => `${e.name} ${e.sub}`.toLowerCase().includes(t))) : pool).slice(0, 8);
 
   const noun = kind === 'TEAM' ? 'team' : kind === 'SERIES' ? 'series' : 'player';
+  const loading = !remoteSettled && kind !== 'SERIES';
+  const current = Math.min(active, results.length - 1);
 
   if (value) {
     return (
@@ -100,6 +106,8 @@ export default function EntityPicker({
           role="combobox"
           aria-expanded={open}
           aria-controls={`${id}-list`}
+          aria-autocomplete="list"
+          aria-activedescendant={open && current >= 0 ? `${id}-opt-${current}` : undefined}
           onFocus={() => setOpen(true)}
           onBlur={() => setTimeout(() => setOpen(false), 120)}
           onChange={(e) => {
@@ -110,13 +118,14 @@ export default function EntityPicker({
           onKeyDown={(e) => {
             if (e.key === 'ArrowDown') {
               e.preventDefault();
-              setActive((i) => Math.min(i + 1, results.length - 1));
+              setOpen(true);
+              setActive(Math.max(0, Math.min(current + 1, results.length - 1)));
             } else if (e.key === 'ArrowUp') {
               e.preventDefault();
-              setActive((i) => Math.max(i - 1, 0));
-            } else if (e.key === 'Enter' && results[active]) {
+              setActive(Math.max(current - 1, 0));
+            } else if (e.key === 'Enter' && open && results[current]) {
               e.preventDefault();
-              choose(results[active]);
+              choose(results[current]);
             } else if (e.key === 'Escape') setOpen(false);
           }}
         />
@@ -124,20 +133,28 @@ export default function EntityPicker({
           <ul className={styles.pickerList} id={`${id}-list`} role="listbox">
             {results.length ? (
               results.map((e, i) => (
-                <li key={e.id} role="option" aria-selected={i === active}>
-                  <button
-                    type="button"
-                    className={`${styles.pickerItem} ${i === active ? styles.pickerActive : ''}`}
-                    onMouseDown={(ev) => ev.preventDefault()}
-                    onClick={() => choose(e)}
-                  >
-                    <span>{e.name}</span>
-                    <span className={styles.pickerSub}>{e.sub}</span>
-                  </button>
+                <li
+                  key={e.id}
+                  id={`${id}-opt-${i}`}
+                  role="option"
+                  aria-selected={i === current}
+                  className={`${styles.pickerItem} ${i === current ? styles.pickerActive : ''}`}
+                  onMouseDown={(ev) => ev.preventDefault()}
+                  onMouseMove={() => setActive(i)}
+                  onClick={() => choose(e)}
+                >
+                  <span>{e.name}</span>
+                  <span className={styles.pickerSub}>{e.sub}</span>
                 </li>
               ))
+            ) : loading ? (
+              <li className={styles.pickerNone} role="presentation">
+                Loading {noun === 'series' ? 'series' : `${noun}s`}…
+              </li>
             ) : (
-              <li className={styles.pickerNone}>No {noun} matches “{q}”</li>
+              <li className={styles.pickerNone} role="presentation">
+                {q.trim() ? `No ${noun} matches “${q.trim()}”` : `No ${noun} to pick yet`}
+              </li>
             )}
           </ul>
         )}

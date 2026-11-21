@@ -4,6 +4,7 @@ import '../scss/main.scss';
 import Navbar from '../components/layout/Navbar';
 import BottomNav from '../components/layout/BottomNav';
 import NavigationTracker from '../components/layout/NavigationTracker';
+import { THEME_COLOR } from '../components/layout/themeColor';
 import IntentPrefetch from '../components/layout/IntentPrefetch';
 import Footer from '../components/layout/Footer';
 import SearchOverlay, { SearchHotkeys } from '../components/search/SearchOverlay';
@@ -59,10 +60,6 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: dark)', color: '#0c1413' },
-    { media: '(prefers-color-scheme: light)', color: '#f2f5f0' },
-  ],
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -72,10 +69,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${archivo.variable} ${figtree.variable}`} suppressHydrationWarning>
       <head>
-        {/* Theme is set before first paint so there is no flash. Light unless chosen otherwise. */}
+        {/* Theme is set before first paint so there is no flash. Light unless chosen otherwise.
+            It also owns the theme-color tag: a React-rendered one could be duplicated at hydration. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('theme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`,
+            __html: `(function(){var t='light';try{t=localStorage.getItem('theme')==='dark'?'dark':'light';}catch(e){}document.documentElement.setAttribute('data-theme',t);var m=document.createElement('meta');m.name='theme-color';m.content=t==='dark'?'${THEME_COLOR.dark}':'${THEME_COLOR.light}';document.head.appendChild(m);})();`,
           }}
         />
         {process.env.NODE_ENV === 'development' && (

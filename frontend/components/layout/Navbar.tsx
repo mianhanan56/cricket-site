@@ -19,6 +19,7 @@ export default function Navbar() {
   const following = followCount(useFollows());
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+  const avatarRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => setProfileOpen(false), [pathname]);
 
@@ -27,7 +28,11 @@ export default function Navbar() {
     const onDown = (e: MouseEvent) => {
       if (!profileRef.current?.contains(e.target as Node)) setProfileOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setProfileOpen(false);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setProfileOpen(false);
+      if (profileRef.current?.contains(document.activeElement)) avatarRef.current?.focus();
+    };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -87,23 +92,24 @@ export default function Navbar() {
 
           <div className={`${styles.profile} ${styles.desktopOnly}`} ref={profileRef}>
             <button
+              ref={avatarRef}
               type="button"
               className={`${styles.avatar} ${profileOpen ? styles.avatarOn : ''}`}
               onClick={() => setProfileOpen((v) => !v)}
               aria-label="My Cricket menu"
               aria-expanded={profileOpen}
-              aria-haspopup="menu"
+              aria-controls={profileOpen ? 'profile-menu' : undefined}
             >
               <Icon name="user" size={18} />
             </button>
             {profileOpen && (
-              <div className={styles.menu} role="menu">
-                <Link href="/my" className={styles.menuItem} role="menuitem">
+              <div className={styles.menu} id="profile-menu">
+                <Link href="/my" className={styles.menuItem}>
                   <Icon name="star" size={17} />
                   <span>My Cricket</span>
                   {following > 0 && <span className={styles.menuCount}>{following}</span>}
                 </Link>
-                <Link href="/automations" className={styles.menuItem} role="menuitem">
+                <Link href="/automations" className={styles.menuItem}>
                   <Icon name="bolt" size={17} />
                   <span>Alerts</span>
                 </Link>

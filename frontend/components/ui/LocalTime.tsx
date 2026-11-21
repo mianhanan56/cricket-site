@@ -13,21 +13,8 @@ export interface LocalTimeProps {
   className?: string;
 }
 
-/**
- * An instant, in the reader's own timezone.
- *
- * The zone is only knowable in the browser, so this renders `SERVER_ZONE` for
- * the server pass and the first paint, then re-renders in the reader's zone on
- * mount. `suppressHydrationWarning` covers the one frame where the two differ —
- * React would otherwise report the corrected text as a mismatch, which it is,
- * deliberately.
- *
- * A reader already in UTC sets the same value and never re-renders at all.
- *
- * `<time dateTime>` carries the unambiguous instant alongside the rendered
- * string, so the markup stays correct for anything reading it rather than
- * looking at it.
- */
+// The zone is only known in the browser: SERVER_ZONE renders first, the reader's zone after
+// mount, and suppressHydrationWarning covers that deliberate one-frame mismatch.
 export default function LocalTime({ iso, format, lower, className }: LocalTimeProps) {
   const [zone, setZone] = useState(SERVER_ZONE);
 

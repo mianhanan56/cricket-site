@@ -310,8 +310,29 @@ export interface RecentSearch {
   type: EntityType | 'query';
 }
 
+const RECENT_TYPES = new Set<unknown>(['match', 'team', 'player', 'series', 'venue', 'query']);
+
+const PROBE_ORIGIN = 'https://x.invalid';
+
+// The URL parser strips tabs and newlines, so "/\t/evil.com" would become "//evil.com".
+function isInAppPath(href: string): boolean {
+  if (!/^\/(?![/\\])/.test(href) || /[\s\x00-\x1f\x7f]/.test(href)) return false;
+  try {
+    return new URL(href, PROBE_ORIGIN).origin === PROBE_ORIGIN;
+  } catch {
+    return false;
+  }
+}
+
+/** localStorage is writable by anything on the origin; only an in-app path may reach router.push. */
+export function isRecentSearch(r: unknown): r is RecentSearch {
+  if (!r || typeof r !== 'object') return false;
+  const { label, href, type } = r as Record<string, unknown>;
+  return typeof label === 'string' && typeof href === 'string' && isInAppPath(href) && RECENT_TYPES.has(type);
+}
+
 export const recentSearchStore = createPersisted<RecentSearch[]>('pc.recentSearches', [], (raw) =>
-  Array.isArray(raw) ? (raw as RecentSearch[]).filter((r) => r && typeof r.href === 'string') : null
+  Array.isArray(raw) ? raw.filter(isRecentSearch) : null
 );
 
 export function rememberSearch(item: RecentSearch) {

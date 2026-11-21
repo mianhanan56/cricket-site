@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
-import { canGoBackInApp, subscribeNavigation } from '@/lib/navigationDepth';
+import { useCallback } from 'react';
+import { canGoBackInApp } from '@/lib/navigationDepth';
 import styles from './BackButton.module.scss';
 
 export interface BackButtonProps {
@@ -16,19 +16,11 @@ export interface BackButtonProps {
 /** One step back in the browser's own history; a button because the right destination depends on how the reader arrived. */
 export default function BackButton({ fallback = '/', label = 'Go back', className }: BackButtonProps) {
   const router = useRouter();
-  // Resolved after mount — history is not readable on the server.
-  const [canPop, setCanPop] = useState(true);
-
-  // history.length counts entries from other sites too; navigationDepth only counts ours.
-  useEffect(() => {
-    setCanPop(canGoBackInApp());
-    return subscribeNavigation(() => setCanPop(canGoBackInApp()));
-  }, []);
 
   const onClick = useCallback(() => {
-    if (canPop) router.back();
+    if (canGoBackInApp()) router.back();
     else router.push(fallback);
-  }, [canPop, fallback, router]);
+  }, [fallback, router]);
 
   return (
     <button

@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Icon from '../ui/Icon';
+import { paintThemeColor, type Theme } from './themeColor';
 import styles from './ThemeToggle.module.scss';
-
-type Theme = 'light' | 'dark';
 
 const current = (): Theme =>
   typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'dark'
@@ -24,7 +23,11 @@ function setTheme(next: Theme) {
 function useTheme(): Theme | null {
   const [theme, setThemeState] = useState<Theme | null>(null);
   useEffect(() => {
-    const sync = () => setThemeState(current());
+    const sync = () => {
+      const theme = current();
+      setThemeState(theme);
+      paintThemeColor(theme);
+    };
     sync();
     window.addEventListener('pc-theme', sync);
     return () => window.removeEventListener('pc-theme', sync);

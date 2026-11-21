@@ -7,14 +7,14 @@ import {
   clearNotifications,
   markAllRead,
   markRead,
-  requestSystemPermission,
-  systemPermission,
   unreadCount,
   useNotifications,
   type NotificationKind,
   type PulseNotification,
-  type SystemPermission,
 } from '@/lib/notifications';
+import { lockScroll } from '@/lib/scrollLock';
+import { useNotificationPermission } from '../automations/useNotificationPermission';
+import { trapTab } from '../ui/focusTrap';
 import { useAutomations } from '@/lib/automations';
 import { useFollows } from '@/lib/follows';
 import { followAlertsLive, useFollowAlerts } from '@/lib/followAlerts';
@@ -42,16 +42,31 @@ function Panel() {
   const automations = useAutomations();
   const following = followAlertsLive(useFollows(), useFollowAlerts());
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
-  const [permission, setPermission] = useState<SystemPermission>('unsupported');
+  const [permission, requestPermission] = useNotificationPermission();
   const panelRef = useRef<HTMLDivElement>(null);
+  // Following a link moves focus to the new page, so the bell isn't refocused then.
+  const leaving = useRef(false);
   const unread = unreadCount(items);
 
   useEffect(() => {
-    setPermission(systemPermission());
-    panelRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeOverlay();
+    const trigger = document.activeElement;
+    const panel = panelRef.current;
+    const unlock = lockScroll();
+    panel?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeOverlay();
+      } else {
+        trapTab(e, panel);
+      }
+    };
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      unlock();
+      document.removeEventListener('keydown', onKey);
+      if (!leaving.current && trigger instanceof HTMLElement) trigger.focus({ preventScroll: true });
+    };
   }, []);
 
   const shown = filter === 'unread' ? items.filter((n) => !n.read) : items;
@@ -59,6 +74,7 @@ function Panel() {
 
   const open = (n: PulseNotification) => {
     markRead(n.id);
+    leaving.current = Boolean(n.href);
     closeOverlay();
     if (n.href) router.push(n.href);
   };
@@ -70,6 +86,7 @@ function Panel() {
         ref={panelRef}
         className={styles.panel}
         role="dialog"
+        aria-modal="true"
         aria-label="Notifications"
         tabIndex={-1}
       >
@@ -109,7 +126,7 @@ function Panel() {
             <button
               type="button"
               className={styles.permBtn}
-              onClick={async () => setPermission(await requestSystemPermission())}
+              onClick={() => void requestPermission()}
             >
               Enable
             </button>
@@ -157,7 +174,14 @@ function Panel() {
         </div>
 
         <footer className={styles.foot}>
-          <Link href="/automations" className={styles.footLink} onClick={closeOverlay}>
+          <Link
+            href="/automations"
+            className={styles.footLink}
+            onClick={() => {
+              leaving.current = true;
+              closeOverlay();
+            }}
+          >
             <Icon name="bolt" size={16} />
             Alerts
             {automations.length > 0 && <span className={styles.footCount}>{automations.filter((a) => a.enabled).length} active</span>}

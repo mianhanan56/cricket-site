@@ -1,14 +1,5 @@
 import styles from './Skeleton.module.scss';
 
-/**
- * A single loading placeholder.
- *
- * Sizing comes from `variant` (height + radius, tuned to the type scale),
- * `width` (percentage of the container) and `size` (fixed square/circle).
- * Anything with geometry of its own passes `className` instead — every page
- * skeleton borrows the real component's classes that way, so the placeholder
- * occupies exactly the box the content will.
- */
 export type SkeletonVariant =
   | 'text'
   | 'body'
@@ -50,6 +41,7 @@ export interface SkeletonProps {
   className?: string;
 }
 
+// Page skeletons pass the real component's className so the placeholder fills the same box.
 export default function Skeleton({ variant, width, size, className }: SkeletonProps) {
   const classes = [styles.sk];
   if (variant) classes.push(styles[variant] ?? '');

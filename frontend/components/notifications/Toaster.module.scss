@@ -114,6 +114,10 @@
   @include motion {
     animation: run-out 6.5s linear forwards;
   }
+
+  .paused & {
+    animation-play-state: paused;
+  }
 }
 
 @keyframes run-out {

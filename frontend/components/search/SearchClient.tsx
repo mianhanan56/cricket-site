@@ -69,6 +69,9 @@ export default function SearchClient() {
   // Adopt ?q= whenever it changes underneath (Back/Forward, a navbar search while already here),
   // but not the echo of our own debounced write: by then the box may hold newer typing.
   const wrote = useRef<string | null>(null);
+  // Read through a ref: as a dependency, our own replace() would restart the debounce and search twice.
+  const urlQueryRef = useRef(urlQuery);
+  urlQueryRef.current = urlQuery;
   useEffect(() => {
     if (urlQuery === wrote.current) {
       wrote.current = null;
@@ -88,7 +91,7 @@ export default function SearchClient() {
       setResults([]);
       setSearched(false);
       setLoading(false);
-      if (!term && urlQuery) {
+      if (!term && urlQueryRef.current) {
         wrote.current = '';
         router.replace('/search', { scroll: false });
       }
@@ -101,7 +104,7 @@ export default function SearchClient() {
 
     const t = setTimeout(async () => {
       // replace, not push: Back should leave search, not walk through every keystroke.
-      if (term !== urlQuery) {
+      if (term !== urlQueryRef.current) {
         wrote.current = term;
         router.replace(`/search?q=${encodeURIComponent(term)}`, { scroll: false });
       }
@@ -122,7 +125,7 @@ export default function SearchClient() {
       current = false;
       clearTimeout(t);
     };
-  }, [q, urlQuery, router]);
+  }, [q, router]);
 
   const term = q.trim();
 

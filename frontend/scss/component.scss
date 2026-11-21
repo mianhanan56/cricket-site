@@ -482,8 +482,9 @@ $gutter-wide: $space-8;
   --line-2: rgb(255 255 255 / 20%);
   --line-3: rgb(255 255 255 / 34%);
   --text: #ffffff;
-  --text-2: rgb(255 255 255 / 80%);
-  --text-3: rgb(255 255 255 / 64%);
+  // Floors for 4.5:1 on the lightest pitch under --surface-3 (13% white).
+  --text-2: rgb(255 255 255 / 90%);
+  --text-3: rgb(255 255 255 / 82%);
   --signal: #ffffff;
   --signal-ink: var(--pitch-deep);
   --signal-text: #9df0c8;

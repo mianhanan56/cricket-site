@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildIndex, querySearch, seriesInitials } from '../lib/searchIndex';
+import { buildIndex, isRecentSearch, querySearch, seriesInitials } from '../lib/searchIndex';
 
 describe('series initials', () => {
   it('adds the initials leagues are known by', () => {
@@ -27,5 +27,23 @@ describe('series initials', () => {
       querySearch(index, 'IPL').map((e) => e.id),
       ['2A']
     );
+  });
+});
+
+describe('recent search validation', () => {
+  it('keeps in-app entries', () => {
+    assert.equal(isRecentSearch({ label: 'Pakistan', href: '/teams/1', type: 'team' }), true);
+    assert.equal(isRecentSearch({ label: 'babar', href: '/search?q=babar', type: 'query' }), true);
+  });
+
+  it('drops hrefs that leave the site and unknown types', () => {
+    assert.equal(isRecentSearch({ label: 'x', href: '//evil.example', type: 'team' }), false);
+    assert.equal(isRecentSearch({ label: 'x', href: '/\\evil.example', type: 'team' }), false);
+    assert.equal(isRecentSearch({ label: 'x', href: 'https://evil.example', type: 'team' }), false);
+    assert.equal(isRecentSearch({ label: 'x', href: 'javascript:alert(1)', type: 'team' }), false);
+    assert.equal(isRecentSearch({ label: 'x', href: '/\t/evil.example', type: 'team' }), false);
+    assert.equal(isRecentSearch({ label: 'x', href: '/\n/evil.example', type: 'team' }), false);
+    assert.equal(isRecentSearch({ label: 'x', href: '/teams/1', type: 'script' }), false);
+    assert.equal(isRecentSearch(null), false);
   });
 });
