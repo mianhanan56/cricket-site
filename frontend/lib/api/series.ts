@@ -142,19 +142,22 @@ export async function getApiSeriesSchedule(
     opts
   );
 
-  const matches: SeriesScheduleMatch[] = rows.map((m, i) => ({
-    id: m.matchKey || scheduledMatchId(id, m.id),
-    matchKey: m.matchKey || null,
-    key: m.matchKey || `${id}-${i}`,
-    matchNo: m.matchNumber?.startsWith('^') ? knockoutStage(m.matchNumber) : m.matchNumber || null,
-    format: scheduleFormat(m.format, opts.fallback?.format),
-    status: scheduleStatus(m.status),
-    startTime: new Date(m.startTime).toISOString(),
-    ...venueOf(m.venueKey, names),
-    result: m.result || null,
-    homeTeam: toTeam(m.team1Key ?? '', names),
-    awayTeam: toTeam(m.team2Key ?? '', names),
-  }));
+  const matches: SeriesScheduleMatch[] = rows.map((m, i) => {
+    const matchKey = cleanKey(m.matchKey) || null;
+    return {
+      id: matchKey ?? scheduledMatchId(id, m.id),
+      matchKey,
+      key: matchKey ?? `${id}-${i}`,
+      matchNo: m.matchNumber?.startsWith('^') ? knockoutStage(m.matchNumber) : m.matchNumber || null,
+      format: scheduleFormat(m.format, opts.fallback?.format),
+      status: scheduleStatus(m.status),
+      startTime: new Date(m.startTime).toISOString(),
+      ...venueOf(m.venueKey, names),
+      result: m.result || null,
+      homeTeam: toTeam(m.team1Key ?? '', names),
+      awayTeam: toTeam(m.team2Key ?? '', names),
+    };
+  });
 
   return {
     id,

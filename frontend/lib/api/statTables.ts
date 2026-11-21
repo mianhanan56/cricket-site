@@ -1,8 +1,5 @@
-// Full series rankings ("Most runs"), aggregated from every played match's
-// scorecard: the upstream's own leaderboard is a GraphQL call keyed by ids nothing
-// public resolves. One card per match, so this stays on the stat pages, behind a
-// long revalidate and bounded concurrency. Figures can differ from the leaders
-// board (the upstream's) by a match awarded without a completed card.
+// Series rankings aggregated from every played match's scorecard: the upstream's own
+// leaderboard is a GraphQL call keyed by ids nothing public resolves.
 import type { InningsScore, SeriesBattingTotals, SeriesBowlingTotals, SeriesStatKind, SeriesStatRow, SeriesStatTable, Team } from '@/types';
 import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER, ballsFrom, oversFrom } from '../overs';
 import { inWidth, type FetchOpts } from './client';
@@ -17,6 +14,9 @@ const STAT_FETCH_WIDTH = 8;
 
 /** For finished cards, which never change. A live card is read at the scorecard's own pace. */
 const STAT_REVALIDATE = 900;
+
+const perOverOf = (match: SeriesScheduleMatch): number =>
+  match.format === 'HUNDRED' ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER;
 
 interface StatAccumulator {
   playerKey: string;
@@ -45,6 +45,8 @@ interface StatAccumulator {
     bestWickets: number;
     bestRuns: number;
     fiveFors: number;
+    /** The series' over: five-ball sets in The Hundred. */
+    perOver: number;
   };
 }
 
@@ -67,7 +69,7 @@ function emptyAccumulator(playerKey: string, name: string, team: Team): StatAccu
       best: -1,
       bestNotOut: false,
     },
-    bowl: { innings: 0, balls: 0, runs: 0, wickets: 0, bestWickets: -1, bestRuns: 0, fiveFors: 0 },
+    bowl: { innings: 0, balls: 0, runs: 0, wickets: 0, bestWickets: -1, bestRuns: 0, fiveFors: 0, perOver: DEFAULT_BALLS_PER_OVER },
   };
 }
 
@@ -207,6 +209,7 @@ async function seriesStatRows(
     match,
     innings: await getApiScorecard(match.matchKey as string, {
       revalidate: match.status === 'LIVE' ? 15 : STAT_REVALIDATE,
+      ballsPerOver: perOverOf(match),
       signal: opts.signal,
     }).catch(() => [] as InningsScore[]),
   }));
@@ -261,10 +264,8 @@ async function seriesStatRows(
 
         acc.matches.add(match.key);
         acc.bowl.innings += 1;
-        // `overs` is the upstream's printed figure — 4.3 is four overs and three balls,
-        // not four and a half (four five-ball sets and three in The Hundred) — so it is
-        // converted before it is summed.
-        acc.bowl.balls += ballsFrom(line.overs, match.format === 'HUNDRED' ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER);
+        acc.bowl.perOver = perOverOf(match);
+        acc.bowl.balls += ballsFrom(line.overs, acc.bowl.perOver);
         acc.bowl.runs += line.runs;
         acc.bowl.wickets += line.wickets;
         if (line.wickets >= 5) acc.bowl.fiveFors += 1;
@@ -303,14 +304,14 @@ async function seriesStatRows(
     const bowling: SeriesBowlingTotals = {
       matches: acc.matches.size,
       innings: acc.bowl.innings,
-      overs: oversFrom(acc.bowl.balls, DEFAULT_BALLS_PER_OVER),
+      overs: oversFrom(acc.bowl.balls, acc.bowl.perOver),
       runs: acc.bowl.runs,
       wickets: acc.bowl.wickets,
       best: acc.bowl.bestWickets < 0 ? '—' : `${acc.bowl.bestWickets}/${acc.bowl.bestRuns}`,
       average: ratio(acc.bowl.runs, acc.bowl.wickets),
       economy:
         acc.bowl.balls > 0
-          ? Math.round((acc.bowl.runs / (acc.bowl.balls / DEFAULT_BALLS_PER_OVER)) * 100) / 100
+          ? Math.round((acc.bowl.runs / (acc.bowl.balls / acc.bowl.perOver)) * 100) / 100
           : null,
       strikeRate: ratio(acc.bowl.balls, acc.bowl.wickets),
       fiveFors: acc.bowl.fiveFors,

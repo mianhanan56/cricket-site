@@ -1,7 +1,7 @@
 // Matches outside the live feed's window, rebuilt from series schedule rows:
 // aged-out results, and fixtures the upstream has not given a match key yet.
 import type { Match } from '@/types';
-import { apiGet, type FetchOpts } from './client';
+import { apiGet, isRejectedRequest, type FetchOpts } from './client';
 import { knockoutStage, scheduleBalls, scheduleFormat, scheduleStatus } from './codes';
 import type { ApiMatchInfo } from './matchInfo';
 import { cleanKey, isKey, resolveKeys, seriesRef, toTeam, venueOf } from './names';
@@ -28,6 +28,12 @@ export interface ApiSeriesMatch {
 }
 
 export type ApiSeriesMatchesResponse = Record<string, ApiSeriesMatch[]>;
+
+/** A refused request means no such thing; anything else is an outage and must not read as a 404. */
+export function nullIfRejected(err: unknown): null {
+  if (isRejectedRequest(err)) return null;
+  throw err;
+}
 
 /** Raw schedule for one series, grouped by date. */
 export function getApiSeriesMatches(
@@ -60,7 +66,7 @@ export async function getApiArchivedMatch(id: string, opts: FetchOpts = {}): Pro
   // The card only needs the key, so it is read alongside the info rather than after the schedule.
   const [info, card] = await Promise.all([
     apiGet<ApiMatchInfo>(`/match/info?key=${encodeURIComponent(key)}`, { ...archived, revalidate: 3600 }).catch(
-      () => null
+      nullIfRejected
     ),
     apiGet<ApiScorecardBody>(`/match/scorecard?key=${encodeURIComponent(key)}`, {
       ...archived,
@@ -71,8 +77,8 @@ export async function getApiArchivedMatch(id: string, opts: FetchOpts = {}): Pro
   const seriesKey = cleanKey(info?.seriesKey);
   if (!seriesKey) return null;
 
-  const schedule = await getApiSeriesMatches(seriesKey, archived).catch(() => null);
-  const row = scheduleRows(schedule).find((m) => m?.matchKey === key);
+  const schedule = await getApiSeriesMatches(seriesKey, archived).catch(nullIfRejected);
+  const row = scheduleRows(schedule).find((m) => m && cleanKey(m.matchKey) === key);
   if (!row) return null;
 
   const status = scheduleStatus(row.status);
@@ -156,7 +162,7 @@ export async function getApiScheduledMatch(
   // A fixture weeks out doesn't move at the caller's live pace; only the signal passes through.
   const scheduled: FetchOpts = { signal: opts.signal };
 
-  const schedule = await getApiSeriesMatches(seriesKey, scheduled).catch(() => null);
+  const schedule = await getApiSeriesMatches(seriesKey, scheduled).catch(nullIfRejected);
   const row = scheduleRows(schedule).find((m) => m && String(m.id ?? '') === rowId);
   if (!row?.startTime) return null;
 

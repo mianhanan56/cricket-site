@@ -51,6 +51,14 @@ export function playerBalls(
   });
 }
 
+// The ball row carries no dismissal kind, only its commentary text.
+const NOT_BOWLERS_WICKET = /\brun\s*out\b|\bretired\b|\bobstruct|\bhandled\s+the\s+ball\b|\btimed\s+out\b/i;
+
+/** A run out (or retirement, obstruction…) falls on the bowler's ball but is not the bowler's wicket. */
+export function bowlersWicket(b: CommentaryBall): boolean {
+  return b.isWicket && !NOT_BOWLERS_WICKET.test(b.text);
+}
+
 export function countedBalls(balls: CommentaryBall[], role: BallRole): number {
   return balls.filter((b) => countsToward(b, role)).length;
 }
@@ -66,7 +74,7 @@ export function oversOf(balls: CommentaryBall[], role: BallRole): PlayerOver[] {
     g.balls.push(b);
     const byes = b.extra === 'bye' || b.extra === 'legbye' ? b.extraRuns : 0;
     g.runs += role === 'batter' ? b.batRuns : b.runs - byes;
-    if (b.isWicket) g.wickets += 1;
+    if (b.isWicket && (role === 'batter' || bowlersWicket(b))) g.wickets += 1;
     const other = role === 'batter' ? b.bowlerId : b.batterId;
     if (other && !g.opponents.includes(other)) g.opponents.push(other);
   }

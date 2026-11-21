@@ -82,7 +82,8 @@ export interface FixtureSchedule {
 
 /**
  * The schedule ahead, at least FIXTURE_HORIZON_DAYS of it, read in batches of pages
- * until a batch reaches the horizon. A failed page costs its own 20 rows only.
+ * until a batch reaches the horizon. A failed page costs its own 20 rows only,
+ * unless the whole first batch fails.
  */
 export async function getApiFixtureSchedule(opts: FetchOpts = {}): Promise<FixtureSchedule> {
   const horizon = Date.now() + FIXTURE_HORIZON_DAYS * 86_400_000;
@@ -92,7 +93,17 @@ export async function getApiFixtureSchedule(opts: FetchOpts = {}): Promise<Fixtu
 
   for (let start = 0; start < FIXTURE_MAX_PAGES && !ended && latest < horizon; start += FIXTURE_FETCH_WIDTH) {
     const batch = Array.from({ length: Math.min(FIXTURE_FETCH_WIDTH, FIXTURE_MAX_PAGES - start) }, (_, i) => start + i);
-    const settled = await Promise.all(batch.map((page) => getApiFixtures(page, opts).catch(() => null)));
+    let failure: unknown = null;
+    const settled = await Promise.all(
+      batch.map((page) =>
+        getApiFixtures(page, opts).catch((err: unknown) => {
+          failure ??= err;
+          return null;
+        })
+      )
+    );
+    // A first batch with nothing in it is an outage, not an empty schedule.
+    if (start === 0 && settled.every((rows) => rows === null)) throw failure;
     for (const rows of settled) {
       if (rows === null) continue;
       const times = rows.map((r) => r.startTime ?? 0).filter(Boolean);

@@ -1,17 +1,6 @@
-// ============================================================================
-// headToHead.ts — a record between two sides, derived from the schedule
-//
-// The upstream has no head-to-head endpoint. What it has is a schedule whose finished
-// rows carry a result *sentence*, and a sentence naming the winner is all a
-// record needs. So this module is pure: hand it the two sides and a corpus of
-// matches (see `getApiFixtureRange`) and it counts.
-//
-// The honesty rule this is built around: a meeting whose result names no side we
-// recognise is counted as `unresolved`, not as a draw. `attributeResult` matches
-// a side's full name and short name exactly and nothing else — loose matching
-// would file "St Kitts & Nevis Patriots won by 5 wickets" as a win for St Lucia,
-// and a record that is quietly wrong is worse than one that admits a gap.
-// ============================================================================
+// A record between two sides, derived from a schedule corpus (`getApiFixtureRange`):
+// the upstream has no head-to-head endpoint. A meeting whose result names no side we
+// recognise is `unresolved`, never a draw.
 
 import type { HeadToHead, HeadToHeadMatch, Match, Team } from '@/types';
 import { attributeResult } from './api';
@@ -25,21 +14,14 @@ function isMeeting(m: Match, a: string, b: string): boolean {
   return ids.includes(a) && ids.includes(b);
 }
 
-/** A drawn, tied or abandoned match, as the upstream words those. */
+/** A drawn, tied or abandoned match, as the upstream words those. A tie someone won is not one. */
 function isNoResult(result: string): boolean {
-  return /\b(draw|drawn|tie|tied|no result|abandon|cancel)/i.test(result);
+  return /\b(draw|drawn|tie|tied|no result|abandon|cancel)/i.test(result) && !/\bwon\b/i.test(result);
 }
 
 /**
- * The record between two sides over whatever the corpus covers.
- *
- * `home` and `away` fix the reporting order — `homeWins` is the first argument's
- * wins wherever they played, not their wins at home. A head-to-head is a record
- * between two sides, and which of them was nominally hosting a given match is
- * not something this counts.
- *
- * Returns null when they have never met inside the window, which is the common
- * case for a first meeting and is not the same as a 0-0 record.
+ * The record between two sides over the corpus. `homeWins` is the first argument's
+ * wins wherever they played. Null when they never met inside the window — not a 0-0.
  */
 export function headToHead(
   home: Team,
@@ -49,9 +31,7 @@ export function headToHead(
 ): HeadToHead | null {
   if (!home.id || !away.id || home.id === away.id) return null;
 
-  // The match being viewed is not part of its own head-to-head. Without this a
-  // finished match reports "1 meeting, 1–0" describing the result printed at the
-  // top of the same page — the corpus covers today, so the match is in it.
+  // The match being viewed is in the corpus, and is not part of its own head-to-head.
   const exclude = opts.exclude ?? null;
 
   const meetings = corpus

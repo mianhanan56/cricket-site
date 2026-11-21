@@ -54,7 +54,7 @@ const TOSS_CODES: Record<string, { side: 1 | 2; choice: 'bat' | 'bowl' }> = {
 };
 
 // Tone only, for statuses the upstream sends as free text: the label shown is always
-// The upstream's own string, and an unrecognised one still shows, as INFO.
+// the upstream's own string, and an unrecognised one still shows, as INFO.
 // Word starts throughout: team names carry these letters ("Team", "Bahrain", "Ukraine").
 const NOTE_TEXT_KINDS: ReadonlyArray<[RegExp, MatchNoteKind]> = [
   [/\b(stumps|day'?s play)/i, 'STUMPS'],
@@ -65,8 +65,8 @@ const NOTE_TEXT_KINDS: ReadonlyArray<[RegExp, MatchNoteKind]> = [
   [/\btoss\b/i, 'TOSS'],
 ];
 
-/** Kinds that mean the match is over, so the note must not claim a pause. */
-const TERMINAL_KINDS: ReadonlySet<MatchNoteKind> = new Set(['RESULT', 'SUSPENDED']);
+/** Text kinds that stop play. A toss or "Day 2 - Session 1" is not a pause, and nothing would clear it. */
+const PAUSED_TEXT_KINDS: ReadonlySet<MatchNoteKind> = new Set(['BREAK', 'DELAY', 'STUMPS']);
 
 function looksLikeResult(text: string): boolean {
   return /won by|won the match|beat |wins? by/i.test(text);
@@ -124,7 +124,7 @@ export function decodeMatchNote(
     label: text,
     kind,
     detail,
-    paused: !TERMINAL_KINDS.has(kind),
+    paused: PAUSED_TEXT_KINDS.has(kind),
     fromText: true,
     // The upstream latches its longest innings break as text with no code beside it.
     ...(/innings\s*break/i.test(text) ? { betweenInnings: true } : null),

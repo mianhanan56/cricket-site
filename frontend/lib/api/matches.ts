@@ -1,5 +1,5 @@
 // The live match list (/matches/live) and its decode into our `Match`.
-import type { InningsScore, Match, MatchFormat, MatchStatus, PlayerOfMatch, Team } from '@/types';
+import type { InningsScore, Match, MatchFormat, MatchNote, MatchStatus, PlayerOfMatch, Team } from '@/types';
 import { DEFAULT_BALLS_PER_OVER, HUNDRED_BALLS_PER_OVER } from '../overs';
 import { attributeResult } from './attribution';
 import { apiGet, type FetchOpts } from './client';
@@ -313,6 +313,7 @@ export function toMatch(id: string, m: ApiRawMatch, names: NameCache): Match {
   const innings = feedInnings(m, homeTeam, awayTeam, status, format);
   const perOver =
     m.ballsPerOver === HUNDRED_BALLS_PER_OVER ? HUNDRED_BALLS_PER_OVER : DEFAULT_BALLS_PER_OVER;
+  const reported = decodeMatchNote(m, { first: homeTeam.shortName, second: awayTeam.shortName });
 
   return {
     id,
@@ -327,10 +328,10 @@ export function toMatch(id: string, m: ApiRawMatch, names: NameCache): Match {
     // Any `ballsPerOver` marks a 100-ball game; 20 six-ball overs would give a chase 20 balls too many.
     ballsLimit: m.ballsPerOver ? HUNDRED_BALLS : null,
     // `statusText` carries mid-match states too, so it is only a result once the match is over.
-    result: status === 'COMPLETED' ? resultText(m.statusText ?? m.statusCode) : null,
+    result: status === 'COMPLETED' ? finishedResult(m.statusText, reported) : null,
     // Independent of `status`: a Test at stumps is LIVE with a STUMPS note.
     note: pickNote(
-      decodeMatchNote(m, { first: homeTeam.shortName, second: awayTeam.shortName }),
+      reported,
       inningsBreakNote(innings, status, format, perOver),
       { innings, format, perOver }
     ),
@@ -355,6 +356,13 @@ export function resultText(raw: string | null | undefined): string | null {
   return STOPPAGE_TEXT.test(text) && !RESULT_TEXT.test(text) ? null : text;
 }
 
+/** The result line, else a coded ending ("$x" is No Result) — never the raw code itself. */
+function finishedResult(statusText: string | undefined, note: MatchNote | null): string | null {
+  const text = resultText(statusText);
+  if (text) return text;
+  return note && (note.kind === 'RESULT' || note.kind === 'SUSPENDED') ? note.label : null;
+}
+
 /**
  * One match by key, or null. The live list is tried first (one shared cache entry);
  * a match that has aged out of that window is rebuilt by `getApiArchivedMatch`.
@@ -367,7 +375,7 @@ export async function getApiMatch(id: string, opts: FetchOpts = {}): Promise<Mat
     return toMatch(id, match, names);
   }
 
-  return getApiArchivedMatch(id, opts).catch(() => null);
+  return getApiArchivedMatch(id, opts);
 }
 
 /** The match list with names resolved, newest first. */
